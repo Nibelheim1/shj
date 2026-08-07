@@ -26,3 +26,13 @@ python -m http.server 8080
 - `prototype/merge-slice.css`
 
 素材位于 `wechat/assets/art/`，竖切片使用其中的合成素材、穷奇角色和新版庭院背景。
+
+## 腾讯云静态托管
+
+仓库已提交可直接部署的 `dist/` 目录，检出仓库后无需构建：
+
+```bash
+tcb hosting deploy ./dist
+```
+
+如需重新生成部署产物，可在项目根目录执行 `npm run build`。
