@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="icon" href="data:," />
+  <title>小动物山海经 · 疗愈所</title>
+  <link rel="stylesheet" href="merge-slice.css" />
+</head>
+<body>
+<div id="slice-app">
+  <header class="slice-hud"><div class="brand-mark"><span class="brand-leaf">✦</span><span>山海疗愈所</span></div><div id="hud-values" class="hud-values"></div><button id="reset-btn" class="icon-button" type="button">↺</button></header>
+  <main id="slice-main">
+    <section id="merge-view" class="view active">
+      <div class="view-heading"><div><span class="eyebrow">今日接诊 · 穷奇疗愈篇</span><h1>把药物合成出来</h1></div><button id="energy-help" class="pill-button" type="button">体力说明</button></div>
+      <section class="story-banner"><span class="story-icon">📜</span><div><strong>雨夜里，它把自己藏在门后</strong><p>先看症状，再为它配出正确的药。</p></div></section>
+      <section class="order-panel"><div class="section-title-row"><div><span class="eyebrow">多线委托</span><h2>患者正在等待你的处方</h2></div><span class="small-note">同时处理 3 个委托</span></div><div id="order-list" class="order-list"></div></section>
+      <section class="board-card"><div class="board-topline"><div><strong>合成棋盘</strong><span id="space-note"></span></div><button id="organize-btn" class="text-button" type="button">整理棋盘</button></div><div id="merge-board" class="merge-board" role="grid"></div><div id="selection-hint" class="selection-hint">拖动或点击两件同阶同类物品合成</div></section>
+      <section class="generator-card"><div class="section-title-row"><div><span class="eyebrow">实体生成器 · 也会占格</span><h2>药房工具</h2></div><span class="small-note">每次产出消耗1体力</span></div><div id="generators" class="generators"></div></section>
+    </section>
+    <section id="yard-view" class="view">
+      <div class="yard-scene" id="yard-scene"><div class="yard-sky-copy"><span class="eyebrow">庭院回声 · 点击异兽</span><h1 id="yard-title">它还躲在门后</h1><p id="yard-copy">当前动作：观察四周</p></div><div class="yard-path"></div><button id="yard-character" class="yard-character" type="button"><img id="yard-beast" alt="穷奇" /></button><div class="yard-speech" id="yard-speech">“别靠近……我会自己好的。”</div><div class="yard-hotspots"><button data-hotspot="clinic" type="button">🏯<b>医馆</b><small>查看病历</small></button><button data-hotspot="herb" type="button">🌱<b>药圃</b><small>闻药草</small></button><button data-hotspot="groom" type="button">🪮<b>梳洗台</b><small>整理鬃毛</small></button></div><div class="yard-interact"><button id="care-groom" type="button">🪮 <b>梳理挑战</b><small>交换、连击</small></button><button id="care-play" type="button">🎐 <b>陪玩挑战</b><small>交换、连击</small></button></div><div class="yard-props"><span class="prop prop-pool">≈</span><span class="prop prop-flower">✿</span><span class="prop prop-lantern">♨</span></div></div>
+      <section class="progress-card"><div class="progress-head"><div><span class="eyebrow">穷奇 · 病历与关系</span><h2 id="beast-stage">警戒期</h2></div><span id="bond-level" class="stage-chip">信任 Lv1</span></div><div class="progress-row"><span>信任</span><div class="meter"><i id="trust-meter"></i></div><b id="trust-value">0/100</b></div><div class="progress-row"><span>疗愈</span><div class="meter heal"><i id="heal-meter"></i></div><b id="heal-value">0/100</b></div><div id="yard-reward" class="yard-reward">完成委托后，庭院会记住这次照料。</div></section>
+      <section class="building-card"><div class="section-title-row"><div><span class="eyebrow">支线 · 庭院建设</span><h2>让疗愈所真正运转起来</h2></div></div><div id="building-list" class="building-list"></div></section>
+      <section class="side-card"><div class="section-title-row"><div><span class="eyebrow">支线 · 异兽互动</span><h2>陪它做点不一样的事</h2></div></div><div class="side-actions"><button type="button" data-side="groom">🪮<strong>梳理挑战</strong><small>清理打结的鬃毛</small></button><button type="button" data-side="play">🎐<strong>陪玩挑战</strong><small>让风铃飞起来</small></button></div></section>
+    </section>
+  </main>
+  <nav class="slice-nav"><button class="nav-button active" data-view="merge-view" type="button"><span>◆</span><small>合成</small></button><button class="nav-button" data-view="yard-view" type="button"><span>⌂</span><small>庭院</small></button><div class="nav-goal"><span id="goal-progress">首章治疗进度 · 0%</span><i><em id="goal-bar"></em></i></div></nav>
+  <div id="toast-root" aria-live="polite"></div><div id="guide-root"></div><div id="modal-root"></div>
+</div>
+<script src="merge-slice.js"></script>
+</body>
+</html>
