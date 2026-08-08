@@ -54,7 +54,8 @@
       yardGoals:{date:today(), herb:false, soothe:false, care:false, claimed:false},
       energyDaily:{date:today(), adViews:0, taskClaimed:false},
       pendingHerbRewards:0,
-      pendingSideRewards:{groom:0, play:0}
+      pendingSideRewards:{groom:0, play:0},
+      pendingSideRewardTiers:{groom:[], play:[]}
     };
   }
 
@@ -84,8 +85,12 @@
     state.energyDaily = Object.assign(base.energyDaily, p.energyDaily || {});
     state.pendingHerbRewards = Math.max(0, Number(p.pendingHerbRewards) || 0);
     state.pendingSideRewards = Object.assign({groom:0, play:0}, p.pendingSideRewards || {});
+    state.pendingSideRewardTiers = Object.assign({groom:[], play:[]}, p.pendingSideRewardTiers || {});
     SIDE_REWARD_FAMILIES.forEach(function (fam) {
       state.pendingSideRewards[fam] = Math.max(0, Math.floor(Number(state.pendingSideRewards[fam]) || 0));
+      state.pendingSideRewardTiers[fam] = Array.isArray(state.pendingSideRewardTiers[fam]) ? state.pendingSideRewardTiers[fam].map(function (tier) {
+        return Math.max(1, Math.min(6, Math.floor(Number(tier) || 1)));
+      }) : [];
     });
     state.cleanTools = Math.max(0, Number(p.cleanTools == null ? base.cleanTools : p.cleanTools) || 0);
     state.energy = Math.max(0, Math.min(state.maxEnergy, Number(state.energy) || 0));
@@ -139,6 +144,30 @@
     root.innerHTML = '<span class="hud-pill">Lv.'+state.level+'</span><span class="hud-pill">◆ '+state.jade+'</span><button id="energy-pill" class="hud-pill energy" type="button" aria-label="体力中心">⚡ '+state.energy+'/'+state.maxEnergy+'</button>'+(state.cleanTools ? '<span class="hud-pill">刷 '+state.cleanTools+'</span>' : '');
   }
   function openOrders() { return ORDERS.filter(function (o) { var s = state.orders.find(function (x) { return x.id === o.id; }); return s && !s.done; }).slice(0,3); }
+  /* Drops follow the currently visible commissions.  They stay useful without
+     making the exact requested tier guaranteed: most drops target a needed
+     tier, while the adjacent lower tier leaves room for satisfying merges. */
+  function taskStageForFamily(fam) {
+    var targets=[];
+    openOrders().forEach(function (o) {
+      o.need.forEach(function (need) { if (need[0] === fam) targets.push(Math.max(1, Math.min(6, Number(need[1]) || 1))); });
+    });
+    if (!targets.length) return 1;
+    var unique=[];
+    targets.forEach(function (tier) { if (unique.indexOf(tier) < 0) unique.push(tier); });
+    return unique[Math.floor(Math.random()*unique.length)] || 1;
+  }
+  function rewardStage(fam) {
+    var target=taskStageForFamily(fam);
+    return target>1 && Math.random()>=0.65 ? target-1 : target;
+  }
+  function queueSideReward(fam) {
+    if (SIDE_REWARD_FAMILIES.indexOf(fam) < 0) return;
+    if (!state.pendingSideRewardTiers) state.pendingSideRewardTiers={groom:[],play:[]};
+    if (!Array.isArray(state.pendingSideRewardTiers[fam])) state.pendingSideRewardTiers[fam]=[];
+    state.pendingSideRewardTiers[fam].push(rewardStage(fam));
+    state.pendingSideRewards[fam]=(state.pendingSideRewards[fam]||0)+1;
+  }
   function countNeed(o) { return o.need.map(function (n) { return {need:n, have:state.grid.filter(function (x) { return x && x.family === n[0] && x.tier === n[1]; }).length}; }); }
   function canDeliver(o) { return countNeed(o).every(function (x) { return x.have >= x.need[1]; }); }
   function renderOrders() {
@@ -148,6 +177,8 @@
       card.className = 'order-card '+(o.kind === '主线' ? 'main-order' : ''); card.dataset.order = o.id; card.tabIndex = 0;
       card.setAttribute('aria-label', o.title+'，点击查看详情');
       card.innerHTML = '<div class="order-head"><span class="order-kind">'+o.kind+'</span><strong>'+o.title+'</strong><span class="order-reward">◆'+o.reward+'</span></div><p>'+o.symptom+'</p><div class="order-need-icons">'+checks.map(function (c) { var item=it(c.need[0],c.need[1]); return '<button class="order-need '+(c.have>=c.need[1]?'ready':'')+'" type="button" data-family="'+c.need[0]+'" data-tier="'+c.need[1]+'" aria-label="查看'+item.name+' '+c.need[1]+'阶合成路线"><img src="'+iconPath(item)+'" alt="'+item.name+'"><b>'+Math.min(c.have,c.need[1])+'/'+c.need[1]+'</b></button>'; }).join('')+'</div><span class="order-open-note">查看详情 ›</span>';
+      var sideNeeds=checks.filter(function(c){return c.need[0]==='groom'||c.need[0]==='play';});
+      if(sideNeeds.length) card.insertAdjacentHTML('beforeend','<span class="order-source-note">'+sideNeeds.map(function(c){return sourceHint(c.need[0]);}).join(' · ')+'</span>');
       card.addEventListener('click', function () { openOrderDetails(o.id); });
       card.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openOrderDetails(o.id); } });
       card.querySelectorAll('.order-need').forEach(function (needButton) {
@@ -175,6 +206,11 @@
     if (fam === 'play') return '来源：陪玩挑战';
     return GENERATOR_NAMES[fam] ? '来源：'+GENERATOR_NAMES[fam] : '';
   }
+  function sourceHint(fam) {
+    if (fam === 'groom') return '需要庭院互动：完成梳理挑战';
+    if (fam === 'play') return '需要庭院互动：完成陪玩挑战';
+    return '可从'+(GENERATOR_NAMES[fam] || '生成器')+'获得';
+  }
   function showItemRoute(fam, tier, title) {
     if (!F[fam]) return;
     closeRouteSheet();
@@ -194,7 +230,7 @@
     showItemRoute(x.family,x.tier,x.name);
   }
   function renderBoard() {
-    var root = q('merge-board'); if (!root) return; root.innerHTML = '';
+    var root = q('merge-board'); if (!root) return; if (routeSheetOpen) closeRouteSheet(); root.innerHTML = '';
     for (var i=0; i<TOTAL; i++) {
       var c=document.createElement('button'); c.type='button'; c.className='merge-cell'; c.dataset.index=i; c.setAttribute('role','gridcell');
       if (!unlocked(i)) { c.classList.add('locked'); c.innerHTML='<span aria-hidden="true">🔒</span><em>锁格</em>'; c.setAttribute('aria-label','锁定格，点击查看解锁条件'); }
@@ -209,24 +245,46 @@
       if (selected!==null && state.grid[selected] && state.grid[i] && canMerge(selected,i)) c.classList.add('merge-target');
       bindCell(c,i); root.appendChild(c);
     }
-    q('selection-hint').textContent = selected===null ? '点击同阶同类材料合成；点击材料查看 1～6 阶路线' : '已选中材料，选择发光的同阶材料完成合成';
+    q('selection-hint').textContent = selected===null ? '点击同阶同类材料合成；长按材料查看 1～6 阶路线' : '已选中材料，选择发光的同阶材料完成合成';
     q('space-note').textContent = '空格 '+state.grid.filter(function (x,j) { return unlocked(j)&&!x; }).length+' · 已开 '+state.unlockedCells+'/'+TOTAL;
-    if (selected!==null && state.grid[selected] && state.grid[selected].family) showItemInfo(selected); else { if (q('item-info-root')) q('item-info-root').innerHTML=''; if (routeSheetOpen) closeRouteSheet(); }
+    if (q('item-info-root')) q('item-info-root').innerHTML='';
   }
   function bindCell(c,i) {
-    c.addEventListener('click', function () { if (c._skip) { c._skip=false; return; } tap(i); });
-    /* Touch and pen are deliberately not captured: the page keeps its vertical pan gesture. */
-    c.addEventListener('pointerdown', function (e) {
-      if (e.pointerType !== 'mouse' || !state.grid[i] || !state.grid[i].family) return;
-      drag={i:i,x:e.clientX,y:e.clientY,m:false};
-      try { c.setPointerCapture(e.pointerId); } catch (err) {}
+    var pressTimer=null, pressStart=null;
+    c.addEventListener('click', function () {
+      if (c._skip) { c._skip=false; return; }
+      if (c._longPressed) { c._longPressed=false; return; }
+      tap(i);
     });
-    c.addEventListener('pointermove', function (e) { if (drag && drag.i===i && e.pointerType==='mouse' && Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>8) drag.m=true; });
+    c.addEventListener('pointerdown', function (e) {
+      var x=state.grid[i];
+      if (!x || !x.family || x.kind) return;
+      if (e.pointerType==='mouse' && e.button!==0) return;
+      pressStart={x:e.clientX,y:e.clientY};
+      clearTimeout(pressTimer);
+      pressTimer=setTimeout(function(){
+        pressTimer=null;
+        if (!state.grid[i] || !state.grid[i].family || state.grid[i].kind) return;
+        c._longPressed=true;
+        showItemInfo(i);
+        toast('长按查看合成路线');
+      },480);
+      if (e.pointerType === 'mouse') {
+        drag={i:i,x:e.clientX,y:e.clientY,m:false};
+        try { c.setPointerCapture(e.pointerId); } catch (err) {}
+      }
+    });
+    c.addEventListener('pointermove', function (e) {
+      if (pressStart && Math.hypot(e.clientX-pressStart.x,e.clientY-pressStart.y)>8) { clearTimeout(pressTimer); pressTimer=null; }
+      if (drag && drag.i===i && e.pointerType==='mouse' && Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>8) drag.m=true;
+    });
     c.addEventListener('pointerup', function (e) {
+      clearTimeout(pressTimer); pressTimer=null; pressStart=null;
       if (!drag || drag.i!==i || e.pointerType!=='mouse') return;
       var d=drag; drag=null;
       if (d.m) { var t=document.elementFromPoint(e.clientX,e.clientY), tc=t&&t.closest&&t.closest('.merge-cell'); if(tc) { e.preventDefault(); c._skip=true; merge(i,+tc.dataset.index); } }
     });
+    c.addEventListener('pointercancel', function () { clearTimeout(pressTimer); pressTimer=null; pressStart=null; if (drag && drag.i===i) drag=null; });
   }
   function tap(i) {
     if (!unlocked(i)) { openUnlock(i); return; }
@@ -236,7 +294,7 @@
     if (x.kind==='sealed') { openSealed(i); return; }
     if (x.kind==='generator') { if(state.unlockedGenerators.indexOf(x.family)<0){toast(x.name+'将在 Lv.2 解锁');return;} generate(x.family); return; }
     if (!x.family) return;
-    if (selected===null) { selected=i; showItemInfo(i); renderBoard(); }
+    if (selected===null) { selected=i; renderBoard(); }
     else if (selected===i) { selected=null; renderBoard(); }
     else merge(selected,i);
   }
@@ -253,7 +311,7 @@
     var deposited=0, slots=emptyIndices();
     while(state.pendingHerbRewards>0 && slots.length){
       var pick=Math.floor(Math.random()*slots.length), idx=slots.splice(pick,1)[0];
-      state.grid[idx]=it('herb',1); state.pendingHerbRewards--; deposited++;
+      state.grid[idx]=it('herb',rewardStage('herb')); state.pendingHerbRewards--; deposited++;
     }
     return deposited;
   }
@@ -262,7 +320,9 @@
     SIDE_REWARD_FAMILIES.forEach(function (fam) {
       while(state.pendingSideRewards[fam]>0 && slots.length){
         var pick=Math.floor(Math.random()*slots.length), idx=slots.splice(pick,1)[0];
-        state.grid[idx]=it(fam,1); state.pendingSideRewards[fam]--; deposited++;
+        var queued=state.pendingSideRewardTiers && Array.isArray(state.pendingSideRewardTiers[fam]) ? state.pendingSideRewardTiers[fam] : [];
+        var tier=queued.length ? queued.shift() : rewardStage(fam);
+        state.grid[idx]=it(fam,tier); state.pendingSideRewards[fam]--; deposited++;
       }
     });
     return deposited;
@@ -279,7 +339,7 @@
     tick(); var slots=emptyIndices();
     if (!slots.length) { toast('已解锁棋盘没有空格，请先合并或清理'); return; }
     if (state.energy<=0) { toast('体力不足，点击体力中心获取'); return; }
-    var i=slots[Math.floor(Math.random()*slots.length)]; state.energy--; state.lastEnergyTick=Date.now(); state.grid[i]=it(fam,1); var delivered=depositPendingRewards(); selected=i; save(); render();
+    var i=slots[Math.floor(Math.random()*slots.length)], tier=rewardStage(fam); state.energy--; state.lastEnergyTick=Date.now(); state.grid[i]=it(fam,tier); var delivered=depositPendingRewards(); selected=i; save(); render();
     var cell=document.querySelector('.merge-cell[data-index="'+i+'"]'); if(cell){cell.classList.add('generated-pop');setTimeout(function(){cell.classList.remove('generated-pop');},600);}
     toast(F[fam].name+'已生成，随机落在第 '+(i+1)+' 格');
   }
@@ -289,6 +349,8 @@
   function openOrderDetails(id) {
     var o=ORDERS.find(function(x){return x.id===id;}); if(!o)return; var checks=countNeed(o), ok=canDeliver(o);
     modal={type:'order',id:id}; var sec=modalShell('task-modal','<span class="eyebrow">'+o.kind+' · 主线进度</span><h2>'+o.title+'</h2><p class="task-symptom">'+o.symptom+'</p><div class="task-needs">'+checks.map(function(c){var x=it(c.need[0],c.need[1]);return '<div class="task-need-row" role="button" tabindex="0" data-family="'+c.need[0]+'" data-tier="'+c.need[1]+'" aria-label="查看'+x.name+' '+c.need[1]+'阶合成路线"><img src="'+iconPath(x)+'" alt="'+x.name+'"><span>'+F[c.need[0]].name+' · '+x.name+'（'+c.need[1]+'阶）</span><b>'+Math.min(c.have,c.need[1])+'/'+c.need[1]+'</b><small class="route-tip">查看路线 · '+sourceLabel(c.need[0])+' ›</small></div>';}).join('')+'</div><div class="task-reward">奖励：◆'+o.reward+' 暖玉 · '+o.xp+' 经验 · 信任 +'+o.trust+'</div><button id="task-deliver" class="modal-action deliver-btn" type="button" '+(ok?'':'disabled')+'>'+ (ok?'交付处方':'材料不足')+'</button>');
+    var taskSideNeeds=checks.filter(function(c){return c.need[0]==='groom'||c.need[0]==='play';});
+    if(taskSideNeeds.length){var taskSource=document.createElement('p');taskSource.className='task-source-note';taskSource.textContent='材料提示：'+taskSideNeeds.map(function(c){return sourceHint(c.need[0]);}).join(' · ');var taskNeeds=sec.querySelector('.task-needs');if(taskNeeds)taskNeeds.parentNode.insertBefore(taskSource,taskNeeds);}
     sec.querySelectorAll('.task-need-row').forEach(function(row){
       row.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();showItemRoute(row.dataset.family,+row.dataset.tier);});
       row.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();showItemRoute(row.dataset.family,+row.dataset.tier);}});
@@ -351,7 +413,7 @@
      the same merge-route art so the side rewards remain memorable. */
   var CARE_COLS=5, CARE_ROWS=6, PLAY_COLS=4, PLAY_ROWS=5, PLAY_PAIRS=10;
   function careToken(type,i){var pattern=['herb','tool','herb','groom','food','tool','herb','food','play','groom','groom','food','play','herb','tool','food','play','tool','groom','herb','play','groom','groom','food','food','tool','herb','play','groom','tool'];return {family:pattern[i%pattern.length],tier:1};}
-  function carePlayBoard(){var defs=[['herb',1],['herb',2],['tool',1],['tool',2],['food',1],['food',2],['groom',1],['groom',2],['play',1],['play',2]],out=[];defs.forEach(function(d,pair){out.push({family:d[0],tier:d[1],pair:pair});out.push({family:d[0],tier:d[1],pair:pair});});return careShuffle(out);}
+  function carePlayBoard(){var defs=[['herb',1],['herb',2],['tool',1],['tool',2],['food',1],['food',2],['groom',1],['groom',2],['play',1],['play',2]],out=[];defs.forEach(function(d,pair){out.push({family:d[0],tier:d[1],pair:pair});out.push({family:d[0],tier:d[1],pair:pair});});careShuffle(out);var first=out[0],match=out.findIndex(function(x,i){return i>1&&carePlaySame(x,first);});if(match>1){var swap=out[1];out[1]=out[match];out[match]=swap;}return out;}
   function careShuffle(arr){for(var i=arr.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),x=arr[i];arr[i]=arr[j];arr[j]=x;}return arr;}
   function careSame(a,b){return a&&b&&a.family===b.family;}
   function carePlaySame(a,b){return a&&b&&a.family===b.family&&a.tier===b.tier;}
@@ -390,5 +452,62 @@
   function carePlayResolve(a,b,path){modal.busy=true;modal.selected=null;modal.linkPath=path;careRender();setTimeout(function(){if(!modal||modal.type!=='play')return;modal.board[a]=null;modal.board[b]=null;modal.linkPath=null;modal.playMatched++;modal.score+=150+modal.combo*50;modal.combo++;if(modal.playMatched>=PLAY_PAIRS){modal.busy=false;careRender();careFloat('+'+(150+(modal.combo-1)*50));careFinish();return;}if(!carePlayFindPair()){modal.combo=0;modal.busy=false;careRender();careFloat('+'+(150+(modal.combo-1)*50));toast('素材暂时没有可连的路线，试试「风铃散射」');return;}modal.busy=false;careRender();careFloat('+'+(150+(modal.combo-1)*50));},280);}
   function careUseTool(tool){if(!modal||modal.busy||!modal.tools||!modal.tools[tool])return;if(modal.type==='groom'){var idx=modal.selected!==null&&modal.board[modal.selected]?modal.selected:modal.board.findIndex(Boolean);if(tool==='brush'&&idx<0){toast('棋盘已经清空');return;}if(tool==='dew'&&!modal.board.some(Boolean)){toast('棋盘已经清空');return;}modal.tools[tool]--;if(tool==='brush'){modal.board[idx]=null;modal.selected=null;modal.goal++;modal.combo++;modal.score+=90;modal.turn++;careDrop();careRender();careFloat('+90 · 顺毛');if(modal.goal>=24)careFinish();return;}var chosen=modal.selected!==null&&modal.board[modal.selected]?modal.board[modal.selected].family:null;if(!chosen){var counts={};modal.board.forEach(function(x){if(x)counts[x.family]=(counts[x.family]||0)+1;});chosen=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];})[0];}var removed=0;modal.board.forEach(function(x,i){if(x&&x.family===chosen){modal.board[i]=null;removed++;}});modal.selected=null;modal.goal+=removed;modal.combo++;modal.score+=removed*115;modal.turn++;careDrop();careRender();careFloat('+'+(removed*115)+' · 舒缓');if(modal.goal>=24)careFinish();return;}if(tool==='hint'){var pair=carePlayFindPair();if(!pair){toast('已经没有可连的素材');return;}modal.tools[tool]--;modal.hintPair=pair;careRender();var current=modal;setTimeout(function(){if(modal===current){modal.hintPair=null;careRender();}},1200);toast('灵犀提示：找到一对可连素材');}else if(tool==='shuffle'){modal.tools[tool]--;careShufflePlay();}}
   function careToolsMarkup(type){if(type==='groom')return '<div class="care-tools"><button type="button" data-care-tool="brush"><span>✦</span><strong>顺毛梳 <b>×2</b></strong><small>移除一格，稳住连击</small></button><button type="button" data-care-tool="dew"><span>💧</span><strong>舒缓露 <b>×1</b></strong><small>清除同类素材</small></button></div>';return '<div class="care-tools"><button type="button" data-care-tool="hint"><span>✨</span><strong>灵犀提示 <b>×2</b></strong><small>标记一对可连素材</small></button><button type="button" data-care-tool="shuffle"><span>🎐</span><strong>风铃散射 <b>×1</b></strong><small>重新排布未收集素材</small></button></div>';}
+  /* Resolve every match created by a refill before accepting another input.
+     A freshly dropped row that already contains three of a kind is collected
+     automatically instead of waiting for a second manual swap. */
+  function careGroomCascade(chain){
+    if(!modal||modal.type!=='groom')return;
+    if(chain>8){modal.busy=false;modal.selected=null;careRender();if(modal.goal>=24)careFinish();return;}
+    var found=careFindMatches(),hit=found.hit;
+    if(!hit.size){modal.busy=false;modal.selected=null;careRender();if(modal.goal>=24)careFinish();return;}
+    var count=hit.size,bonus=count>=5?260:(count>=4?120:0),points=Math.round(count*100*(1+modal.combo*0.25))+bonus;
+    modal.score+=points;modal.combo++;modal.goal+=count;
+    hit.forEach(function(i){modal.board[i]=null;});
+    careRender();careFloat('+'+points);
+    setTimeout(function(){
+      if(!modal||modal.type!=='groom')return;
+      modal.turn++;careDrop();careRender();
+      setTimeout(function(){careGroomCascade(chain+1);},120);
+    },180);
+  }
+  function careResolve(a,b){
+    var found=careFindMatches();
+    if(!found.hit.size){careSwap(a,b);modal.combo=0;modal.busy=false;modal.selected=null;careRender();toast('这次交换没有形成连线');return;}
+    modal.selected=null;modal.busy=true;careGroomCascade(0);
+  }
+  function careFinish(){
+    if(!modal||modal.completed)return;
+    modal.completed=true;clearInterval(careTimer);careTimer=null;
+    var rewardFamily=modal.type==='groom'?'groom':'play';
+    queueSideReward(rewardFamily);
+    var deposited=depositPendingRewards();
+    state.minigameWins++;state.beast.trust=Math.min(100,state.beast.trust+8);state.beast.heal=Math.min(100,state.beast.heal+5);state.beast.bond=Math.min(5,state.beast.bond+1);
+    state.lastStory=modal.type==='groom'?'梳子停下时，穷奇的鬃毛终于顺了下来。':'风铃飞回掌心，穷奇在庭院里追着你跑了一圈。';
+    markYardGoal('care');save();var score=Math.round(modal.score||0);
+    setTimeout(function(){closeModal();render();toast('互动完成 · '+F[rewardFamily].name+'素材'+(deposited?'已入盘 ×'+deposited:'已暂存，空出格子后自动入盘')+' · 得分 '+score);},420);
+  }
+  function careUseTool(tool){
+    if(!modal||modal.busy||!modal.tools||!modal.tools[tool])return;
+    if(modal.type==='groom'){
+      var idx=modal.selected!==null&&modal.board[modal.selected]?modal.selected:modal.board.findIndex(Boolean);
+      if(tool==='brush'&&idx<0){toast('棋盘已经清空');return;}
+      if(tool==='dew'&&!modal.board.some(Boolean)){toast('棋盘已经清空');return;}
+      modal.tools[tool]--;
+      var removed=0,points=0;
+      if(tool==='brush'){
+        modal.board[idx]=null;modal.selected=null;removed=1;points=90;modal.goal++;modal.combo++;
+      }else{
+        var chosen=modal.selected!==null&&modal.board[modal.selected]?modal.board[modal.selected].family:null;
+        if(!chosen){var counts={};modal.board.forEach(function(x){if(x)counts[x.family]=(counts[x.family]||0)+1;});chosen=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];})[0];}
+        modal.board.forEach(function(x,i){if(x&&x.family===chosen){modal.board[i]=null;removed++;}});
+        modal.selected=null;modal.goal+=removed;modal.combo++;points=removed*115;
+      }
+      modal.score+=points;modal.turn++;modal.busy=true;careDrop();careRender();careFloat('+'+points+(tool==='brush'?' · 顺毛':' · 舒缓'));careGroomCascade(0);return;
+    }
+    if(tool==='hint'){
+      var pair=carePlayFindPair();if(!pair){toast('已经没有可连的素材');return;}
+      modal.tools[tool]--;modal.hintPair=pair;careRender();var current=modal;setTimeout(function(){if(modal===current){modal.hintPair=null;careRender();}},1200);toast('灵犀提示：找到一对可连素材');
+    }else if(tool==='shuffle'){modal.tools[tool]--;careShufflePlay();}
+  }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
