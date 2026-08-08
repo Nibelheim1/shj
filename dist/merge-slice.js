@@ -9,8 +9,8 @@
   var state, selected = null, drag = null, modal = null, toastTimer, adTimer, routeSheetOpen = false;
 
   var F = {
-    herb: {name:'药材', icon:'🌿', path:'clean', color:'#9fc69b', items:['露珠','草叶','宁神草','安神露','护心露','穷奇信物']},
-    tool: {name:'药具', icon:'🧪', path:'clean', color:'#91b9cf', items:['药布','药瓶','药杵','净水瓶','金疮包','医馆信物']},
+    herb: {name:'药材', icon:'🌿', path:'herb', color:'#9fc69b', items:['露珠叶','草叶','宁神草','暖阳花','暖阳花露','舒神露']},
+    tool: {name:'药具', icon:'🧪', path:'tool', color:'#91b9cf', items:['药膏','安神茶','暖阳花露','清露膏','舒神露','医馆印记']},
     food: {name:'膳食', icon:'🍚', path:'feed', color:'#e9ad77', items:['稻米','米饭','米糕','暖食','宴席盒','饕餮信物']},
     groom: {name:'梳毛', icon:'🪮', path:'groom', color:'#b596d0', items:['花瓣','桃花','花束','桃木梳','桃木镜','九尾信物']},
     play: {name:'陪玩', icon:'🎐', path:'play', color:'#df91a5', items:['羽毛','绒球','风铃','玩具','逗猫棒','相柳信物']}
@@ -69,6 +69,12 @@
     state.orders = ORDERS.map(function (o) {
       var old = (p.orders || []).find(function (x) { return x && x.id === o.id; });
       return {id:o.id, done:!!(old && old.done)};
+    });
+    /* Keep existing saves in sync with the current family-specific art/name map. */
+    state.grid.forEach(function (x) {
+      if (!x || !x.family || !F[x.family]) return;
+      if (x.kind === 'generator') { x.name = GENERATOR_NAMES[x.family] || x.name; return; }
+      if (x.tier >= 1 && x.tier <= F[x.family].items.length) x.name = F[x.family].items[x.tier - 1];
     });
     state.beast = Object.assign(base.beast, p.beast || {});
     state.buildings = Object.assign(base.buildings, p.buildings || {});
