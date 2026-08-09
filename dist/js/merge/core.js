@@ -569,7 +569,11 @@
       });
     }
     var memoryFamily = FAMILY_IDS[(state.completedOrders || 0) % FAMILY_IDS.length];
-    var memoryReq = [{ family: memoryFamily, tier: 2, count: 1 }];
+    var memorySupport = FAMILY_IDS.find(function (family) { return family !== memoryFamily; }) || 'herb';
+    var memoryReq = [
+      { family: memoryFamily, tier: 2, count: 1 },
+      { family: memorySupport, tier: 1, count: 1 }
+    ];
     return normalizeOrder({
       id: 'endless-memory-' + ((state.completedOrders || 0) + 1),
       slot: 'story',
