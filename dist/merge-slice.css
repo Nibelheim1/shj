@@ -16,6 +16,11 @@ button:focus-visible { outline:3px solid #e7a47f; outline-offset:2px; }
 .hud-pill { padding:5px 6px; background:#fff; border:1px solid #72533b22; border-radius:99px; font-size:9px; font-weight:900; white-space:nowrap; }
 .hud-pill.energy { color:var(--coral-dark); cursor:pointer; }
 .hud-pill.energy:hover,.hud-pill.energy:focus-visible { background:#fff3df; }
+.hud-pill { flex-direction:column; gap:2px; }
+.hud-pill small { display:block; margin-right:0; color:var(--muted); font-size:.72em; font-weight:800; line-height:1; }
+.hud-pill b { font-size:1.08em; line-height:1; }
+.order-prerequisite { display:flex; align-items:center; gap:5px; margin-top:7px; padding:5px 7px; border-left:3px solid var(--gold); border-radius:6px; background:#fff4d9; color:#8d6949; font-size:8px; line-height:1.3; }
+.order-prerequisite b { color:#9b612c; white-space:nowrap; }
 .icon-button { width:29px; height:29px; border:1px solid #72533b33; background:#fff; border-radius:50%; cursor:pointer; }
 .audio-toggle { flex:0 0 29px; padding:0; font-size:14px; line-height:1; }
 #slice-main { flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; overscroll-behavior:none; padding:9px 9px calc(8px + env(safe-area-inset-bottom)); }
@@ -229,3 +234,149 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 @media (max-width:370px){.slice-nav{gap:4px;padding-left:6px;padding-right:6px}.slice-nav .nav-button{flex-basis:40px;width:40px}.codex-card{grid-template-columns:52px minmax(0,1fr);min-height:84px;padding:5px}.codex-art img{max-height:68px}.order-card{min-width:104px}.brand-mark>span:last-child{display:none}.item-route-modal .item-route-list{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:3px}.generator-route-list{grid-template-columns:1fr}}
 @media (max-width:390px){#yard-beast-switcher{gap:3px;padding:2px 3px}.yard-scene #yard-beast-switcher{left:6px;right:6px;bottom:5px}#yard-beast-switcher button{min-width:42px;max-width:68px;height:26px;padding:2px 5px;font-size:7px}#yard-beast-switcher button img{width:18px;height:18px;flex-basis:18px}.care-time-bar{height:9px;margin-top:4px}.care-time-item{min-height:20px;padding:2px 5px;font-size:7px}.care-time-item small{font-size:6px}}
 @media (max-width:370px){#yard-beast-switcher button{min-width:40px;max-width:62px}.care-time-item{max-width:100%;overflow:hidden;text-overflow:ellipsis}}
+
+/* v5 presentation pass: responsive phone sizing and a clear main-line path. */
+:root {
+  --phone-gutter:clamp(7px,2.5vw,14px);
+  --hud-font:clamp(10px,2.8vw,13px);
+  --touch-size:clamp(42px,11vw,50px);
+}
+
+#slice-app {
+  width:min(100%,480px);
+  height:100dvh;
+  min-height:100svh;
+  max-height:100dvh;
+}
+
+.slice-hud {
+  flex:0 0 auto;
+  min-height:clamp(48px,8svh,62px);
+  gap:clamp(4px,1.5vw,8px);
+  padding:clamp(5px,1.2svh,9px) var(--phone-gutter);
+}
+.brand-mark { flex:0 1 auto; min-width:0; gap:clamp(4px,1.4vw,7px); font-size:clamp(11px,3.2vw,14px); }
+.brand-mark>span:last-child { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.brand-leaf { width:clamp(26px,7vw,31px); height:clamp(26px,7vw,31px); flex:0 0 auto; }
+.hud-values { align-items:center; gap:clamp(3px,1vw,6px); flex:1 1 auto; min-width:0; }
+.hud-pill {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:1 1 0;
+  min-width:0;
+  min-height:clamp(29px,5svh,36px);
+  padding:clamp(4px,1svh,7px) clamp(5px,1.5vw,9px);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-size:var(--hud-font);
+  line-height:1;
+}
+.hud-pill:nth-child(1) { color:#815f3f; background:#fff8e4; border-color:#e4b65f88; }
+.hud-pill:nth-child(2) { color:#9b6b2d; background:#fff4d2; border-color:#e4b65f99; }
+.hud-pill.energy { flex-grow:1.25; color:#a64d35; background:linear-gradient(110deg,#fff3df,#ffe3cd); border-color:#df795988; box-shadow:0 0 0 2px #df79591c,0 3px 8px #b8563c22; }
+.icon-button { flex:0 0 clamp(30px,8.5vw,36px); width:clamp(30px,8.5vw,36px); height:clamp(30px,8.5vw,36px); }
+.audio-toggle { flex-basis:clamp(30px,8.5vw,36px); }
+
+#slice-main {
+  padding:clamp(5px,1.5svh,10px) var(--phone-gutter) calc(clamp(5px,1.5svh,10px) + env(safe-area-inset-bottom));
+  gap:clamp(3px,1svh,8px);
+}
+.view.active { overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; }
+.view-heading { min-height:clamp(31px,6svh,42px); }
+.view-heading h1 { font-size:clamp(17px,5.2vw,22px); }
+.next-action,.chapter-goal { margin-top:clamp(4px,1svh,8px); padding:clamp(6px,1.4svh,9px) clamp(8px,2vw,12px); }
+
+/* The seven-by-eight merge board remains square on tall phones and shrinks by
+   available viewport height on short phones, instead of pushing buttons below
+   the fold.  Eight explicit rows prevent auto-sized grid tracks from overlap. */
+#merge-view { gap:clamp(3px,1svh,7px); }
+#merge-view .order-panel,#merge-view .board-card { flex:0 0 auto; min-height:0; margin-top:0; }
+#merge-view .order-panel { padding:clamp(5px,1.2svh,8px); }
+#merge-view .board-card { padding:clamp(5px,1.4svh,9px); padding-bottom:3px; }
+#merge-view .order-card { flex-basis:calc((100% - 8px)/3); min-width:0; }
+#merge-view .merge-board {
+  width:min(100%,calc((100svh - 270px) * .875));
+  max-height:calc(100svh - 270px);
+  aspect-ratio:7 / 8;
+  align-self:center;
+  grid-template-rows:repeat(8,minmax(0,1fr));
+  grid-auto-rows:minmax(0,1fr);
+  gap:clamp(2px,.8vw,4px);
+  padding:clamp(4px,1vw,6px);
+}
+#merge-view .merge-cell { aspect-ratio:auto; min-height:0; }
+#merge-view .merge-cell img { width:92%; height:92%; }
+#merge-view .selection-hint { min-height:clamp(13px,2.4svh,18px); padding-top:clamp(3px,0.7svh,6px); font-size:clamp(8px,2.3vw,10px); line-height:1.2; }
+
+/* Main-line order: gold/coral frame plus a compact left-edge marker. */
+#merge-view .order-card.main-order {
+  border:2px solid transparent;
+  background:linear-gradient(120deg,#fff4d9,#fffdf8) padding-box,linear-gradient(135deg,#e4b65f,#df7959) border-box;
+  box-shadow:0 0 0 2px #e4b65f2b,0 5px 12px #b8563c20;
+}
+#merge-view .order-card.main-order::before {
+  content:'';
+  position:absolute;
+  left:-2px;
+  top:clamp(8px,2svh,14px);
+  bottom:clamp(8px,2svh,14px);
+  width:4px;
+  border-radius:0 4px 4px 0;
+  background:linear-gradient(180deg,#e4b65f,#df7959);
+}
+.mainline-badge {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  min-height:18px;
+  margin:0;
+  padding:2px 6px;
+  border:1px solid #e4b65f99;
+  border-radius:99px;
+  background:linear-gradient(110deg,#fff0bc,#ffe1d4);
+  color:#9b612c;
+  font-size:clamp(8px,2.2vw,10px);
+  font-weight:900;
+  line-height:1;
+  white-space:nowrap;
+}
+
+/* Yard and catalogue cards can scroll as a group on a short phone, while the
+   scene itself scales from the available small viewport rather than colliding
+   with the goal panel. */
+#yard-view,#codex-view { min-height:0; }
+.yard-scene { height:clamp(250px,42svh,390px); min-height:0; flex:0 0 auto; }
+.yard-character { width:clamp(112px,34vw,144px); height:clamp(132px,39svh,170px); bottom:clamp(18px,4svh,28px); }
+.yard-speech { bottom:clamp(158px,26svh,190px); }
+.yard-goal-panel,.progress-card,.building-card { flex:0 0 auto; }
+.slice-nav { flex:0 0 auto; min-height:clamp(52px,9svh,66px); gap:clamp(4px,1.5vw,8px); padding:clamp(5px,1svh,8px) var(--phone-gutter) max(clamp(6px,1.4svh,10px),env(safe-area-inset-bottom)); }
+.slice-nav .nav-button { flex:1 1 0; width:auto; min-width:0; min-height:var(--touch-size); }
+.slice-nav .nav-goal { min-width:clamp(74px,22vw,112px); }
+
+.care-tile img { width:92%; height:92%; }
+.modal-backdrop { padding:clamp(8px,2.5vw,16px); }
+.care-modal { width:min(94vw,420px); max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px); padding:clamp(12px,3svh,18px) clamp(10px,3vw,16px) clamp(10px,2svh,14px); }
+
+@media (max-height:720px) {
+  #merge-view .next-action { max-height:clamp(28px,6svh,40px); overflow:hidden; }
+  #merge-view .order-card { padding:clamp(3px,1svh,5px); }
+  #merge-view .order-card .order-progress { display:none; }
+  #merge-view .order-need { width:clamp(18px,5.5vw,24px); height:clamp(18px,5.5vw,24px); }
+  #merge-view .order-card .deliver-btn { min-height:clamp(18px,3.5svh,22px); margin-top:2px; padding:clamp(2px,.7svh,4px); line-height:1; }
+  #merge-view .board-card { padding:clamp(4px,1svh,6px); padding-bottom:3px; }
+  #merge-view .selection-hint { min-height:clamp(9px,1.8svh,13px); max-height:clamp(9px,1.8svh,13px); overflow:hidden; padding-top:2px; }
+  #merge-view .merge-board { width:min(100%,calc((100svh - 355px) * .875)); max-height:calc(100svh - 355px); }
+  #merge-view .board-topline { margin-bottom:clamp(3px,.8svh,6px); }
+  .yard-scene { height:clamp(238px,42svh,320px); }
+  .yard-character { transform:translateX(-50%) scale(.88); transform-origin:bottom center; }
+}
+
+@media (max-width:370px) {
+  .brand-mark>span:last-child { display:none; }
+  .hud-values { gap:2px; }
+  .hud-pill { padding-left:3px; padding-right:3px; font-size:clamp(9px,2.8vw,11px); }
+  #merge-view .merge-cell b { font-size:7px; }
+  .slice-nav .nav-button { min-height:clamp(40px,8svh,46px); }
+}

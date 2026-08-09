@@ -329,10 +329,10 @@
   function renderHud() {
     var node = q('hud-values');
     if (!node) return;
-    node.innerHTML = '<span class="hud-pill">Lv.' + state.level + '</span>' +
-      '<span class="hud-pill">◆ ' + state.jade + '</span>' +
-      '<button id="energy-pill" class="hud-pill energy" type="button" aria-label="体力中心">⚡ ' + state.energy + '/' + state.maxEnergy + '</button>' +
-      (state.cleanTools ? '<span class="hud-pill">刷 ' + state.cleanTools + '</span>' : '');
+    node.innerHTML = '<span class="hud-pill hud-level"><small>等级</small><b>Lv.' + state.level + '</b></span>' +
+      '<span class="hud-pill hud-jade"><small>暖玉</small><b>◆ ' + state.jade + '</b></span>' +
+      '<button id="energy-pill" class="hud-pill energy hud-energy" type="button" aria-label="体力中心"><small>体力</small><b>⚡ ' + state.energy + '/' + state.maxEnergy + '</b></button>' +
+      (state.cleanTools ? '<span class="hud-pill hud-tools"><small>净化</small><b>刷 ' + state.cleanTools + '</b></span>' : '');
     var energy = q('energy-pill');
     if (energy) energy.addEventListener('click', openEnergyCenter);
   }
@@ -384,9 +384,26 @@
     return { story: '主线', arrival: '来信', memory: '回忆', supply: '补给', care: '日常', care_gate: '陪伴' }[kind] || '委托';
   }
 
+  function prerequisiteText(order) {
+    var prerequisite = order && order.prerequisite;
+    if (!prerequisite) return order && order.mainline ? '前置：当前疗愈病历已建立' : '';
+    if (prerequisite.type === 'story') {
+      var storyBeast = beastDef(prerequisite.beastId) || { name: '当前异兽' };
+      if (!prerequisite.completedStep) return '前置：已建立' + storyBeast.name + '疗愈病历';
+      return '前置：完成 ' + (prerequisite.completedStep || 0) + ' 段' + storyBeast.name + '主线';
+    }
+    if (prerequisite.type === 'transformation') {
+      var previousBeast = prerequisite.beastId && beastDef(prerequisite.beastId);
+      return previousBeast ? '前置：完成 ' + previousBeast.name + '蜕变' : '前置：完成上一位住客的疗愈';
+    }
+    return '前置：完成上一阶段目标';
+  }
+
   function orderSourceText(order, reachable) {
     var hasGroom = (order.requirements || []).some(function (need) { return need.family === 'groom'; });
+    var hasPlay = (order.requirements || []).some(function (need) { return need.family === 'play'; });
     if (hasGroom) return '梳洗台小游戏按得分获得梳子';
+    if (hasPlay) return '亭子连连看获得陪玩物品';
     return reachable ? '可由当前生成器合成' : '完成前置疗愈后解锁产线';
   }
 
@@ -398,8 +415,9 @@
       var ready = Core.canDeliver(state, order);
       var reachable = Core.isOrderReachable(state, order);
       var requirements = order.requirements || [];
-      return '<article class="order-card ' + (order.slot === 'story' ? 'main-order ' : '') + (ready ? 'ready ' : '') + (!reachable ? 'unreachable' : '') + '" data-order-id="' + esc(order.id) + '">' +
-        '<div class="order-head"><span class="order-kind">' + kindLabel(order.kind) + '</span><strong>' + esc(order.title) + '</strong></div>' +
+      var mainline = order.mainline === true || order.kind === 'story' || order.kind === 'arrival' || order.kind === 'care_gate';
+      return '<article class="order-card ' + (mainline ? 'main-order ' : '') + (ready ? 'ready ' : '') + (!reachable ? 'unreachable' : '') + '" data-order-id="' + esc(order.id) + '">' +
+        '<div class="order-head">' + (mainline ? '<span class="mainline-badge">主线</span>' : '') + '<span class="order-kind">' + kindLabel(order.kind) + '</span><strong>' + esc(order.title) + '</strong></div>' +
         '<p>' + esc(order.symptom || '准备需要的素材并完成交付。') + '</p>' +
         '<div class="order-need-icons">' + requirements.map(needMarkup).join('') + '</div>' +
         '<span class="order-progress ' + (ready ? 'ready' : '') + '">' + (ready ? '素材齐全，可以交付' : orderSourceText(order, reachable)) + '</span>' +
@@ -747,10 +765,11 @@
     if (!order) return;
     var can = Core.canDeliver(state, order);
     var modal = modalShell('<span class="eyebrow">' + kindLabel(order.kind) + '委托 · 永久槽位</span><h2>' + esc(order.title) + '</h2><p class="task-symptom">' + esc(order.symptom || '') + '</p>' +
+      (order.mainline ? '<div class="order-prerequisite"><b>主线前置</b><span>' + esc(prerequisiteText(order)) + '</span></div>' : '') +
       '<div class="task-needs">' + order.requirements.map(function (need) {
         var item = Core.makeItem(need.family, need.tier);
         return '<div class="task-need-row" data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托详情"><img src="' + esc(itemPath(item)) + '" alt="" /><span><strong>' + esc(item.name) + '</strong><small>' + esc(familyDef(need.family).name) + ' ' + need.tier + '阶</small></span><b>' + countNeed(need) + '/' + need.count + '</b></div>';
-      }).join('') + '</div><div class="task-source-note">同类同阶二合一；梳子系列由梳洗台小游戏按得分发放，其他系列由生成器产出一阶。</div>' +
+      }).join('') + '</div><div class="task-source-note">同类同阶二合一；梳子与陪玩物品分别来自梳洗台、亭子小游戏，其余素材由生成器与合成产出。</div>' +
       '<div class="task-reward">完成奖励：◆' + (order.rewards.jade || 0) + ' · 经验 ' + (order.rewards.xp || 0) + '</div>' +
       '<button class="modal-action" data-modal-deliver type="button" ' + (can ? '' : 'disabled') + '>' + (can ? '立即交付' : '素材尚未齐全') + '</button>' +
       ((order.slot === 'supply' || order.slot === 'care') ? '<button class="modal-secondary" data-reroll="' + order.slot + '" type="button">免费刷新这个槽位</button>' : ''), 'task-modal');
@@ -953,8 +972,8 @@
     function resizeCanvas() {
       if (!careSession || careSession !== session) return;
       var bounds = canvas.parentElement.getBoundingClientRect();
-      session.width = Math.max(280, Math.round(bounds.width || root.innerWidth || 390));
-      session.height = Math.max(520, Math.round(bounds.height || root.innerHeight || 844));
+      session.width = Math.max(1, Math.round(bounds.width || root.innerWidth || 390));
+      session.height = Math.max(1, Math.round(bounds.height || root.innerHeight || 844));
       var ratio = Math.max(1, Math.min(2, Number(root.devicePixelRatio) || 1));
       canvas.width = Math.round(session.width * ratio);
       canvas.height = Math.round(session.height * ratio);

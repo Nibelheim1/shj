@@ -28,12 +28,14 @@
   // 特殊块类型
   var SP = { NONE: 0, LINE_H: 1, LINE_V: 2, BOMB: 3, RAINBOW: 4 };
 
-  // 4 套图标（每套 6 个）
+  // Each match-3 tile uses a tier-1 merge icon. The five families provide
+  // distinct silhouettes without exposing higher-tier upgrade artwork.
+  var TIER1_ICONS = ['herb_01', 'tool_01', 'feed_01', 'groom_01', 'play_01'];
   var SETS = {
-    FEED:  ['feed_01', 'feed_02', 'feed_03', 'feed_04', 'feed_05'],
-    CLEAN: ['clean_01', 'clean_02', 'clean_03', 'clean_04', 'clean_05'],
-    GROOM: ['groom_01', 'groom_02', 'groom_03', 'groom_04', 'groom_05'],
-    PLAY:  ['play_01', 'play_02', 'play_03', 'play_04', 'play_05']
+    FEED: TIER1_ICONS.slice(),
+    CLEAN: TIER1_ICONS.slice(),
+    GROOM: TIER1_ICONS.slice(),
+    PLAY: TIER1_ICONS.slice()
   };
   var THEME = {
     FEED:  { bg: '#FFF3E2', tile: '#FBE4C4', accent: '#E8956B', fav: 0, energy: '#F0A868' },
@@ -1335,7 +1337,9 @@
 
     // 图标
     var img = imgOf(this.names[s.type]);
-    var isz = (size - pad * 2) * 0.74 * scale;
+    // Slightly larger artwork keeps the animal icon legible on short phones;
+    // the 0.82 interior ratio still leaves a clear rounded-tile safety margin.
+    var isz = (size - pad * 2) * 0.82 * scale;
     if (img && img.width) ctx.drawImage(img, cx - isz / 2, cy - isz / 2, isz, isz);
     else { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, isz / 2, 0, Math.PI * 2); ctx.fill(); }
 

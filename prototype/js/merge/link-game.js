@@ -617,10 +617,11 @@
       this._images[name] = image;
     }
     if (imageReady(image) && ctx.drawImage) {
-      try { ctx.drawImage(image, x + size * 0.13, y + size * 0.13, size * 0.74, size * 0.74); return; } catch (error) {}
+      // Keep a small inset while enlarging the icon for glanceable matching.
+      try { ctx.drawImage(image, x + size * 0.09, y + size * 0.09, size * 0.82, size * 0.82); return; } catch (error) {}
     }
     ctx.fillStyle = '#7A3751';
-    ctx.font = Math.max(14, Math.floor(size * 0.46)) + 'px sans-serif';
+    ctx.font = Math.max(14, Math.floor(size * 0.50)) + 'px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     if (ctx.fillText) ctx.fillText(cell.symbol || SYMBOLS[cell.type] || '◆', x + size / 2, y + size / 2 + 1);
   };

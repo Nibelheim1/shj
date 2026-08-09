@@ -328,10 +328,10 @@
         requirement('tool', 2, 1), requirement('herb', 1, 1)
       ], { jade: 82, xp: 96 }),
       orderTemplate('qiongqi-warm', 'care', '小灶·暖食委托', 'qiongqi', 0, [
-        requirement('food', 2, 1)
+        requirement('food', 2, 1), requirement('herb', 1, 1)
       ], { jade: 46, xp: 48 }),
       orderTemplate('qiongqi-groom', 'care', '梳毛台·打结的鬃毛', 'qiongqi', 0, [
-        requirement('groom', 2, 1)
+        requirement('groom', 2, 1), requirement('herb', 1, 1)
       ], { jade: 64, xp: 56 })
     ]
   };
@@ -389,6 +389,8 @@
       startJade: 120,
       startEnergy: 22,
       maxEnergy: 30,
+      energyPerLevel: 1,
+      energyCap: 100,
       energyMs: 150000,
       itemValues: [15, 30, 55, 95, 160, 260],
       storageCosts: [80, 160, 320]

@@ -31,6 +31,24 @@
   /* 梳子系列由梳洗台小游戏发放，不再拥有棋盘生成器。保留 family
      本身用于订单、奖励与路线展示，只有 generator 被禁用。 */
   var GAME_SOURCE_FAMILIES = { groom: true, play: true };
+  var ENERGY_CAP = Math.max(1, Math.floor(number(DATA.economy.energyCap, 100)));
+
+  function energyCapForLevel(level) {
+    var base = Math.max(1, Math.floor(number(DATA.economy.maxEnergy, 30)));
+    var perLevel = Math.max(0, Math.floor(number(DATA.economy.energyPerLevel, 1)));
+    var safeLevel = Math.max(1, Math.floor(number(level, 1)));
+    return Math.min(ENERGY_CAP, base + Math.max(0, safeLevel - 1) * perLevel);
+  }
+
+  function syncEnergyCap(state) {
+    if (!state) return 0;
+    var expected = energyCapForLevel(state.level);
+    /* Preserve an already higher cap from a future reader while granting the
+       new per-level increase to older v3/v4 saves. */
+    state.maxEnergy = clamp(Math.max(number(state.maxEnergy, expected), expected), 1, ENERGY_CAP);
+    state.energy = clamp(number(state.energy, 0), 0, state.maxEnergy);
+    return state.maxEnergy;
+  }
 
   function clone(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
@@ -225,6 +243,7 @@
       nextChapter: '第二卷 · 白泽的来信',
       analytics: []
     };
+    syncEnergyCap(state);
     ensureOrders(state, Math.random);
     state.orders = state.activeOrders;
     syncLegacyAliases(state);
@@ -309,8 +328,8 @@
     ['jade', 'energy', 'level', 'xp', 'xpNext', 'unlockedCells', 'cleanTools', 'completedOrders', 'houseLevel'].forEach(function (key) {
       if (Object.prototype.hasOwnProperty.call(raw, key)) state[key] = clone(raw[key]);
     });
-    state.energy = clamp(number(state.energy, DATA.economy.startEnergy), 0, number(raw.maxEnergy, DATA.economy.maxEnergy));
     state.maxEnergy = Math.max(1, number(raw.maxEnergy, DATA.economy.maxEnergy));
+    syncEnergyCap(state);
     state.jade = Math.max(0, number(state.jade, DATA.economy.startJade));
     state.unlockedCells = clamp(Math.floor(number(state.unlockedCells, DATA.board.startUnlockedCells)), 0, TOTAL);
     if (Array.isArray(raw.unlockedGenerators)) state.unlockedGenerators = raw.unlockedGenerators.slice();
@@ -397,8 +416,8 @@
     ['herb', 'tool'].forEach(function (family) {
       if (state.unlockedGenerators.indexOf(family) < 0) state.unlockedGenerators.push(family);
     });
-    state.energy = clamp(number(raw.energy, base.energy), 0, number(raw.maxEnergy, base.maxEnergy));
     state.maxEnergy = Math.max(1, number(raw.maxEnergy, base.maxEnergy));
+    syncEnergyCap(state);
     state.jade = Math.max(0, number(raw.jade, base.jade));
     state.pendingRewards = Array.isArray(raw.pendingRewards) ? raw.pendingRewards.map(normalizeItem).filter(Boolean) : [];
     removeGroomGenerator(state);
@@ -451,7 +470,8 @@
       needs: clone(requirements),
       permanent: true,
       status: raw.status || 'OPEN',
-      done: false
+      done: false,
+      mainline: raw.mainline != null ? !!raw.mainline : ['story', 'arrival', 'care_gate'].indexOf(raw.kind) >= 0
     });
     copied.rewards = Object.assign({}, raw.rewards || raw.reward || {});
     return copied;
@@ -499,8 +519,10 @@
         id: current.id + '-story-' + (stepIndex + 1),
         slot: 'story',
         kind: 'story',
+        mainline: true,
         beastId: current.id,
         storyStep: stepIndex + 1,
+        prerequisite: { type: 'story', beastId: current.id, completedStep: stepIndex },
         title: step.title,
         symptom: step.text,
         requirements: reqs,
@@ -514,7 +536,9 @@
         id: current.id + '-care-gate',
         slot: 'story',
         kind: 'care_gate',
+        mainline: true,
         beastId: current.id,
+        prerequisite: { type: 'story', beastId: current.id, completedStep: definition.storySteps.length },
         title: '陪伴 ' + definition.name + ' 完成一次照料',
         symptom: '故事已经准备好了，只差一次不消耗体力的陪伴。',
         requirements: [{ family: careFamily, tier: 1, count: 1 }],
@@ -524,12 +548,19 @@
     }
     var next = firstLockedBeast(state);
     if (next) {
-      var arrivalReq = [{ family: next.unlockFamily, tier: next.unlockTier, count: 1 }];
+      var supportFamily = (state.unlockedGenerators || []).find(function (family) { return family !== next.unlockFamily && familyDefinition(family); });
+      if (!supportFamily) supportFamily = FAMILY_IDS.find(function (family) { return family !== next.unlockFamily; }) || 'herb';
+      var arrivalReq = [
+        { family: next.unlockFamily, tier: next.unlockTier, count: 1 },
+        { family: supportFamily, tier: 2, count: 1 }
+      ];
       return normalizeOrder({
         id: next.id + '-arrival',
         slot: 'story',
         kind: 'arrival',
+        mainline: true,
         beastId: next.id,
+        prerequisite: { type: 'transformation', beastId: state.transformedOrder && state.transformedOrder.length ? state.transformedOrder[state.transformedOrder.length - 1] : null },
         title: next.name + '的来信',
         symptom: '合成信物，邀请下一位住客来到疗愈所。',
         requirements: arrivalReq,
@@ -543,6 +574,7 @@
       id: 'endless-memory-' + ((state.completedOrders || 0) + 1),
       slot: 'story',
       kind: 'memory',
+      mainline: false,
       title: '山海回忆 · 新的一页',
       symptom: '第一卷已经结束，疗愈所仍每天收到新的来信。',
       requirements: memoryReq,
@@ -571,17 +603,63 @@
     return candidates[Math.floor((rng ? rng() : Math.random()) * candidates.length) % candidates.length];
   }
 
+  function randomUnit(rng) {
+    var value = number(typeof rng === 'function' ? rng() : Math.random(), Math.random());
+    value -= Math.floor(value);
+    return value < 0 ? value + 1 : Math.min(0.999999, value);
+  }
+
+  function taskFamilyPool(state, preferred) {
+    var pool = [];
+    (preferred || []).concat(state.unlockedGenerators || [], Object.keys(GAME_SOURCE_FAMILIES)).forEach(function (family) {
+      if (!familyDefinition(family)) return;
+      var available = (state.unlockedGenerators || []).indexOf(family) >= 0 || GAME_SOURCE_FAMILIES[family];
+      if (available && pool.indexOf(family) < 0) pool.push(family);
+    });
+    /* A fresh account always has herb/tool available; this fallback also
+       keeps old saves with a malformed generator list from getting a one-item
+       order. */
+    if (pool.length < 2) {
+      FAMILY_IDS.forEach(function (family) {
+        if (pool.length >= 2 || pool.indexOf(family) >= 0) return;
+        pool.push(family);
+      });
+    }
+    return pool;
+  }
+
+  function chooseTaskFamily(pool, rng, excluded) {
+    var candidates = pool.filter(function (family) { return !excluded || excluded.indexOf(family) < 0; });
+    if (!candidates.length) candidates = pool.slice();
+    return candidates[Math.floor(randomUnit(rng) * candidates.length)];
+  }
+
+  function taskRequirements(state, preferred, rng) {
+    var pool = taskFamilyPool(state, preferred);
+    var firstFamily = chooseTaskFamily(pool, rng);
+    var secondFamily = chooseTaskFamily(pool, rng, [firstFamily]);
+    if (!secondFamily || secondFamily === firstFamily) {
+      secondFamily = pool.find(function (family) { return family !== firstFamily; }) || FAMILY_IDS.find(function (family) { return family !== firstFamily; });
+    }
+    var maxTier = Math.min(3, TIER_CAP, Math.max(2, Math.floor(number(state.level, 1) / 2) + 1));
+    var firstTier = 1 + Math.floor(randomUnit(rng) * maxTier);
+    var secondTier = 1 + Math.floor(randomUnit(rng) * maxTier);
+    if (firstTier < 2 && secondTier < 2) secondTier = 2;
+    return [
+      normalizeRequirement({ family: firstFamily, tier: firstTier, count: 1 }),
+      normalizeRequirement({ family: secondFamily, tier: secondTier, count: 1 })
+    ];
+  }
+
   function makeSupplyOrder(state, rng) {
-    var family = supplyFamily(state, rng);
-    var maxTier = Math.min(3, Math.max(1, Math.floor(number(state.level, 1) / 2) + 1));
-    var tier = 1 + Math.floor((rng ? rng() : Math.random()) * maxTier);
-    tier = clamp(tier, 1, maxTier);
-    var reqs = [{ family: family, tier: tier, count: 1 }];
+    var reqs = taskRequirements(state, [], rng);
+    var first = familyDefinition(reqs[0].family);
+    var second = familyDefinition(reqs[1].family);
     return normalizeOrder({
       id: nextOrderId(state, 'supply'),
       slot: 'supply',
       kind: 'supply',
-      title: '邻里补给 · ' + familyDefinition(family).items[tier - 1],
+      title: '邻里补给 · ' + first.items[reqs[0].tier - 1] + ' + ' + second.items[reqs[1].tier - 1],
       symptom: '一份随时可推进的低阶委托，保障棋盘不会卡死。',
       requirements: reqs,
       rewards: rewardsFor('supply', reqs, state),
@@ -593,21 +671,32 @@
     var current = activeCase(state);
     var definition = current && beastDefinition(current.id);
     var families = definition && definition.careTypes.length ? definition.careTypes : ['groom', 'play'];
-    var family = families[Math.floor((rng ? rng() : Math.random()) * families.length) % families.length];
-    var available = state.unlockedGenerators.indexOf(family) >= 0 || GAME_SOURCE_FAMILIES[family];
-    if (!available) family = supplyFamily(state, rng);
-    var reqs = [{ family: family, tier: 1, count: 1 }];
+    var reqs = taskRequirements(state, families, rng);
+    var first = familyDefinition(reqs[0].family);
+    var second = familyDefinition(reqs[1].family);
     return normalizeOrder({
       id: nextOrderId(state, 'care'),
       slot: 'care',
       kind: 'care',
       beastId: current ? current.id : null,
-      title: current && definition ? definition.name + '的日常照料' : '庭院日常照料',
+      title: current && definition ? definition.name + '的日常照料 · ' + first.items[reqs[0].tier - 1] + ' · ' + second.items[reqs[1].tier - 1] : '庭院日常照料 · ' + first.items[reqs[0].tier - 1] + ' · ' + second.items[reqs[1].tier - 1],
       symptom: '交付素材获得暖玉；实际照料在庭院中进行且不消耗体力。',
       requirements: reqs,
       rewards: rewardsFor('care', reqs, state),
       permanent: true
     });
+  }
+
+  function isQualifiedMedicalOrder(order) {
+    if (!order || (order.slot !== 'supply' && order.slot !== 'care')) return true;
+    var requirements = order.requirements || [];
+    var families = {};
+    var hasTierTwo = false;
+    requirements.forEach(function (need) {
+      if (need && need.family) families[need.family] = true;
+      if (need && number(need.tier, 0) >= 2) hasTierTwo = true;
+    });
+    return Object.keys(families).length >= 2 && hasTierTwo;
   }
 
   function ensureOrders(state, rng) {
@@ -617,6 +706,7 @@
     var bySlot = {};
     old.forEach(function (order, index) {
       var slot = order.slot || (index === 0 ? 'story' : index === 1 ? 'supply' : 'care');
+      if (!isQualifiedMedicalOrder(order)) return;
       if (!bySlot[slot]) bySlot[slot] = normalizeOrder(Object.assign({}, order, { slot: slot }));
     });
     if (!bySlot.story) bySlot.story = makeStoryOrder(state);
@@ -702,10 +792,12 @@
       state.xp -= state.xpNext;
       state.level = Math.max(1, Math.floor(number(state.level, 1))) + 1;
       state.xpNext = Math.round(state.xpNext * 1.32);
+      state.maxEnergy = Math.min(ENERGY_CAP, Math.max(state.maxEnergy, energyCapForLevel(state.level)));
       state.unlockedCells = Math.min(TOTAL, state.unlockedCells + 3);
       leveled++;
       if (state.level >= 2) unlockGenerator(state, 'food');
     }
+    syncEnergyCap(state);
     return leveled;
   }
 
@@ -1055,9 +1147,19 @@
     };
   }
 
-  function ensureDaily(state, date, now) {
+  function ensureDaily(state, date, now, rng) {
     date = date || isoDate(number(now, Date.now()));
-    if (!state.daily || state.daily.date !== date) state.daily = freshDaily(date);
+    var changed = !state.daily || state.daily.date !== date;
+    if (!changed) return state.daily;
+    state.daily = freshDaily(date);
+    /* The story slot is a gated progression chain and stays in place. The
+       medical supply/care slots are daily work, so they receive new random
+       multi-item requirements whenever a new day is opened. */
+    var random = typeof rng === 'function' ? rng : Math.random;
+    if (!Array.isArray(state.activeOrders)) state.activeOrders = [];
+    state.activeOrders[1] = makeSupplyOrder(state, random);
+    state.activeOrders[2] = makeCareOrder(state, random);
+    state.orders = state.activeOrders;
     return state.daily;
   }
 
