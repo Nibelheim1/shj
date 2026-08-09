@@ -380,3 +380,15 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
   #merge-view .merge-cell b { font-size:7px; }
   .slice-nav .nav-button { min-height:clamp(40px,8svh,46px); }
 }
+
+/* Explain the selected beast's preferred care facilities without growing the catalog card. */
+.codex-care { display:grid; gap:1px; margin-top:4px; padding:4px; border-radius:7px; background:#fff0d5; color:#875f3e; font-size:7px; line-height:1.25; }
+.codex-care strong { font-size:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.codex-care small { color:#9d806a; font-size:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* A non-preferred mini-game remains playable, but the warning stays visible above its canvas. */
+.care-game-warning { position:absolute; top:max(8px,env(safe-area-inset-top)); left:50%; z-index:3; width:min(92vw,460px); transform:translateX(-50%); padding:7px 10px; border:1px solid #f2c66d; border-radius:10px; background:#fff2cfee; color:#72472e; box-shadow:0 4px 12px #2b1c1466; font-size:11px; font-weight:900; line-height:1.35; text-align:center; pointer-events:none; }
+
+@media (max-width:370px) {
+  .care-game-warning { width:calc(100vw - 20px); padding:6px 8px; font-size:10px; }
+}

@@ -73,6 +73,12 @@
 
   function familyDef(family) { return DATA.families[family]; }
 
+  function careTypeLabel(type) {
+    if (type === 'groom') return '梳洗台消消乐';
+    if (type === 'play') return '亭子连连看';
+    return '照料小游戏';
+  }
+
   function backgroundDef(id) {
     return (DATA.backgrounds || []).find(function (background) { return background.id === id; }) || null;
   }
@@ -561,8 +567,11 @@
       var available = !!display.entry && definition.careTypes.indexOf(type) >= 0;
       button.classList.toggle('care-recommended', available);
       button.classList.toggle('care-unneeded', !available);
-      button.setAttribute('aria-disabled', available ? 'false' : 'true');
-      button.title = available ? '开始' + (type === 'groom' ? '梳理消消乐' : '陪玩连连看') + '，不限次数且不消耗体力' : '当前住客更需要另一处照料设施';
+      /* A non-preferred facility is still playable; only its care reward is withheld. */
+      button.setAttribute('aria-disabled', 'false');
+      button.title = available ? '开始' + careTypeLabel(type) + '，不限次数且不消耗体力' : '可以体验' + careTypeLabel(type) + '，但本局不会获得照料奖励';
+      var caption = button.querySelector('small');
+      if (caption) caption.textContent = available ? (type === 'groom' ? '消消乐 · 不限次数' : '连连看 · 不限次数') : '可玩 · 无照料奖励';
     });
     renderDaily();
     renderFacilities();
@@ -638,9 +647,11 @@
       var discovered = state.codex[beast.id].discovered;
       var stage = entry.transformed ? 3 : entry.stage;
       var unlock = beast.unlockFamily ? Core.getItemName(beast.unlockFamily, beast.unlockTier) : '初始住客';
+      var careGuide = (beast.careTypes || []).map(careTypeLabel).join(' / ') || '暂无指定设施';
       return '<article class="codex-card ' + (discovered ? '' : 'locked') + '" data-beast-id="' + beast.id + '">' +
         '<div class="codex-art"><img src="' + esc(beast.art[stage] || beast.art[0]) + '" alt="' + esc(beast.name) + '" /><b>' + (discovered ? esc(beast.stageNames[stage]) : '等待来信') + '</b></div>' +
         '<div class="codex-copy"><h2>' + (discovered ? esc(beast.name) : '未结识 · ' + esc(beast.name)) + '</h2><p>' + (discovered ? esc(beast.lore) : '解锁信物：' + esc(unlock)) + '</p>' +
+        '<div class="codex-care"><strong>照料偏好：' + esc(careGuide) + '</strong><small>非偏好设施可玩，但不发放照料奖励</small></div>' +
         '<div class="story-dots" aria-label="三段故事与一次照料">' + [0, 1, 2].map(function (idx) { return '<i class="' + (idx < entry.storyProgress ? 'done' : '') + '"></i>'; }).join('') + '<i class="' + (entry.careDone ? 'done' : '') + '"></i></div>' +
         '<div class="codex-job">' + (entry.transformed ? '已上岗：' : '蜕变后解锁：') + esc(beast.job.title) + '</div></div></article>';
     }).join('');
@@ -915,11 +926,12 @@
 
   function openCare(type) {
     var display = caseForDisplay();
-    if (!display.entry || display.definition.careTypes.indexOf(type) < 0) {
-      var expected = display.definition.careTypes[0] === 'groom' ? '梳洗台' : '亭子';
-      toast('当前住客更需要去' + expected);
+    if (!display.entry) {
+      toast('当前没有可照料住客');
       return { ok: false, reason: 'wrong-care-type' };
     }
+    var rewardEligible = display.definition.careTypes.indexOf(type) >= 0;
+    if (!rewardEligible) toast('可以体验' + careTypeLabel(type) + '，但本局不会获得照料奖励');
     closeModal();
     playSfx('click');
     var Engine = type === 'groom' ? root.Match3 : root.LinkGame;
@@ -931,7 +943,8 @@
 
     gameRoot.classList.add('is-open');
     gameRoot.setAttribute('aria-hidden', 'false');
-    gameRoot.innerHTML = '<section class="care-game-shell ' + (type === 'groom' ? 'match3-shell' : 'link-shell') + '" role="dialog" aria-modal="true" aria-label="' + (type === 'groom' ? '梳理消消乐' : '陪玩连连看') + '"><canvas id="care-game-canvas" tabindex="0" aria-label="' + (type === 'groom' ? '滑动交换图案，合成特殊块并解开毛结' : '点击两个相同图案，用不超过两次转弯的路径连接') + '"></canvas></section>';
+    var warning = rewardEligible ? '' : '<div class="care-game-warning" role="status">当前异兽偏好' + esc((display.definition.careTypes || []).map(careTypeLabel).join(' / ')) + '；本局可以体验，但不会获得照料奖励</div>';
+    gameRoot.innerHTML = '<section class="care-game-shell ' + (type === 'groom' ? 'match3-shell' : 'link-shell') + '" role="dialog" aria-modal="true" aria-label="' + (type === 'groom' ? '梳理消消乐' : '陪玩连连看') + '">' + warning + '<canvas id="care-game-canvas" tabindex="0" aria-label="' + (type === 'groom' ? '滑动交换图案，合成特殊块并解开毛结' : '点击两个相同图案，用不超过两次转弯的路径连接') + '"></canvas></section>';
     var canvas = q('care-game-canvas');
     var context = canvas && canvas.getContext ? canvas.getContext('2d') : null;
     if (!canvas || !context) {
@@ -952,6 +965,7 @@
       lastFrame: 0,
       width: 390,
       height: 844,
+      rewardEligible: rewardEligible,
       listeners: {},
       settled: false
     };
@@ -1045,10 +1059,18 @@
     if (!careSession) return { ok: false, reason: 'no-session' };
     var session = careSession;
     stopCareGame();
-    var result = Core.recordCare(state, session.type, { outcome: outcome, beastId: session.beastId, game: summary || {} }, Date.now());
+    var result = session.rewardEligible === false ? {
+      ok: true,
+      noReward: true,
+      rewarded: false,
+      outcome: outcome,
+      rewardItems: [],
+      rewardCount: 0,
+      energy: state.energy
+    } : Core.recordCare(state, session.type, { outcome: outcome, beastId: session.beastId, game: summary || {} }, Date.now());
     if (!result.ok) { closeModal(); mutate(result); return result; }
     saveState(); render();
-    playSfx('care');
+    playSfx(result.noReward ? 'click' : 'care');
     var items = result.rewardItems && result.rewardItems.length ? result.rewardItems : [result.rewardItem];
     var itemGroups = {};
     items.forEach(function (reward) {
@@ -1057,15 +1079,15 @@
       if (!itemGroups[key]) itemGroups[key] = { item: reward, count: 0 };
       itemGroups[key].count++;
     });
-    var rewardText = Object.keys(itemGroups).map(function (key) {
+    var rewardText = result.noReward ? '本局不产生照料奖励' : Object.keys(itemGroups).map(function (key) {
       var group = itemGroups[key];
       return esc(group.item.name) + ' ×' + group.count;
     }).join('、') || '基础照料奖励';
     var score = Math.max(0, Math.round(Number(summary && summary.score) || 0));
     var perf = Math.round(Math.max(0, Math.min(1, Number(summary && summary.perf) || 0)) * 100);
-    var label = outcome === 'mastery' ? '精通' : outcome === 'complete' ? '完成' : outcome === 'timeout' ? '时间到也没关系' : '已跳过';
-    var rewardNote = session.type === 'groom' ? '梳洗台小游戏按得分决定梳子数量；物品已进入棋盘或药匣暂存。' : '庭院小游戏不限次数；本次奖励已进入棋盘或药匣暂存。';
-    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · 零失败结算</span><h2>' + esc(beastDef(session.beastId).name) + '记住了这次陪伴</h2><img src="' + esc(beastDef(session.beastId).art[state.beastCases[session.beastId].stage]) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div><div class="task-reward">获得 ' + rewardText + '<br /><small>' + rewardNote + '</small></div><button class="modal-action" data-care-continue type="button">继续</button></div>', 'task-modal');
+    var label = result.noReward ? '体验完成' : outcome === 'mastery' ? '精通' : outcome === 'complete' ? '完成' : outcome === 'timeout' ? '时间到也没关系' : '已跳过';
+    var rewardNote = result.noReward ? '当前异兽的照料偏好是' + ((beastDef(session.beastId).careTypes || []).map(careTypeLabel).join(' / ') || '其他设施') + '；切换到偏好设施后，小游戏才会推进病历并发放照料奖励。' : session.type === 'groom' ? '梳洗台小游戏按得分决定梳子数量；物品已进入棋盘或药匣暂存。' : '庭院小游戏不限次数；本次奖励已进入棋盘或药匣暂存。';
+    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · ' + (result.noReward ? '无奖励体验' : '零失败结算') + '</span><h2>' + esc(beastDef(session.beastId).name) + (result.noReward ? '陪你玩了一局' : '记住了这次陪伴') + '</h2><img src="' + esc(beastDef(session.beastId).art[state.beastCases[session.beastId].stage]) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div><div class="task-reward">' + (result.noReward ? '' : '获得 ') + rewardText + '<br /><small>' + rewardNote + '</small></div><button class="modal-action" data-care-continue type="button">继续</button></div>', 'task-modal');
     if (modal) modal.querySelector('[data-care-continue]').addEventListener('click', function () {
       closeModal();
       if (state.pendingTransformation) showTransformation();
