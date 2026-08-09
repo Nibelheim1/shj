@@ -18,20 +18,28 @@
   <main id="slice-main">
     <section id="merge-view" class="view active" aria-labelledby="merge-title">
       <div class="view-heading">
-        <div><span class="eyebrow">今日接诊 · 穷奇疗愈篇</span><h1 id="merge-title">把药物合成出来</h1></div>
+        <div><span id="chapter-label" class="eyebrow">第一卷 · 山海疗愈篇</span><h1 id="merge-title">完成眼前这一小步</h1></div>
         <button id="energy-help" class="pill-button" type="button" aria-label="打开体力中心">体力中心</button>
       </div>
 
+      <aside id="next-action" class="next-action" aria-live="polite"></aside>
+
       <section class="order-panel" aria-labelledby="orders-title">
-        <div class="section-title-row"><div><span class="eyebrow">多线委托</span><h2 id="orders-title">患者正在等待你的处方</h2></div><span class="small-note">点击图标查看详情</span></div>
-        <div id="order-list" class="order-list" aria-live="polite"></div>
+        <div class="section-title-row"><div><span class="eyebrow">常驻三槽 · 永不清空</span><h2 id="orders-title">故事、补给与日常委托</h2></div><span class="small-note">点击卡片看合成路线</span></div>
+        <div id="order-list" class="order-list" data-orders aria-live="polite"></div>
       </section>
 
       <section class="board-card" aria-labelledby="board-title">
-        <div class="board-topline"><div><strong id="board-title">合成棋盘</strong><span id="space-note"></span></div><button id="organize-btn" class="text-button" type="button" aria-label="整理棋盘">整理棋盘</button></div>
-        <div id="merge-board" class="merge-board" role="grid" aria-label="合成棋盘"></div>
+        <div class="board-topline"><div><strong id="board-title">合成棋盘</strong><span id="space-note"></span></div><div class="board-actions"><button id="storage-open" class="text-button storage-open" type="button" aria-label="打开药匣">药匣</button><button id="organize-btn" class="text-button" type="button" aria-label="整理棋盘">整理棋盘</button></div></div>
+        <div id="merge-board" class="merge-board" role="grid" aria-label="7列8行合成棋盘"></div>
         <div id="selection-hint" class="selection-hint">点击同阶同类物品即可合成；生成器也在棋盘中</div>
         <div id="item-info-root" class="item-info-root" aria-live="polite"></div>
+      </section>
+
+      <section class="storage-card" aria-labelledby="storage-title">
+        <div class="section-title-row"><div><span class="eyebrow">不丢奖励 · 随身药匣</span><h2 id="storage-title">暂存区</h2></div><button id="storage-upgrade" class="text-button" type="button">扩容</button></div>
+        <div id="storage-list" class="storage-list" aria-label="暂存区"></div>
+        <p id="pending-note" class="storage-note"></p>
       </section>
     </section>
 
@@ -39,50 +47,81 @@
       <div class="yard-scene" id="yard-scene">
         <div class="yard-sky-copy"><span class="eyebrow">庭院回声 · 点击互动</span><h1 id="yard-heading">庭院疗愈目标</h1><p id="yard-copy">当前动作：观察四周</p></div>
         <div class="yard-path" aria-hidden="true"></div>
-        <button id="yard-character" class="yard-character" type="button" aria-label="安抚穷奇"><img id="yard-beast" alt="穷奇" /></button>
-        <div class="yard-speech" id="yard-speech">“别靠近……我会自己好的。”</div>
+        <button id="yard-character" class="yard-character" type="button" aria-label="安抚当前异兽"><img id="yard-beast" alt="当前异兽" /></button>
+        <div class="yard-speech" id="yard-speech">“先慢慢来，我们不赶时间。”</div>
         <div class="yard-hotspots">
           <button data-hotspot="clinic" type="button" aria-label="查看医馆病历">🏯<b>医馆</b><small>查看病历</small></button>
-          <button data-hotspot="herb" type="button" aria-label="访问药圃">🌱<b>药圃</b><small>访问目标</small></button>
-          <button data-hotspot="groom" type="button" aria-label="前往梳洗台">🪮<b>梳洗台</b><small>准备互动</small></button>
-        </div>
-        <div class="yard-interact">
-          <button id="care-groom" type="button" aria-label="开始梳理挑战">🪮 <b>梳理</b><small>完成一次</small></button>
-          <button id="care-play" type="button" aria-label="开始陪玩挑战">🎐 <b>陪玩</b><small>完成一次</small></button>
+          <button data-hotspot="herb" type="button" aria-label="访问药圃">🌱<b>药圃</b><small>领取产出</small></button>
+          <button data-care="groom" type="button" aria-label="打开梳洗台消消乐">梳<b>梳洗台</b><small>消消乐 · 特殊道具</small></button>
+          <button data-care="play" type="button" aria-label="打开亭子连连看">🎐<b>亭子</b><small>连连看 · 特殊道具</small></button>
         </div>
         <div class="yard-props" aria-hidden="true"><span class="prop prop-pool">≈</span><span class="prop prop-flower">✿</span><span class="prop prop-lantern">♨</span></div>
       </div>
 
       <section class="yard-goal-panel" aria-labelledby="yard-goal-title">
-        <div class="section-title-row"><div><span class="eyebrow">庭院主线 · 今日目标</span><h2 id="yard-goal-title">让穷奇愿意留下</h2></div><span id="yard-goal-reward" class="small-note">完成得 +8 体力 · +1 净化刷 · 随机药材</span></div>
+        <div class="section-title-row"><div><span class="eyebrow">每日承诺 · 可持续推进</span><h2 id="yard-goal-title">今天也留下一点温柔</h2></div><span id="yard-goal-reward" class="small-note">全完成得体力、暖玉与定向素材</span></div>
         <div id="yard-goals" class="yard-goals"></div>
-        <button id="claim-yard-goal" class="goal-claim" type="button" aria-label="领取庭院目标奖励">领取今日奖励</button>
+        <button id="claim-yard-goal" class="goal-claim" type="button" aria-label="领取每日目标奖励">领取今日奖励</button>
+        <div class="yard-quickbar" aria-label="庭院快捷入口">
+          <button id="yard-facilities-open" type="button">设施升级</button>
+          <button id="yard-jobs-open" type="button">岗位产出</button>
+        </div>
       </section>
 
-      <section class="progress-card compact-progress" aria-label="穷奇关系进度">
-        <div class="progress-head"><div><span class="eyebrow">穷奇 · 病历与关系</span><h2 id="beast-stage">警戒期</h2></div><span id="bond-level" class="stage-chip">信任 Lv1</span></div>
-        <div class="progress-row"><span>信任</span><div class="meter"><i id="trust-meter"></i></div><b id="trust-value">0/100</b></div>
+      <section class="progress-card compact-progress" aria-label="当前异兽关系进度">
+        <div class="progress-head"><div><span id="case-label" class="eyebrow">当前病历与关系</span><h2 id="beast-stage">警戒期</h2></div><span id="bond-level" class="stage-chip">羁绊 Lv1</span></div>
+        <div class="progress-row"><span>信任</span><div class="meter"><i id="trust-meter"></i></div><b id="trust-value">0/60</b></div>
         <div class="progress-row"><span>疗愈</span><div class="meter heal"><i id="heal-meter"></i></div><b id="heal-value">0/100</b></div>
-        <div id="yard-reward" class="yard-reward">完成委托后，庭院会记住这次照料。</div>
+        <div id="yard-reward" class="yard-reward">完成三段故事与一次照料，即可见证蜕变。</div>
       </section>
 
       <section class="building-card compact-buildings" aria-labelledby="building-title">
-        <div class="section-title-row"><div><span class="eyebrow">支线 · 庭院建设</span><h2 id="building-title">疗愈所设施</h2></div><span class="small-note">点击查看详情</span></div>
+        <div class="section-title-row"><div><span class="eyebrow">支线 · 庭院建设</span><h2 id="building-title">疗愈所设施</h2></div><span class="small-note">升级后立即生效</span></div>
         <div id="building-list" class="building-list"></div>
       </section>
+
+      <section class="job-card" aria-labelledby="job-title">
+        <div class="section-title-row"><div><span class="eyebrow">蜕变兑现 · 岗位产出</span><h2 id="job-title">住客们正在帮忙</h2></div><span class="small-note">离线最多结算 8 小时</span></div>
+        <div id="job-list" class="job-list"></div>
+      </section>
+    </section>
+
+    <section id="codex-view" class="view" aria-labelledby="codex-title">
+      <div class="view-heading">
+        <div><span class="eyebrow">第一卷 · 四兽疗愈图鉴</span><h1 id="codex-title">每次陪伴都会留下痕迹</h1></div>
+        <span id="codex-total" class="stage-chip">0 / 4</span>
+      </div>
+      <aside id="chapter-goal" class="chapter-goal"></aside>
+      <div id="codex-list" class="codex-list beast-catalog" data-catalog aria-live="polite"></div>
+      <section id="ending-card" class="ending-card" aria-live="polite"></section>
     </section>
   </main>
 
   <nav class="slice-nav" aria-label="页面导航">
     <button class="nav-button active" data-view="merge-view" type="button" aria-label="打开合成页"><span aria-hidden="true">▦</span><small>合成</small></button>
     <button class="nav-button" data-view="yard-view" type="button" aria-label="打开庭院页"><span aria-hidden="true">⌂</span><small>庭院</small></button>
-    <div class="nav-goal"><span id="goal-progress">主线治疗进度 · 0%</span><i><em id="goal-bar"></em></i></div>
+    <button class="nav-button" data-view="codex-view" type="button" aria-label="打开图鉴页"><span aria-hidden="true">◇</span><small>图鉴</small></button>
+    <div class="nav-goal"><span id="goal-progress">第一卷疗愈进度 · 0%</span><i><em id="goal-bar"></em></i></div>
   </nav>
 
   <div id="toast-root" aria-live="polite"></div>
   <div id="guide-root"></div>
   <div id="modal-root"></div>
+  <div id="care-game-root" aria-live="polite" aria-hidden="true"></div>
 </div>
+<script src="js/merge/data.js"></script>
+<script src="js/merge/core.js"></script>
+<script>
+(function () {
+  var inPrototype = window.location.pathname.indexOf('/prototype/') !== -1;
+  var assetRoot = inPrototype ? '../wechat/assets/art/match3/' : 'assets/art/match3/';
+  window.MATCH3_ASSET_ROOT = assetRoot;
+  window.LINK_GAME_ASSET_ROOT = assetRoot;
+}());
+</script>
+<script src="js/merge/match3.js"></script>
+<script src="js/merge/link-game.js"></script>
+<script src="js/merge/ui.js"></script>
 <script src="merge-slice.js"></script>
 </body>
 </html>
