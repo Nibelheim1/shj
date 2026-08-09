@@ -46,6 +46,7 @@
     <section id="yard-view" class="view" aria-labelledby="yard-heading">
       <div class="yard-scene" id="yard-scene">
         <div class="yard-sky-copy"><span class="eyebrow">庭院回声 · 点击互动</span><h1 id="yard-heading">庭院疗愈目标</h1><p id="yard-copy">当前动作：观察四周</p></div>
+        <div id="yard-beast-switcher" aria-label="切换庭院显示的异兽" hidden></div>
         <div class="yard-path" aria-hidden="true"></div>
         <button id="yard-character" class="yard-character" type="button" aria-label="安抚当前异兽"><img id="yard-beast" alt="当前异兽" /></button>
         <div class="yard-speech" id="yard-speech">“先慢慢来，我们不赶时间。”</div>
@@ -98,7 +99,7 @@
   </main>
 
   <nav class="slice-nav" aria-label="页面导航">
-    <button class="nav-button active" data-view="merge-view" type="button" aria-label="打开合成页"><span aria-hidden="true">▦</span><small>合成</small></button>
+    <button class="nav-button active" data-view="merge-view" type="button" aria-label="打开医馆页"><span aria-hidden="true">▦</span><small>医馆</small></button>
     <button class="nav-button" data-view="yard-view" type="button" aria-label="打开庭院页"><span aria-hidden="true">⌂</span><small>庭院</small></button>
     <button class="nav-button" data-view="codex-view" type="button" aria-label="打开图鉴页"><span aria-hidden="true">◇</span><small>图鉴</small></button>
     <div class="nav-goal"><span id="goal-progress">第一卷疗愈进度 · 0%</span><i><em id="goal-bar"></em></i></div>

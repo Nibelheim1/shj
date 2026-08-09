@@ -61,6 +61,24 @@
     return DATA.beasts.find(function (beast) { return beast.id === id; }) || null;
   }
 
+  function isYardBeastAvailable(state, beastId) {
+    var entry = state && state.beastCases && state.beastCases[beastId];
+    var codex = state && state.codex && state.codex[beastId];
+    if (!entry || !beastDefinition(beastId)) return false;
+    return !!(entry.transformed || entry.status === 'active' || entry.status === 'waiting' || (codex && codex.discovered));
+  }
+
+  function ensureYardBeast(state) {
+    if (!state) return null;
+    var candidate = state.yardBeastId;
+    if (!isYardBeastAvailable(state, candidate)) candidate = state.activeCaseId;
+    if (!isYardBeastAvailable(state, candidate)) {
+      candidate = BEAST_IDS.find(function (id) { return isYardBeastAvailable(state, id); });
+    }
+    state.yardBeastId = candidate || BEAST_IDS[0];
+    return state.yardBeastId;
+  }
+
   function makeItem(family, tier) {
     var definition = familyDefinition(family);
     var safeTier = clamp(Math.floor(number(tier, 1)), 1, TIER_CAP);
@@ -168,6 +186,7 @@
       storage: { slots: 3, items: [null, null, null] },
       beastCases: cases,
       activeCaseId: 'qiongqi',
+      yardBeastId: 'qiongqi',
       transformedOrder: [],
       pendingTransformation: null,
       codex: codex,
@@ -295,6 +314,7 @@
     var qiongqi = normalizeCase(oldBeast, 'qiongqi');
     state.beastCases.qiongqi = qiongqi;
     state.activeCaseId = 'qiongqi';
+    state.yardBeastId = raw.yardBeastId || raw.displayBeastId || 'qiongqi';
     qiongqi.status = 'active';
     if (qiongqi.storyProgress >= 3 && qiongqi.careDone) {
       qiongqi.transformed = true;
@@ -322,6 +342,7 @@
     state.lastSeenAt = number(raw.lastSeenAt != null ? raw.lastSeenAt : raw.lastEnergyTick, now);
     state.lastEnergyTick = number(raw.lastEnergyTick, state.lastSeenAt);
     removeGroomGenerator(state);
+    ensureYardBeast(state);
     state.activeOrders = [];
     ensureOrders(state, Math.random);
     syncLegacyAliases(state);
@@ -373,6 +394,7 @@
     state.daily = Object.assign(freshDaily(date), raw.daily || {});
     state.activeOrders = Array.isArray(raw.activeOrders) ? raw.activeOrders.map(normalizeOrder).filter(Boolean).slice(0, 3) : [];
     state.pendingTransformation = raw.pendingTransformation || null;
+    ensureYardBeast(state);
     state.lastSeenAt = number(raw.lastSeenAt, now);
     state.lastEnergyTick = number(raw.lastEnergyTick, state.lastSeenAt);
     ensureOrders(state, Math.random);
@@ -708,6 +730,7 @@
     }
     entry.status = 'active';
     state.activeCaseId = beastId;
+    state.yardBeastId = beastId;
     state.codex[beastId].discovered = true;
     state.lastSeenAt = Math.max(number(state.lastSeenAt, 0), number(now, state.lastSeenAt));
     state.activeOrders = [];
@@ -1092,6 +1115,12 @@
     return { ok: true, beastId: beastId };
   }
 
+  function selectYardBeast(state, beastId) {
+    if (!isYardBeastAvailable(state, beastId)) return { ok: false, reason: 'beast-locked' };
+    state.yardBeastId = beastId;
+    return { ok: true, beastId: beastId };
+  }
+
   function unlockCell(state) {
     if (state.unlockedCells >= TOTAL) return { ok: false, reason: 'all-unlocked' };
     var cost = 18 + Math.floor((state.unlockedCells - DATA.board.startUnlockedCells) / 3) * 8;
@@ -1168,6 +1197,7 @@
     rerollOrder: rerollOrder,
     acknowledgeTransformation: acknowledgeTransformation,
     activateCase: activateCase,
+    selectYardBeast: selectYardBeast,
     unlockCell: unlockCell,
     cleanObstacle: cleanObstacle,
     unlockSealed: unlockSealed,

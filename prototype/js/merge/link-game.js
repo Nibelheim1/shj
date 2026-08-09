@@ -19,7 +19,9 @@
   var ROWS = 8;
   var TYPES = 6;
   var PAIRS = 24;
-  var GAME_SECONDS = 90;
+  var GAME_SECONDS = 45;
+  var TIME_PICKUP_SECONDS = 5;
+  var TIME_PICKUP_LIFE = 4.5;
   var SYMBOLS = ['🍎', '🪁', '🎈', '🧸', '🌸', '⭐'];
   var NAMES = ['play_01', 'play_02', 'play_03', 'play_04', 'play_05', 'play_06'];
   var DEFAULT_ASSET_ROOT = 'assets/art/match3/';
@@ -109,6 +111,9 @@
     this.timeLimit = Math.max(1, finite(this.opts.timeLimit, GAME_SECONDS));
     this.timeLeft = this.timeLimit;
     this.elapsed = 0;
+    this.timePickup = null;
+    this.nextTimePickupAt = 4 + this.rng() * 2;
+    this.timePickupsCollected = 0;
     this.finished = false;
     this.phase = 'idle';
 
@@ -320,6 +325,20 @@
     return true;
   };
 
+  Game.prototype._spawnTimePickup = function () {
+    if (this.timePickup || this.finished) return;
+    this.timePickup = { life: TIME_PICKUP_LIFE, seconds: TIME_PICKUP_SECONDS };
+    this.nextTimePickupAt = this.elapsed + 4 + this.rng() * 2;
+  };
+
+  Game.prototype.collectTimePickup = function () {
+    if (this.finished || !this.timePickup) return false;
+    this.timeLeft += Number(this.timePickup.seconds) || TIME_PICKUP_SECONDS;
+    this.timePickup = null;
+    this.timePickupsCollected++;
+    return true;
+  };
+
   Game.prototype._shuffleRemaining = function () {
     var cells = [], slots = [], r, c, i, tries, values, pair, a, b;
     for (r = 0; r < this.rows; r++) {
@@ -419,6 +438,7 @@
     if (!rect) return false;
     this._pendingFinish = false;
     this._pendingCancel = false;
+    if (rect.timeItem && rectContains(x, y, rect.timeItem)) return this.collectTimePickup();
     if (rect.finishB && rectContains(x, y, rect.finishB)) { this._pendingFinish = true; return true; }
     if (rect.cancelB && rectContains(x, y, rect.cancelB)) { this._pendingCancel = true; return true; }
     if (rect.items) {
@@ -482,6 +502,11 @@
     seconds = Math.max(0, seconds);
     this.elapsed += seconds;
     this.timeLeft = Math.max(0, this.timeLeft - seconds);
+    if (this.timePickup) {
+      this.timePickup.life -= seconds;
+      if (this.timePickup.life <= 0) this.timePickup = null;
+    }
+    if (!this.timePickup && this.elapsed >= this.nextTimePickupAt && this.timeLeft > 0) this._spawnTimePickup();
     if (this.connection) {
       this.connection.life -= seconds;
       if (this.connection.life <= 0) this.connection = null;
@@ -498,7 +523,10 @@
       this.comboTimer -= seconds;
       if (this.comboTimer <= 0) this.combo = 0;
     }
-    if (this.timeLeft <= 0) this.finish(true);
+    if (this.timeLeft <= 0) {
+      this.timeLeft = 0;
+      this.finish(true);
+    }
   };
 
   Game.prototype._summary = function () {
@@ -510,6 +538,8 @@
       pairsCleared: this.pairsCleared,
       totalPairs: this.totalPairs,
       maxCombo: this.maxCombo,
+      timeLimit: this.timeLimit,
+      timePickups: this.timePickupsCollected,
       timeLeft: Math.max(0, this.timeLeft),
       itemUses: {
         hint: this.itemUses.hint,
@@ -616,7 +646,7 @@
     if (!ctx) return;
     W = Math.max(1, finite(W, 390));
     H = Math.max(1, finite(H, 844));
-    var topH = Math.min(82, Math.max(62, H * 0.13));
+    var topH = Math.min(96, Math.max(82, H * 0.14));
     var toolH = Math.min(74, Math.max(58, H * 0.12));
     var bottomH = Math.min(58, Math.max(48, H * 0.09));
     var gap = Math.max(8, Math.min(16, H * 0.02));
@@ -640,12 +670,28 @@
     ctx.font = '500 11px sans-serif';
     ctx.fillStyle = 'rgba(255,239,245,0.82)';
     if (ctx.fillText) ctx.fillText('相同图案连线，最多两个转弯', W / 2, 43);
+    var timeX = 16, timeY = 56, timeW = W - 32, timeH = 10;
+    this._roundRect(ctx, timeX, timeY, timeW, timeH, timeH / 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.28)'; if (ctx.fill) ctx.fill();
+    var timeRatio = clamp(this.timeLeft / this.timeLimit, 0, 1);
+    this._roundRect(ctx, timeX, timeY, Math.max(timeH, timeW * timeRatio), timeH, timeH / 2);
+    ctx.fillStyle = timeRatio <= 0.22 ? '#F27E73' : '#F58A9F'; if (ctx.fill) ctx.fill();
     ctx.font = '600 12px sans-serif';
-    ctx.textAlign = 'left';
-    if (ctx.fillText) ctx.fillText(this.progressText(), 16, 66);
+    ctx.textAlign = 'left'; ctx.fillStyle = '#FFF0F5';
+    if (ctx.fillText) ctx.fillText('剩余 ' + Math.ceil(this.timeLeft) + ' 秒', 16, 80);
     ctx.textAlign = 'right';
-    ctx.fillStyle = this.timeLeft <= 10 ? '#FFD17E' : '#FFF0F5';
-    if (ctx.fillText) ctx.fillText('剩余 ' + Math.ceil(this.timeLeft) + 's', W - 16, 66);
+    if (ctx.fillText) ctx.fillText('得分 ' + this.score + ' · ' + this.progressText(), W - 16, 80);
+
+    if (this.timePickup) {
+      var timeItem = { x: Math.max(timeX, W / 2 - 33), y: timeY - 7, w: 66, h: 24 };
+      rect.timeItem = timeItem;
+      this._roundRect(ctx, timeItem.x, timeItem.y, timeItem.w, timeItem.h, 9);
+      ctx.fillStyle = '#FFF2BF'; if (ctx.fill) ctx.fill();
+      ctx.strokeStyle = '#E4B65F'; ctx.lineWidth = 2; if (ctx.stroke) ctx.stroke();
+      ctx.fillStyle = '#8D633C'; ctx.font = '800 10px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (ctx.fillText) ctx.fillText('⏱ +5秒', timeItem.x + timeItem.w / 2, timeItem.y + timeItem.h / 2 + 1);
+    }
 
     this._roundRect(ctx, bx - panelPad, by - panelPad, boardW + panelPad * 2, boardH + panelPad * 2, 14);
     ctx.fillStyle = '#FBE0E9'; if (ctx.fill) ctx.fill();
@@ -696,6 +742,7 @@
     COLS: COLS,
     ROWS: ROWS,
     TOTAL_PAIRS: PAIRS,
+    GAME_SECONDS: GAME_SECONDS,
     symbols: SYMBOLS.slice(),
     assets: NAMES.slice(),
     _imageCache: imageCache

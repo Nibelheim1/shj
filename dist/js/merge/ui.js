@@ -44,11 +44,27 @@
     return DATA.beasts.find(function (beast) { return beast.id === id; }) || DATA.beasts[0];
   }
 
-  function caseForDisplay() {
-    var id = state.activeCaseId || state.pendingTransformation;
-    if (!id && state.transformedOrder && state.transformedOrder.length) id = state.transformedOrder[state.transformedOrder.length - 1];
+  function caseForId(id) {
     id = id || 'qiongqi';
     return { id: id, definition: beastDef(id), entry: state.beastCases[id] };
+  }
+
+  function yardBeastAvailable(id) {
+    var entry = state.beastCases && state.beastCases[id];
+    var codex = state.codex && state.codex[id];
+    return !!entry && !!(entry.transformed || entry.status === 'active' || entry.status === 'waiting' || (codex && codex.discovered));
+  }
+
+  function activeCaseForDisplay() {
+    var id = state.activeCaseId || state.pendingTransformation;
+    if (!id && state.transformedOrder && state.transformedOrder.length) id = state.transformedOrder[state.transformedOrder.length - 1];
+    return caseForId(id);
+  }
+
+  function caseForDisplay() {
+    var id = state.yardBeastId;
+    if (!yardBeastAvailable(id)) id = activeCaseForDisplay().id;
+    return caseForId(id);
   }
 
   function familyDef(family) { return DATA.families[family]; }
@@ -319,7 +335,7 @@
       return;
     }
     if (state.activeCaseId) {
-      var current = caseForDisplay();
+      var current = activeCaseForDisplay();
       if (current.entry.storyProgress >= 3 && !current.entry.careDone) {
         node.innerHTML = '<button data-go-yard type="button">去庭院</button><strong>最后一步：陪伴 ' + esc(current.definition.name) + '</strong>照料不消耗体力；跳过或超时也有基础奖励。';
       } else {
@@ -452,16 +468,35 @@
     return '故事 ' + entry.storyProgress + '/3 · 照料 ' + (entry.careDone ? '1/1' : '0/1');
   }
 
+  function renderYardSwitcher() {
+    var node = q('yard-beast-switcher');
+    if (!node) return;
+    var available = DATA.beasts.filter(function (beast) { return yardBeastAvailable(beast.id); });
+    if (available.length < 2) {
+      node.innerHTML = '';
+      node.hidden = true;
+      return;
+    }
+    node.hidden = false;
+    node.innerHTML = available.map(function (beast) {
+      var entry = state.beastCases[beast.id];
+      var stage = entry && entry.transformed ? 3 : Math.max(0, Math.min(3, Number(entry && entry.stage) || 0));
+      var active = beast.id === state.yardBeastId;
+      return '<button type="button" data-yard-beast="' + esc(beast.id) + '" aria-current="' + (active ? 'true' : 'false') + '" class="' + (active ? 'active' : '') + '" aria-label="切换庭院显示为' + esc(beast.name) + '"><img src="' + esc(beast.art[stage] || beast.art[0]) + '" alt="" /><strong>' + esc(beast.name) + '</strong></button>';
+    }).join('');
+  }
+
   function renderYard() {
     var display = caseForDisplay();
     var definition = display.definition;
     var entry = display.entry;
     var stage = Math.max(0, Math.min(3, Number(entry.stage) || 0));
+    var activeResident = display.id === state.activeCaseId && !entry.transformed;
     var art = definition.art[stage] || definition.art[0];
     q('yard-beast').src = art;
     q('yard-beast').alt = definition.name + ' · ' + definition.stageNames[stage];
-    q('yard-heading').textContent = state.activeCaseId ? '陪伴' + definition.name + '慢慢恢复' : definition.name + '已经成为疗愈所伙伴';
-    q('yard-copy').textContent = state.activeCaseId ? activeCareText(entry) : '岗位已生效 · 下一位住客在委托栏等待';
+    q('yard-heading').textContent = activeResident ? '陪伴' + definition.name + '慢慢恢复' : entry.transformed ? definition.name + '已经成为疗愈所伙伴' : '庭院里的' + definition.name;
+    q('yard-copy').textContent = activeResident ? activeCareText(entry) : entry.transformed ? '岗位已生效 · 点击其他住客可切换显示' : '等待下一段疗愈委托';
     q('yard-speech').textContent = '“' + definition.dialogue[stage] + '”';
     q('case-label').textContent = definition.name + ' · 病历与关系';
     q('beast-stage').textContent = definition.stageNames[stage];
@@ -471,6 +506,7 @@
     q('trust-meter').style.width = Math.min(100, entry.trust / 60 * 100) + '%';
     q('heal-meter').style.width = Math.min(100, entry.heal) + '%';
     q('yard-reward').textContent = entry.transformed ? '已蜕变 · ' + definition.job.title + '岗位效果永久生效。' : activeCareText(entry) + '。三段故事与一次照料缺一不可。';
+    renderYardSwitcher();
     var herbHotspot = document.querySelector('[data-hotspot="herb"]');
     if (herbHotspot) {
       var storedHerbs = state.facilities.herb.stored.length;
@@ -949,7 +985,7 @@
     var rewardText = Object.keys(itemGroups).map(function (key) {
       var group = itemGroups[key];
       return esc(group.item.name) + ' ×' + group.count;
-    }).join('、');
+    }).join('、') || '基础照料奖励';
     var score = Math.max(0, Math.round(Number(summary && summary.score) || 0));
     var perf = Math.round(Math.max(0, Math.min(1, Number(summary && summary.perf) || 0)) * 100);
     var label = outcome === 'mastery' ? '精通' : outcome === 'complete' ? '完成' : outcome === 'timeout' ? '时间到也没关系' : '已跳过';
@@ -1036,6 +1072,12 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-care]'), function (button) {
       button.addEventListener('click', function () { openCare(button.dataset.care); });
     });
+    q('yard-beast-switcher').addEventListener('click', function (event) {
+      var button = event.target.closest('[data-yard-beast]');
+      if (!button) return;
+      var result = Core.selectYardBeast(state, button.dataset.yardBeast);
+      mutate(result, '庭院已切换为' + beastDef(button.dataset.yardBeast).name);
+    });
     q('yard-facilities-open').addEventListener('click', openFacilitiesDrawer);
     q('yard-jobs-open').addEventListener('click', openJobsDrawer);
     q('yard-character').addEventListener('click', function () {
@@ -1045,7 +1087,7 @@
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-hotspot]'), function (button) {
       button.addEventListener('click', function () {
-        if (button.dataset.hotspot === 'clinic') { switchView('codex-view'); return; }
+        if (button.dataset.hotspot === 'clinic') { switchView('merge-view'); return; }
         if (button.dataset.hotspot === 'herb' && state.facilities.herb.stored.length) {
           claimFacilityAndShow('herb'); return;
         }

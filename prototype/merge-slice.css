@@ -205,6 +205,24 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 .facility-claim-summary small{color:var(--muted);font-size:8px;line-height:1.35}
 .facility-loop{display:grid;gap:3px;margin-top:7px;padding:7px 8px;border:1px solid #9bc79b66;border-radius:9px;background:#eef5e9;color:#557b56}
 .facility-loop b{font-size:9px}.facility-loop span{font-size:8px;line-height:1.35;overflow-wrap:anywhere}
+
+/* Yard resident switcher and care-game time HUD stay compact on narrow phones. */
+#yard-beast-switcher{display:flex;align-items:center;gap:4px;max-width:100%;min-height:0;padding:3px 4px;overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:none;white-space:nowrap}
+#yard-beast-switcher::-webkit-scrollbar{display:none}
+.yard-scene #yard-beast-switcher{position:absolute;left:8px;right:8px;bottom:7px;z-index:8;width:auto;border:1px solid #72533b2b;border-radius:10px;background:#fffdf2d9;box-shadow:0 3px 9px #72533b25}
+#yard-beast-switcher button{display:inline-flex;align-items:center;justify-content:center;gap:3px;flex:0 0 auto;min-width:46px;max-width:78px;height:28px;padding:3px 6px;border:1px solid #72533b2b;border-radius:8px;background:#fff9f0;color:#6d5241;font-size:8px;font-weight:800;white-space:nowrap;cursor:pointer}
+#yard-beast-switcher button:active{transform:translateY(1px)}
+#yard-beast-switcher button[aria-current=true],#yard-beast-switcher button.active{border-color:var(--coral);background:#ffe2d4;color:var(--coral-dark);box-shadow:0 0 0 2px #df795944}
+#yard-beast-switcher button img{width:20px;height:20px;object-fit:contain;flex:0 0 20px}
+#yard-beast-switcher button strong,#yard-beast-switcher button small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#yard-beast-switcher button small{color:var(--muted);font-size:7px}
+.care-time-bar{position:relative;display:flex;align-items:center;gap:5px;height:10px;min-width:0;margin:5px auto 0;padding:2px;border-radius:99px;background:rgba(0,0,0,.28);overflow:hidden}
+.care-time-fill{display:block;width:100%;height:100%;min-width:0;border-radius:inherit;background:linear-gradient(90deg,#9ed9b3,#f5c26b);transform-origin:left center;transition:width .2s linear}
+.care-time-item{display:inline-flex;align-items:center;justify-content:center;gap:3px;min-height:22px;padding:3px 6px;border:1px solid #ffffff4d;border-radius:8px;background:#fff7ecdd;color:#6b4f3a;font-size:8px;font-weight:800;line-height:1.1;white-space:nowrap}
+.care-time-item small{color:#9b775c;font-size:7px;font-weight:700}
+.care-time-item b{color:var(--coral-dark);font-size:9px}
 @media (max-height:720px){#merge-view .view-heading{min-height:30px;height:30px}#merge-view #next-action{height:32px;margin-top:4px;padding:4px 7px;overflow:hidden;white-space:nowrap}#merge-view #next-action strong{display:inline;margin-right:4px;font-size:10px}#merge-view .order-panel,#merge-view .board-card{margin-top:4px}}
 @media (max-width:390px){.item-route-modal,.generator-route-modal{max-height:calc(100dvh - 16px);padding:10px 9px 9px}.item-route-modal .route-step img{width:24px;height:24px}.generator-route-list{max-height:48dvh}.care-score-summary{gap:4px}.care-score-summary span{padding:5px 6px}.facility-claim-summary,.facility-loop{padding:6px 7px}}
 @media (max-width:370px){.slice-nav{gap:4px;padding-left:6px;padding-right:6px}.slice-nav .nav-button{flex-basis:40px;width:40px}.codex-card{grid-template-columns:52px minmax(0,1fr);min-height:84px;padding:5px}.codex-art img{max-height:68px}.order-card{min-width:104px}.brand-mark>span:last-child{display:none}.item-route-modal .item-route-list{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:3px}.generator-route-list{grid-template-columns:1fr}}
+@media (max-width:390px){#yard-beast-switcher{gap:3px;padding:2px 3px}.yard-scene #yard-beast-switcher{left:6px;right:6px;bottom:5px}#yard-beast-switcher button{min-width:42px;max-width:68px;height:26px;padding:2px 5px;font-size:7px}#yard-beast-switcher button img{width:18px;height:18px;flex-basis:18px}.care-time-bar{height:9px;margin-top:4px}.care-time-item{min-height:20px;padding:2px 5px;font-size:7px}.care-time-item small{font-size:6px}}
+@media (max-width:370px){#yard-beast-switcher button{min-width:40px;max-width:62px}.care-time-item{max-width:100%;overflow:hidden;text-overflow:ellipsis}}

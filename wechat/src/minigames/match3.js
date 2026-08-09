@@ -6,7 +6,7 @@
  *   2) 特殊块：4连=条状(消整行/列)、L/T型=炸弹(3x3)、5连=彩石(消全盘同色)，支持特殊块互撞组合
  *   3) 道具栏：局内消除攒「灵力」，可用 锤子 / 洗牌 / 主题道具（每种照料各异）
  *   4) 差异化规则：FEED 得分型 / CLEAN 污渍会扩散 / GROOM 解结连锁传染 / PLAY 热情槽计时倍率
- *   5) 限步：每局有步数上限，用完自动结算（仍是零失败，只影响表现分）
+ *   5) 倒计时：每局 45 秒，期间会随机出现可增加 5 秒的时间道具
  *
  * 用法：
  *   Match3.preload();
@@ -17,7 +17,10 @@
 (function (global) {
   'use strict';
 
-  var COLS = 7, ROWS = 8;
+  var COLS = 6, ROWS = 6;
+  var GAME_SECONDS = 45;
+  var TIME_PICKUP_SECONDS = 5;
+  var TIME_PICKUP_LIFE = 4.5;
   // 动画时长（秒）
   var SWAP_T = 0.13, CLEAR_T = 0.20, FALL_T = 0.28;
   var MATCH_PATH = global.MATCH3_ASSET_ROOT || 'assets/art/match3/';
@@ -27,10 +30,10 @@
 
   // 4 套图标（每套 6 个）
   var SETS = {
-    FEED:  ['feed_01', 'feed_02', 'feed_03', 'feed_04', 'feed_05', 'feed_06'],
-    CLEAN: ['clean_01', 'clean_02', 'clean_03', 'clean_04', 'clean_05', 'clean_06'],
-    GROOM: ['groom_01', 'groom_02', 'groom_03', 'groom_04', 'groom_05', 'groom_06'],
-    PLAY:  ['play_01', 'play_02', 'play_03', 'play_04', 'play_05', 'play_06']
+    FEED:  ['feed_01', 'feed_02', 'feed_03', 'feed_04', 'feed_05'],
+    CLEAN: ['clean_01', 'clean_02', 'clean_03', 'clean_04', 'clean_05'],
+    GROOM: ['groom_01', 'groom_02', 'groom_03', 'groom_04', 'groom_05'],
+    PLAY:  ['play_01', 'play_02', 'play_03', 'play_04', 'play_05']
   };
   var THEME = {
     FEED:  { bg: '#FFF3E2', tile: '#FBE4C4', accent: '#E8956B', fav: 0, energy: '#F0A868' },
@@ -86,6 +89,15 @@
     this.swapA = null; this.swapB = null;
     this.finished = false;
     this.perf = 0;
+
+    // 每局以 45 秒倒计时为主，步数只保留为历史摘要兼容字段。
+    this.timeLimit = Math.max(1, Number(this.opts.timeLimit) || GAME_SECONDS);
+    this.timeLeft = this.timeLimit;
+    this.elapsed = 0;
+    this.timePickup = null;
+    this.nextTimePickupAt = 4 + Math.random() * 2;
+    this.timePickupsCollected = 0;
+    this._pendingAutoFinish = false;
 
     // 步数
     this.movesLeft = this.rule.moves;
@@ -573,11 +585,42 @@
   };
   Game.prototype._pushFxCell = function (type, r, c, o) { this._pushFx(type, r, c, o || {}); };
 
+  Game.prototype._spawnTimePickup = function () {
+    if (this.timePickup || this.finished) return;
+    this.timePickup = { life: TIME_PICKUP_LIFE, seconds: TIME_PICKUP_SECONDS };
+    this.nextTimePickupAt = this.elapsed + 4 + Math.random() * 2;
+  };
+
+  Game.prototype.collectTimePickup = function () {
+    if (this.finished || !this.timePickup) return false;
+    this.timeLeft += Number(this.timePickup.seconds) || TIME_PICKUP_SECONDS;
+    this.timePickup = null;
+    this.timePickupsCollected++;
+    return true;
+  };
+
   // ---------- 更新 ----------
   Game.prototype.update = function (dt) {
     if (this.finished) return;
     if (!(dt > 0)) dt = 0.016;
     if (dt > 0.1) dt = 0.1;
+
+    this.elapsed += dt;
+    this.timeLeft = Math.max(0, this.timeLeft - dt);
+    if (this.timePickup) {
+      this.timePickup.life -= dt;
+      if (this.timePickup.life <= 0) this.timePickup = null;
+    }
+    if (!this.timePickup && this.elapsed >= this.nextTimePickupAt && this.timeLeft > 0) this._spawnTimePickup();
+    if (this.timeLeft <= 0) {
+      this.timeLeft = 0;
+      this._pendingAutoFinish = true;
+      if (this.drag) {
+        this.drag = null;
+        this.sel = null;
+        this.phase = 'idle';
+      }
+    }
 
     // 震屏衰减
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 26);
@@ -659,7 +702,7 @@
 
     this._updatePerf();
 
-    // 步数耗尽：等棋盘完全稳定（所有连锁跑完）后自动结算
+    // 时间耗尽：等棋盘完全稳定（所有连锁跑完）后自动结算
     if (this._pendingAutoFinish && this.phase === 'idle' && !this.drag) {
       this._pendingAutoFinish = false;
       this.finish(true);
@@ -912,6 +955,7 @@
     rect = rect || this._lastRect;
     if (!rect) return false;
 
+    if (this._inBtn(x, y, rect.timeItem)) return this.collectTimePickup();
     if (this._inBtn(x, y, rect.finishB)) { this._pendingFinish = true; return true; }
     if (this._inBtn(x, y, rect.cancelB)) { this._pendingCancel = true; return true; }
 
@@ -929,8 +973,6 @@
     if (this.itemMode) return this._useItemAt(this.itemMode, cell.r, cell.c);
 
     if (this.phase !== 'idle') return false;
-    if (this.movesLeft <= 0) return false;
-
     this.drag = {
       r: cell.r, c: cell.c,
       x0: x, y0: y,
@@ -1007,7 +1049,6 @@
     this.phase = 'swap'; this.animT = 0;
     this.movesLeft--; this.movesUsed++;
     this._spreadDirt();
-    if (this.movesLeft <= 0) this._pendingAutoFinish = true;
   };
 
   Game.prototype._summary = function () {
@@ -1016,6 +1057,9 @@
       kind: this.kind,
       perf: this.perf,
       score: this.score,
+      timeLeft: Math.max(0, this.timeLeft),
+      timeLimit: this.timeLimit,
+      timePickups: this.timePickupsCollected,
       movesUsed: this.movesUsed,
       movesLeft: this.movesLeft,
       maxCombo: this.maxCombo,
@@ -1061,7 +1105,7 @@
     var pad = Math.min(10, cell * 0.12);
     var rect = { x: bx, y: by, cell: cell, pad: pad, finishB: null, cancelB: null, items: [] };
 
-    this._drawHud(ctx, W, bx, by, boardW, pad);
+    this._drawHud(ctx, W, bx, by, boardW, pad, rect);
 
     // 棋盘底
     this._roundRect(ctx, bx - pad, by - pad, boardW + pad * 2, boardH + pad * 2, 16);
@@ -1114,7 +1158,7 @@
     this._lastRect = rect;
   };
 
-  Game.prototype._drawHud = function (ctx, W, bx, by, boardW, pad) {
+  Game.prototype._drawHud = function (ctx, W, bx, by, boardW, pad, rect) {
     var title = {
       FEED: '喂食 · 喂饱它', CLEAN: '清洁 · 擦净污渍',
       GROOM: '梳毛 · 解开毛结', PLAY: '陪玩 · 攒满欢乐'
@@ -1130,22 +1174,22 @@
     ctx.fillStyle = 'rgba(251,234,210,0.72)';
     ctx.fillText(this.rule.tip, W / 2, 49);
 
-    // 进度条
+    // 时间进度条：不再用步数限制，45 秒内完成即可。
     var pw = Math.min(boardW, W - 48), px = (W - pw) / 2, py = 62, ph = 10;
     this._roundRect(ctx, px, py, pw, ph, ph / 2);
     ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.fill();
-    this._roundRect(ctx, px, py, Math.max(ph, pw * this.perf), ph, ph / 2);
-    ctx.fillStyle = this.theme.accent; ctx.fill();
+    var timeRatio = clamp(this.timeLeft / this.timeLimit, 0, 1);
+    this._roundRect(ctx, px, py, Math.max(ph, pw * timeRatio), ph, ph / 2);
+    ctx.fillStyle = timeRatio <= 0.22 ? '#F27E73' : this.theme.accent; ctx.fill();
 
-    // 左：进度文字  右：步数 / 连击
+    // 左：剩余时间；右：当前得分
     ctx.font = '600 12px "PingFang SC",sans-serif';
     ctx.textAlign = 'left'; ctx.fillStyle = '#FBEAD2';
-    ctx.fillText(this.progressText(), px, py + 24);
+    ctx.fillText('剩余 ' + Math.ceil(this.timeLeft) + ' 秒', px, py + 24);
 
     ctx.textAlign = 'right';
-    var movesTxt = '步数 ' + this.movesLeft;
-    ctx.fillStyle = this.movesLeft <= 3 ? '#FFB4A2' : '#FBEAD2';
-    ctx.fillText(movesTxt, px + pw, py + 24);
+    ctx.fillStyle = '#FBEAD2';
+    ctx.fillText('得分 ' + this.score, px + pw, py + 24);
 
     // 中：连击 / 热情
     ctx.textAlign = 'center';
@@ -1160,6 +1204,17 @@
     } else if (this.maxCombo > 1) {
       ctx.fillStyle = '#FBEAD2'; ctx.font = '600 12px "PingFang SC",sans-serif';
       ctx.fillText('连击 x' + this.maxCombo, W / 2, py + 24);
+    }
+
+    if (this.timePickup) {
+      var pickup = { x: Math.max(px, px + pw - 66), y: py - 7, w: 66, h: 24 };
+      rect.timeItem = pickup;
+      this._roundRect(ctx, pickup.x, pickup.y, pickup.w, pickup.h, 9);
+      ctx.fillStyle = '#FFF2BF'; ctx.fill();
+      ctx.strokeStyle = '#E4B65F'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = '#8D633C'; ctx.font = '800 10px "PingFang SC",sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('⏱ +5秒', pickup.x + pickup.w / 2, pickup.y + pickup.h / 2 + 1);
     }
   };
 
@@ -1411,5 +1466,5 @@
     ctx.fillText(label, b.x + b.w / 2, b.y + b.h / 2 + 1);
   };
 
-  global.Match3 = { Game: Game, preload: preload, imgCache: cache, SP: SP, RULE: RULE };
+  global.Match3 = { Game: Game, preload: preload, imgCache: cache, SP: SP, RULE: RULE, COLS: COLS, ROWS: ROWS, GAME_SECONDS: GAME_SECONDS };
 })(window);
