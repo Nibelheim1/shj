@@ -61,10 +61,14 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 .board-topline span { margin-left:6px; color:var(--muted); font-size:9px; }
 .board-actions { display:flex; align-items:center; gap:7px; min-width:0; }
 .storage-open { padding:3px 6px; border:1px solid #e4b65f88; border-radius:99px; background:#fff4d8; }
-.merge-board { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; padding:5px; border-radius:13px; background:linear-gradient(145deg,#e3ccb5,#f5e3d0); border:1px solid #72533b1e; touch-action:pan-y; }
-.merge-cell { position:relative; display:grid; place-items:center; aspect-ratio:1; min-width:0; border:1px solid #72533b1e; border-radius:7px; background:#fff8edbf; cursor:pointer; touch-action:pan-y; transition:transform .12s,box-shadow .12s; user-select:none; }
+.merge-board { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; padding:5px; border-radius:13px; background:linear-gradient(145deg,#e3ccb5,#f5e3d0); border:1px solid #72533b1e; touch-action:none; }
+.merge-board.is-dragging { cursor:grabbing; }
+.merge-cell { position:relative; display:grid; place-items:center; aspect-ratio:1; min-width:0; border:1px solid #72533b1e; border-radius:7px; background:#fff8edbf; cursor:grab; touch-action:none; transition:transform .12s,box-shadow .12s,background .12s; user-select:none; }
+.merge-cell:active { cursor:grabbing; }
 .merge-cell.locked { background:repeating-linear-gradient(135deg,#c3a58435 0 5px,#fff8ed55 5px 10px); opacity:.58; cursor:pointer; }
 .merge-cell.selected { transform:translateY(-2px) scale(1.05); background:#fff7d9; box-shadow:0 0 0 3px #df795966,0 4px 8px #c76e4d38; z-index:2; }
+.merge-cell.drag-source { transform:translateY(-4px) scale(1.08) rotate(-2deg); background:#fff2bd; box-shadow:0 0 0 4px #df7959aa,0 8px 16px #72533b44; z-index:4; }
+.merge-cell.drag-over { transform:scale(1.08); background:#e6f2d6; box-shadow:0 0 0 3px #7eaf79cc,0 5px 12px #6a9b6266; z-index:3; }
 .merge-cell.generated-pop { animation:generated-pop .55s ease; }
 @keyframes generated-pop { 35%{transform:scale(1.15);box-shadow:0 0 0 4px #9bc79b99,0 5px 12px #6a9b6266} 100%{transform:scale(1)} }
 .merge-cell.merge-target { box-shadow:0 0 0 3px #e4b65fbb; animation:target-pulse .75s ease-in-out infinite; }
@@ -78,6 +82,7 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 .merge-cell.generator-tile.generator-locked { background:linear-gradient(145deg,#e4dbca,#cfc2ad); filter:grayscale(.35); opacity:.72; }
 .generator-tile span { font-size:22px; }
 .generator-tile em { position:absolute; bottom:1px; max-width:100%; overflow:hidden; color:#4e7750; font-size:6px; font-style:normal; white-space:nowrap; }
+.merge-cell.locked em { color:#9b612c; font-weight:900; }
 .selection-hint { min-height:15px; padding-top:5px; text-align:center; color:var(--muted); font-size:9px; }
 .item-info-root { min-height:0; }
 .route-sheet-layer { position:fixed; inset:0; z-index:82; pointer-events:none; }
@@ -391,4 +396,20 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 
 @media (max-width:370px) {
   .care-game-warning { width:calc(100vw - 20px); padding:6px 8px; font-size:10px; }
+}
+
+.care-gate-hint { display:flex; align-items:center; min-height:26px; padding:4px 6px; border:1px dashed #e4b65f99; border-radius:7px; background:#fff4d9; color:#8d6949; font-size:8px; font-weight:900; line-height:1.2; }
+.care-gate-btn { background:#d88955; }
+.care-gate-panel { display:grid; gap:6px; margin-top:10px; padding:10px; border:1px solid #e4b65f88; border-radius:11px; background:#fff4d9; color:#805a3b; font-size:10px; line-height:1.4; }
+.care-gate-panel strong { color:#9b612c; font-size:11px; }
+.care-gate-panel small { color:#9a8271; font-size:8px; }
+.task-need-row small { display:block; margin-top:2px; color:var(--muted); font-size:8px; line-height:1.25; }
+#yard-beast-switcher button { flex-direction:column; height:38px; min-width:58px; gap:0; }
+#yard-beast-switcher button small { max-width:100%; overflow:hidden; color:var(--muted); font-size:6px; line-height:1.1; white-space:nowrap; text-overflow:ellipsis; }
+
+/* Keep the source and interaction hint visible on short phones: this is
+   essential guidance, not decorative copy. */
+@media (max-height:720px) {
+  #merge-view .order-card .order-progress { display:block; max-width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; line-height:1.2; }
+  #merge-view .selection-hint { min-height:16px; max-height:18px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:clamp(7px,2vw,9px); }
 }

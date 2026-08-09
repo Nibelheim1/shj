@@ -24,6 +24,7 @@
   var readOnlyNewerSave = false;
   var migrationSource = null;
   var longPressState = null;
+  var boardDragState = null;
   var suppressClickUntil = 0;
   var LONG_PRESS_MS = 520;
 
@@ -405,12 +406,22 @@
     return '前置：完成上一阶段目标';
   }
 
+  function sourceLabelForFamily(family) {
+    if (family === 'groom') return '梳洗台消消乐';
+    if (family === 'play') return '亭子连连看';
+    var definition = familyDef(family);
+    return definition ? definition.name + '生成器/合成' : '合成棋盘';
+  }
+
   function orderSourceText(order, reachable) {
-    var hasGroom = (order.requirements || []).some(function (need) { return need.family === 'groom'; });
-    var hasPlay = (order.requirements || []).some(function (need) { return need.family === 'play'; });
-    if (hasGroom) return '梳洗台小游戏按得分获得梳子';
-    if (hasPlay) return '亭子连连看获得陪玩物品';
-    return reachable ? '可由当前生成器合成' : '完成前置疗愈后解锁产线';
+    if (order && order.kind === 'care_gate') return '去庭院完成一次有效照料，自动推进主线';
+    var labels = [];
+    (order && order.requirements || []).forEach(function (need) {
+      var label = sourceLabelForFamily(need.family);
+      if (labels.indexOf(label) < 0) labels.push(label);
+    });
+    var text = labels.length ? labels.join('、') : '合成棋盘';
+    return (reachable ? '来源：' : '当前暂不可达 · 来源：') + text;
   }
 
   function renderOrders() {
@@ -418,16 +429,19 @@
     if (!list) return;
     var orders = Core.ensureOrders(state, Math.random);
     list.innerHTML = orders.map(function (order) {
-      var ready = Core.canDeliver(state, order);
+      var careGate = order.kind === 'care_gate';
+      var ready = careGate ? false : Core.canDeliver(state, order);
       var reachable = Core.isOrderReachable(state, order);
       var requirements = order.requirements || [];
       var mainline = order.mainline === true || order.kind === 'story' || order.kind === 'arrival' || order.kind === 'care_gate';
+      var needsMarkup = careGate ? '<div class="care-gate-hint">去庭院完成一次有效照料（不消耗体力）</div>' : '<div class="order-need-icons">' + requirements.map(needMarkup).join('') + '</div>';
+      var actionMarkup = careGate ? '<button class="deliver-btn care-gate-btn" data-care-gate="' + esc(order.id) + '" type="button">去庭院照料</button>' : '<button class="deliver-btn" data-deliver="' + esc(order.id) + '" type="button" ' + (ready ? '' : 'disabled') + '>交付 · ◆' + (order.rewards.jade || 0) + '</button>';
       return '<article class="order-card ' + (mainline ? 'main-order ' : '') + (ready ? 'ready ' : '') + (!reachable ? 'unreachable' : '') + '" data-order-id="' + esc(order.id) + '">' +
         '<div class="order-head">' + (mainline ? '<span class="mainline-badge">主线</span>' : '') + '<span class="order-kind">' + kindLabel(order.kind) + '</span><strong>' + esc(order.title) + '</strong></div>' +
         '<p>' + esc(order.symptom || '准备需要的素材并完成交付。') + '</p>' +
-        '<div class="order-need-icons">' + requirements.map(needMarkup).join('') + '</div>' +
+        needsMarkup +
         '<span class="order-progress ' + (ready ? 'ready' : '') + '">' + (ready ? '素材齐全，可以交付' : orderSourceText(order, reachable)) + '</span>' +
-        '<button class="deliver-btn" data-deliver="' + esc(order.id) + '" type="button" ' + (ready ? '' : 'disabled') + '>交付 · ◆' + (order.rewards.jade || 0) + '</button>' +
+        actionMarkup +
         '</article>';
     }).join('');
   }
@@ -444,14 +458,15 @@
       var label = '空格';
       if (!unlocked) {
         classes.push('locked');
-        label = '未解锁格子';
-        content = '<span>＋</span><em>扩建</em>';
+        var unlockCost = Core.unlockCellCost ? Core.unlockCellCost(state) : 18;
+        label = '未解锁格子，扩建需要 ◆' + unlockCost;
+        content = '<span>＋</span><em>扩建 · ◆' + unlockCost + '</em>';
       } else if (item && item.kind === 'generator') {
         classes.push('generator-tile');
         if (state.unlockedGenerators.indexOf(item.family) < 0) classes.push('generator-locked');
         var family = familyDef(item.family);
         label = item.name || '生成器';
-        content = '<span>' + esc(family ? family.icon : '✦') + '</span><em>' + esc(label) + '</em>';
+        content = '<span>' + esc(family ? family.icon : '✦') + '</span><em>' + esc(label) + ' · ⚡1</em>';
       } else if (item && item.kind === 'obstacle') {
         classes.push('obstacle'); label = item.name; content = '<span>🌿</span><em>刷 ' + state.cleanTools + '</em>';
       } else if (item && item.kind === 'sealed') {
@@ -493,7 +508,7 @@
     var pending = state.pendingRewards.length;
     var note = q('pending-note');
     note.classList.toggle('pending', pending > 0);
-    note.textContent = pending ? '棋盘已满：' + pending + ' 份奖励安全暂存，腾位后自动入盘。' : '满盘奖励会进入安全队列，不会丢失。';
+    note.textContent = pending ? '待入盘队列 · ' + pending + ' 份奖励安全暂存，腾位后自动入盘。' : '药匣格用于手动存放；满盘奖励会进入待入盘队列，不会丢失。';
     var upgradeIndex = state.storage.slots - 3;
     var cost = DATA.economy.storageCosts[upgradeIndex];
     q('storage-upgrade').textContent = state.storage.slots >= 6 ? '已满级' : '扩容 ◆' + cost;
@@ -518,7 +533,8 @@
       var entry = state.beastCases[beast.id];
       var stage = entry && entry.transformed ? 3 : Math.max(0, Math.min(3, Number(entry && entry.stage) || 0));
       var active = beast.id === state.yardBeastId;
-      return '<button type="button" data-yard-beast="' + esc(beast.id) + '" aria-current="' + (active ? 'true' : 'false') + '" class="' + (active ? 'active' : '') + '" aria-label="切换庭院显示为' + esc(beast.name) + '"><img src="' + esc(beast.art[stage] || beast.art[0]) + '" alt="" /><strong>' + esc(beast.name) + '</strong></button>';
+      var role = beast.id === state.activeCaseId ? '当前治疗对象' : entry && entry.transformed ? '已康复居民' : '可查看居民';
+      return '<button type="button" data-yard-beast="' + esc(beast.id) + '" aria-current="' + (active ? 'true' : 'false') + '" class="' + (active ? 'active' : '') + '" aria-label="切换庭院显示为' + esc(beast.name) + '"><img src="' + esc(beast.art[stage] || beast.art[0]) + '" alt="" /><strong>' + esc(beast.name) + '</strong><small>' + role + '</small></button>';
     }).join('');
   }
 
@@ -539,11 +555,13 @@
     var entry = display.entry;
     var stage = Math.max(0, Math.min(3, Number(entry.stage) || 0));
     var activeResident = display.id === state.activeCaseId && !entry.transformed;
+    var activeTarget = state.activeCaseId && state.beastCases[state.activeCaseId];
+    var activeTargetDef = activeTarget && beastDef(activeTarget.id);
     var art = definition.art[stage] || definition.art[0];
     q('yard-beast').src = art;
     q('yard-beast').alt = definition.name + ' · ' + definition.stageNames[stage];
-    q('yard-heading').textContent = activeResident ? '陪伴' + definition.name + '慢慢恢复' : entry.transformed ? definition.name + '已经成为疗愈所伙伴' : '庭院里的' + definition.name;
-    q('yard-copy').textContent = activeResident ? activeCareText(entry) : entry.transformed ? '岗位已生效 · 点击其他住客可切换显示' : '等待下一段疗愈委托';
+    q('yard-heading').textContent = activeResident ? '陪伴' + definition.name + '慢慢恢复' : entry.transformed ? definition.name + '已经成为疗愈所伙伴' : '查看' + definition.name + '的状态';
+    q('yard-copy').textContent = activeResident ? activeCareText(entry) : entry.transformed ? '岗位已生效 · ' + (activeTargetDef ? '当前治疗对象：' + activeTargetDef.name + ' · ' : '') + '这里正在查看' + definition.name : '当前治疗对象：' + (activeTargetDef ? activeTargetDef.name : '暂无') + ' · 这里正在查看' + definition.name;
     q('yard-speech').textContent = '“' + definition.dialogue[stage] + '”';
     q('case-label').textContent = definition.name + ' · 病历与关系';
     q('beast-stage').textContent = definition.stageNames[stage];
@@ -597,7 +615,7 @@
   function facilitySummary(id) {
     var level = state.facilities[id].level;
     if (id === 'herb') {
-      if (!level) return '定时产药 · 离线积累';
+      if (!level) return '未建成 · 升级后开始定时产药';
       var config = DATA.facilities.herb.levels[level - 1];
       var cap = config.cap + (state.beastCases.xiangliu.transformed ? 1 : 0);
       var minutes = Math.round(config.intervalMinutes * (state.beastCases.xiangliu.transformed ? 0.8 : 1));
@@ -605,7 +623,7 @@
       var next = stored >= cap ? '已满，点击领取' : '下一份约 ' + Math.max(1, Math.ceil((config.intervalMs - state.facilities.herb.progressMs) / 60000)) + ' 分钟';
       return minutes + '分钟/份 · 暂存' + stored + '/' + cap + ' · ' + next;
     }
-    if (!level) return '提升照料奖励 · 保底不失败';
+    if (!level) return '未建成 · 升级后提升照料奖励';
     return '每日强化 ' + DATA.facilities.groom.levels[level - 1].dailyBoosts + ' 次';
   }
 
@@ -701,8 +719,120 @@
       requirements: '素材还没准备齐', jade: '暖玉不足',
       'storage-full': '暂存区已满', 'no-brush': '净化刷不足',
       empty: '当前没有可领取产出', 'no-rerolls': '今天的免费刷新已用完',
-      'care-required': '请到庭院完成一次不消耗体力的照料'
+      'care-required': '请到庭院完成一次不消耗体力的照料',
+      'not-match': '只能合成同类、同阶的两个素材',
+      occupied: '目标格已有素材，请拖到空格或同类同阶素材上',
+      'locked-cell': '这个格子还未解锁',
+      'invalid-cell': '这个位置暂时不能放置素材'
     }[reason] || '现在还不能完成这个动作';
+  }
+
+  function boardCellAtPoint(clientX, clientY) {
+    var board = q('merge-board');
+    if (!board || !document || typeof document.elementFromPoint !== 'function') return null;
+    var target = document.elementFromPoint(clientX, clientY);
+    var cell = target && target.closest ? target.closest('[data-grid-index]') : null;
+    return cell && board.contains(cell) ? Number(cell.dataset.gridIndex) : null;
+  }
+
+  function clearBoardDragClasses() {
+    var board = q('merge-board');
+    if (!board) return;
+    board.classList.remove('is-dragging');
+    Array.prototype.forEach.call(board.querySelectorAll('.drag-source,.drag-over'), function (cell) {
+      cell.classList.remove('drag-source', 'drag-over');
+    });
+  }
+
+  function dropBoardItem(fromIndex, toIndex) {
+    var target = state.grid[toIndex];
+    selectedIndex = null;
+    if (!target) {
+      var moved = Core.moveBoardItem(state, fromIndex, toIndex);
+      if (moved.ok) mutate(moved, '素材已移动 · 可继续拖动合成', null, 'click');
+      else { render(); toast(failureText(moved)); }
+      return moved;
+    }
+    if (target.kind) {
+      render();
+      toast('只能把素材拖到空格，或拖到同类同阶素材上');
+      return { ok: false, reason: 'occupied' };
+    }
+    var merged = Core.mergeItems(state, fromIndex, toIndex, Date.now());
+    if (merged.ok) mutate(merged, '合成成功 · ' + itemName(merged.item), null, 'merge');
+    else { render(); toast(failureText(merged)); }
+    return merged;
+  }
+
+  function boardPointerDown(event) {
+    var board = q('merge-board');
+    var target = event.target && event.target.closest ? event.target.closest('[data-grid-index]') : null;
+    if (!board || !target || !board.contains(target)) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    var index = Number(target.dataset.gridIndex);
+    var item = state.grid[index];
+    if (index >= state.unlockedCells || !item || item.kind) return;
+    boardDragState = {
+      pointerId: event.pointerId,
+      fromIndex: index,
+      startX: Number(event.clientX) || 0,
+      startY: Number(event.clientY) || 0,
+      dragging: false,
+      targetIndex: null
+    };
+  }
+
+  function boardPointerMove(event) {
+    if (!boardDragState || boardDragState.pointerId !== event.pointerId) return;
+    var dx = (Number(event.clientX) || 0) - boardDragState.startX;
+    var dy = (Number(event.clientY) || 0) - boardDragState.startY;
+    if (!boardDragState.dragging) {
+      if (dx * dx + dy * dy < 8 * 8) return;
+      boardDragState.dragging = true;
+      releaseLongPress();
+      var board = q('merge-board');
+      if (board && board.setPointerCapture && event.pointerId != null) {
+        try { board.setPointerCapture(event.pointerId); } catch (error) { /* Synthetic pointers may not be capturable. */ }
+      }
+      if (board) {
+        board.classList.add('is-dragging');
+        var source = board.querySelector('[data-grid-index="' + boardDragState.fromIndex + '"]');
+        if (source) source.classList.add('drag-source');
+      }
+    }
+    if (!boardDragState.dragging) return;
+    event.preventDefault();
+    var targetIndex = boardCellAtPoint(event.clientX, event.clientY);
+    boardDragState.targetIndex = targetIndex;
+    var boardNode = q('merge-board');
+    if (boardNode) {
+      Array.prototype.forEach.call(boardNode.querySelectorAll('.drag-over'), function (cell) { cell.classList.remove('drag-over'); });
+      if (targetIndex != null && targetIndex !== boardDragState.fromIndex) {
+        var target = boardNode.querySelector('[data-grid-index="' + targetIndex + '"]');
+        if (target) target.classList.add('drag-over');
+      }
+    }
+  }
+
+  function boardPointerUp(event) {
+    if (!boardDragState || boardDragState.pointerId !== event.pointerId) return;
+    var drag = boardDragState;
+    boardDragState = null;
+    if (!drag.dragging) return;
+    event.preventDefault();
+    suppressClickUntil = Date.now() + 650;
+    clearBoardDragClasses();
+    if (drag.targetIndex == null || drag.targetIndex === drag.fromIndex) {
+      render();
+      return;
+    }
+    dropBoardItem(drag.fromIndex, drag.targetIndex);
+  }
+
+  function boardPointerCancel(event) {
+    if (!boardDragState || boardDragState.pointerId !== event.pointerId) return;
+    boardDragState = null;
+    clearBoardDragClasses();
   }
 
   function handleGrid(index) {
@@ -714,7 +844,7 @@
     if (!item) { playSfx('click'); selectedIndex = null; renderBoard(); return; }
     if (item.kind === 'generator') {
       var generated = Core.generate(state, item.family, Math.random, Date.now());
-      if (generated.ok) mutate(generated, '获得 ' + itemName(generated.items[0]));
+      if (generated.ok) mutate(generated, '获得 ' + itemName(generated.items[0]) + (generated.items && generated.items.length > 1 ? ' · 饕餮双倍掉落' : ''));
       else {
         saveState(); render(); toast(failureText(generated));
       }
@@ -763,9 +893,28 @@
     return state.activeOrders.find(function (order) { return order.id === id; });
   }
 
+  function rerollInfo() {
+    var max = 1 + (state.beastCases.jiuweihu && state.beastCases.jiuweihu.transformed ? 1 : 0);
+    var used = Math.max(0, Number(state.daily.rerollsUsed) || 0);
+    return { max: max, remaining: Math.max(0, max - used) };
+  }
+
+  function focusCareGate(order) {
+    if (!order) return;
+    var result = order.beastId ? Core.selectYardBeast(state, order.beastId) : { ok: true };
+    if (!result.ok) { toast(failureText(result)); return; }
+    saveState();
+    closeModal();
+    render();
+    switchView('yard-view');
+    toast('已定位主线异兽 · 点击偏好设施完成一次有效照料');
+  }
+
   function deliver(id) {
     var result = Core.deliverOrder(state, id, Math.random, Date.now());
-    if (!mutate(result, '委托完成 · 新进展已记录', null, 'order')) return result;
+    var message = '委托完成 · 新进展已记录';
+    if (result && result.levelsGained) message += ' · 升级 Lv.' + result.level + '，体力上限 +' + result.levelsGained;
+    if (!mutate(result, message, null, 'order')) return result;
     closeModal();
     if (result.transformed || state.pendingTransformation) root.setTimeout(showTransformation, 120);
     return result;
@@ -774,16 +923,28 @@
   function openOrderDetails(id) {
     var order = orderById(id);
     if (!order) return;
+    if (order.kind === 'care_gate') {
+      var gateBeast = beastDef(order.beastId);
+      var gateCare = gateBeast && gateBeast.careTypes ? gateBeast.careTypes.map(careTypeLabel).join(' / ') : '偏好设施';
+      var gateModal = modalShell('<span class="eyebrow">主线照料节点 · 永久槽位</span><h2>' + esc(order.title) + '</h2><p class="task-symptom">' + esc(order.symptom || '') + '</p>' +
+        '<div class="order-prerequisite"><b>主线前置</b><span>' + esc(prerequisiteText(order)) + '</span></div>' +
+        '<div class="care-gate-panel"><strong>这一步不需要合成素材</strong><span>请到庭院为 ' + esc(gateBeast ? gateBeast.name : '当前异兽') + ' 完成一次有效照料。偏好设施：' + esc(gateCare) + '。</span><small>不消耗体力；跳过或超时也会给基础照料奖励。</small></div>' +
+        '<div class="task-reward">完成节点：推进主线并解锁下一段疗愈</div><button class="modal-action" data-care-gate-detail type="button">去庭院照料</button>', 'task-modal care-gate-modal');
+      if (gateModal) gateModal.querySelector('[data-care-gate-detail]').addEventListener('click', function () { focusCareGate(order); });
+      return;
+    }
     var can = Core.canDeliver(state, order);
+    var roll = rerollInfo();
+    var rerollAvailable = roll.remaining > 0;
     var modal = modalShell('<span class="eyebrow">' + kindLabel(order.kind) + '委托 · 永久槽位</span><h2>' + esc(order.title) + '</h2><p class="task-symptom">' + esc(order.symptom || '') + '</p>' +
       (order.mainline ? '<div class="order-prerequisite"><b>主线前置</b><span>' + esc(prerequisiteText(order)) + '</span></div>' : '') +
       '<div class="task-needs">' + order.requirements.map(function (need) {
         var item = Core.makeItem(need.family, need.tier);
-        return '<div class="task-need-row" data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托详情"><img src="' + esc(itemPath(item)) + '" alt="" /><span><strong>' + esc(item.name) + '</strong><small>' + esc(familyDef(need.family).name) + ' ' + need.tier + '阶</small></span><b>' + countNeed(need) + '/' + need.count + '</b></div>';
-      }).join('') + '</div><div class="task-source-note">同类同阶二合一；梳子与陪玩物品分别来自梳洗台、亭子小游戏，其余素材由生成器与合成产出。</div>' +
+        return '<div class="task-need-row" data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托详情"><img src="' + esc(itemPath(item)) + '" alt="" /><span><strong>' + esc(item.name) + '</strong><small>' + esc(familyDef(need.family).name) + ' · ' + need.tier + '阶 · 来源：' + esc(sourceLabelForFamily(need.family)) + '</small></span><b>' + countNeed(need) + '/' + need.count + '</b></div>';
+      }).join('') + '</div><div class="task-source-note">同类同阶二合一；每种物品都标明了具体来源，小游戏材料需要在对应设施中获得。委托每日自动刷新，刷新页面不会改变槽位；手动刷新消耗今日次数。</div>' +
       '<div class="task-reward">完成奖励：◆' + (order.rewards.jade || 0) + ' · 经验 ' + (order.rewards.xp || 0) + '</div>' +
       '<button class="modal-action" data-modal-deliver type="button" ' + (can ? '' : 'disabled') + '>' + (can ? '立即交付' : '素材尚未齐全') + '</button>' +
-      ((order.slot === 'supply' || order.slot === 'care') ? '<button class="modal-secondary" data-reroll="' + order.slot + '" type="button">免费刷新这个槽位</button>' : ''), 'task-modal');
+      ((order.slot === 'supply' || order.slot === 'care') ? '<button class="modal-secondary" data-reroll="' + order.slot + '" type="button" ' + (rerollAvailable ? '' : 'disabled') + '>免费刷新 ' + roll.remaining + '/' + roll.max + '</button>' : ''), 'task-modal');
     if (!modal) return;
     var deliverButton = modal.querySelector('[data-modal-deliver]');
     if (deliverButton) deliverButton.addEventListener('click', function () { deliver(id); });
@@ -857,7 +1018,7 @@
         (item ? '<img src="' + esc(itemPath(item)) + '" alt="' + esc(itemName(item)) + '" />' : '＋') + '</button>';
     }).join('');
     var cost = DATA.economy.storageCosts[state.storage.slots - 3];
-    var modal = modalShell('<span class="eyebrow">随身药匣 · 满盘奖励不丢失</span><h2>暂存区 ' + state.storage.slots + ' 格</h2><p>点击素材即可放回棋盘；若棋盘仍满，会继续安全保留。</p><div class="storage-list drawer-storage-list">' + slots + '</div><p class="storage-note ' + (state.pendingRewards.length ? 'pending' : '') + '">待入盘奖励 ' + state.pendingRewards.length + ' 份</p><button class="modal-action" data-storage-drawer-upgrade type="button" ' + (state.storage.slots >= 6 ? 'disabled' : '') + '>' + (state.storage.slots >= 6 ? '药匣已满级' : '扩容 · ◆' + cost) + '</button>', 'task-modal storage-modal');
+    var modal = modalShell('<span class="eyebrow">随身药匣 · 满盘奖励不丢失</span><h2>药匣格 ' + state.storage.slots + ' 格</h2><p>点击素材即可放回棋盘；药匣格与满盘后的待入盘队列是两个独立位置。</p><div class="storage-list drawer-storage-list">' + slots + '</div><p class="storage-note ' + (state.pendingRewards.length ? 'pending' : '') + '">待入盘队列 · ' + state.pendingRewards.length + ' 份</p><button class="modal-action" data-storage-drawer-upgrade type="button" ' + (state.storage.slots >= 6 ? 'disabled' : '') + '>' + (state.storage.slots >= 6 ? '药匣已满级' : '扩容 · ◆' + cost) + '</button>', 'task-modal storage-modal');
     if (!modal) return;
     modal.addEventListener('click', function (event) {
       var slot = event.target.closest('[data-storage-drawer-index]');
@@ -1086,8 +1247,9 @@
     var score = Math.max(0, Math.round(Number(summary && summary.score) || 0));
     var perf = Math.round(Math.max(0, Math.min(1, Number(summary && summary.perf) || 0)) * 100);
     var label = result.noReward ? '体验完成' : outcome === 'mastery' ? '精通' : outcome === 'complete' ? '完成' : outcome === 'timeout' ? '时间到也没关系' : '已跳过';
-    var rewardNote = result.noReward ? '当前异兽的照料偏好是' + ((beastDef(session.beastId).careTypes || []).map(careTypeLabel).join(' / ') || '其他设施') + '；切换到偏好设施后，小游戏才会推进病历并发放照料奖励。' : session.type === 'groom' ? '梳洗台小游戏按得分决定梳子数量；物品已进入棋盘或药匣暂存。' : '庭院小游戏不限次数；本次奖励已进入棋盘或药匣暂存。';
-    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · ' + (result.noReward ? '无奖励体验' : '零失败结算') + '</span><h2>' + esc(beastDef(session.beastId).name) + (result.noReward ? '陪你玩了一局' : '记住了这次陪伴') + '</h2><img src="' + esc(beastDef(session.beastId).art[state.beastCases[session.beastId].stage]) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div><div class="task-reward">' + (result.noReward ? '' : '获得 ') + rewardText + '<br /><small>' + rewardNote + '</small></div><button class="modal-action" data-care-continue type="button">继续</button></div>', 'task-modal');
+    var tierNote = outcome === 'mastery' ? '精通：基础 3 阶' : outcome === 'complete' ? '完成：基础 2 阶' : '跳过/超时：基础 1 阶';
+    var rewardNote = result.noReward ? '当前异兽的照料偏好是' + ((beastDef(session.beastId).careTypes || []).map(careTypeLabel).join(' / ') || '其他设施') + '；切换到偏好设施后，小游戏才会推进病历并发放照料奖励。' : (result.firstCare ? '治疗节点已推进 · ' : '治疗节点已完成 · 本局仅获得素材 · ') + tierNote + '；' + (session.type === 'groom' ? '梳洗台得分 500/1200 分对应额外掉落数量。' : '本次奖励已进入棋盘或药匣暂存。');
+    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · ' + (result.noReward ? '无奖励体验' : '零失败结算') + '</span><h2>' + esc(beastDef(session.beastId).name) + (result.noReward ? '陪你玩了一局' : result.firstCare ? '完成了一次治疗照料' : '治疗已完成 · 本局仅获素材') + '</h2><img src="' + esc(beastDef(session.beastId).art[state.beastCases[session.beastId].stage]) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div><div class="task-reward">' + (result.noReward ? '' : '获得 ') + rewardText + '<br /><small>' + rewardNote + '</small></div><button class="modal-action" data-care-continue type="button">继续</button></div>', 'task-modal');
     if (modal) modal.querySelector('[data-care-continue]').addEventListener('click', function () {
       closeModal();
       if (state.pendingTransformation) showTransformation();
@@ -1128,13 +1290,20 @@
     Array.prototype.forEach.call(document.querySelectorAll('.nav-button'), function (button) {
       button.addEventListener('click', function () { switchView(button.dataset.view); });
     });
-    q('merge-board').addEventListener('click', function (event) {
+    var mergeBoard = q('merge-board');
+    mergeBoard.addEventListener('pointerdown', boardPointerDown, { passive: false });
+    mergeBoard.addEventListener('pointermove', boardPointerMove, { passive: false });
+    mergeBoard.addEventListener('pointerup', boardPointerUp, { passive: false });
+    mergeBoard.addEventListener('pointercancel', boardPointerCancel, { passive: false });
+    mergeBoard.addEventListener('click', function (event) {
       if (consumeSuppressedClick()) return;
       var cell = event.target.closest('[data-grid-index]');
       if (cell) handleGrid(Number(cell.dataset.gridIndex));
     });
     q('order-list').addEventListener('click', function (event) {
       if (consumeSuppressedClick()) return;
+      var careGateButton = event.target.closest('[data-care-gate]');
+      if (careGateButton) { event.stopPropagation(); focusCareGate(orderById(careGateButton.dataset.careGate)); return; }
       var deliverButton = event.target.closest('[data-deliver]');
       if (deliverButton) { event.stopPropagation(); deliver(deliverButton.dataset.deliver); return; }
       var card = event.target.closest('[data-order-id]');
@@ -1181,7 +1350,7 @@
     q('yard-character').addEventListener('click', function () {
       var button = q('yard-character');
       button.classList.remove('beast-react'); void button.offsetWidth; button.classList.add('beast-react');
-      toast('它听见了你的脚步声');
+      toast('它听见了你的脚步声 · 这是观察互动，不推进照料进度');
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-hotspot]'), function (button) {
       button.addEventListener('click', function () {

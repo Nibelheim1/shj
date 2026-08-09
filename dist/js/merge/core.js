@@ -587,8 +587,20 @@
     });
   }
 
+  function hasCareSource(state, family) {
+    if (!GAME_SOURCE_FAMILIES[family]) return false;
+    return DATA.beasts.some(function (beast) {
+      var entry = state && state.beastCases && state.beastCases[beast.id];
+      return isYardBeastAvailable(state, beast.id) && entry && beast.careTypes.indexOf(family) >= 0;
+    });
+  }
+
   function maxReachableTier(state, family) {
-    if (GAME_SOURCE_FAMILIES[family]) return TIER_CAP;
+    /* Mini-game materials are only reachable when an available resident can
+       actually reward that game.  Treating every game family as reachable
+       made orders silently ask for the wrong pavilion after a new resident
+       arrived. */
+    if (GAME_SOURCE_FAMILIES[family]) return hasCareSource(state, family) ? TIER_CAP : 0;
     if (state.unlockedGenerators.indexOf(family) >= 0) return TIER_CAP;
     var best = 0;
     [state.grid, state.storage && state.storage.items].forEach(function (list) {
@@ -615,9 +627,12 @@
 
   function taskFamilyPool(state, preferred) {
     var pool = [];
-    (preferred || []).concat(state.unlockedGenerators || [], Object.keys(GAME_SOURCE_FAMILIES)).forEach(function (family) {
+    var preferredList = Array.isArray(preferred) ? preferred.filter(Boolean) : [];
+    var allowGameSources = preferredList.length > 0;
+    preferredList.concat(state.unlockedGenerators || []).forEach(function (family) {
       if (!familyDefinition(family)) return;
-      var available = (state.unlockedGenerators || []).indexOf(family) >= 0 || GAME_SOURCE_FAMILIES[family];
+      var available = (state.unlockedGenerators || []).indexOf(family) >= 0 ||
+        (allowGameSources && GAME_SOURCE_FAMILIES[family] && preferredList.indexOf(family) >= 0 && hasCareSource(state, family));
       if (available && pool.indexOf(family) < 0) pool.push(family);
     });
     /* A fresh account always has herb/tool available; this fallback also
@@ -626,6 +641,7 @@
     if (pool.length < 2) {
       FAMILY_IDS.forEach(function (family) {
         if (pool.length >= 2 || pool.indexOf(family) >= 0) return;
+        if (GAME_SOURCE_FAMILIES[family] && !(allowGameSources && hasCareSource(state, family))) return;
         pool.push(family);
       });
     }
@@ -672,7 +688,7 @@
   }
 
   function makeCareOrder(state, rng) {
-    var current = activeCase(state);
+    var current = activeCase(state) || (state.yardBeastId && state.beastCases && state.beastCases[state.yardBeastId]);
     var definition = current && beastDefinition(current.id);
     var families = definition && definition.careTypes.length ? definition.careTypes : ['groom', 'play'];
     var reqs = taskRequirements(state, families, rng);
@@ -703,6 +719,20 @@
     return Object.keys(families).length >= 2 && hasTierTwo;
   }
 
+  function isOrderSourceCompatible(state, order) {
+    if (!order || (order.slot !== 'supply' && order.slot !== 'care')) return true;
+    var definition = null;
+    if (order.slot === 'care') {
+      var caseId = order.beastId || state.activeCaseId || state.yardBeastId;
+      definition = beastDefinition(caseId);
+    }
+    return (order.requirements || []).every(function (need) {
+      if (!GAME_SOURCE_FAMILIES[need.family]) return true;
+      if (order.slot === 'supply') return false;
+      return !!(definition && definition.careTypes.indexOf(need.family) >= 0);
+    });
+  }
+
   function ensureOrders(state, rng) {
     if (!state || typeof state !== 'object') return [];
     rng = typeof rng === 'function' ? rng : Math.random;
@@ -710,7 +740,7 @@
     var bySlot = {};
     old.forEach(function (order, index) {
       var slot = order.slot || (index === 0 ? 'story' : index === 1 ? 'supply' : 'care');
-      if (!isQualifiedMedicalOrder(order)) return;
+      if (!isQualifiedMedicalOrder(order) || !isOrderSourceCompatible(state, order)) return;
       if (!bySlot[slot]) bySlot[slot] = normalizeOrder(Object.assign({}, order, { slot: slot }));
     });
     if (!bySlot.story) bySlot.story = makeStoryOrder(state);
@@ -743,6 +773,9 @@
   }
 
   function isOrderReachable(state, order) {
+    if (order && order.kind === 'care_gate') {
+      return !!(order.beastId && isYardBeastAvailable(state, order.beastId));
+    }
     if (!order || !Array.isArray(order.requirements)) return false;
     return order.requirements.every(function (need) {
       return maxReachableTier(state, need.family) >= need.tier;
@@ -877,7 +910,8 @@
     order.requirements.forEach(function (need) { consumeRequirement(state, need); });
     var rewards = order.rewards || {};
     state.jade += Math.max(0, number(rewards.jade, 0));
-    gainXp(state, rewards.xp);
+    var previousLevel = state.level;
+    var levelsGained = gainXp(state, rewards.xp);
     state.completedOrders = Math.max(0, number(state.completedOrders, 0)) + 1;
     state.totalOrders = Math.max(0, number(state.totalOrders, 0)) + 1;
     state.daily.orders++;
@@ -906,7 +940,7 @@
     ensureOrders(state, rng);
     depositPendingRewards(state);
     syncLegacyAliases(state);
-    return { ok: true, order: order, rewards: clone(rewards), transformed: transformed };
+    return { ok: true, order: order, rewards: clone(rewards), transformed: transformed, levelsGained: levelsGained, level: state.level, previousLevel: previousLevel };
   }
 
   function missingRequirements(state, order) {
@@ -956,6 +990,24 @@
     depositPendingRewards(state);
     syncLegacyAliases(state);
     return { ok: true, index: toIndex, item: clone(state.grid[toIndex]), at: number(now, Date.now()) };
+  }
+
+  function moveBoardItem(state, fromIndex, toIndex) {
+    fromIndex = Math.floor(number(fromIndex, -1));
+    toIndex = Math.floor(number(toIndex, -1));
+    if (fromIndex < 0 || toIndex < 0 || fromIndex >= state.grid.length || toIndex >= state.grid.length) {
+      return { ok: false, reason: 'invalid-cell' };
+    }
+    if (fromIndex === toIndex) return { ok: false, reason: 'same-cell' };
+    if (fromIndex >= state.unlockedCells || toIndex >= state.unlockedCells) return { ok: false, reason: 'locked-cell' };
+    var item = state.grid[fromIndex];
+    if (!item || item.kind) return { ok: false, reason: 'not-item' };
+    if (state.grid[toIndex] != null) return { ok: false, reason: 'occupied' };
+    state.grid[toIndex] = item;
+    state.grid[fromIndex] = null;
+    depositPendingRewards(state);
+    syncLegacyAliases(state);
+    return { ok: true, fromIndex: fromIndex, toIndex: toIndex, item: clone(item) };
   }
 
   function careRewardTier(outcome) {
@@ -1010,9 +1062,10 @@
       rewardItems.push(masteryItem);
       state.daily.masteryDuplicateUsed = true;
     }
+    var firstCare = !entry.careDone;
     entry.careCount++;
     entry.bond = clamp(entry.bond + 1, 1, 5);
-    if (!entry.careDone) {
+    if (firstCare) {
       entry.careDone = true;
       entry.trust = clamp(entry.trust + 15, 0, 100);
       entry.heal = clamp(entry.heal + 25, 0, 100);
@@ -1030,6 +1083,7 @@
       rewardItem: clone(rewardItems[0]),
       rewardItems: clone(rewardItems),
       rewardCount: rewardItems.length,
+      firstCare: firstCare,
       transformed: transformed,
       energy: state.energy,
       at: number(now, Date.now())
@@ -1161,8 +1215,15 @@
        multi-item requirements whenever a new day is opened. */
     var random = typeof rng === 'function' ? rng : Math.random;
     if (!Array.isArray(state.activeOrders)) state.activeOrders = [];
+    var previousSupply = state.activeOrders[1];
+    var previousCare = state.activeOrders[2];
     state.activeOrders[1] = makeSupplyOrder(state, random);
     state.activeOrders[2] = makeCareOrder(state, random);
+    /* A daily refresh changes requirements but keeps the visible slot id
+       stable, so UI focus, accessibility labels and saved deep links do not
+       appear to jump to a different task. */
+    if (previousSupply && previousSupply.id) state.activeOrders[1].id = previousSupply.id;
+    if (previousCare && previousCare.id) state.activeOrders[2].id = previousCare.id;
     state.orders = state.activeOrders;
     return state.daily;
   }
@@ -1235,10 +1296,50 @@
     if (state.daily.rerollsUsed >= maxFree) return { ok: false, reason: 'no-rerolls' };
     var index = slot === 'supply' ? 1 : slot === 'care' ? 2 : -1;
     if (index < 0) return { ok: false, reason: 'fixed-story' };
+    var previous = state.activeOrders[index];
+    var previousSignature = orderRequirementSignature(previous);
     state.daily.rerollsUsed++;
-    state.activeOrders[index] = slot === 'supply' ? makeSupplyOrder(state, rng) : makeCareOrder(state, rng);
+    var make = slot === 'supply' ? makeSupplyOrder : makeCareOrder;
+    var next = make(state, rng);
+    var attempts = 0;
+    while (previousSignature && orderRequirementSignature(next) === previousSignature && attempts < 5) {
+      next = make(state, rng);
+      attempts++;
+    }
+    /* A deterministic test RNG or a very unlucky roll can still repeat the
+       same requirements.  Use an internal fallback sequence so “刷新” is
+       visibly meaningful instead of relying on randomness alone. */
+    var fallbackValues = [0.93, 0.07, 0.67, 0.31, 0.81, 0.19];
+    var fallbackAttempt = 0;
+    while (previousSignature && orderRequirementSignature(next) === previousSignature && fallbackAttempt < 6) {
+      var cursor = 0;
+      next = make(state, function () {
+        var value = fallbackValues[(cursor + fallbackAttempt) % fallbackValues.length];
+        cursor++;
+        return value;
+      });
+      fallbackAttempt++;
+    }
+    if (previousSignature && orderRequirementSignature(next) === previousSignature && next.requirements && next.requirements.length) {
+      next.requirements[0].tier = next.requirements[0].tier === 1 ? 2 : 1;
+      next.requirements[0] = normalizeRequirement(next.requirements[0]);
+      var firstDef = familyDefinition(next.requirements[0].family);
+      var secondDef = familyDefinition(next.requirements[1] && next.requirements[1].family);
+      var firstName = firstDef && firstDef.items[next.requirements[0].tier - 1];
+      var secondName = secondDef && secondDef.items[next.requirements[1].tier - 1];
+      next.title = slot === 'supply'
+        ? '邻里补给 · ' + firstName + ' + ' + secondName
+        : (beastDefinition(next.beastId) ? beastDefinition(next.beastId).name : '庭院') + '的日常照料 · ' + firstName + ' + ' + secondName;
+    }
+    state.activeOrders[index] = next;
     state.orders = state.activeOrders;
     return { ok: true, order: state.activeOrders[index], remaining: maxFree - state.daily.rerollsUsed };
+  }
+
+  function orderRequirementSignature(order) {
+    return order && (order.requirements || []).map(function (need) {
+      return need.family + ':' + need.tier + ':' + need.count;
+    }).join('|');
   }
 
   function acknowledgeTransformation(state, beastId) {
@@ -1289,9 +1390,13 @@
     return { ok: true, background: clone(definition), active: backgroundId, purchased: true, jade: state.jade };
   }
 
+  function unlockCellCost(state) {
+    return 18 + Math.floor((state.unlockedCells - DATA.board.startUnlockedCells) / 3) * 8;
+  }
+
   function unlockCell(state) {
     if (state.unlockedCells >= TOTAL) return { ok: false, reason: 'all-unlocked' };
-    var cost = 18 + Math.floor((state.unlockedCells - DATA.board.startUnlockedCells) / 3) * 8;
+    var cost = unlockCellCost(state);
     if (state.jade < cost) return { ok: false, reason: 'jade', cost: cost };
     state.jade -= cost;
     state.unlockedCells++;
@@ -1351,6 +1456,7 @@
     ensureOrders: ensureOrders,
     generate: generate,
     mergeItems: mergeItems,
+    moveBoardItem: moveBoardItem,
     deliverOrder: deliverOrder,
     recordCare: recordCare,
     advanceTime: advanceTime,
@@ -1369,6 +1475,7 @@
     selectBackground: selectBackground,
     purchaseBackground: purchaseBackground,
     unlockCell: unlockCell,
+    unlockCellCost: unlockCellCost,
     cleanObstacle: cleanObstacle,
     unlockSealed: unlockSealed,
     isOrderReachable: isOrderReachable,
