@@ -69,10 +69,18 @@
 
   function familyDef(family) { return DATA.families[family]; }
 
+  function backgroundDef(id) {
+    return (DATA.backgrounds || []).find(function (background) { return background.id === id; }) || null;
+  }
+
+  function sceneAssetPath(file) {
+    return (root.SCENE_ASSET_ROOT || '../wechat/assets/art/scenes/') + String(file || '');
+  }
+
   function itemPath(item) {
     var family = item && familyDef(item.family);
     if (!family) return '';
-    return '../wechat/assets/art/match3/' + family.path + '_' + String(item.tier).padStart(2, '0') + '.png';
+    return (root.MATCH3_ASSET_ROOT || '../wechat/assets/art/match3/') + family.path + '_' + String(item.tier).padStart(2, '0') + '.png';
   }
 
   function itemName(item) {
@@ -486,6 +494,17 @@
     }).join('');
   }
 
+  function renderYardBackground() {
+    var scene = q('yard-scene');
+    if (!scene) return;
+    var active = state.backgrounds && state.backgrounds.active || state.yardBackground || 'courtyard';
+    var definition = backgroundDef(active) || backgroundDef('courtyard');
+    if (!definition) return;
+    scene.style.backgroundImage = 'linear-gradient(#fff3df1c,#fff0d61c),url("' + sceneAssetPath(definition.file) + '")';
+    var button = q('yard-background-open');
+    if (button) button.textContent = '背景 · ' + definition.name;
+  }
+
   function renderYard() {
     var display = caseForDisplay();
     var definition = display.definition;
@@ -506,6 +525,7 @@
     q('trust-meter').style.width = Math.min(100, entry.trust / 60 * 100) + '%';
     q('heal-meter').style.width = Math.min(100, entry.heal) + '%';
     q('yard-reward').textContent = entry.transformed ? '已蜕变 · ' + definition.job.title + '岗位效果永久生效。' : activeCareText(entry) + '。三段故事与一次照料缺一不可。';
+    renderYardBackground();
     renderYardSwitcher();
     var herbHotspot = document.querySelector('[data-hotspot="herb"]');
     if (herbHotspot) {
@@ -841,6 +861,32 @@
     });
   }
 
+  function openBackgroundDrawer() {
+    var backgrounds = state.backgrounds || { owned: ['courtyard'], active: 'courtyard' };
+    var owned = Array.isArray(backgrounds.owned) ? backgrounds.owned : [];
+    var active = backgrounds.active || 'courtyard';
+    var cards = (DATA.backgrounds || []).map(function (background) {
+      var isOwned = owned.indexOf(background.id) >= 0;
+      var isActive = active === background.id;
+      var action = isActive ? '当前使用' : isOwned ? '使用' : '购买 · ◆' + background.price;
+      return '<article class="background-card ' + (isActive ? 'active' : '') + '">' +
+        '<img src="' + esc(sceneAssetPath(background.file)) + '" alt="' + esc(background.name) + '" />' +
+        '<div class="background-card-body"><strong>' + esc(background.name) + '</strong><small>' + esc(background.description || '') + '</small>' +
+        '<button type="button" data-background-id="' + esc(background.id) + '" ' + (isActive ? 'disabled' : '') + '>' + action + '</button></div></article>';
+    }).join('');
+    var modal = modalShell('<span class="eyebrow">庭院布景 · 购买后切换</span><h2>选择疗愈所背景</h2><p>先用暖玉购买新场景，之后可以随时切换；默认的晨光庭院免费保留。</p><div class="background-list">' + cards + '</div>', 'task-modal background-shop-modal');
+    if (!modal) return;
+    modal.addEventListener('click', function (event) {
+      var button = event.target.closest('[data-background-id]');
+      if (!button || button.disabled) return;
+      var id = button.dataset.backgroundId;
+      var definition = backgroundDef(id);
+      if (!definition) return;
+      var result = owned.indexOf(id) >= 0 ? Core.selectBackground(state, id) : Core.purchaseBackground(state, id);
+      if (mutate(result, result && result.purchased ? '已购买并切换为' + definition.name : '已切换为' + definition.name)) closeModal();
+    });
+  }
+
   function openCare(type) {
     var display = caseForDisplay();
     if (!display.entry || display.definition.careTypes.indexOf(type) < 0) {
@@ -1080,6 +1126,7 @@
     });
     q('yard-facilities-open').addEventListener('click', openFacilitiesDrawer);
     q('yard-jobs-open').addEventListener('click', openJobsDrawer);
+    q('yard-background-open').addEventListener('click', openBackgroundDrawer);
     q('yard-character').addEventListener('click', function () {
       var button = q('yard-character');
       button.classList.remove('beast-react'); void button.offsetWidth; button.classList.add('beast-react');

@@ -67,9 +67,9 @@
   ];
 
   /*
-   * The five merge families intentionally mirror the names, icon paths and
-   * six item names in prototype/merge-slice.js.  `path` is the basename used
-   * below ../../assets/art/match3/ (herb_01.png, tool_01.png, ...).
+   * The five merge families intentionally mirror the generated icon prompts.
+   * `path` is the basename used below assets/art/match3/ and every
+   * item label follows the object actually shown in that tier's image.
    */
   var families = {
     herb: {
@@ -82,17 +82,47 @@
     },
     food: {
       id: 'food', name: '膳食', icon: '🍚', path: 'feed', color: '#e9ad77',
-      items: ['稻米', '米饭', '米糕', '暖食', '宴席盒', '饕餮信物']
+      items: ['小鱼', '肉骨头', '苹果', '米饭', '牛奶瓶', '饕餮橡果']
     },
     groom: {
       id: 'groom', name: '梳毛', icon: '🪮', path: 'groom', color: '#b596d0',
-      items: ['花瓣', '桃花', '花束', '桃木梳', '桃木镜', '九尾信物']
+      items: ['梳子', '毛刷', '蝴蝶结', '小花', '剪刀', '九尾手镜']
     },
     play: {
       id: 'play', name: '陪玩', icon: '🎐', path: 'play', color: '#df91a5',
-      items: ['羽毛', '绒球', '风铃', '玩具', '逗猫棒', '相柳信物']
+      items: ['彩球', '风筝', '气球', '溜溜球', '星星', '相柳糖果']
     }
   };
+
+  /* The default courtyard is free; the two alternate scenes are jade-only
+     purchases and are persisted by the v4 core.  Keep file names relative so
+     prototype and dist can resolve them through their own asset roots. */
+  var backgrounds = [
+    {
+      id: 'courtyard',
+      name: '晨光庭院',
+      file: 'bg_courtyard_v2.png',
+      price: 0,
+      ownedByDefault: true,
+      description: '山雾与暖阳相伴的疗愈所。'
+    },
+    {
+      id: 'sunset',
+      name: '桃霞山庭',
+      file: 'bg_courtyard_sunset.png',
+      price: 180,
+      ownedByDefault: false,
+      description: '晚霞落在山门与花径上，适合安静散步。'
+    },
+    {
+      id: 'moonlit',
+      name: '月影竹溪',
+      file: 'bg_courtyard_moonlit.png',
+      price: 260,
+      ownedByDefault: false,
+      description: '竹影、溪声与灯火，夜间也能安心休息。'
+    }
+  ];
 
   var beasts = [
     {
@@ -103,10 +133,10 @@
       unlockTier: 0,
       careTypes: ['groom', 'play'],
       art: [
-        '../../assets/art/characters/qiongqi_s0.png',
-        '../../assets/art/characters/qiongqi_s1.png',
-        '../../assets/art/characters/qiongqi_s2.png',
-        '../../assets/art/characters/qiongqi_s3.png'
+        'assets/art/characters/qiongqi_s0.png',
+        'assets/art/characters/qiongqi_s1.png',
+        'assets/art/characters/qiongqi_s2.png',
+        'assets/art/characters/qiongqi_s3.png'
       ],
       stageNames: ['门后怂包', '试着靠近', '可靠守卫', '温柔门卫'],
       dialogue: [
@@ -147,10 +177,10 @@
       unlockTier: 6,
       careTypes: ['groom'],
       art: [
-        '../../assets/art/characters/jiuweihu_s0.png',
-        '../../assets/art/characters/jiuweihu_s1.png',
-        '../../assets/art/characters/jiuweihu_s2.png',
-        '../../assets/art/characters/jiuweihu_s3.png'
+        'assets/art/characters/jiuweihu_s0.png',
+        'assets/art/characters/jiuweihu_s1.png',
+        'assets/art/characters/jiuweihu_s2.png',
+        'assets/art/characters/jiuweihu_s3.png'
       ],
       stageNames: ['尾巴焦虑', '愿意被看见', '九尾迎宾', '自信大使'],
       dialogue: [
@@ -189,10 +219,10 @@
       unlockTier: 6,
       careTypes: ['play'],
       art: [
-        '../../assets/art/characters/xiangliu_s0.png',
-        '../../assets/art/characters/xiangliu_s3.png',
-        '../../assets/art/characters/xiangliu_s3.png',
-        '../../assets/art/characters/xiangliu_s3.png'
+        'assets/art/characters/xiangliu_s0.png',
+        'assets/art/characters/xiangliu_s3.png',
+        'assets/art/characters/xiangliu_s3.png',
+        'assets/art/characters/xiangliu_s3.png'
       ],
       stageNames: ['九头内耗', '听见彼此', '一起浇花', '小火车园丁'],
       dialogue: [
@@ -232,10 +262,10 @@
       unlockTier: 6,
       careTypes: ['play'],
       art: [
-        '../../assets/art/characters/taotie_s0.png',
-        '../../assets/art/characters/taotie_s3.png',
-        '../../assets/art/characters/taotie_s3.png',
-        '../../assets/art/characters/taotie_s3.png'
+        'assets/art/characters/taotie_s0.png',
+        'assets/art/characters/taotie_s3.png',
+        'assets/art/characters/taotie_s3.png',
+        'assets/art/characters/taotie_s3.png'
       ],
       stageNames: ['担心不够吃', '学会慢慢尝', '不浪费主厨', '把第一口给你'],
       dialogue: [
@@ -339,6 +369,7 @@
       startUnlockedCells: 35
     },
     families: families,
+    backgrounds: backgrounds,
     economy: {
       startJade: 120,
       startEnergy: 22,

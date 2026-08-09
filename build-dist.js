@@ -106,9 +106,10 @@ function readRequired(relativePath, label) {
  */
 function rewriteArtPath(content, sourceRelative, targetRelative) {
   const sourceFile = absolute(sourceRelative);
-  const targetFile = path.join(dist, targetRelative);
   const sourceArtPath = toPosix(path.relative(path.dirname(sourceFile), ART_SOURCE));
-  const targetArtPath = toPosix(path.relative(path.dirname(targetFile), ART_TARGET));
+  // Browser URLs in modules resolve from dist/index.html, not from the JS
+  // file's directory. Keep rewritten art URLs rooted at dist/assets/art.
+  const targetArtPath = toPosix(path.relative(dist, ART_TARGET));
   if (!sourceArtPath || sourceArtPath === targetArtPath) return content;
 
   // Most source files use the path relative to their own directory, but a

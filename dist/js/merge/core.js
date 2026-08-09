@@ -61,6 +61,29 @@
     return DATA.beasts.find(function (beast) { return beast.id === id; }) || null;
   }
 
+  function backgroundDefinition(id) {
+    return (DATA.backgrounds || []).find(function (background) { return background.id === id; }) || null;
+  }
+
+  function ensureBackgroundState(state) {
+    if (!state) return null;
+    var raw = state.backgrounds && typeof state.backgrounds === 'object' ? state.backgrounds : {};
+    var known = (DATA.backgrounds || []).map(function (background) { return background.id; });
+    var owned = Array.isArray(raw.owned) ? raw.owned.slice() : [];
+    owned = owned.filter(function (id, index) {
+      return known.indexOf(id) >= 0 && owned.indexOf(id) === index;
+    });
+    (DATA.backgrounds || []).forEach(function (background) {
+      if (background.ownedByDefault && owned.indexOf(background.id) < 0) owned.unshift(background.id);
+    });
+    var active = raw.active || state.yardBackground || 'courtyard';
+    if (known.indexOf(active) < 0 || owned.indexOf(active) < 0) active = owned[0] || 'courtyard';
+    state.backgrounds = { owned: owned, active: active };
+    /* Alias keeps older v4 readers from losing the selected scene. */
+    state.yardBackground = active;
+    return state.backgrounds;
+  }
+
   function isYardBeastAvailable(state, beastId) {
     var entry = state && state.beastCases && state.beastCases[beastId];
     var codex = state && state.codex && state.codex[beastId];
@@ -187,6 +210,7 @@
       beastCases: cases,
       activeCaseId: 'qiongqi',
       yardBeastId: 'qiongqi',
+      backgrounds: { owned: ['courtyard'], active: 'courtyard' },
       transformedOrder: [],
       pendingTransformation: null,
       codex: codex,
@@ -294,6 +318,10 @@
       if (state.unlockedGenerators.indexOf(family) < 0) state.unlockedGenerators.push(family);
     });
     state.buildings = clone(raw.buildings || { herb: 0, groom: 0 });
+    state.backgrounds = clone(raw.backgrounds || {
+      owned: raw.ownedBackgrounds,
+      active: raw.background || raw.yardBackground
+    });
     state.facilities.herb.level = clamp(Math.floor(number(state.buildings.herb != null ? state.buildings.herb : state.buildings.clinic, 0)), 0, 3);
     state.facilities.groom.level = clamp(Math.floor(number(state.buildings.groom != null ? state.buildings.groom : state.buildings.pharmacy, 0)), 0, 3);
 
@@ -343,6 +371,7 @@
     state.lastEnergyTick = number(raw.lastEnergyTick, state.lastSeenAt);
     removeGroomGenerator(state);
     ensureYardBeast(state);
+    ensureBackgroundState(state);
     state.activeOrders = [];
     ensureOrders(state, Math.random);
     syncLegacyAliases(state);
@@ -395,6 +424,7 @@
     state.activeOrders = Array.isArray(raw.activeOrders) ? raw.activeOrders.map(normalizeOrder).filter(Boolean).slice(0, 3) : [];
     state.pendingTransformation = raw.pendingTransformation || null;
     ensureYardBeast(state);
+    ensureBackgroundState(state);
     state.lastSeenAt = number(raw.lastSeenAt, now);
     state.lastEnergyTick = number(raw.lastEnergyTick, state.lastSeenAt);
     ensureOrders(state, Math.random);
@@ -1121,6 +1151,38 @@
     return { ok: true, beastId: beastId };
   }
 
+  function selectBackground(state, backgroundId) {
+    var backgrounds = ensureBackgroundState(state);
+    var definition = backgroundDefinition(backgroundId);
+    if (!definition) return { ok: false, reason: 'unknown-background' };
+    if (backgrounds.owned.indexOf(backgroundId) < 0) {
+      return { ok: false, reason: 'background-locked', background: clone(definition) };
+    }
+    backgrounds.active = backgroundId;
+    state.yardBackground = backgroundId;
+    return { ok: true, background: clone(definition), active: backgroundId, purchased: false };
+  }
+
+  function purchaseBackground(state, backgroundId) {
+    var backgrounds = ensureBackgroundState(state);
+    var definition = backgroundDefinition(backgroundId);
+    if (!definition) return { ok: false, reason: 'unknown-background' };
+    if (backgrounds.owned.indexOf(backgroundId) >= 0) {
+      return selectBackground(state, backgroundId);
+    }
+    var cost = Math.max(0, Math.floor(number(definition.price, 0)));
+    var jade = Math.max(0, number(state.jade, 0));
+    if (jade < cost) {
+      return { ok: false, reason: 'jade', cost: cost, have: jade, background: clone(definition) };
+    }
+    state.jade = jade - cost;
+    backgrounds.owned.push(backgroundId);
+    backgrounds.active = backgroundId;
+    state.yardBackground = backgroundId;
+    syncLegacyAliases(state);
+    return { ok: true, background: clone(definition), active: backgroundId, purchased: true, jade: state.jade };
+  }
+
   function unlockCell(state) {
     if (state.unlockedCells >= TOTAL) return { ok: false, reason: 'all-unlocked' };
     var cost = 18 + Math.floor((state.unlockedCells - DATA.board.startUnlockedCells) / 3) * 8;
@@ -1198,6 +1260,8 @@
     acknowledgeTransformation: acknowledgeTransformation,
     activateCase: activateCase,
     selectYardBeast: selectYardBeast,
+    selectBackground: selectBackground,
+    purchaseBackground: purchaseBackground,
     unlockCell: unlockCell,
     cleanObstacle: cleanObstacle,
     unlockSealed: unlockSealed,
