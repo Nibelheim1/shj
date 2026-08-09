@@ -183,5 +183,28 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 .yard-hotspots button.care-recommended{border-color:#df7959;background:#fff2d5;box-shadow:0 0 0 2px #df795944,0 3px 9px #72533b25}
 .yard-hotspots button.care-unneeded{filter:saturate(.72);opacity:.8}
 .drawer-storage-list,.drawer-building-list,.drawer-job-list{display:grid}
+
+/* Compact route and result sheets: keep long-form helpers inside the phone viewport. */
+.item-route-modal,.generator-route-modal{max-height:min(calc(100dvh - 24px),520px);overflow:hidden;padding:12px 10px 10px}
+.item-route-modal .item-route-list{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:3px;margin-top:7px;overflow:hidden}
+.item-route-modal .route-step{min-width:0;padding:3px 1px;overflow:hidden}
+.item-route-modal .route-step img{width:26px;height:26px}
+.item-route-modal .route-step small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:7px}
+.route-merge-rule{margin-top:6px;padding:5px 6px;border-radius:8px;background:#f6eadc;color:var(--muted);font-size:8px;line-height:1.35}
+.generator-route-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;max-height:min(48dvh,360px);margin-top:8px;overflow:auto;padding-right:1px}
+.generator-route-item{display:flex;align-items:center;gap:5px;min-width:0;padding:5px;border:1px solid #72533b20;border-radius:9px;background:#fff7ed}
+.generator-route-item img{width:28px;height:28px;flex:0 0 28px;object-fit:contain}
+.generator-route-item span{display:grid;min-width:0;gap:2px}
+.generator-route-item b,.generator-route-item small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.generator-route-item b{font-size:8px}.generator-route-item small{color:var(--muted);font-size:7px}
+.care-score-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:8px}
+.care-score-summary span{display:flex;align-items:center;justify-content:space-between;gap:5px;padding:6px 8px;border-radius:9px;background:#f6eadc;color:var(--muted);font-size:9px}
+.care-score-summary b{color:var(--coral-dark);font-size:12px}
+.facility-claim-summary{display:grid;gap:3px;margin-top:8px;padding:8px;border-radius:10px;background:#fff1cf;color:#815f3f}
+.facility-claim-summary strong{font-size:12px;line-height:1.25;overflow-wrap:anywhere}
+.facility-claim-summary small{color:var(--muted);font-size:8px;line-height:1.35}
+.facility-loop{display:grid;gap:3px;margin-top:7px;padding:7px 8px;border:1px solid #9bc79b66;border-radius:9px;background:#eef5e9;color:#557b56}
+.facility-loop b{font-size:9px}.facility-loop span{font-size:8px;line-height:1.35;overflow-wrap:anywhere}
 @media (max-height:720px){#merge-view .view-heading{min-height:30px;height:30px}#merge-view #next-action{height:32px;margin-top:4px;padding:4px 7px;overflow:hidden;white-space:nowrap}#merge-view #next-action strong{display:inline;margin-right:4px;font-size:10px}#merge-view .order-panel,#merge-view .board-card{margin-top:4px}}
-@media (max-width:370px){.slice-nav{gap:4px;padding-left:6px;padding-right:6px}.slice-nav .nav-button{flex-basis:40px;width:40px}.codex-card{grid-template-columns:52px minmax(0,1fr);min-height:84px;padding:5px}.codex-art img{max-height:68px}.order-card{min-width:104px}.brand-mark>span:last-child{display:none}}
+@media (max-width:390px){.item-route-modal,.generator-route-modal{max-height:calc(100dvh - 16px);padding:10px 9px 9px}.item-route-modal .route-step img{width:24px;height:24px}.generator-route-list{max-height:48dvh}.care-score-summary{gap:4px}.care-score-summary span{padding:5px 6px}.facility-claim-summary,.facility-loop{padding:6px 7px}}
+@media (max-width:370px){.slice-nav{gap:4px;padding-left:6px;padding-right:6px}.slice-nav .nav-button{flex-basis:40px;width:40px}.codex-card{grid-template-columns:52px minmax(0,1fr);min-height:84px;padding:5px}.codex-art img{max-height:68px}.order-card{min-width:104px}.brand-mark>span:last-child{display:none}.item-route-modal .item-route-list{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:3px}.generator-route-list{grid-template-columns:1fr}}

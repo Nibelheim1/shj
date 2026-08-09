@@ -424,6 +424,7 @@
       if (cell.knot > 0) {
         cell.knot -= 1;
         this.untangled += 1;
+        this.score += 15;
         this._pushFxCell('spark', r, c, { color: '#A07FD0' });
         if (cell.knot === 0) this._loosenNeighbors(r, c);
         continue;
@@ -473,6 +474,7 @@
       if (n && n.knot > 0) {
         n.knot -= 1;
         this.untangled += 1;
+        this.score += 15;
         this._pushFxCell('spark', r + d[i][0], c + d[i][1], { color: '#C6A8E8' });
       }
     }
@@ -882,7 +884,7 @@
       for (i = 0; i < d.length; i++) {
         n = this._cellAt(r + d[i][0], c + d[i][1]);
         if (n && n.knot > 0) {
-          n.knot -= 1; this.untangled++;
+          n.knot -= 1; this.untangled++; this.score += 15;
           this._pushFxCell('spark', r + d[i][0], c + d[i][1], { color: '#A07FD0' });
         }
       }
@@ -1028,6 +1030,7 @@
   Game.prototype.finish = function (done) {
     if (this.finished) return;
     this.finished = true;
+    this._updatePerf();
     var summary = this._summary();
     if (done) { if (this.opts.onDone) this.opts.onDone(this.perf, summary); }
     else { if (this.opts.onCancel) this.opts.onCancel(summary); }

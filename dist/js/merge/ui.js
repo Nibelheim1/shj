@@ -23,6 +23,9 @@
   var careSession = null;
   var readOnlyNewerSave = false;
   var migrationSource = null;
+  var longPressState = null;
+  var suppressClickUntil = 0;
+  var LONG_PRESS_MS = 520;
 
   function q(id) { return document ? document.getElementById(id) : null; }
 
@@ -60,6 +63,109 @@
     if (!item) return '';
     if (item.name) return item.name;
     return Core.getItemName(item.family, item.tier);
+  }
+
+  function routeMarkup(family, currentTier) {
+    var definition = familyDef(family);
+    if (!definition) return '';
+    return definition.items.map(function (name, index) {
+      var tier = index + 1;
+      return '<span class="route-step ' + (tier === Number(currentTier) ? 'current' : '') + '"><img src="' + esc(itemPath({ family: family, tier: tier })) + '" alt="' + esc(name) + '" /><b>' + tier + '阶</b><small>' + esc(name) + '</small></span>';
+    }).join('');
+  }
+
+  function openItemRoute(family, tier, source) {
+    var definition = familyDef(family);
+    if (!definition) return null;
+    var current = Core.makeItem(family, tier);
+    var sourceLabel = source ? '<small class="route-source">' + esc(source) + '</small>' : '';
+    return modalShell('<span class="eyebrow">物品说明 · 长按查看</span><h2>' + esc(current.name) + '</h2>' + sourceLabel +
+      '<p>两个同类同阶物品合成下一阶；路线从 1 阶持续到 6 阶。</p><div class="route-list item-route-list">' + routeMarkup(family, tier) + '</div>' +
+      '<div class="route-merge-rule">当前：' + esc(definition.name) + ' · ' + Number(tier) + ' 阶　→　' + (Number(tier) < definition.items.length ? '下一阶可由 2 个当前物品合成' : '已达最高阶') + '</div>', 'task-modal item-route-modal');
+  }
+
+  function openGeneratorDetails(family) {
+    var definition = familyDef(family);
+    if (!definition) return null;
+    var title = family === 'groom' ? '梳洗台小游戏产出' : definition.name + '生成器';
+    var intro = family === 'groom' ? '梳子系列不再从合成棋盘生成；完成梳洗台消消乐后按得分领取数量。' : '点击生成器消耗 1 点体力，产出 1 阶素材；同类同阶可继续合成。';
+    return modalShell('<span class="eyebrow">生成说明 · 长按查看</span><h2>' + esc(title) + '</h2><p>' + esc(intro) + '</p>' +
+      '<div class="generator-route-list">' + definition.items.map(function (name, index) {
+        var tier = index + 1;
+        return '<div class="generator-route-item"><img src="' + esc(itemPath({ family: family, tier: tier })) + '" alt="' + esc(name) + '" /><span><b>' + tier + ' 阶 · ' + esc(name) + '</b><small>' + (tier === 1 ? '基础产出/小游戏基础奖励' : '由 2 个 ' + (tier - 1) + ' 阶合成') + '</small></span></div>';
+      }).join('') + '</div>', 'task-modal generator-route-modal');
+  }
+
+  function openLongPressDetails(target) {
+    if (!target) return;
+    var generatorFamily = target.getAttribute('data-longpress-generator');
+    if (generatorFamily) return openGeneratorDetails(generatorFamily);
+    var family = target.getAttribute('data-longpress-family');
+    var tier = Number(target.getAttribute('data-longpress-tier')) || 1;
+    if (family) return openItemRoute(family, tier, target.getAttribute('data-longpress-source') || '合成棋盘/委托');
+  }
+
+  function releaseLongPress() {
+    if (!longPressState) return;
+    if (longPressState.timer) root.clearTimeout(longPressState.timer);
+    longPressState = null;
+  }
+
+  function armLongPress(event, target) {
+    if (!target || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    releaseLongPress();
+    var record = {
+      target: target,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      fired: false,
+      timer: null
+    };
+    record.timer = root.setTimeout(function () {
+      if (longPressState !== record) return;
+      record.fired = true;
+      longPressState = null;
+      suppressClickUntil = Date.now() + 850;
+      openLongPressDetails(record.target);
+    }, LONG_PRESS_MS);
+    longPressState = record;
+  }
+
+  function moveLongPress(event) {
+    if (!longPressState || longPressState.pointerId !== event.pointerId) return;
+    var dx = Number(event.clientX) - Number(longPressState.startX);
+    var dy = Number(event.clientY) - Number(longPressState.startY);
+    if (dx * dx + dy * dy > 14 * 14) releaseLongPress();
+  }
+
+  function bindLongPress(container, selector) {
+    if (!container) return;
+    container.addEventListener('pointerdown', function (event) {
+      var target = event.target.closest(selector);
+      if (target && container.contains(target)) armLongPress(event, target);
+    });
+    container.addEventListener('pointermove', moveLongPress);
+    container.addEventListener('pointerup', releaseLongPress);
+    container.addEventListener('pointercancel', releaseLongPress);
+    container.addEventListener('pointerleave', releaseLongPress);
+    container.addEventListener('contextmenu', function (event) {
+      var target = event.target.closest(selector);
+      if (!target || !container.contains(target)) return;
+      event.preventDefault();
+      if (Date.now() < suppressClickUntil) return;
+      releaseLongPress();
+      suppressClickUntil = Date.now() + 850;
+      openLongPressDetails(target);
+    });
+  }
+
+  function consumeSuppressedClick() {
+    if (Date.now() < suppressClickUntil) {
+      suppressClickUntil = 0;
+      return true;
+    }
+    return false;
   }
 
   function safeStorageGet(key) {
@@ -242,12 +348,18 @@
   function needMarkup(need) {
     var have = countNeed(need);
     var item = Core.makeItem(need.family, need.tier);
-    return '<span class="order-need ' + (have >= need.count ? 'ready' : '') + '" title="' + esc(item.name) + '">' +
+    return '<span class="order-need ' + (have >= need.count ? 'ready' : '') + '" data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托需求" title="长按查看 ' + esc(item.name) + ' 合成路线">' +
       '<img src="' + esc(itemPath(item)) + '" alt="' + esc(item.name) + '" /><b>' + have + '/' + need.count + '</b></span>';
   }
 
   function kindLabel(kind) {
     return { story: '主线', arrival: '来信', memory: '回忆', supply: '补给', care: '日常', care_gate: '陪伴' }[kind] || '委托';
+  }
+
+  function orderSourceText(order, reachable) {
+    var hasGroom = (order.requirements || []).some(function (need) { return need.family === 'groom'; });
+    if (hasGroom) return '梳洗台小游戏按得分获得梳子';
+    return reachable ? '可由当前生成器合成' : '完成前置疗愈后解锁产线';
   }
 
   function renderOrders() {
@@ -262,7 +374,7 @@
         '<div class="order-head"><span class="order-kind">' + kindLabel(order.kind) + '</span><strong>' + esc(order.title) + '</strong></div>' +
         '<p>' + esc(order.symptom || '准备需要的素材并完成交付。') + '</p>' +
         '<div class="order-need-icons">' + requirements.map(needMarkup).join('') + '</div>' +
-        '<span class="order-progress ' + (ready ? 'ready' : '') + '">' + (ready ? '素材齐全，可以交付' : reachable ? '可由当前生成器合成' : '完成前置疗愈后解锁产线') + '</span>' +
+        '<span class="order-progress ' + (ready ? 'ready' : '') + '">' + (ready ? '素材齐全，可以交付' : orderSourceText(order, reachable)) + '</span>' +
         '<button class="deliver-btn" data-deliver="' + esc(order.id) + '" type="button" ' + (ready ? '' : 'disabled') + '>交付 · ◆' + (order.rewards.jade || 0) + '</button>' +
         '</article>';
     }).join('');
@@ -297,7 +409,8 @@
         label = itemName(item) + ' ' + item.tier + '阶';
         content = '<img src="' + esc(itemPath(item)) + '" alt="" /><b>' + item.tier + '</b>';
       }
-      cells.push('<button class="' + classes.join(' ') + '" data-grid-index="' + index + '" role="gridcell" type="button" aria-label="' + esc(label) + '">' + content + '</button>');
+      var longPress = item && item.kind === 'generator' ? ' data-longpress-generator="' + esc(item.family) + '"' : item && !item.kind ? ' data-longpress-family="' + esc(item.family) + '" data-longpress-tier="' + item.tier + '" data-longpress-source="合成棋盘"' : '';
+      cells.push('<button class="' + classes.join(' ') + '" data-grid-index="' + index + '"' + longPress + ' role="gridcell" type="button" aria-label="' + esc(label) + '">' + content + '</button>');
     }
     board.innerHTML = cells.join('');
     var occupied = state.grid.slice(0, state.unlockedCells).filter(Boolean).length;
@@ -358,14 +471,20 @@
     q('trust-meter').style.width = Math.min(100, entry.trust / 60 * 100) + '%';
     q('heal-meter').style.width = Math.min(100, entry.heal) + '%';
     q('yard-reward').textContent = entry.transformed ? '已蜕变 · ' + definition.job.title + '岗位效果永久生效。' : activeCareText(entry) + '。三段故事与一次照料缺一不可。';
+    var herbHotspot = document.querySelector('[data-hotspot="herb"]');
+    if (herbHotspot) {
+      var storedHerbs = state.facilities.herb.stored.length;
+      var herbCaption = herbHotspot.querySelector('small');
+      if (herbCaption) herbCaption.textContent = storedHerbs ? '领取 ×' + storedHerbs : '查看产出';
+    }
     ['groom', 'play'].forEach(function (type) {
       var button = document.querySelector('[data-care="' + type + '"]');
       if (!button) return;
-      var available = !!state.activeCaseId && definition.careTypes.indexOf(type) >= 0;
+      var available = !!display.entry && definition.careTypes.indexOf(type) >= 0;
       button.classList.toggle('care-recommended', available);
       button.classList.toggle('care-unneeded', !available);
       button.setAttribute('aria-disabled', available ? 'false' : 'true');
-      button.title = available ? '开始' + (type === 'groom' ? '梳理消消乐' : '陪玩连连看') + '，不消耗体力' : '当前住客更需要另一处照料设施';
+      button.title = available ? '开始' + (type === 'groom' ? '梳理消消乐' : '陪玩连连看') + '，不限次数且不消耗体力' : '当前住客更需要另一处照料设施';
     });
     renderDaily();
     renderFacilities();
@@ -395,7 +514,9 @@
       var config = DATA.facilities.herb.levels[level - 1];
       var cap = config.cap + (state.beastCases.xiangliu.transformed ? 1 : 0);
       var minutes = Math.round(config.intervalMinutes * (state.beastCases.xiangliu.transformed ? 0.8 : 1));
-      return minutes + '分钟/份 · 暂存' + state.facilities.herb.stored.length + '/' + cap;
+      var stored = state.facilities.herb.stored.length;
+      var next = stored >= cap ? '已满，点击领取' : '下一份约 ' + Math.max(1, Math.ceil((config.intervalMs - state.facilities.herb.progressMs) / 60000)) + ' 分钟';
+      return minutes + '分钟/份 · 暂存' + stored + '/' + cap + ' · ' + next;
     }
     if (!level) return '提升照料奖励 · 保底不失败';
     return '每日强化 ' + DATA.facilities.groom.levels[level - 1].dailyBoosts + ' 次';
@@ -566,8 +687,8 @@
     var modal = modalShell('<span class="eyebrow">' + kindLabel(order.kind) + '委托 · 永久槽位</span><h2>' + esc(order.title) + '</h2><p class="task-symptom">' + esc(order.symptom || '') + '</p>' +
       '<div class="task-needs">' + order.requirements.map(function (need) {
         var item = Core.makeItem(need.family, need.tier);
-        return '<div class="task-need-row"><img src="' + esc(itemPath(item)) + '" alt="" /><span><strong>' + esc(item.name) + '</strong><small>' + esc(familyDef(need.family).name) + ' ' + need.tier + '阶</small></span><b>' + countNeed(need) + '/' + need.count + '</b></div>';
-      }).join('') + '</div><div class="task-source-note">同类同阶二合一；生成器产出一阶，路线最高六阶。</div>' +
+        return '<div class="task-need-row" data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托详情"><img src="' + esc(itemPath(item)) + '" alt="" /><span><strong>' + esc(item.name) + '</strong><small>' + esc(familyDef(need.family).name) + ' ' + need.tier + '阶</small></span><b>' + countNeed(need) + '/' + need.count + '</b></div>';
+      }).join('') + '</div><div class="task-source-note">同类同阶二合一；梳子系列由梳洗台小游戏按得分发放，其他系列由生成器产出一阶。</div>' +
       '<div class="task-reward">完成奖励：◆' + (order.rewards.jade || 0) + ' · 经验 ' + (order.rewards.xp || 0) + '</div>' +
       '<button class="modal-action" data-modal-deliver type="button" ' + (can ? '' : 'disabled') + '>' + (can ? '立即交付' : '素材尚未齐全') + '</button>' +
       ((order.slot === 'supply' || order.slot === 'care') ? '<button class="modal-secondary" data-reroll="' + order.slot + '" type="button">免费刷新这个槽位</button>' : ''), 'task-modal');
@@ -608,9 +729,33 @@
     });
     var claim = modal.querySelector('[data-claim-facility]');
     if (claim) claim.addEventListener('click', function () {
-      var result = Core.claimFacility(state, id);
-      if (mutate(result, '百草园产出已领取')) closeModal();
+      claimFacilityAndShow(id);
     });
+  }
+
+  function claimFacilityAndShow(id) {
+    var result = Core.claimFacility(state, id);
+    if (!result || !result.ok) {
+      toast(failureText(result));
+      render();
+      return result;
+    }
+    saveState();
+    render();
+    var groups = {};
+    (result.items || []).forEach(function (item) {
+      var key = item.family + ':' + item.tier;
+      if (!groups[key]) groups[key] = { item: item, count: 0 };
+      groups[key].count++;
+    });
+    var itemsText = Object.keys(groups).map(function (key) {
+      return esc(groups[key].item.name) + ' ×' + groups[key].count;
+    }).join('、') || '暂无产出';
+    closeModal();
+    modalShell('<span class="eyebrow">百草园 · 收成入库</span><h2>本次获得了具体药材</h2><div class="facility-claim-summary"><strong>' + itemsText + '</strong><small>已进入合成棋盘；棋盘满时自动进入药匣暂存（本次暂存 ' + result.pending + ' 份）。</small></div><div class="facility-loop"><b>下一步闭环</b><span>药材 → 合成高阶 → 完成委托 → 获得暖玉 → 升级百草园</span></div><button class="modal-action" data-close-facility-claim type="button">收下并继续</button>', 'task-modal facility-claim-modal');
+    var closeButton = q('modal-root').querySelector('[data-close-facility-claim]');
+    if (closeButton) closeButton.addEventListener('click', closeModal);
+    return result;
   }
 
   function openStorageDrawer() {
@@ -662,7 +807,7 @@
 
   function openCare(type) {
     var display = caseForDisplay();
-    if (!state.activeCaseId || display.definition.careTypes.indexOf(type) < 0) {
+    if (!display.entry || display.definition.careTypes.indexOf(type) < 0) {
       var expected = display.definition.careTypes[0] === 'groom' ? '梳洗台' : '亭子';
       toast('当前住客更需要去' + expected);
       return { ok: false, reason: 'wrong-care-type' };
@@ -793,9 +938,23 @@
     var result = Core.recordCare(state, session.type, { outcome: outcome, beastId: session.beastId, game: summary || {} }, Date.now());
     if (!result.ok) { closeModal(); mutate(result); return result; }
     saveState(); render();
-    var item = result.rewardItem;
+    var items = result.rewardItems && result.rewardItems.length ? result.rewardItems : [result.rewardItem];
+    var itemGroups = {};
+    items.forEach(function (reward) {
+      if (!reward) return;
+      var key = reward.family + ':' + reward.tier;
+      if (!itemGroups[key]) itemGroups[key] = { item: reward, count: 0 };
+      itemGroups[key].count++;
+    });
+    var rewardText = Object.keys(itemGroups).map(function (key) {
+      var group = itemGroups[key];
+      return esc(group.item.name) + ' ×' + group.count;
+    }).join('、');
+    var score = Math.max(0, Math.round(Number(summary && summary.score) || 0));
+    var perf = Math.round(Math.max(0, Math.min(1, Number(summary && summary.perf) || 0)) * 100);
     var label = outcome === 'mastery' ? '精通' : outcome === 'complete' ? '完成' : outcome === 'timeout' ? '时间到也没关系' : '已跳过';
-    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · 零失败结算</span><h2>' + esc(beastDef(session.beastId).name) + '记住了这次陪伴</h2><img src="' + esc(beastDef(session.beastId).art[state.beastCases[session.beastId].stage]) + '" alt="" /><div class="task-reward">获得 ' + esc(item.name) + ' · ' + item.tier + '阶<br />故事进度不会被重复照料绕过</div><button class="modal-action" data-care-continue type="button">继续</button></div>', 'task-modal');
+    var rewardNote = session.type === 'groom' ? '梳洗台小游戏按得分决定梳子数量；物品已进入棋盘或药匣暂存。' : '庭院小游戏不限次数；本次奖励已进入棋盘或药匣暂存。';
+    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · 零失败结算</span><h2>' + esc(beastDef(session.beastId).name) + '记住了这次陪伴</h2><img src="' + esc(beastDef(session.beastId).art[state.beastCases[session.beastId].stage]) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div><div class="task-reward">获得 ' + rewardText + '<br /><small>' + rewardNote + '</small></div><button class="modal-action" data-care-continue type="button">继续</button></div>', 'task-modal');
     if (modal) modal.querySelector('[data-care-continue]').addEventListener('click', function () {
       closeModal();
       if (state.pendingTransformation) showTransformation();
@@ -837,15 +996,20 @@
       button.addEventListener('click', function () { switchView(button.dataset.view); });
     });
     q('merge-board').addEventListener('click', function (event) {
+      if (consumeSuppressedClick()) return;
       var cell = event.target.closest('[data-grid-index]');
       if (cell) handleGrid(Number(cell.dataset.gridIndex));
     });
     q('order-list').addEventListener('click', function (event) {
+      if (consumeSuppressedClick()) return;
       var deliverButton = event.target.closest('[data-deliver]');
       if (deliverButton) { event.stopPropagation(); deliver(deliverButton.dataset.deliver); return; }
       var card = event.target.closest('[data-order-id]');
       if (card) openOrderDetails(card.dataset.orderId);
     });
+    bindLongPress(q('merge-board'), '[data-longpress-family], [data-longpress-generator]');
+    bindLongPress(q('order-list'), '[data-longpress-family]');
+    bindLongPress(q('modal-root'), '[data-longpress-family]');
     q('next-action').addEventListener('click', function (event) {
       if (event.target.closest('[data-show-transform]')) showTransformation();
       if (event.target.closest('[data-go-yard]')) switchView('yard-view');
@@ -883,7 +1047,7 @@
       button.addEventListener('click', function () {
         if (button.dataset.hotspot === 'clinic') { switchView('codex-view'); return; }
         if (button.dataset.hotspot === 'herb' && state.facilities.herb.stored.length) {
-          mutate(Core.claimFacility(state, 'herb'), '百草园产出已领取'); return;
+          claimFacilityAndShow('herb'); return;
         }
         openFacility(button.dataset.hotspot);
       });

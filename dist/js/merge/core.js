@@ -25,8 +25,12 @@
   var BEAST_IDS = DATA.beasts.map(function (beast) { return beast.id; });
   var GENERATOR_NAMES = {
     herb: '百草药篓', tool: '医师药箱', food: '膳食篮',
-    groom: '梳妆匣', play: '风铃玩具箱'
+    play: '风铃玩具箱'
   };
+
+  /* 梳子系列由梳洗台小游戏发放，不再拥有棋盘生成器。保留 family
+     本身用于订单、奖励与路线展示，只有 generator 被禁用。 */
+  var GAME_SOURCE_FAMILIES = { groom: true, play: true };
 
   function clone(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
@@ -211,6 +215,21 @@
     return copied;
   }
 
+  function removeGroomGenerator(state) {
+    if (!state) return;
+    state.unlockedGenerators = (state.unlockedGenerators || []).filter(function (family) {
+      return family !== 'groom';
+    });
+    if (!Array.isArray(state.pendingRewards)) state.pendingRewards = [];
+    (state.grid || []).forEach(function (item, index) {
+      if (item && item.kind === 'generator' && item.family === 'groom') {
+        state.grid[index] = null;
+        /* 旧梳妆匣不静默丢失：折算为一份最低阶梳子素材，进入安全暂存。 */
+        state.pendingRewards.push(makeItem('groom', 1));
+      }
+    });
+  }
+
   function normalizeCase(raw, id) {
     var base = makeCase(id, id === 'qiongqi');
     raw = raw && typeof raw === 'object' ? raw : {};
@@ -288,9 +307,7 @@
       state.activeCaseId = null;
       state.transformedOrder = ['qiongqi'];
       state.codex.qiongqi.transformed = true;
-      /* Preserve every legacy board cell during migration. The UI can surface
-         the newly unlocked generator and let the player place it explicitly. */
-      if (state.unlockedGenerators.indexOf('groom') < 0) state.unlockedGenerators.push('groom');
+      /* 梳子系列改由梳洗台小游戏获得，不为旧存档恢复梳妆匣生成器。 */
     }
 
     var pendingHerbs = Math.max(0, Math.floor(number(raw.pendingHerbRewards, 0)));
@@ -304,6 +321,7 @@
     });
     state.lastSeenAt = number(raw.lastSeenAt != null ? raw.lastSeenAt : raw.lastEnergyTick, now);
     state.lastEnergyTick = number(raw.lastEnergyTick, state.lastSeenAt);
+    removeGroomGenerator(state);
     state.activeOrders = [];
     ensureOrders(state, Math.random);
     syncLegacyAliases(state);
@@ -333,6 +351,7 @@
     state.maxEnergy = Math.max(1, number(raw.maxEnergy, base.maxEnergy));
     state.jade = Math.max(0, number(raw.jade, base.jade));
     state.pendingRewards = Array.isArray(raw.pendingRewards) ? raw.pendingRewards.map(normalizeItem).filter(Boolean) : [];
+    removeGroomGenerator(state);
     state.storage = raw.storage && typeof raw.storage === 'object' ? clone(raw.storage) : base.storage;
     state.storage.slots = clamp(Math.floor(number(state.storage.slots, 3)), 3, 6);
     state.storage.items = Array.isArray(state.storage.items) ? state.storage.items.slice(0, state.storage.slots).map(normalizeItem) : [];
@@ -481,6 +500,7 @@
   }
 
   function maxReachableTier(state, family) {
+    if (GAME_SOURCE_FAMILIES[family]) return TIER_CAP;
     if (state.unlockedGenerators.indexOf(family) >= 0) return TIER_CAP;
     var best = 0;
     [state.grid, state.storage && state.storage.items].forEach(function (list) {
@@ -522,7 +542,7 @@
     var definition = current && beastDefinition(current.id);
     var families = definition && definition.careTypes.length ? definition.careTypes : ['groom', 'play'];
     var family = families[Math.floor((rng ? rng() : Math.random()) * families.length) % families.length];
-    var available = state.unlockedGenerators.indexOf(family) >= 0;
+    var available = state.unlockedGenerators.indexOf(family) >= 0 || GAME_SOURCE_FAMILIES[family];
     if (!available) family = supplyFamily(state, rng);
     var reqs = [{ family: family, tier: 1, count: 1 }];
     return normalizeOrder({
@@ -638,6 +658,7 @@
   }
 
   function unlockGenerator(state, family) {
+    if (family === 'groom') return false;
     if (!family || state.unlockedGenerators.indexOf(family) >= 0) return false;
     state.unlockedGenerators.push(family);
     var exists = state.grid.some(function (item) { return item && item.kind === 'generator' && item.family === family; });
@@ -650,7 +671,6 @@
   }
 
   function unlockNextGenerator(state, beastId) {
-    if (beastId === 'qiongqi') unlockGenerator(state, 'groom');
     if (beastId === 'jiuweihu') unlockGenerator(state, 'play');
     if (beastId === 'xiangliu') unlockGenerator(state, 'food');
   }
@@ -795,6 +815,24 @@
     return 1;
   }
 
+  function careRewardCount(careType, result, outcome) {
+    /* Only the grooming game converts performance into multiple comb items.
+       Calls from old saves/tests without a game summary keep the old one-item
+       contract, while the browser game always supplies score/perf. */
+    if (careType !== 'groom' || !result.game || typeof result.game !== 'object') return 1;
+    var game = result.game;
+    var score = Math.max(0, number(game.score, 0));
+    var perf = clamp(number(game.perf, outcome === 'mastery' ? 1 : outcome === 'complete' ? 0.5 : 0), 0, 1);
+    if (Object.prototype.hasOwnProperty.call(game, 'score')) {
+      if (score >= 1200) return 3;
+      if (score >= 500) return 2;
+      return 1;
+    }
+    if (perf >= 0.85) return 3;
+    if (perf >= 0.4) return 2;
+    return 1;
+  }
+
   function recordCare(state, careType, result, now) {
     result = result || {};
     var beastId = result.beastId || state.activeCaseId;
@@ -810,10 +848,17 @@
       tier++;
       state.daily.groomBoostsUsed++;
     }
-    var rewardItem = makeItem(careType, tier);
-    queueItem(state, rewardItem);
+    var rewardCount = careRewardCount(careType, result, outcome);
+    var rewardItems = [];
+    for (var rewardIndex = 0; rewardIndex < rewardCount; rewardIndex++) {
+      var rewardItem = makeItem(careType, tier);
+      queueItem(state, rewardItem);
+      rewardItems.push(rewardItem);
+    }
     if (outcome === 'mastery' && groomLevel >= 3 && !state.daily.masteryDuplicateUsed) {
-      queueItem(state, makeItem(careType, tier));
+      var masteryItem = makeItem(careType, tier);
+      queueItem(state, masteryItem);
+      rewardItems.push(masteryItem);
       state.daily.masteryDuplicateUsed = true;
     }
     entry.careCount++;
@@ -833,7 +878,9 @@
     return {
       ok: true,
       outcome: outcome,
-      rewardItem: clone(rewardItem),
+      rewardItem: clone(rewardItems[0]),
+      rewardItems: clone(rewardItems),
+      rewardCount: rewardItems.length,
       transformed: transformed,
       energy: state.energy,
       at: number(now, Date.now())
@@ -942,7 +989,17 @@
     var items = stored.splice(0, stored.length);
     Array.prototype.push.apply(state.pendingRewards, items);
     var deposited = depositPendingRewards(state);
-    return { ok: true, items: clone(items), deposited: deposited, pending: state.pendingRewards.length };
+    syncLegacyAliases(state);
+    return {
+      ok: true,
+      items: clone(items),
+      deposited: deposited,
+      pending: state.pendingRewards.length,
+      loop: {
+        source: 'herb-garden',
+        use: '合成药材、完成委托、获得暖玉并继续升级百草园'
+      }
+    };
   }
 
   function ensureDaily(state, date, now) {
