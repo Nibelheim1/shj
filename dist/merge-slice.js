@@ -4,6 +4,7 @@
 
   function start() {
     if (!root.MergeUI) throw new Error('MergeUI failed to load');
+    if (root.MergeAudio && root.MergeAudio.init) root.MergeAudio.init();
     root.MergeUI.init();
     /* Keep the historical debug handle while routing every action through v4. */
     root.MergeSlice = root.MergeUI;

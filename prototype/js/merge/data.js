@@ -124,6 +124,20 @@
     }
   ];
 
+  /* Audio is data-driven so prototype and dist share one cue map. */
+  var audio = {
+    bgm: 'bgm_courtyard.wav',
+    sfx: {
+      click: 'sfx_click.wav',
+      merge: 'sfx_merge.wav',
+      order: 'sfx_order.wav',
+      care: 'sfx_care.wav',
+      purchase: 'sfx_purchase.wav'
+    },
+    bgmVolume: 0.18,
+    sfxVolume: 0.34
+  };
+
   var beasts = [
     {
       id: 'qiongqi',
@@ -370,6 +384,7 @@
     },
     families: families,
     backgrounds: backgrounds,
+    audio: audio,
     economy: {
       startJade: 120,
       startEnergy: 22,

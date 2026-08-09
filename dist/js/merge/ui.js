@@ -29,6 +29,10 @@
 
   function q(id) { return document ? document.getElementById(id) : null; }
 
+  function playSfx(name) {
+    if (root.MergeAudio && typeof root.MergeAudio.play === 'function') root.MergeAudio.play(name || 'click');
+  }
+
   function esc(value) {
     return String(value == null ? '' : value)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -646,10 +650,11 @@
     switchView(activeView);
   }
 
-  function mutate(result, successMessage, failureMessage) {
+  function mutate(result, successMessage, failureMessage, soundName) {
     if (result && result.ok) {
       saveState();
       render();
+      playSfx(soundName || 'click');
       if (successMessage) toast(successMessage);
       return true;
     }
@@ -677,7 +682,7 @@
       mutate(Core.unlockCell(state), '疗愈所扩建了一格');
       return;
     }
-    if (!item) { selectedIndex = null; renderBoard(); return; }
+    if (!item) { playSfx('click'); selectedIndex = null; renderBoard(); return; }
     if (item.kind === 'generator') {
       var generated = Core.generate(state, item.family, Math.random, Date.now());
       if (generated.ok) mutate(generated, '获得 ' + itemName(generated.items[0]));
@@ -689,17 +694,18 @@
     if (item.kind === 'obstacle') { mutate(Core.cleanObstacle(state, index), '藤蔓被清理干净了'); return; }
     if (item.kind === 'sealed') { mutate(Core.unlockSealed(state, index), '封印格已经解开'); return; }
     if (selectedIndex == null) {
+      playSfx('click');
       selectedIndex = index;
       q('selection-hint').textContent = '再点一个同类同阶物品即可合成';
       renderBoard();
       return;
     }
-    if (selectedIndex === index) { renderSelectedItem(); return; }
+    if (selectedIndex === index) { playSfx('click'); renderSelectedItem(); return; }
     var result = Core.mergeItems(state, selectedIndex, index, Date.now());
     if (result.ok) {
       selectedIndex = null;
       q('selection-hint').textContent = '合成成功 · 零体力也能继续整理与合成';
-      mutate(result, '合成了 ' + itemName(result.item));
+      mutate(result, '合成了 ' + itemName(result.item), null, 'merge');
     } else {
       selectedIndex = index;
       q('selection-hint').textContent = '需要同类、同阶的两个物品';
@@ -721,7 +727,7 @@
     }
     selectedIndex = null;
     Core.depositPendingRewards(state);
-    saveState(); render(); toast('棋盘已经按类别整理');
+    saveState(); render(); playSfx('click'); toast('棋盘已经按类别整理');
   }
 
   function orderById(id) {
@@ -730,7 +736,7 @@
 
   function deliver(id) {
     var result = Core.deliverOrder(state, id, Math.random, Date.now());
-    if (!mutate(result, '委托完成 · 新进展已记录')) return result;
+    if (!mutate(result, '委托完成 · 新进展已记录', null, 'order')) return result;
     closeModal();
     if (result.transformed || state.pendingTransformation) root.setTimeout(showTransformation, 120);
     return result;
@@ -754,7 +760,7 @@
     var reroll = modal.querySelector('[data-reroll]');
     if (reroll) reroll.addEventListener('click', function () {
       var result = Core.rerollOrder(state, reroll.dataset.reroll, Math.random);
-      if (mutate(result, '委托已刷新')) closeModal();
+      if (mutate(result, '委托已刷新', null, 'click')) closeModal();
     });
   }
 
@@ -781,7 +787,7 @@
     var upgrade = modal.querySelector('[data-upgrade-facility]');
     if (upgrade) upgrade.addEventListener('click', function () {
       var result = Core.upgradeFacility(state, id);
-      if (mutate(result, definition.name + '升到 Lv' + (facility.level))) closeModal();
+      if (mutate(result, definition.name + '升到 Lv' + (facility.level), null, 'purchase')) closeModal();
     });
     var claim = modal.querySelector('[data-claim-facility]');
     if (claim) claim.addEventListener('click', function () {
@@ -798,6 +804,7 @@
     }
     saveState();
     render();
+    playSfx('order');
     var groups = {};
     (result.items || []).forEach(function (item) {
       var key = item.family + ':' + item.tier;
@@ -883,7 +890,7 @@
       var definition = backgroundDef(id);
       if (!definition) return;
       var result = owned.indexOf(id) >= 0 ? Core.selectBackground(state, id) : Core.purchaseBackground(state, id);
-      if (mutate(result, result && result.purchased ? '已购买并切换为' + definition.name : '已切换为' + definition.name)) closeModal();
+      if (mutate(result, result && result.purchased ? '已购买并切换为' + definition.name : '已切换为' + definition.name, null, result && result.purchased ? 'purchase' : 'click')) closeModal();
     });
   }
 
@@ -895,6 +902,7 @@
       return { ok: false, reason: 'wrong-care-type' };
     }
     closeModal();
+    playSfx('click');
     var Engine = type === 'groom' ? root.Match3 : root.LinkGame;
     var gameRoot = q('care-game-root');
     if (!Engine || !Engine.Game || !gameRoot) {
@@ -966,6 +974,7 @@
     function pointerDown(event) {
       if (!careSession || careSession !== session) return;
       event.preventDefault();
+      playSfx('click');
       if (canvas.setPointerCapture && event.pointerId != null) {
         try { canvas.setPointerCapture(event.pointerId); } catch (error) { /* Synthetic and legacy pointers may not be capturable. */ }
       }
@@ -1020,6 +1029,7 @@
     var result = Core.recordCare(state, session.type, { outcome: outcome, beastId: session.beastId, game: summary || {} }, Date.now());
     if (!result.ok) { closeModal(); mutate(result); return result; }
     saveState(); render();
+    playSfx('care');
     var items = result.rewardItems && result.rewardItems.length ? result.rewardItems : [result.rewardItem];
     var itemGroups = {};
     items.forEach(function (reward) {
@@ -1103,7 +1113,7 @@
       if (event.target.closest('[data-store-selected]') && selectedIndex != null) {
         var result = Core.moveToStorage(state, selectedIndex);
         if (result.ok) selectedIndex = null;
-        mutate(result, '素材已放入暂存区');
+        mutate(result, '素材已放入暂存区', null, 'click');
       }
     });
     q('storage-list').addEventListener('click', function (event) {
@@ -1111,7 +1121,7 @@
       if (!slot) return;
       mutate(Core.moveFromStorage(state, Number(slot.dataset.storageIndex)), '素材已取回棋盘');
     });
-    q('storage-upgrade').addEventListener('click', function () { mutate(Core.upgradeStorage(state), '暂存区扩容成功'); });
+    q('storage-upgrade').addEventListener('click', function () { mutate(Core.upgradeStorage(state), '暂存区扩容成功', null, 'purchase'); });
     q('storage-open').addEventListener('click', openStorageDrawer);
     q('organize-btn').addEventListener('click', organizeBoard);
     q('energy-help').addEventListener('click', openEnergyCenter);
@@ -1122,7 +1132,7 @@
       var button = event.target.closest('[data-yard-beast]');
       if (!button) return;
       var result = Core.selectYardBeast(state, button.dataset.yardBeast);
-      mutate(result, '庭院已切换为' + beastDef(button.dataset.yardBeast).name);
+      mutate(result, '庭院已切换为' + beastDef(button.dataset.yardBeast).name, null, 'click');
     });
     q('yard-facilities-open').addEventListener('click', openFacilitiesDrawer);
     q('yard-jobs-open').addEventListener('click', openJobsDrawer);
@@ -1147,9 +1157,9 @@
     });
     q('job-list').addEventListener('click', function (event) {
       var button = event.target.closest('[data-claim-job]');
-      if (button) mutate(Core.claimJob(state, button.dataset.claimJob, Date.now()), '岗位补给已领取');
+      if (button) mutate(Core.claimJob(state, button.dataset.claimJob, Date.now()), '岗位补给已领取', null, 'order');
     });
-    q('claim-yard-goal').addEventListener('click', function () { mutate(Core.claimDaily(state), '今日承诺完成 · 奖励已领取'); });
+    q('claim-yard-goal').addEventListener('click', function () { mutate(Core.claimDaily(state), '今日承诺完成 · 奖励已领取', null, 'order'); });
     q('codex-list').addEventListener('click', function (event) {
       var card = event.target.closest('[data-beast-id]');
       if (card) openCodexDetails(card.dataset.beastId);

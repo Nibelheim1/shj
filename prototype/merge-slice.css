@@ -17,6 +17,7 @@ button:focus-visible { outline:3px solid #e7a47f; outline-offset:2px; }
 .hud-pill.energy { color:var(--coral-dark); cursor:pointer; }
 .hud-pill.energy:hover,.hud-pill.energy:focus-visible { background:#fff3df; }
 .icon-button { width:29px; height:29px; border:1px solid #72533b33; background:#fff; border-radius:50%; cursor:pointer; }
+.audio-toggle { flex:0 0 29px; padding:0; font-size:14px; line-height:1; }
 #slice-main { flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; overscroll-behavior:none; padding:9px 9px calc(8px + env(safe-area-inset-bottom)); }
 .view { display:none; animation:view-in .2s ease; }
 .view.active { display:flex; flex:1 1 auto; flex-direction:column; min-height:0; height:100%; overflow:hidden; }

@@ -222,6 +222,7 @@ for (const beastId of BEAST_IDS) {
 // checkout that has not generated one of the optional asset directories yet.
 copyDirectoryIfPresent('wechat/assets/art/match3', 'assets/art/match3');
 copyDirectoryIfPresent('wechat/assets/art/scenes', 'assets/art/scenes');
+copyDirectoryIfPresent('wechat/assets/audio', 'assets/audio');
 
 const builtFiles = walkFiles(dist).length;
 console.log(`Built dist/ with ${builtFiles} files.`);

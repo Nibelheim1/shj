@@ -12,6 +12,7 @@
   <header class="slice-hud" aria-label="玩家状态">
     <div class="brand-mark"><span class="brand-leaf" aria-hidden="true">✦</span><span>山海疗愈所</span></div>
     <div id="hud-values" class="hud-values"></div>
+    <button id="audio-toggle" class="icon-button audio-toggle" type="button" aria-label="开启背景音乐和音效" aria-pressed="true">🔊</button>
     <button id="reset-btn" class="icon-button" type="button" aria-label="重置进度">↺</button>
   </header>
 
@@ -120,10 +121,12 @@
   window.MATCH3_ASSET_ROOT = assetRoot;
   window.LINK_GAME_ASSET_ROOT = assetRoot;
   window.SCENE_ASSET_ROOT = inPrototype ? '../wechat/assets/art/scenes/' : 'assets/art/scenes/';
+  window.AUDIO_ASSET_ROOT = inPrototype ? '../wechat/assets/audio/' : 'assets/audio/';
 }());
 </script>
 <script src="js/merge/match3.js"></script>
 <script src="js/merge/link-game.js"></script>
+<script src="js/merge/audio.js"></script>
 <script src="js/merge/ui.js"></script>
 <script src="merge-slice.js"></script>
 </body>
