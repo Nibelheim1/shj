@@ -283,6 +283,33 @@
     return rootNode.querySelector('.care-modal');
   }
 
+  function openHowToPlay() {
+    var modal = modalShell(
+      '<span class="eyebrow">新手引导 · 随时可查看</span>' +
+      '<h2>玩法说明</h2>' +
+      '<p class="how-to-play-intro">把合成、委托和庭院照料连成一条温柔的疗愈路线。每一步都可以慢慢完成，不会因为失败丢失进度。</p>' +
+      '<div class="how-to-play-list">' +
+        '<article class="how-to-play-item"><b>① 拖动合成</b><span>拖动素材到空格整理；拖到同类同阶素材上，会自动合成更高阶物品。长按素材可看完整路线。</span></article>' +
+        '<article class="how-to-play-item"><b>② 完成委托</b><span>医馆始终保留三个委托槽。金色边框是主线，点开卡片可查看前置、需求和奖励，集齐后点击交付。</span></article>' +
+        '<article class="how-to-play-item"><b>③ 体力怎么用</b><span>体力只消耗在生成器产出。体力为零仍能合成、领取岗位产出、整理棋盘和进行照料小游戏。</span></article>' +
+        '<article class="how-to-play-item"><b>④ 庭院照料</b><span>点击梳洗台进入消消乐，点击亭子进入连连看。图鉴会标出当前异兽的偏好；非偏好设施也能玩，但本局不发照料奖励。</span></article>' +
+        '<article class="how-to-play-item"><b>⑤ 零失败结算</b><span>小游戏可跳过或等待超时，仍会得到基础奖励。完成偏好小游戏后推进照料节点，帮助异兽完成三段故事并蜕变。</span></article>' +
+        '<article class="how-to-play-item"><b>⑥ 继续成长</b><span>蜕变后会解锁图鉴、岗位和下一位住客；庭院快捷栏可以升级设施、领取产出、购买并切换背景。</span></article>' +
+      '</div>' +
+      '<div class="how-to-play-note">小提示：棋盘满时奖励会进入药匣暂存，不会丢失；看不懂任何图标时，长按它即可查看名称与来源。</div>' +
+      '<button class="modal-action" data-how-to-play-close type="button">知道了，开始疗愈</button>',
+      'task-modal how-to-play-modal'
+    );
+    if (!modal) return null;
+    if (state && !state.tutorialSeen && !readOnlyNewerSave) {
+      state.tutorialSeen = true;
+      saveState();
+    }
+    var close = modal.querySelector('[data-how-to-play-close]');
+    if (close) close.addEventListener('click', closeModal);
+    return modal;
+  }
+
   function stopCareGame() {
     var session = careSession;
     careSession = null;
@@ -1335,6 +1362,7 @@
     q('storage-open').addEventListener('click', openStorageDrawer);
     q('organize-btn').addEventListener('click', organizeBoard);
     q('energy-help').addEventListener('click', openEnergyCenter);
+    q('how-to-play-open').addEventListener('click', openHowToPlay);
     Array.prototype.forEach.call(document.querySelectorAll('[data-care]'), function (button) {
       button.addEventListener('click', function () { openCare(button.dataset.care); });
     });
@@ -1409,7 +1437,8 @@
     });
     if (readOnlyNewerSave) toast('检测到更高版本存档：当前仅预览，不会降级覆盖');
     else if (migrationSource) toast('v3 进度已无损迁移到 v4，旧存档仍保留');
-    if (state.pendingTransformation) root.setTimeout(showTransformation, 30);
+    if (!state.tutorialSeen) root.setTimeout(openHowToPlay, 30);
+    else if (state.pendingTransformation) root.setTimeout(showTransformation, 30);
     else if (offline.elapsedMs >= 5 * 60 * 1000) root.setTimeout(function () { showOffline(offline); }, 30);
     return state;
   }
@@ -1435,6 +1464,7 @@
     openCare: openCare,
     finishCare: finishCare,
     openEnergyCenter: openEnergyCenter,
+    openHowToPlay: openHowToPlay,
     openOrderDetails: openOrderDetails,
     showTransformation: showTransformation
   };

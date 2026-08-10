@@ -413,3 +413,78 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
   #merge-view .order-card .order-progress { display:block; max-width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; line-height:1.2; }
   #merge-view .selection-hint { min-height:16px; max-height:18px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:clamp(7px,2vw,9px); }
 }
+
+/* v6 onboarding and short-phone fit. Keep the help affordance visible on every
+   view while the board uses the actual available small-viewport height. */
+.help-button { color:var(--coral-dark); background:#fff2d5; border-color:#e4b65f99; font-size:18px; font-weight:900; line-height:1; }
+.help-button:active { transform:translateY(1px) scale(.96); }
+#merge-view .merge-board { margin-inline:auto; }
+.how-to-play-modal { max-height:calc(100dvh - 16px); overflow:auto; }
+.how-to-play-intro { margin-top:4px; }
+.how-to-play-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin-top:10px; }
+.how-to-play-item { display:grid; gap:3px; min-width:0; padding:7px; border:1px solid #e4b65f55; border-radius:10px; background:linear-gradient(135deg,#fff8e8,#fffdf8); color:#72533b; font-size:8px; line-height:1.35; }
+.how-to-play-item b { color:var(--coral-dark); font-size:9px; }
+.how-to-play-item span { color:var(--muted); }
+.how-to-play-note { margin-top:8px; padding:6px 7px; border-radius:8px; background:#eef5e9; color:#557b56; font-size:8px; line-height:1.35; }
+
+@media (max-height:720px) {
+  #merge-view .merge-board {
+    width:min(100%,clamp(208px,calc((100svh - 330px) * .75),300px));
+    max-height:calc(100svh - 330px);
+  }
+  #yard-view .yard-scene { height:clamp(220px,39svh,280px); }
+}
+
+@media (max-height:680px) and (min-height:621px) {
+  #yard-view .yard-scene { height:clamp(220px,36svh,238px); }
+  #yard-view .yard-goal-panel,
+  #yard-view .progress-card { padding:6px; }
+}
+
+@media (max-height:620px) {
+  #slice-main { gap:2px; }
+  #merge-view { gap:clamp(2px,.7svh,4px); }
+  #merge-view .view-heading { min-height:28px; height:28px; }
+  #merge-view .view-heading h1 { font-size:clamp(15px,4.8vw,18px); }
+  #merge-view #next-action { height:26px; max-height:26px; margin-top:2px; padding:3px 6px; font-size:8px; }
+  #merge-view #next-action strong { font-size:9px; }
+  #merge-view .order-panel { padding:4px; }
+  #merge-view .order-list { gap:4px; }
+  #merge-view .order-card { padding:3px; }
+  #merge-view .order-head strong { font-size:8px; }
+  #merge-view .order-need-icons { min-height:18px; gap:2px; }
+  #merge-view .order-need { width:18px; height:18px; }
+  #merge-view .order-card .deliver-btn { min-height:18px; margin-top:1px; padding:2px; font-size:7px; }
+  #merge-view .board-card { padding:4px 4px 2px; }
+  #merge-view .board-topline { margin-bottom:2px; }
+  #merge-view .board-topline strong { font-size:11px; }
+  #merge-view .merge-board {
+    width:min(100%,clamp(208px,calc((100svh - 330px) * .75),300px));
+    max-height:calc(100svh - 330px);
+    padding:3px;
+    gap:2px;
+  }
+  #merge-view .selection-hint { min-height:12px; max-height:14px; padding-top:2px; font-size:7px; }
+  #yard-view { gap:3px; }
+  #yard-view .yard-scene { height:clamp(205px,37svh,238px); }
+  #yard-view .yard-goal-panel,
+  #yard-view .progress-card { margin-top:0; padding:5px; }
+  #yard-view .yard-goals { margin-top:3px; }
+  #yard-view .yard-goal { min-height:30px; padding:3px 2px; font-size:7px; }
+  #yard-view .yard-goal strong { font-size:8px; }
+  #yard-view .goal-claim { margin-top:3px; padding:4px; font-size:8px; }
+  #yard-view .yard-quickbar { margin-top:3px; gap:3px; }
+  #yard-view .yard-quickbar button { min-height:23px; padding:3px 2px; font-size:7px; }
+  #yard-view .progress-row { margin-top:4px; font-size:8px; }
+  #yard-view .yard-reward { margin-top:4px; padding:4px; font-size:7px; }
+  .how-to-play-modal { padding:10px 9px 9px; }
+  .how-to-play-list { gap:4px; margin-top:7px; }
+  .how-to-play-item { padding:5px; font-size:7px; line-height:1.25; }
+  .how-to-play-item b { font-size:8px; }
+  .how-to-play-note { margin-top:5px; padding:5px; font-size:7px; }
+  .how-to-play-modal .modal-action { margin-top:6px; padding:6px; }
+}
+
+@media (max-width:370px) {
+  .help-button { font-size:16px; }
+}

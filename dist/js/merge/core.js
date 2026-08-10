@@ -241,6 +241,7 @@
       lastAdvance: { appliedMs: 0, at: now },
       endingUnlocked: false,
       nextChapter: '第二卷 · 白泽的来信',
+      tutorialSeen: false,
       analytics: []
     };
     syncEnergyCap(state);
@@ -418,6 +419,7 @@
     });
     state.maxEnergy = Math.max(1, number(raw.maxEnergy, base.maxEnergy));
     syncEnergyCap(state);
+    state.tutorialSeen = !!raw.tutorialSeen;
     state.jade = Math.max(0, number(raw.jade, base.jade));
     state.pendingRewards = Array.isArray(raw.pendingRewards) ? raw.pendingRewards.map(normalizeItem).filter(Boolean) : [];
     removeGroomGenerator(state);
