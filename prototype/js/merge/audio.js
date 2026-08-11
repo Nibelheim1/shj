@@ -1,4 +1,4 @@
-/* Lightweight BGM/SFX bridge for the merge slice. */
+/* Lightweight short-SFX bridge for the merge slice. */
 (function (root, factory) {
   'use strict';
   if (typeof module === 'object' && module.exports) {
@@ -14,12 +14,17 @@
   var initialized = false;
   var enabled = true;
   var unlocked = false;
-  var bgm = null;
   var unlockHandler = null;
   var sounds = {};
   var lastClickAt = 0;
+  var MAX_SFX_MS = {
+    click: 95,
+    merge: 220,
+    order: 220,
+    care: 190,
+    purchase: 240
+  };
   var defaultAudio = {
-    bgm: 'bgm_courtyard.wav',
     sfx: {
       click: 'sfx_click.wav',
       merge: 'sfx_merge.wav',
@@ -27,7 +32,6 @@
       care: 'sfx_care.wav',
       purchase: 'sfx_purchase.wav'
     },
-    bgmVolume: 0.18,
     sfxVolume: 0.34
   };
 
@@ -61,8 +65,8 @@
     if (!button) return;
     button.textContent = enabled ? '🔊' : '🔇';
     button.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-    button.setAttribute('aria-label', enabled ? '关闭背景音乐和音效' : '开启背景音乐和音效');
-    button.title = enabled ? '关闭背景音乐和音效' : '开启背景音乐和音效';
+    button.setAttribute('aria-label', enabled ? '关闭音效' : '开启音效');
+    button.title = enabled ? '关闭音效' : '开启音效';
   }
 
   function removeUnlockListeners() {
@@ -85,34 +89,11 @@
     root.addEventListener('keydown', unlockHandler, true);
   }
 
-  function ensureBgm() {
-    if (bgm) return bgm;
-    var AudioCtor = audioConstructor();
-    if (!AudioCtor) return null;
-    var settings = config();
-    bgm = new AudioCtor(assetPath(settings.bgm));
-    bgm.loop = true;
-    bgm.preload = 'auto';
-    bgm.volume = Math.max(0, Math.min(1, Number(settings.bgmVolume) || 0.18));
-    return bgm;
-  }
-
-  function startBgm() {
-    if (!enabled) return false;
-    var music = ensureBgm();
-    if (!music || typeof music.play !== 'function') return false;
-    try {
-      var pending = music.play();
-      if (pending && typeof pending.catch === 'function') pending.catch(function () { /* Gesture may still be required. */ });
-      return true;
-    } catch (error) { return false; }
-  }
-
   function unlock() {
     if (!enabled) return false;
     unlocked = true;
     removeUnlockListeners();
-    return startBgm();
+    return true;
   }
 
   function bindToggle() {
@@ -129,11 +110,7 @@
     enabled = value !== false;
     safeSet(PREF_KEY, enabled ? 'on' : 'off');
     updateToggle();
-    if (enabled) {
-      unlock();
-    } else if (bgm && typeof bgm.pause === 'function') {
-      bgm.pause();
-    }
+    if (enabled) unlock();
     return enabled;
   }
 
@@ -154,10 +131,18 @@
       clip = source && typeof source.cloneNode === 'function' ? source.cloneNode(true) : new AudioCtor(assetPath(filename));
       clip.volume = Math.max(0, Math.min(1, Number(settings.sfxVolume) || 0.34));
       clip.preload = 'auto';
+      clip.currentTime = 0;
       if (clip.src && clip.src.indexOf(assetPath(filename)) < 0) clip.src = assetPath(filename);
       sounds[name] = source || clip;
       var pending = clip.play();
       if (pending && typeof pending.catch === 'function') pending.catch(function () { /* Missing/blocked cue is non-fatal. */ });
+      var stopAfter = MAX_SFX_MS[name] || 240;
+      if (root.setTimeout) root.setTimeout(function () {
+        try {
+          clip.pause();
+          clip.currentTime = 0;
+        } catch (error) { /* A disposed audio element is harmless. */ }
+      }, stopAfter);
       return true;
     } catch (error) { return false; }
   }
@@ -169,11 +154,6 @@
     bindToggle();
     updateToggle();
     if (enabled) bindUnlockListeners();
-    if (document && document.addEventListener) {
-      document.addEventListener('visibilitychange', function () {
-        if (!document.hidden && enabled && unlocked) startBgm();
-      });
-    }
     return api;
   }
 
