@@ -1,0 +1,1492 @@
+/*
+ * Merge healing loop v4 - deterministic state core.
+ *
+ * The module intentionally has no DOM or storage dependency.  Browser UI and
+ * headless tests both drive the same mutations, which keeps save migration,
+ * offline settlement and order reachability reviewable in one place.
+ */
+(function (root, factory) {
+  'use strict';
+  if (typeof module === 'object' && module.exports) {
+    module.exports = factory(require('./data.js'));
+  } else {
+    root.MergeCore = factory(root.MERGE_DATA);
+  }
+}(typeof window !== 'undefined' ? window : this, function (DATA) {
+  'use strict';
+
+  if (!DATA) throw new Error('MERGE_DATA is required before MergeCore');
+
+  var TOTAL = DATA.board.totalCells;
+  var TIER_CAP = DATA.board.tierCap;
+  var OFFLINE_CAP_MS = 8 * 60 * 60 * 1000;
+  var DAY_MS = 24 * 60 * 60 * 1000;
+  var FAMILY_IDS = Object.keys(DATA.families);
+  var BEAST_IDS = DATA.beasts.map(function (beast) { return beast.id; });
+  var GENERATOR_NAMES = {
+    herb: '百草药篓', tool: '医师药箱', food: '膳食篮',
+    play: '风铃玩具箱'
+  };
+
+  /* 梳子系列由梳洗台小游戏发放，不再拥有棋盘生成器。保留 family
+     本身用于订单、奖励与路线展示，只有 generator 被禁用。 */
+  var GAME_SOURCE_FAMILIES = { groom: true, play: true };
+  var ENERGY_CAP = Math.max(1, Math.floor(number(DATA.economy.energyCap, 100)));
+
+  function energyCapForLevel(level) {
+    var base = Math.max(1, Math.floor(number(DATA.economy.maxEnergy, 30)));
+    var perLevel = Math.max(0, Math.floor(number(DATA.economy.energyPerLevel, 1)));
+    var safeLevel = Math.max(1, Math.floor(number(level, 1)));
+    return Math.min(ENERGY_CAP, base + Math.max(0, safeLevel - 1) * perLevel);
+  }
+
+  function syncEnergyCap(state) {
+    if (!state) return 0;
+    var expected = energyCapForLevel(state.level);
+    /* Preserve an already higher cap from a future reader while granting the
+       new per-level increase to older v3/v4 saves. */
+    state.maxEnergy = clamp(Math.max(number(state.maxEnergy, expected), expected), 1, ENERGY_CAP);
+    state.energy = clamp(number(state.energy, 0), 0, state.maxEnergy);
+    return state.maxEnergy;
+  }
+
+  function clone(value) {
+    return value == null ? value : JSON.parse(JSON.stringify(value));
+  }
+
+  function number(value, fallback) {
+    var parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function isoDate(timestamp) {
+    var date = new Date(timestamp == null ? Date.now() : timestamp);
+    var year = date.getFullYear();
+    var month = String(date.getMonth() + 1).padStart(2, '0');
+    var day = String(date.getDate()).padStart(2, '0');
+    return year + '-' + month + '-' + day;
+  }
+
+  function familyDefinition(id) {
+    return DATA.families[id] || null;
+  }
+
+  function beastDefinition(id) {
+    return DATA.beasts.find(function (beast) { return beast.id === id; }) || null;
+  }
+
+  function backgroundDefinition(id) {
+    return (DATA.backgrounds || []).find(function (background) { return background.id === id; }) || null;
+  }
+
+  function ensureBackgroundState(state) {
+    if (!state) return null;
+    var raw = state.backgrounds && typeof state.backgrounds === 'object' ? state.backgrounds : {};
+    var known = (DATA.backgrounds || []).map(function (background) { return background.id; });
+    var owned = Array.isArray(raw.owned) ? raw.owned.slice() : [];
+    owned = owned.filter(function (id, index) {
+      return known.indexOf(id) >= 0 && owned.indexOf(id) === index;
+    });
+    (DATA.backgrounds || []).forEach(function (background) {
+      if (background.ownedByDefault && owned.indexOf(background.id) < 0) owned.unshift(background.id);
+    });
+    var active = raw.active || state.yardBackground || 'courtyard';
+    if (known.indexOf(active) < 0 || owned.indexOf(active) < 0) active = owned[0] || 'courtyard';
+    state.backgrounds = { owned: owned, active: active };
+    /* Alias keeps older v4 readers from losing the selected scene. */
+    state.yardBackground = active;
+    return state.backgrounds;
+  }
+
+  function isYardBeastAvailable(state, beastId) {
+    var entry = state && state.beastCases && state.beastCases[beastId];
+    var codex = state && state.codex && state.codex[beastId];
+    if (!entry || !beastDefinition(beastId)) return false;
+    return !!(entry.transformed || entry.status === 'active' || entry.status === 'waiting' || (codex && codex.discovered));
+  }
+
+  function ensureYardBeast(state) {
+    if (!state) return null;
+    var candidate = state.yardBeastId;
+    if (!isYardBeastAvailable(state, candidate)) candidate = state.activeCaseId;
+    if (!isYardBeastAvailable(state, candidate)) {
+      candidate = BEAST_IDS.find(function (id) { return isYardBeastAvailable(state, id); });
+    }
+    state.yardBeastId = candidate || BEAST_IDS[0];
+    return state.yardBeastId;
+  }
+
+  function makeItem(family, tier) {
+    var definition = familyDefinition(family);
+    var safeTier = clamp(Math.floor(number(tier, 1)), 1, TIER_CAP);
+    return {
+      family: family,
+      tier: safeTier,
+      name: definition && definition.items[safeTier - 1] ? definition.items[safeTier - 1] : family + ' ' + safeTier
+    };
+  }
+
+  function makeGenerator(family) {
+    return { kind: 'generator', family: family, name: GENERATOR_NAMES[family] || family + '生成器' };
+  }
+
+  function makeCase(id, active) {
+    return {
+      id: id,
+      status: active ? 'active' : 'locked',
+      stage: 0,
+      storyProgress: 0,
+      storyDone: [false, false, false],
+      careDone: false,
+      trust: 0,
+      heal: 0,
+      bond: 1,
+      transformed: false,
+      pendingTransformation: false,
+      careCount: 0
+    };
+  }
+
+  function freshBoard() {
+    var grid = new Array(TOTAL).fill(null);
+    [
+      [0, 'herb', 1], [1, 'herb', 1], [2, 'tool', 1], [3, 'tool', 1],
+      [4, 'herb', 2], [5, 'food', 1], [6, 'tool', 1], [7, 'herb', 1],
+      [10, 'herb', 1], [11, 'food', 1], [12, 'tool', 1], [14, 'herb', 1],
+      [15, 'food', 1], [16, 'tool', 2], [17, 'herb', 1], [19, 'herb', 1],
+      [20, 'tool', 1], [21, 'food', 1], [24, 'herb', 1], [25, 'tool', 1],
+      [27, 'food', 1], [29, 'herb', 1]
+    ].forEach(function (entry) { grid[entry[0]] = makeItem(entry[1], entry[2]); });
+    [8, 9, 18, 32].forEach(function (index) {
+      grid[index] = { kind: 'obstacle', tier: 1, name: '藤蔓障碍' };
+    });
+    [13, 22, 34].forEach(function (index) {
+      grid[index] = { kind: 'sealed', tier: 1, name: '封印格' };
+    });
+    grid[23] = makeGenerator('herb');
+    grid[26] = makeGenerator('tool');
+    grid[31] = makeGenerator('food');
+    return grid;
+  }
+
+  function freshDaily(date) {
+    return {
+      date: date,
+      merges: 0,
+      orders: 0,
+      care: 0,
+      claimed: false,
+      freeRerolls: 1,
+      rerollsUsed: 0,
+      groomBoostsUsed: 0,
+      masteryDuplicateUsed: false
+    };
+  }
+
+  function createFresh(now, date) {
+    now = number(now, Date.now());
+    date = date || isoDate(now);
+    var cases = {};
+    var codex = {};
+    var jobs = {};
+    DATA.beasts.forEach(function (beast, index) {
+      cases[beast.id] = makeCase(beast.id, index === 0);
+      codex[beast.id] = { discovered: index === 0, transformed: false, seenStage: 0 };
+      jobs[beast.id] = {
+        stored: beast.id === 'qiongqi' ? 1 : 0,
+        progressMs: 0,
+        lastClaimAt: 0
+      };
+    });
+    var state = {
+      version: 4,
+      level: 1,
+      xp: 0,
+      xpNext: 70,
+      jade: DATA.economy.startJade,
+      energy: DATA.economy.startEnergy,
+      maxEnergy: DATA.economy.maxEnergy,
+      unlockedCells: DATA.board.startUnlockedCells,
+      grid: freshBoard(),
+      unlockedGenerators: ['herb', 'tool'],
+      cleanTools: 1,
+      completedOrders: 0,
+      totalOrders: 0,
+      firstStoryCompleted: false,
+      activeOrders: [],
+      orderSerial: 0,
+      facilities: {
+        herb: { level: 0, stored: [], progressMs: 0 },
+        groom: { level: 0 }
+      },
+      buildings: { herb: 0, groom: 0 },
+      storage: { slots: 3, items: [null, null, null] },
+      beastCases: cases,
+      activeCaseId: 'qiongqi',
+      yardBeastId: 'qiongqi',
+      backgrounds: { owned: ['courtyard'], active: 'courtyard' },
+      transformedOrder: [],
+      pendingTransformation: null,
+      codex: codex,
+      jobs: jobs,
+      daily: freshDaily(date),
+      pendingRewards: [],
+      lastSeenAt: now,
+      lastEnergyTick: now,
+      energyProgressMs: 0,
+      lastAdvance: { appliedMs: 0, at: now },
+      endingUnlocked: false,
+      nextChapter: '第二卷 · 白泽的来信',
+      tutorialSeen: false,
+      analytics: []
+    };
+    syncEnergyCap(state);
+    ensureOrders(state, Math.random);
+    state.orders = state.activeOrders;
+    syncLegacyAliases(state);
+    return state;
+  }
+
+  function syncLegacyAliases(state) {
+    state.orders = state.activeOrders;
+    state.buildings = state.buildings || {};
+    state.buildings.herb = state.facilities && state.facilities.herb ? state.facilities.herb.level : number(state.buildings.herb, 0);
+    state.buildings.groom = state.facilities && state.facilities.groom ? state.facilities.groom.level : number(state.buildings.groom, 0);
+    var qiongqi = state.beastCases && state.beastCases.qiongqi;
+    if (qiongqi) {
+      state.beast = Object.assign({}, state.beast || {}, {
+        trust: qiongqi.trust,
+        heal: qiongqi.heal,
+        stage: qiongqi.stage,
+        bond: qiongqi.bond
+      });
+      state.qiongqi = Object.assign({}, state.qiongqi || {}, clone(qiongqi));
+    }
+  }
+
+  function normalizeItem(raw) {
+    if (!raw || typeof raw !== 'object') return raw == null ? null : raw;
+    if (raw.kind) return clone(raw);
+    if (!raw.family) return clone(raw);
+    var copied = clone(raw);
+    copied.tier = clamp(Math.floor(number(copied.tier, 1)), 1, TIER_CAP);
+    if (familyDefinition(copied.family)) copied.name = makeItem(copied.family, copied.tier).name;
+    return copied;
+  }
+
+  function removeGroomGenerator(state) {
+    if (!state) return;
+    state.unlockedGenerators = (state.unlockedGenerators || []).filter(function (family) {
+      return family !== 'groom';
+    });
+    if (!Array.isArray(state.pendingRewards)) state.pendingRewards = [];
+    (state.grid || []).forEach(function (item, index) {
+      if (item && item.kind === 'generator' && item.family === 'groom') {
+        state.grid[index] = null;
+        /* 旧梳妆匣不静默丢失：折算为一份最低阶梳子素材，进入安全暂存。 */
+        state.pendingRewards.push(makeItem('groom', 1));
+      }
+    });
+  }
+
+  function normalizeCase(raw, id) {
+    var base = makeCase(id, id === 'qiongqi');
+    raw = raw && typeof raw === 'object' ? raw : {};
+    var result = Object.assign(base, clone(raw));
+    result.id = id;
+    result.storyProgress = clamp(Math.floor(number(
+      raw.storyProgress != null ? raw.storyProgress : (raw.storyCount != null ? raw.storyCount : raw.stories), 0
+    )), 0, 3);
+    result.storyDone = [0, 1, 2].map(function (index) {
+      return Array.isArray(raw.storyDone) ? !!raw.storyDone[index] : index < result.storyProgress;
+    });
+    result.careCount = Math.max(0, Math.floor(number(raw.careCount != null ? raw.careCount : raw.careProgress, 0)));
+    result.careDone = !!(raw.careDone || raw.care || result.careCount > 0);
+    result.trust = clamp(number(raw.trust, result.storyProgress * 15 + (result.careDone ? 15 : 0)), 0, 100);
+    result.heal = clamp(number(raw.heal, result.storyProgress * 25 + (result.careDone ? 25 : 0)), 0, 100);
+    result.transformed = !!raw.transformed;
+    if (result.transformed) {
+      result.status = 'transformed';
+      result.stage = 3;
+    } else {
+      result.stage = clamp(Math.floor(number(raw.stage, result.storyProgress > 1 ? 2 : result.storyProgress)), 0, 2);
+    }
+    result.pendingTransformation = !!raw.pendingTransformation;
+    return result;
+  }
+
+  function migrateV3(raw, now, date) {
+    var state = createFresh(now, date);
+    state.version = 4;
+    if (Object.prototype.hasOwnProperty.call(raw, 'grid') && Array.isArray(raw.grid)) {
+      /* Preserve the exact legacy payload. Names and diagnostic markers are user data too. */
+      state.grid = clone(raw.grid);
+    }
+    ['jade', 'energy', 'level', 'xp', 'xpNext', 'unlockedCells', 'cleanTools', 'completedOrders', 'houseLevel'].forEach(function (key) {
+      if (Object.prototype.hasOwnProperty.call(raw, key)) state[key] = clone(raw[key]);
+    });
+    state.maxEnergy = Math.max(1, number(raw.maxEnergy, DATA.economy.maxEnergy));
+    syncEnergyCap(state);
+    state.jade = Math.max(0, number(state.jade, DATA.economy.startJade));
+    state.unlockedCells = clamp(Math.floor(number(state.unlockedCells, DATA.board.startUnlockedCells)), 0, TOTAL);
+    if (Array.isArray(raw.unlockedGenerators)) state.unlockedGenerators = raw.unlockedGenerators.slice();
+    ['herb', 'tool'].forEach(function (family) {
+      if (state.unlockedGenerators.indexOf(family) < 0) state.unlockedGenerators.push(family);
+    });
+    state.buildings = clone(raw.buildings || { herb: 0, groom: 0 });
+    state.backgrounds = clone(raw.backgrounds || {
+      owned: raw.ownedBackgrounds,
+      active: raw.background || raw.yardBackground
+    });
+    state.facilities.herb.level = clamp(Math.floor(number(state.buildings.herb != null ? state.buildings.herb : state.buildings.clinic, 0)), 0, 3);
+    state.facilities.groom.level = clamp(Math.floor(number(state.buildings.groom != null ? state.buildings.groom : state.buildings.pharmacy, 0)), 0, 3);
+
+    var oldOrderDone = {};
+    (raw.orders || []).forEach(function (order) { if (order && order.done) oldOrderDone[order.id] = true; });
+    var oldBeast = raw.qiongqi || raw.beast || {};
+    var inferredStories = Math.max(
+      number(oldBeast.storyProgress, 0), number(oldBeast.storyCount, 0), number(oldBeast.stories, 0),
+      oldOrderDone.night ? 1 : 0,
+      oldOrderDone.wound ? 2 : 0,
+      oldOrderDone.groom ? 3 : 0
+    );
+    oldBeast = Object.assign({}, oldBeast, { storyProgress: clamp(inferredStories, 0, 3) });
+    if (number(raw.minigameWins, 0) > 0) {
+      oldBeast.careDone = true;
+      oldBeast.careCount = Math.max(1, number(oldBeast.careCount, 0));
+    }
+    var qiongqi = normalizeCase(oldBeast, 'qiongqi');
+    state.beastCases.qiongqi = qiongqi;
+    state.activeCaseId = 'qiongqi';
+    state.yardBeastId = raw.yardBeastId || raw.displayBeastId || 'qiongqi';
+    qiongqi.status = 'active';
+    if (qiongqi.storyProgress >= 3 && qiongqi.careDone) {
+      qiongqi.transformed = true;
+      qiongqi.pendingTransformation = true;
+      qiongqi.status = 'transformed';
+      qiongqi.stage = 3;
+      qiongqi.trust = Math.max(60, qiongqi.trust);
+      qiongqi.heal = Math.max(100, qiongqi.heal);
+      state.pendingTransformation = 'qiongqi';
+      state.activeCaseId = null;
+      state.transformedOrder = ['qiongqi'];
+      state.codex.qiongqi.transformed = true;
+      /* 梳子系列改由梳洗台小游戏获得，不为旧存档恢复梳妆匣生成器。 */
+    }
+
+    var pendingHerbs = Math.max(0, Math.floor(number(raw.pendingHerbRewards, 0)));
+    for (var h = 0; h < pendingHerbs; h++) state.pendingRewards.push(makeItem('herb', 1));
+    var side = raw.pendingSideRewards || {};
+    var sideTiers = raw.pendingSideRewardTiers || {};
+    ['groom', 'play'].forEach(function (family) {
+      var tiers = Array.isArray(sideTiers[family]) ? sideTiers[family] : [];
+      var count = Math.max(tiers.length, Math.floor(number(side[family], 0)));
+      for (var index = 0; index < count; index++) state.pendingRewards.push(makeItem(family, tiers[index] || 1));
+    });
+    state.lastSeenAt = number(raw.lastSeenAt != null ? raw.lastSeenAt : raw.lastEnergyTick, now);
+    state.lastEnergyTick = number(raw.lastEnergyTick, state.lastSeenAt);
+    removeGroomGenerator(state);
+    ensureYardBeast(state);
+    ensureBackgroundState(state);
+    state.activeOrders = [];
+    ensureOrders(state, Math.random);
+    syncLegacyAliases(state);
+    /* Keep the original building map byte-for-byte for downgrade protection;
+       v4 gameplay reads the migrated `facilities` map instead. */
+    state.buildings = clone(raw.buildings || { herb: 0, groom: 0 });
+    return state;
+  }
+
+  function normalize(raw, now, date) {
+    now = number(now, Date.now());
+    date = date || isoDate(now);
+    if (!raw || typeof raw !== 'object') return createFresh(now, date);
+    if (number(raw.version, 0) < 4) return migrateV3(raw, now, date);
+
+    var base = createFresh(now, date);
+    var state = Object.assign(base, clone(raw), { version: 4 });
+    state.grid = Array.isArray(raw.grid) ? raw.grid.map(normalizeItem) : base.grid;
+    state.unlockedCells = clamp(Math.floor(number(raw.unlockedCells, base.unlockedCells)), 0, TOTAL);
+    state.unlockedGenerators = Array.isArray(raw.unlockedGenerators) ? raw.unlockedGenerators.filter(function (family, index, list) {
+      return FAMILY_IDS.indexOf(family) >= 0 && list.indexOf(family) === index;
+    }) : base.unlockedGenerators.slice();
+    ['herb', 'tool'].forEach(function (family) {
+      if (state.unlockedGenerators.indexOf(family) < 0) state.unlockedGenerators.push(family);
+    });
+    state.maxEnergy = Math.max(1, number(raw.maxEnergy, base.maxEnergy));
+    syncEnergyCap(state);
+    state.tutorialSeen = !!raw.tutorialSeen;
+    state.jade = Math.max(0, number(raw.jade, base.jade));
+    state.pendingRewards = Array.isArray(raw.pendingRewards) ? raw.pendingRewards.map(normalizeItem).filter(Boolean) : [];
+    removeGroomGenerator(state);
+    state.storage = raw.storage && typeof raw.storage === 'object' ? clone(raw.storage) : base.storage;
+    state.storage.slots = clamp(Math.floor(number(state.storage.slots, 3)), 3, 6);
+    state.storage.items = Array.isArray(state.storage.items) ? state.storage.items.slice(0, state.storage.slots).map(normalizeItem) : [];
+    while (state.storage.items.length < state.storage.slots) state.storage.items.push(null);
+    state.facilities = state.facilities && typeof state.facilities === 'object' ? state.facilities : clone(base.facilities);
+    state.facilities.herb = Object.assign(clone(base.facilities.herb), state.facilities.herb || {});
+    state.facilities.groom = Object.assign(clone(base.facilities.groom), state.facilities.groom || {});
+    state.facilities.herb.level = clamp(Math.floor(number(state.facilities.herb.level, 0)), 0, 3);
+    state.facilities.groom.level = clamp(Math.floor(number(state.facilities.groom.level, 0)), 0, 3);
+    state.facilities.herb.stored = Array.isArray(state.facilities.herb.stored) ? state.facilities.herb.stored.map(normalizeItem) : [];
+    state.beastCases = {};
+    DATA.beasts.forEach(function (beast, index) {
+      state.beastCases[beast.id] = normalizeCase(raw.beastCases && raw.beastCases[beast.id], beast.id);
+      if (!raw.beastCases && index === 0 && raw.beast) state.beastCases[beast.id] = normalizeCase(raw.beast, beast.id);
+    });
+    state.codex = Object.assign(clone(base.codex), raw.codex || {});
+    state.jobs = Object.assign(clone(base.jobs), raw.jobs || {});
+    BEAST_IDS.forEach(function (id) { state.jobs[id] = Object.assign(clone(base.jobs[id]), state.jobs[id] || {}); });
+    state.daily = Object.assign(freshDaily(date), raw.daily || {});
+    state.activeOrders = Array.isArray(raw.activeOrders) ? raw.activeOrders.map(normalizeOrder).filter(Boolean).slice(0, 3) : [];
+    state.pendingTransformation = raw.pendingTransformation || null;
+    ensureYardBeast(state);
+    ensureBackgroundState(state);
+    state.lastSeenAt = number(raw.lastSeenAt, now);
+    state.lastEnergyTick = number(raw.lastEnergyTick, state.lastSeenAt);
+    ensureOrders(state, Math.random);
+    depositPendingRewards(state);
+    syncLegacyAliases(state);
+    return state;
+  }
+
+  function normalizeRequirement(raw) {
+    if (Array.isArray(raw)) return { family: raw[0], tier: Math.max(1, Math.floor(number(raw[1], 1))), count: Math.max(1, Math.floor(number(raw[2], 1))) };
+    if (!raw || typeof raw !== 'object' || !raw.family) return null;
+    return {
+      family: raw.family,
+      tier: clamp(Math.floor(number(raw.tier, 1)), 1, TIER_CAP),
+      count: Math.max(1, Math.floor(number(raw.count, 1)))
+    };
+  }
+
+  function normalizeOrder(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    var requirements = (raw.requirements || raw.needs || raw.need || []).map(normalizeRequirement).filter(Boolean);
+    var copied = Object.assign({}, clone(raw), {
+      requirements: requirements,
+      needs: clone(requirements),
+      permanent: true,
+      status: raw.status || 'OPEN',
+      done: false,
+      mainline: raw.mainline != null ? !!raw.mainline : ['story', 'arrival', 'care_gate'].indexOf(raw.kind) >= 0
+    });
+    copied.rewards = Object.assign({}, raw.rewards || raw.reward || {});
+    return copied;
+  }
+
+  function requirementValue(requirements) {
+    return requirements.reduce(function (sum, need) {
+      var value = DATA.economy.itemValues[need.tier - 1] || DATA.economy.itemValues[0];
+      return sum + value * need.count;
+    }, 0);
+  }
+
+  function rewardsFor(kind, requirements, state) {
+    var multiplier = DATA.order.slotMultipliers[kind] || 1;
+    var jade = Math.max(12, Math.round(requirementValue(requirements) * multiplier));
+    var xp = Math.max(8, Math.round(jade * DATA.order.xpRatio));
+    if (kind === 'story' && !state.firstStoryCompleted) xp += DATA.order.firstStoryXpBonus;
+    return { jade: jade, xp: xp };
+  }
+
+  function nextOrderId(state, prefix) {
+    state.orderSerial = Math.max(0, Math.floor(number(state.orderSerial, 0))) + 1;
+    return prefix + '-' + state.orderSerial;
+  }
+
+  function activeCase(state) {
+    return state.activeCaseId && state.beastCases ? state.beastCases[state.activeCaseId] : null;
+  }
+
+  function firstLockedBeast(state) {
+    return DATA.beasts.find(function (beast) {
+      var entry = state.beastCases && state.beastCases[beast.id];
+      return entry && entry.status === 'locked';
+    }) || null;
+  }
+
+  function makeStoryOrder(state) {
+    var current = activeCase(state);
+    var definition = current && beastDefinition(current.id);
+    if (current && definition && current.storyProgress < definition.storySteps.length) {
+      var stepIndex = current.storyProgress;
+      var step = definition.storySteps[stepIndex];
+      var reqs = step.requirements.map(normalizeRequirement);
+      return normalizeOrder({
+        id: current.id + '-story-' + (stepIndex + 1),
+        slot: 'story',
+        kind: 'story',
+        mainline: true,
+        beastId: current.id,
+        storyStep: stepIndex + 1,
+        prerequisite: { type: 'story', beastId: current.id, completedStep: stepIndex },
+        title: step.title,
+        symptom: step.text,
+        requirements: reqs,
+        rewards: rewardsFor('story', reqs, state),
+        permanent: true
+      });
+    }
+    if (current && definition && !current.careDone) {
+      var careFamily = definition.careTypes[0] || 'groom';
+      return normalizeOrder({
+        id: current.id + '-care-gate',
+        slot: 'story',
+        kind: 'care_gate',
+        mainline: true,
+        beastId: current.id,
+        prerequisite: { type: 'story', beastId: current.id, completedStep: definition.storySteps.length },
+        title: '陪伴 ' + definition.name + ' 完成一次照料',
+        symptom: '故事已经准备好了，只差一次不消耗体力的陪伴。',
+        requirements: [{ family: careFamily, tier: 1, count: 1 }],
+        rewards: { jade: 20, xp: 20 },
+        permanent: true
+      });
+    }
+    var next = firstLockedBeast(state);
+    if (next) {
+      var supportFamily = (state.unlockedGenerators || []).find(function (family) { return family !== next.unlockFamily && familyDefinition(family); });
+      if (!supportFamily) supportFamily = FAMILY_IDS.find(function (family) { return family !== next.unlockFamily; }) || 'herb';
+      var arrivalReq = [
+        { family: next.unlockFamily, tier: next.unlockTier, count: 1 },
+        { family: supportFamily, tier: 2, count: 1 }
+      ];
+      return normalizeOrder({
+        id: next.id + '-arrival',
+        slot: 'story',
+        kind: 'arrival',
+        mainline: true,
+        beastId: next.id,
+        prerequisite: { type: 'transformation', beastId: state.transformedOrder && state.transformedOrder.length ? state.transformedOrder[state.transformedOrder.length - 1] : null },
+        title: next.name + '的来信',
+        symptom: '合成信物，邀请下一位住客来到疗愈所。',
+        requirements: arrivalReq,
+        rewards: rewardsFor('story', arrivalReq, state),
+        permanent: true
+      });
+    }
+    var memoryFamily = FAMILY_IDS[(state.completedOrders || 0) % FAMILY_IDS.length];
+    var memorySupport = FAMILY_IDS.find(function (family) { return family !== memoryFamily; }) || 'herb';
+    var memoryReq = [
+      { family: memoryFamily, tier: 2, count: 1 },
+      { family: memorySupport, tier: 1, count: 1 }
+    ];
+    return normalizeOrder({
+      id: 'endless-memory-' + ((state.completedOrders || 0) + 1),
+      slot: 'story',
+      kind: 'memory',
+      mainline: false,
+      title: '山海回忆 · 新的一页',
+      symptom: '第一卷已经结束，疗愈所仍每天收到新的来信。',
+      requirements: memoryReq,
+      rewards: rewardsFor('story', memoryReq, state),
+      permanent: true
+    });
+  }
+
+  function hasCareSource(state, family) {
+    if (!GAME_SOURCE_FAMILIES[family]) return false;
+    return DATA.beasts.some(function (beast) {
+      var entry = state && state.beastCases && state.beastCases[beast.id];
+      return isYardBeastAvailable(state, beast.id) && entry && beast.careTypes.indexOf(family) >= 0;
+    });
+  }
+
+  function maxReachableTier(state, family) {
+    /* Mini-game materials are only reachable when an available resident can
+       actually reward that game.  Treating every game family as reachable
+       made orders silently ask for the wrong pavilion after a new resident
+       arrived. */
+    if (GAME_SOURCE_FAMILIES[family]) return hasCareSource(state, family) ? TIER_CAP : 0;
+    if (state.unlockedGenerators.indexOf(family) >= 0) return TIER_CAP;
+    var best = 0;
+    [state.grid, state.storage && state.storage.items].forEach(function (list) {
+      (list || []).forEach(function (item) {
+        if (item && !item.kind && item.family === family) best = Math.max(best, number(item.tier, 0));
+      });
+    });
+    return best;
+  }
+
+  function supplyFamily(state, rng) {
+    var candidates = state.unlockedGenerators.filter(function (family) { return familyDefinition(family); });
+    if (!candidates.length) candidates = ['herb'];
+    var reachable = candidates.filter(function (family) { return maxReachableTier(state, family) >= 1; });
+    candidates = reachable.length ? reachable : candidates;
+    return candidates[Math.floor((rng ? rng() : Math.random()) * candidates.length) % candidates.length];
+  }
+
+  function randomUnit(rng) {
+    var value = number(typeof rng === 'function' ? rng() : Math.random(), Math.random());
+    value -= Math.floor(value);
+    return value < 0 ? value + 1 : Math.min(0.999999, value);
+  }
+
+  function taskFamilyPool(state, preferred) {
+    var pool = [];
+    var preferredList = Array.isArray(preferred) ? preferred.filter(Boolean) : [];
+    var allowGameSources = preferredList.length > 0;
+    preferredList.concat(state.unlockedGenerators || []).forEach(function (family) {
+      if (!familyDefinition(family)) return;
+      var available = (state.unlockedGenerators || []).indexOf(family) >= 0 ||
+        (allowGameSources && GAME_SOURCE_FAMILIES[family] && preferredList.indexOf(family) >= 0 && hasCareSource(state, family));
+      if (available && pool.indexOf(family) < 0) pool.push(family);
+    });
+    /* A fresh account always has herb/tool available; this fallback also
+       keeps old saves with a malformed generator list from getting a one-item
+       order. */
+    if (pool.length < 2) {
+      FAMILY_IDS.forEach(function (family) {
+        if (pool.length >= 2 || pool.indexOf(family) >= 0) return;
+        if (GAME_SOURCE_FAMILIES[family] && !(allowGameSources && hasCareSource(state, family))) return;
+        pool.push(family);
+      });
+    }
+    return pool;
+  }
+
+  function chooseTaskFamily(pool, rng, excluded) {
+    var candidates = pool.filter(function (family) { return !excluded || excluded.indexOf(family) < 0; });
+    if (!candidates.length) candidates = pool.slice();
+    return candidates[Math.floor(randomUnit(rng) * candidates.length)];
+  }
+
+  function taskRequirements(state, preferred, rng) {
+    var pool = taskFamilyPool(state, preferred);
+    var firstFamily = chooseTaskFamily(pool, rng);
+    var secondFamily = chooseTaskFamily(pool, rng, [firstFamily]);
+    if (!secondFamily || secondFamily === firstFamily) {
+      secondFamily = pool.find(function (family) { return family !== firstFamily; }) || FAMILY_IDS.find(function (family) { return family !== firstFamily; });
+    }
+    var maxTier = Math.min(3, TIER_CAP, Math.max(2, Math.floor(number(state.level, 1) / 2) + 1));
+    var firstTier = 1 + Math.floor(randomUnit(rng) * maxTier);
+    var secondTier = 1 + Math.floor(randomUnit(rng) * maxTier);
+    if (firstTier < 2 && secondTier < 2) secondTier = 2;
+    return [
+      normalizeRequirement({ family: firstFamily, tier: firstTier, count: 1 }),
+      normalizeRequirement({ family: secondFamily, tier: secondTier, count: 1 })
+    ];
+  }
+
+  function makeSupplyOrder(state, rng) {
+    var reqs = taskRequirements(state, [], rng);
+    var first = familyDefinition(reqs[0].family);
+    var second = familyDefinition(reqs[1].family);
+    return normalizeOrder({
+      id: nextOrderId(state, 'supply'),
+      slot: 'supply',
+      kind: 'supply',
+      title: '邻里补给 · ' + first.items[reqs[0].tier - 1] + ' + ' + second.items[reqs[1].tier - 1],
+      symptom: '一份随时可推进的低阶委托，保障棋盘不会卡死。',
+      requirements: reqs,
+      rewards: rewardsFor('supply', reqs, state),
+      permanent: true
+    });
+  }
+
+  function makeCareOrder(state, rng) {
+    var current = activeCase(state) || (state.yardBeastId && state.beastCases && state.beastCases[state.yardBeastId]);
+    var definition = current && beastDefinition(current.id);
+    var families = definition && definition.careTypes.length ? definition.careTypes : ['groom', 'play'];
+    var reqs = taskRequirements(state, families, rng);
+    var first = familyDefinition(reqs[0].family);
+    var second = familyDefinition(reqs[1].family);
+    return normalizeOrder({
+      id: nextOrderId(state, 'care'),
+      slot: 'care',
+      kind: 'care',
+      beastId: current ? current.id : null,
+      title: current && definition ? definition.name + '的日常照料 · ' + first.items[reqs[0].tier - 1] + ' · ' + second.items[reqs[1].tier - 1] : '庭院日常照料 · ' + first.items[reqs[0].tier - 1] + ' · ' + second.items[reqs[1].tier - 1],
+      symptom: '交付素材获得暖玉；实际照料在庭院中进行且不消耗体力。',
+      requirements: reqs,
+      rewards: rewardsFor('care', reqs, state),
+      permanent: true
+    });
+  }
+
+  function isQualifiedMedicalOrder(order) {
+    if (!order || (order.slot !== 'supply' && order.slot !== 'care')) return true;
+    var requirements = order.requirements || [];
+    var families = {};
+    var hasTierTwo = false;
+    requirements.forEach(function (need) {
+      if (need && need.family) families[need.family] = true;
+      if (need && number(need.tier, 0) >= 2) hasTierTwo = true;
+    });
+    return Object.keys(families).length >= 2 && hasTierTwo;
+  }
+
+  function isOrderSourceCompatible(state, order) {
+    if (!order || (order.slot !== 'supply' && order.slot !== 'care')) return true;
+    var definition = null;
+    if (order.slot === 'care') {
+      var caseId = order.beastId || state.activeCaseId || state.yardBeastId;
+      definition = beastDefinition(caseId);
+    }
+    return (order.requirements || []).every(function (need) {
+      if (!GAME_SOURCE_FAMILIES[need.family]) return true;
+      if (order.slot === 'supply') return false;
+      return !!(definition && definition.careTypes.indexOf(need.family) >= 0);
+    });
+  }
+
+  function ensureOrders(state, rng) {
+    if (!state || typeof state !== 'object') return [];
+    rng = typeof rng === 'function' ? rng : Math.random;
+    var old = Array.isArray(state.activeOrders) ? state.activeOrders.filter(Boolean) : [];
+    var bySlot = {};
+    old.forEach(function (order, index) {
+      var slot = order.slot || (index === 0 ? 'story' : index === 1 ? 'supply' : 'care');
+      if (!isQualifiedMedicalOrder(order) || !isOrderSourceCompatible(state, order)) return;
+      if (!bySlot[slot]) bySlot[slot] = normalizeOrder(Object.assign({}, order, { slot: slot }));
+    });
+    if (!bySlot.story) bySlot.story = makeStoryOrder(state);
+    if (!bySlot.supply) bySlot.supply = makeSupplyOrder(state, rng);
+    if (!bySlot.care) bySlot.care = makeCareOrder(state, rng);
+    state.activeOrders = [bySlot.story, bySlot.supply, bySlot.care];
+    state.orders = state.activeOrders;
+    return state.activeOrders;
+  }
+
+  function countItems(state, family, tier) {
+    var count = 0;
+    [state.grid, state.storage && state.storage.items].forEach(function (list) {
+      (list || []).forEach(function (item) {
+        if (item && !item.kind && item.family === family && number(item.tier, 0) === tier) count++;
+      });
+    });
+    return count;
+  }
+
+  function canDeliver(state, order) {
+    if (!order) return false;
+    /* A care gate is a signpost into the no-energy interaction, never a
+       material turn-in. Otherwise players could repeatedly submit it without
+       advancing the treatment node. */
+    if (order.kind === 'care_gate') return false;
+    return (order.requirements || []).every(function (need) {
+      return countItems(state, need.family, need.tier) >= need.count;
+    });
+  }
+
+  function isOrderReachable(state, order) {
+    if (order && order.kind === 'care_gate') {
+      return !!(order.beastId && isYardBeastAvailable(state, order.beastId));
+    }
+    if (!order || !Array.isArray(order.requirements)) return false;
+    return order.requirements.every(function (need) {
+      return maxReachableTier(state, need.family) >= need.tier;
+    });
+  }
+
+  function firstFreeGridIndex(state) {
+    var limit = Math.min(state.grid.length, clamp(number(state.unlockedCells, DATA.board.startUnlockedCells), 0, TOTAL));
+    for (var index = 0; index < limit; index++) if (state.grid[index] == null) return index;
+    return -1;
+  }
+
+  function depositPendingRewards(state) {
+    if (!Array.isArray(state.pendingRewards)) state.pendingRewards = [];
+    var deposited = 0;
+    while (state.pendingRewards.length) {
+      var index = firstFreeGridIndex(state);
+      if (index < 0) break;
+      state.grid[index] = normalizeItem(state.pendingRewards.shift());
+      deposited++;
+    }
+    return deposited;
+  }
+
+  function queueItem(state, item) {
+    if (!Array.isArray(state.pendingRewards)) state.pendingRewards = [];
+    state.pendingRewards.push(normalizeItem(item));
+    return depositPendingRewards(state);
+  }
+
+  function consumeRequirement(state, need) {
+    var left = need.count;
+    [state.grid, state.storage && state.storage.items].forEach(function (list) {
+      if (!list || left <= 0) return;
+      for (var index = 0; index < list.length && left > 0; index++) {
+        var item = list[index];
+        if (item && !item.kind && item.family === need.family && number(item.tier, 0) === need.tier) {
+          list[index] = null;
+          left--;
+        }
+      }
+    });
+    return left === 0;
+  }
+
+  function gainXp(state, amount) {
+    state.xp = Math.max(0, number(state.xp, 0) + Math.max(0, number(amount, 0)));
+    state.xpNext = Math.max(30, number(state.xpNext, 70));
+    var leveled = 0;
+    while (state.xp >= state.xpNext) {
+      state.xp -= state.xpNext;
+      state.level = Math.max(1, Math.floor(number(state.level, 1))) + 1;
+      state.xpNext = Math.round(state.xpNext * 1.32);
+      state.maxEnergy = Math.min(ENERGY_CAP, Math.max(state.maxEnergy, energyCapForLevel(state.level)));
+      state.unlockedCells = Math.min(TOTAL, state.unlockedCells + 3);
+      leveled++;
+      if (state.level >= 2) unlockGenerator(state, 'food');
+    }
+    syncEnergyCap(state);
+    return leveled;
+  }
+
+  function unlockGenerator(state, family) {
+    if (family === 'groom') return false;
+    if (!family || state.unlockedGenerators.indexOf(family) >= 0) return false;
+    state.unlockedGenerators.push(family);
+    var exists = state.grid.some(function (item) { return item && item.kind === 'generator' && item.family === family; });
+    if (!exists) {
+      var index = firstFreeGridIndex(state);
+      if (index >= 0) state.grid[index] = makeGenerator(family);
+      else state.pendingRewards.push(makeGenerator(family));
+    }
+    return true;
+  }
+
+  function unlockNextGenerator(state, beastId) {
+    if (beastId === 'jiuweihu') unlockGenerator(state, 'play');
+    if (beastId === 'xiangliu') unlockGenerator(state, 'food');
+  }
+
+  function maybeTransform(state, beastId) {
+    var entry = state.beastCases && state.beastCases[beastId];
+    if (!entry || entry.transformed || entry.storyProgress < 3 || !entry.careDone) return false;
+    entry.transformed = true;
+    entry.pendingTransformation = true;
+    entry.status = 'transformed';
+    entry.stage = 3;
+    entry.trust = Math.max(60, entry.trust);
+    entry.heal = Math.max(100, entry.heal);
+    state.pendingTransformation = beastId;
+    if (state.transformedOrder.indexOf(beastId) < 0) state.transformedOrder.push(beastId);
+    if (state.codex[beastId]) {
+      state.codex[beastId].discovered = true;
+      state.codex[beastId].transformed = true;
+      state.codex[beastId].seenStage = 3;
+    }
+    if (state.activeCaseId === beastId) state.activeCaseId = null;
+    unlockNextGenerator(state, beastId);
+    if (state.transformedOrder.length >= BEAST_IDS.length) state.endingUnlocked = true;
+    return true;
+  }
+
+  function activateCase(state, beastId, now) {
+    var definition = beastDefinition(beastId);
+    var entry = state.beastCases && state.beastCases[beastId];
+    if (!definition || !entry) return { ok: false, reason: 'unknown-beast' };
+    if (entry.transformed) return { ok: true, alreadyActive: true, beastId: beastId };
+    if (state.activeCaseId === beastId && entry.status === 'active') return { ok: true, alreadyActive: true, beastId: beastId };
+    if (state.activeCaseId && state.beastCases[state.activeCaseId] && !state.beastCases[state.activeCaseId].transformed) {
+      state.beastCases[state.activeCaseId].status = 'waiting';
+    }
+    entry.status = 'active';
+    state.activeCaseId = beastId;
+    state.yardBeastId = beastId;
+    state.codex[beastId].discovered = true;
+    state.lastSeenAt = Math.max(number(state.lastSeenAt, 0), number(now, state.lastSeenAt));
+    state.activeOrders = [];
+    ensureOrders(state, Math.random);
+    syncLegacyAliases(state);
+    return { ok: true, beastId: beastId };
+  }
+
+  function deliverOrder(state, orderId, rng, now) {
+    if (!Array.isArray(state.activeOrders)) state.activeOrders = [];
+    /* Contract tests and migration repair may inject a valid permanent order.
+       Look it up before normalizing the three slots so the core can consume it. */
+    var index = state.activeOrders.findIndex(function (order) { return order && order.id === orderId; });
+    if (index < 0) return { ok: false, reason: 'order-not-found' };
+    var order = state.activeOrders[index];
+    if (order.kind === 'care_gate') return { ok: false, reason: 'care-required' };
+    if (!canDeliver(state, order)) return { ok: false, reason: 'requirements', missing: missingRequirements(state, order) };
+    order.requirements.forEach(function (need) { consumeRequirement(state, need); });
+    var rewards = order.rewards || {};
+    state.jade += Math.max(0, number(rewards.jade, 0));
+    var previousLevel = state.level;
+    var levelsGained = gainXp(state, rewards.xp);
+    state.completedOrders = Math.max(0, number(state.completedOrders, 0)) + 1;
+    state.totalOrders = Math.max(0, number(state.totalOrders, 0)) + 1;
+    state.daily.orders++;
+    var transformed = false;
+
+    if (order.kind === 'story') {
+      var entry = state.beastCases[order.beastId];
+      var definition = beastDefinition(order.beastId);
+      var expected = entry && entry.storyProgress + 1;
+      if (entry && definition && number(order.storyStep, expected) === expected) {
+        entry.storyProgress = Math.min(3, expected);
+        entry.storyDone[expected - 1] = true;
+        var stepRewards = definition.storySteps[expected - 1].rewards || { trust: 15, heal: 25 };
+        entry.trust = clamp(entry.trust + number(stepRewards.trust, 15), 0, 100);
+        entry.heal = clamp(entry.heal + number(stepRewards.heal, 25), 0, 100);
+        entry.stage = entry.storyProgress >= 2 ? 2 : 1;
+        state.codex[entry.id].seenStage = Math.max(state.codex[entry.id].seenStage, entry.stage);
+        transformed = maybeTransform(state, entry.id);
+      }
+      state.firstStoryCompleted = true;
+    } else if (order.kind === 'arrival') {
+      activateCase(state, order.beastId, now);
+    }
+
+    state.activeOrders[index] = null;
+    ensureOrders(state, rng);
+    depositPendingRewards(state);
+    syncLegacyAliases(state);
+    return { ok: true, order: order, rewards: clone(rewards), transformed: transformed, levelsGained: levelsGained, level: state.level, previousLevel: previousLevel };
+  }
+
+  function missingRequirements(state, order) {
+    return (order.requirements || []).map(function (need) {
+      return {
+        family: need.family,
+        tier: need.tier,
+        count: need.count,
+        have: countItems(state, need.family, need.tier)
+      };
+    }).filter(function (need) { return need.have < need.count; });
+  }
+
+  function generate(state, family, rng, now) {
+    rng = typeof rng === 'function' ? rng : Math.random;
+    advanceTime(state, number(now, Date.now()));
+    if (state.unlockedGenerators.indexOf(family) < 0) return { ok: false, reason: 'generator-locked' };
+    if (state.energy <= 0) return { ok: false, reason: 'energy' };
+    var item = makeItem(family, 1);
+    if (firstFreeGridIndex(state) < 0) {
+      state.energy--;
+      state.pendingRewards.push(item);
+      return { ok: false, reason: 'board-full', pending: true, queued: true, rewardItem: clone(item) };
+    }
+    state.energy--;
+    queueItem(state, item);
+    var drops = [item];
+    var taotie = state.beastCases.taotie;
+    if (family === 'food' && taotie && taotie.transformed && rng() < 0.2) {
+      var duplicate = makeItem(family, 1);
+      queueItem(state, duplicate);
+      drops.push(duplicate);
+    }
+    syncLegacyAliases(state);
+    return { ok: true, items: clone(drops), energy: state.energy };
+  }
+
+  function mergeItems(state, fromIndex, toIndex, now) {
+    var from = state.grid[fromIndex];
+    var to = state.grid[toIndex];
+    if (!from || !to || from.kind || to.kind) return { ok: false, reason: 'not-items' };
+    if (from.family !== to.family || from.tier !== to.tier) return { ok: false, reason: 'not-match' };
+    if (from.tier >= TIER_CAP) return { ok: false, reason: 'tier-cap' };
+    state.grid[fromIndex] = null;
+    state.grid[toIndex] = makeItem(to.family, to.tier + 1);
+    state.daily.merges++;
+    depositPendingRewards(state);
+    syncLegacyAliases(state);
+    return { ok: true, index: toIndex, item: clone(state.grid[toIndex]), at: number(now, Date.now()) };
+  }
+
+  function moveBoardItem(state, fromIndex, toIndex) {
+    fromIndex = Math.floor(number(fromIndex, -1));
+    toIndex = Math.floor(number(toIndex, -1));
+    if (fromIndex < 0 || toIndex < 0 || fromIndex >= state.grid.length || toIndex >= state.grid.length) {
+      return { ok: false, reason: 'invalid-cell' };
+    }
+    if (fromIndex === toIndex) return { ok: false, reason: 'same-cell' };
+    if (fromIndex >= state.unlockedCells || toIndex >= state.unlockedCells) return { ok: false, reason: 'locked-cell' };
+    var item = state.grid[fromIndex];
+    if (!item || item.kind) return { ok: false, reason: 'not-item' };
+    if (state.grid[toIndex] != null) return { ok: false, reason: 'occupied' };
+    state.grid[toIndex] = item;
+    state.grid[fromIndex] = null;
+    depositPendingRewards(state);
+    syncLegacyAliases(state);
+    return { ok: true, fromIndex: fromIndex, toIndex: toIndex, item: clone(item) };
+  }
+
+  function careRewardTier(outcome) {
+    if (outcome === 'mastery') return 3;
+    if (outcome === 'complete') return 2;
+    return 1;
+  }
+
+  function careRewardCount(careType, result, outcome) {
+    /* Only the grooming game converts performance into multiple comb items.
+       Calls from old saves/tests without a game summary keep the old one-item
+       contract, while the browser game always supplies score/perf. */
+    if (careType !== 'groom' || !result.game || typeof result.game !== 'object') return 1;
+    var game = result.game;
+    var score = Math.max(0, number(game.score, 0));
+    var perf = clamp(number(game.perf, outcome === 'mastery' ? 1 : outcome === 'complete' ? 0.5 : 0), 0, 1);
+    if (Object.prototype.hasOwnProperty.call(game, 'score')) {
+      if (score >= 1200) return 3;
+      if (score >= 500) return 2;
+      return 1;
+    }
+    if (perf >= 0.85) return 3;
+    if (perf >= 0.4) return 2;
+    return 1;
+  }
+
+  function recordCare(state, careType, result, now) {
+    result = result || {};
+    var beastId = result.beastId || state.activeCaseId;
+    var entry = state.beastCases && state.beastCases[beastId];
+    var definition = beastDefinition(beastId);
+    if (!entry || !definition) return { ok: false, reason: 'no-active-case' };
+    if (definition.careTypes.indexOf(careType) < 0) return { ok: false, reason: 'wrong-care-type' };
+    var outcome = result.outcome || 'complete';
+    var tier = careRewardTier(outcome);
+    var groomLevel = state.facilities.groom.level;
+    var boosts = groomLevel > 0 ? DATA.facilities.groom.levels[groomLevel - 1].dailyBoosts : 0;
+    if (state.daily.groomBoostsUsed < boosts && tier < TIER_CAP) {
+      tier++;
+      state.daily.groomBoostsUsed++;
+    }
+    var rewardCount = careRewardCount(careType, result, outcome);
+    var rewardItems = [];
+    for (var rewardIndex = 0; rewardIndex < rewardCount; rewardIndex++) {
+      var rewardItem = makeItem(careType, tier);
+      queueItem(state, rewardItem);
+      rewardItems.push(rewardItem);
+    }
+    if (outcome === 'mastery' && groomLevel >= 3 && !state.daily.masteryDuplicateUsed) {
+      var masteryItem = makeItem(careType, tier);
+      queueItem(state, masteryItem);
+      rewardItems.push(masteryItem);
+      state.daily.masteryDuplicateUsed = true;
+    }
+    var firstCare = !entry.careDone;
+    entry.careCount++;
+    entry.bond = clamp(entry.bond + 1, 1, 5);
+    if (firstCare) {
+      entry.careDone = true;
+      entry.trust = clamp(entry.trust + 15, 0, 100);
+      entry.heal = clamp(entry.heal + 25, 0, 100);
+    }
+    state.daily.care++;
+    var transformed = maybeTransform(state, beastId);
+    state.activeOrders = state.activeOrders.map(function (order) {
+      return order && order.kind === 'care_gate' && order.beastId === beastId ? null : order;
+    });
+    ensureOrders(state, Math.random);
+    syncLegacyAliases(state);
+    return {
+      ok: true,
+      outcome: outcome,
+      rewardItem: clone(rewardItems[0]),
+      rewardItems: clone(rewardItems),
+      rewardCount: rewardItems.length,
+      firstCare: firstCare,
+      transformed: transformed,
+      energy: state.energy,
+      at: number(now, Date.now())
+    };
+  }
+
+  function herbConfig(state) {
+    var level = state.facilities.herb.level;
+    if (level <= 0) return null;
+    var config = clone(DATA.facilities.herb.levels[level - 1]);
+    if (state.beastCases.xiangliu.transformed) {
+      config.intervalMs = Math.round(config.intervalMs * 0.8);
+      config.cap += 1;
+    }
+    return config;
+  }
+
+  function advanceTime(state, now, rng) {
+    rng = typeof rng === 'function' ? rng : Math.random;
+    now = number(now, Date.now());
+    var previous = number(state.lastSeenAt, now);
+    var elapsed = Math.max(0, now - previous);
+    var applied = Math.min(elapsed, OFFLINE_CAP_MS);
+    if (elapsed <= 0) return { ok: true, elapsedMs: 0, appliedMs: 0, creditedMs: 0, reward: { total: 0 } };
+    state.lastSeenAt = now;
+
+    state.energyProgressMs = Math.max(0, number(state.energyProgressMs, 0)) + applied;
+    var energyTicks = Math.floor(state.energyProgressMs / DATA.economy.energyMs);
+    if (energyTicks > 0) {
+      var missingEnergy = Math.max(0, state.maxEnergy - state.energy);
+      var creditedEnergy = Math.min(energyTicks, missingEnergy);
+      state.energy += creditedEnergy;
+      state.energyProgressMs -= creditedEnergy * DATA.economy.energyMs;
+      if (state.energy >= state.maxEnergy) state.energyProgressMs = 0;
+    }
+    state.lastEnergyTick = now;
+
+    var produced = 0;
+    var qiongqi = state.beastCases.qiongqi;
+    if (qiongqi && qiongqi.transformed) {
+      var job = state.jobs.qiongqi;
+      job.progressMs += applied;
+      var jobInterval = 90 * 60 * 1000;
+      while (job.progressMs >= jobInterval && job.stored < 3) {
+        job.progressMs -= jobInterval;
+        job.stored++;
+        produced++;
+      }
+      if (job.stored >= 3) job.progressMs = Math.min(job.progressMs, jobInterval);
+    }
+
+    var config = herbConfig(state);
+    if (config) {
+      var facility = state.facilities.herb;
+      facility.progressMs += applied;
+      while (facility.progressMs >= config.intervalMs && facility.stored.length < config.cap) {
+        facility.progressMs -= config.intervalMs;
+        facility.stored.push(makeItem('herb', rng() < config.tier2Chance ? 2 : 1));
+        produced++;
+      }
+      if (facility.stored.length >= config.cap) facility.progressMs = Math.min(facility.progressMs, config.intervalMs);
+    }
+    var deposited = depositPendingRewards(state);
+    state.lastAdvance = { elapsedMs: elapsed, appliedMs: applied, creditedMs: applied, produced: produced, deposited: deposited, at: now };
+    syncLegacyAliases(state);
+    return { ok: true, elapsedMs: elapsed, appliedMs: applied, creditedMs: applied, produced: produced, deposited: deposited, reward: { total: produced } };
+  }
+
+  function targetedSupplyFamily(state) {
+    var candidate = null;
+    ensureOrders(state, Math.random).some(function (order) {
+      return order.requirements.some(function (need) {
+        if (state.unlockedGenerators.indexOf(need.family) >= 0) {
+          candidate = need.family;
+          return true;
+        }
+        return false;
+      });
+    });
+    return candidate || supplyFamily(state, Math.random);
+  }
+
+  function claimJob(state, beastId, now) {
+    var job = state.jobs && state.jobs[beastId];
+    if (!job) return { ok: false, reason: 'unknown-job' };
+    if (beastId !== 'qiongqi') return { ok: false, reason: 'passive-job' };
+    if (job.stored <= 0) return { ok: false, reason: 'empty' };
+    var count = job.stored;
+    var family = targetedSupplyFamily(state);
+    var items = [];
+    for (var index = 0; index < count; index++) {
+      var item = makeItem(family, 1);
+      state.pendingRewards.push(item);
+      items.push(item);
+    }
+    job.stored = 0;
+    job.lastClaimAt = number(now, Date.now());
+    var deposited = depositPendingRewards(state);
+    return { ok: true, items: clone(items), deposited: deposited, pending: state.pendingRewards.length };
+  }
+
+  function claimFacility(state, family) {
+    if (family !== 'herb') return { ok: false, reason: 'unsupported-facility' };
+    var stored = state.facilities.herb.stored;
+    if (!stored.length) return { ok: false, reason: 'empty' };
+    var items = stored.splice(0, stored.length);
+    Array.prototype.push.apply(state.pendingRewards, items);
+    var deposited = depositPendingRewards(state);
+    syncLegacyAliases(state);
+    return {
+      ok: true,
+      items: clone(items),
+      deposited: deposited,
+      pending: state.pendingRewards.length,
+      loop: {
+        source: 'herb-garden',
+        use: '合成药材、完成委托、获得暖玉并继续升级百草园'
+      }
+    };
+  }
+
+  function ensureDaily(state, date, now, rng) {
+    date = date || isoDate(number(now, Date.now()));
+    var changed = !state.daily || state.daily.date !== date;
+    if (!changed) return state.daily;
+    state.daily = freshDaily(date);
+    /* The story slot is a gated progression chain and stays in place. The
+       medical supply/care slots are daily work, so they receive new random
+       multi-item requirements whenever a new day is opened. */
+    var random = typeof rng === 'function' ? rng : Math.random;
+    if (!Array.isArray(state.activeOrders)) state.activeOrders = [];
+    var previousSupply = state.activeOrders[1];
+    var previousCare = state.activeOrders[2];
+    state.activeOrders[1] = makeSupplyOrder(state, random);
+    state.activeOrders[2] = makeCareOrder(state, random);
+    /* A daily refresh changes requirements but keeps the visible slot id
+       stable, so UI focus, accessibility labels and saved deep links do not
+       appear to jump to a different task. */
+    if (previousSupply && previousSupply.id) state.activeOrders[1].id = previousSupply.id;
+    if (previousCare && previousCare.id) state.activeOrders[2].id = previousCare.id;
+    state.orders = state.activeOrders;
+    return state.daily;
+  }
+
+  function dailyComplete(state) {
+    return state.daily.merges >= 5 && state.daily.orders >= 2 && state.daily.care >= 1;
+  }
+
+  function claimDaily(state) {
+    if (state.daily.claimed) return { ok: false, reason: 'claimed' };
+    if (!dailyComplete(state)) return { ok: false, reason: 'incomplete' };
+    state.daily.claimed = true;
+    state.energy = Math.min(state.maxEnergy, state.energy + 8);
+    state.cleanTools++;
+    state.jade += 30;
+    var item = makeItem(targetedSupplyFamily(state), 2);
+    queueItem(state, item);
+    return { ok: true, jade: 30, energy: 8, rewardItem: clone(item) };
+  }
+
+  function upgradeFacility(state, facilityId) {
+    var facility = state.facilities[facilityId];
+    var definition = DATA.facilities[facilityId];
+    if (!facility || !definition) return { ok: false, reason: 'unknown-facility' };
+    var nextLevel = facility.level + 1;
+    if (nextLevel > definition.levels.length) return { ok: false, reason: 'max-level' };
+    var config = definition.levels[nextLevel - 1];
+    if (state.jade < config.cost) return { ok: false, reason: 'jade', cost: config.cost };
+    state.jade -= config.cost;
+    facility.level = nextLevel;
+    state.buildings[facilityId] = nextLevel;
+    return { ok: true, level: nextLevel, cost: config.cost };
+  }
+
+  function moveToStorage(state, gridIndex) {
+    var item = state.grid[gridIndex];
+    if (!item || item.kind) return { ok: false, reason: 'not-item' };
+    var storageIndex = state.storage.items.findIndex(function (entry) { return entry == null; });
+    if (storageIndex < 0) return { ok: false, reason: 'storage-full' };
+    state.storage.items[storageIndex] = item;
+    state.grid[gridIndex] = null;
+    var deposited = depositPendingRewards(state);
+    return { ok: true, storageIndex: storageIndex, deposited: deposited };
+  }
+
+  function moveFromStorage(state, storageIndex, gridIndex) {
+    var item = state.storage.items[storageIndex];
+    if (!item) return { ok: false, reason: 'empty' };
+    if (gridIndex == null) gridIndex = firstFreeGridIndex(state);
+    if (gridIndex < 0 || gridIndex >= state.unlockedCells || state.grid[gridIndex] != null) return { ok: false, reason: 'board-full' };
+    state.grid[gridIndex] = item;
+    state.storage.items[storageIndex] = null;
+    return { ok: true, gridIndex: gridIndex };
+  }
+
+  function upgradeStorage(state) {
+    if (state.storage.slots >= 6) return { ok: false, reason: 'max-slots' };
+    var upgradeIndex = state.storage.slots - 3;
+    var cost = DATA.economy.storageCosts[upgradeIndex];
+    if (state.jade < cost) return { ok: false, reason: 'jade', cost: cost };
+    state.jade -= cost;
+    state.storage.slots++;
+    state.storage.items.push(null);
+    return { ok: true, slots: state.storage.slots, cost: cost };
+  }
+
+  function rerollOrder(state, slot, rng) {
+    ensureDaily(state, state.daily && state.daily.date, Date.now());
+    var maxFree = 1 + (state.beastCases.jiuweihu.transformed ? 1 : 0);
+    if (state.daily.rerollsUsed >= maxFree) return { ok: false, reason: 'no-rerolls' };
+    var index = slot === 'supply' ? 1 : slot === 'care' ? 2 : -1;
+    if (index < 0) return { ok: false, reason: 'fixed-story' };
+    var previous = state.activeOrders[index];
+    var previousSignature = orderRequirementSignature(previous);
+    state.daily.rerollsUsed++;
+    var make = slot === 'supply' ? makeSupplyOrder : makeCareOrder;
+    var next = make(state, rng);
+    var attempts = 0;
+    while (previousSignature && orderRequirementSignature(next) === previousSignature && attempts < 5) {
+      next = make(state, rng);
+      attempts++;
+    }
+    /* A deterministic test RNG or a very unlucky roll can still repeat the
+       same requirements.  Use an internal fallback sequence so “刷新” is
+       visibly meaningful instead of relying on randomness alone. */
+    var fallbackValues = [0.93, 0.07, 0.67, 0.31, 0.81, 0.19];
+    var fallbackAttempt = 0;
+    while (previousSignature && orderRequirementSignature(next) === previousSignature && fallbackAttempt < 6) {
+      var cursor = 0;
+      next = make(state, function () {
+        var value = fallbackValues[(cursor + fallbackAttempt) % fallbackValues.length];
+        cursor++;
+        return value;
+      });
+      fallbackAttempt++;
+    }
+    if (previousSignature && orderRequirementSignature(next) === previousSignature && next.requirements && next.requirements.length) {
+      next.requirements[0].tier = next.requirements[0].tier === 1 ? 2 : 1;
+      next.requirements[0] = normalizeRequirement(next.requirements[0]);
+      var firstDef = familyDefinition(next.requirements[0].family);
+      var secondDef = familyDefinition(next.requirements[1] && next.requirements[1].family);
+      var firstName = firstDef && firstDef.items[next.requirements[0].tier - 1];
+      var secondName = secondDef && secondDef.items[next.requirements[1].tier - 1];
+      next.title = slot === 'supply'
+        ? '邻里补给 · ' + firstName + ' + ' + secondName
+        : (beastDefinition(next.beastId) ? beastDefinition(next.beastId).name : '庭院') + '的日常照料 · ' + firstName + ' + ' + secondName;
+    }
+    state.activeOrders[index] = next;
+    state.orders = state.activeOrders;
+    return { ok: true, order: state.activeOrders[index], remaining: maxFree - state.daily.rerollsUsed };
+  }
+
+  function orderRequirementSignature(order) {
+    return order && (order.requirements || []).map(function (need) {
+      return need.family + ':' + need.tier + ':' + need.count;
+    }).join('|');
+  }
+
+  function acknowledgeTransformation(state, beastId) {
+    var entry = state.beastCases && state.beastCases[beastId];
+    if (!entry || !entry.pendingTransformation) return { ok: false, reason: 'not-pending' };
+    entry.pendingTransformation = false;
+    if (state.pendingTransformation === beastId) state.pendingTransformation = null;
+    state.activeOrders = [];
+    ensureOrders(state, Math.random);
+    return { ok: true, beastId: beastId };
+  }
+
+  function selectYardBeast(state, beastId) {
+    if (!isYardBeastAvailable(state, beastId)) return { ok: false, reason: 'beast-locked' };
+    state.yardBeastId = beastId;
+    return { ok: true, beastId: beastId };
+  }
+
+  function selectBackground(state, backgroundId) {
+    var backgrounds = ensureBackgroundState(state);
+    var definition = backgroundDefinition(backgroundId);
+    if (!definition) return { ok: false, reason: 'unknown-background' };
+    if (backgrounds.owned.indexOf(backgroundId) < 0) {
+      return { ok: false, reason: 'background-locked', background: clone(definition) };
+    }
+    backgrounds.active = backgroundId;
+    state.yardBackground = backgroundId;
+    return { ok: true, background: clone(definition), active: backgroundId, purchased: false };
+  }
+
+  function purchaseBackground(state, backgroundId) {
+    var backgrounds = ensureBackgroundState(state);
+    var definition = backgroundDefinition(backgroundId);
+    if (!definition) return { ok: false, reason: 'unknown-background' };
+    if (backgrounds.owned.indexOf(backgroundId) >= 0) {
+      return selectBackground(state, backgroundId);
+    }
+    var cost = Math.max(0, Math.floor(number(definition.price, 0)));
+    var jade = Math.max(0, number(state.jade, 0));
+    if (jade < cost) {
+      return { ok: false, reason: 'jade', cost: cost, have: jade, background: clone(definition) };
+    }
+    state.jade = jade - cost;
+    backgrounds.owned.push(backgroundId);
+    backgrounds.active = backgroundId;
+    state.yardBackground = backgroundId;
+    syncLegacyAliases(state);
+    return { ok: true, background: clone(definition), active: backgroundId, purchased: true, jade: state.jade };
+  }
+
+  function unlockCellCost(state) {
+    return 18 + Math.floor((state.unlockedCells - DATA.board.startUnlockedCells) / 3) * 8;
+  }
+
+  function unlockCell(state) {
+    if (state.unlockedCells >= TOTAL) return { ok: false, reason: 'all-unlocked' };
+    var cost = unlockCellCost(state);
+    if (state.jade < cost) return { ok: false, reason: 'jade', cost: cost };
+    state.jade -= cost;
+    state.unlockedCells++;
+    return { ok: true, index: state.unlockedCells - 1, cost: cost };
+  }
+
+  function cleanObstacle(state, gridIndex) {
+    var item = state.grid[gridIndex];
+    if (!item || item.kind !== 'obstacle') return { ok: false, reason: 'not-obstacle' };
+    if (state.cleanTools <= 0) return { ok: false, reason: 'no-brush' };
+    state.cleanTools--;
+    state.grid[gridIndex] = null;
+    depositPendingRewards(state);
+    return { ok: true };
+  }
+
+  function unlockSealed(state, gridIndex) {
+    var item = state.grid[gridIndex];
+    if (!item || item.kind !== 'sealed') return { ok: false, reason: 'not-sealed' };
+    var cost = 25;
+    if (state.jade < cost) return { ok: false, reason: 'jade', cost: cost };
+    state.jade -= cost;
+    state.grid[gridIndex] = null;
+    depositPendingRewards(state);
+    return { ok: true, cost: cost };
+  }
+
+  function getAvailableActions(state) {
+    var current = activeCase(state);
+    var mergeable = false;
+    var seen = {};
+    (state.grid || []).forEach(function (item) {
+      if (!item || item.kind || item.tier >= TIER_CAP) return;
+      var key = item.family + ':' + item.tier;
+      if (seen[key]) mergeable = true;
+      seen[key] = true;
+    });
+    return {
+      generate: state.energy > 0 && firstFreeGridIndex(state) >= 0,
+      merge: mergeable,
+      care: !!current,
+      claimJob: !!(state.jobs.qiongqi && state.jobs.qiongqi.stored > 0),
+      claimFacility: !!(state.facilities.herb.stored && state.facilities.herb.stored.length),
+      claimDaily: dailyComplete(state) && !state.daily.claimed,
+      zeroEnergyPlayable: mergeable || !!current || (state.jobs.qiongqi && state.jobs.qiongqi.stored > 0)
+    };
+  }
+
+  function getItemName(family, tier) {
+    return makeItem(family, tier).name;
+  }
+
+  return {
+    DATA: DATA,
+    createFresh: createFresh,
+    normalize: normalize,
+    ensureOrders: ensureOrders,
+    generate: generate,
+    mergeItems: mergeItems,
+    moveBoardItem: moveBoardItem,
+    deliverOrder: deliverOrder,
+    recordCare: recordCare,
+    advanceTime: advanceTime,
+    claimJob: claimJob,
+    claimFacility: claimFacility,
+    ensureDaily: ensureDaily,
+    claimDaily: claimDaily,
+    upgradeFacility: upgradeFacility,
+    moveToStorage: moveToStorage,
+    moveFromStorage: moveFromStorage,
+    upgradeStorage: upgradeStorage,
+    rerollOrder: rerollOrder,
+    acknowledgeTransformation: acknowledgeTransformation,
+    activateCase: activateCase,
+    selectYardBeast: selectYardBeast,
+    selectBackground: selectBackground,
+    purchaseBackground: purchaseBackground,
+    unlockCell: unlockCell,
+    unlockCellCost: unlockCellCost,
+    cleanObstacle: cleanObstacle,
+    unlockSealed: unlockSealed,
+    isOrderReachable: isOrderReachable,
+    canDeliver: canDeliver,
+    missingRequirements: missingRequirements,
+    depositPendingRewards: depositPendingRewards,
+    getAvailableActions: getAvailableActions,
+    getItemName: getItemName,
+    makeItem: makeItem,
+    constants: { TOTAL: TOTAL, TIER_CAP: TIER_CAP, OFFLINE_CAP_MS: OFFLINE_CAP_MS, DAY_MS: DAY_MS }
+  };
+}));
