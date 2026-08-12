@@ -46,25 +46,28 @@
     </section>
 
     <section id="yard-view" class="view" aria-labelledby="yard-heading">
-      <div class="yard-scene" id="yard-scene">
+      <div class="yard-scene scene-world" id="yard-scene" data-scene-world>
+        <div id="yard-background-layer" class="scene-layer scene-background" data-scene-node="background" aria-hidden="true"></div>
+        <div class="scene-layer scene-ground" data-scene-node="ground" aria-hidden="true"><i class="ground-path"></i><i class="ground-shadow"></i></div>
         <div class="yard-sky-copy"><span class="eyebrow">庭院回声 · 点击互动</span><h1 id="yard-heading">庭院疗愈目标</h1><p id="yard-copy">当前动作：观察四周</p></div>
         <div id="yard-beast-switcher" aria-label="切换庭院显示的异兽" hidden></div>
-        <div class="yard-path" aria-hidden="true"></div>
-        <button id="yard-character" class="yard-character" type="button" aria-label="查看当前异兽反应"><img id="yard-beast" alt="当前异兽" /></button>
-        <div class="yard-speech" id="yard-speech">“先慢慢来，我们不赶时间。”</div>
-        <div class="yard-hotspots">
-          <button data-hotspot="clinic" type="button" aria-label="查看医馆病历">🏯<b>医馆</b><small>查看病历</small></button>
-          <button data-hotspot="herb" type="button" aria-label="访问药圃">🌱<b>药圃</b><small>领取产出</small></button>
-          <button data-care="groom" type="button" aria-label="打开梳洗台消消乐">梳<b>梳洗台</b><small>消消乐 · 不限次数</small></button>
-          <button data-care="play" type="button" aria-label="打开亭子连连看">🎐<b>亭子</b><small>连连看 · 不限次数</small></button>
+        <div class="scene-layer scene-buildings" data-scene-node="buildings">
+          <button class="scene-building" data-scene-node="building" data-node-id="clinic" data-hotspot="clinic" style="--scene-x:18;--scene-y:48" type="button" aria-label="进入医馆病历"><span class="building-sprite" aria-hidden="true"><img src="assets/art/buildings/clinic.webp" alt="" /></span><b>医馆</b><small>点击进入病历</small><span class="building-level-badge" data-building-level>Lv1</span><i class="world-state-bubble">主线</i></button>
+          <button class="scene-building" data-scene-node="building" data-node-id="herb" data-hotspot="herb" style="--scene-x:22;--scene-y:82" type="button" aria-label="访问百草园"><span class="building-sprite" aria-hidden="true"><img src="assets/art/buildings/herb.webp" alt="" /></span><b>百草园</b><small>查看生产</small><span class="building-level-badge" data-building-level>未建</span><i class="world-state-bubble" data-building-bubble="herb">待建</i></button>
+          <button class="scene-building" data-scene-node="building" data-node-id="groom" data-care="groom" style="--scene-x:80;--scene-y:80" type="button" aria-label="打开梳洗台消消乐"><span class="building-sprite" aria-hidden="true"><img src="assets/art/buildings/groom.webp" alt="" /></span><b>梳洗台</b><small>今日奖励 3/3</small><span class="building-level-badge" data-building-level>未建</span><i class="world-state-bubble" data-building-bubble="groom">3 局</i></button>
+          <button class="scene-building" data-scene-node="building" data-node-id="play" data-care="play" style="--scene-x:82;--scene-y:48" type="button" aria-label="打开亭子连连看"><span class="building-sprite" aria-hidden="true"><img src="assets/art/buildings/play.webp" alt="" /></span><b>陪玩亭</b><small>今日奖励 3/3</small><span class="building-level-badge" data-building-level>Lv1</span><i class="world-state-bubble" data-building-bubble="play">3 局</i></button>
         </div>
-        <div class="yard-props" aria-hidden="true"><span class="prop prop-pool">≈</span><span class="prop prop-flower">✿</span><span class="prop prop-lantern">♨</span></div>
+        <button id="yard-character" class="yard-character scene-character" data-scene-node="character" data-node-id="resident" style="--scene-x:50;--scene-y:90" type="button" aria-label="查看当前异兽反应"><img id="yard-beast" alt="当前异兽" /></button>
+        <div class="yard-speech world-speech" id="yard-speech" data-scene-node="speech">“先慢慢来，我们不赶时间。”</div>
+        <div class="scene-layer yard-props" data-scene-node="props" aria-hidden="true"><span class="prop prop-pool" data-scene-node="prop">≈</span><span class="prop prop-flower" data-scene-node="prop">✿</span><span class="prop prop-lantern" data-scene-node="prop">♨</span></div>
+        <div id="yard-fx-layer" class="scene-layer scene-fx" data-scene-node="fx" aria-hidden="true"></div>
       </div>
 
       <section class="yard-goal-panel" aria-labelledby="yard-goal-title">
         <div class="section-title-row"><div><span class="eyebrow">每日承诺 · 可持续推进</span><h2 id="yard-goal-title">今天也留下一点温柔</h2></div><span id="yard-goal-reward" class="small-note">全完成得体力、暖玉与定向素材</span></div>
         <div id="yard-goals" class="yard-goals"></div>
         <button id="claim-yard-goal" class="goal-claim" type="button" aria-label="领取每日目标奖励">领取今日奖励</button>
+        <div id="weekly-goal" class="weekly-world-goal" aria-live="polite"></div>
         <div class="yard-quickbar" aria-label="庭院快捷入口">
           <button id="yard-facilities-open" type="button">设施升级</button>
           <button id="yard-jobs-open" type="button">岗位产出</button>
@@ -113,21 +116,23 @@
   <div id="modal-root"></div>
   <div id="care-game-root" aria-live="polite" aria-hidden="true"></div>
 </div>
+<aside id="rotate-device" class="rotate-device" role="status" aria-live="polite"><span aria-hidden="true">↻</span><b>请竖屏游玩</b><small>旋转手机后会回到刚才的进度</small></aside>
 <script src="js/merge/data.js"></script>
 <script src="js/merge/core.js"></script>
 <script>
 (function () {
-  var inPrototype = window.location.pathname.indexOf('/prototype/') !== -1;
-  var assetRoot = inPrototype ? '../wechat/assets/art/match3/' : 'assets/art/match3/';
+  var assetRoot = 'assets/art/match3/';
   window.MATCH3_ASSET_ROOT = assetRoot;
   window.LINK_GAME_ASSET_ROOT = assetRoot;
-  window.SCENE_ASSET_ROOT = inPrototype ? '../wechat/assets/art/scenes/' : 'assets/art/scenes/';
-  window.AUDIO_ASSET_ROOT = inPrototype ? '../wechat/assets/audio/' : 'assets/audio/';
+  window.SCENE_ASSET_ROOT = 'assets/art/scenes/';
+  window.AUDIO_ASSET_ROOT = 'assets/audio/';
 }());
 </script>
-<script src="../wechat/src/minigames/match3.js"></script>
+<script src="js/merge/match3.js"></script>
 <script src="js/merge/link-game.js"></script>
 <script src="js/merge/audio.js"></script>
+<script src="js/merge/save-store.js"></script>
+<script src="js/merge/courtyard-scene.js"></script>
 <script src="js/merge/ui.js"></script>
 <script src="merge-slice.js"></script>
 </body>

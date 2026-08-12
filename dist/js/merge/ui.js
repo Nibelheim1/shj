@@ -21,6 +21,8 @@
   var toastTimer = null;
   var tickTimer = null;
   var careSession = null;
+  var saveStore = null;
+  var courtyardScene = null;
   var readOnlyNewerSave = false;
   var migrationSource = null;
   var longPressState = null;
@@ -86,6 +88,10 @@
 
   function sceneAssetPath(file) {
     return (root.SCENE_ASSET_ROOT || 'assets/art/scenes/') + String(file || '');
+  }
+
+  function characterAssetPath(path) {
+    return String(path || '');
   }
 
   function itemPath(item) {
@@ -225,13 +231,29 @@
 
   function loadState() {
     var now = Date.now();
-    var raw = parse(safeStorageGet(KEY));
+    var raw = null;
+    var loadInfo = null;
+    if (root.MergeSaveStore && typeof root.MergeSaveStore.create === 'function') {
+      saveStore = root.MergeSaveStore.create({
+        key: KEY,
+        schema: DATA.version,
+        readerVersion: DATA.version,
+        minReaderVersion: DATA.version,
+        storage: root.localStorage,
+        indexedDB: root.indexedDB
+      });
+      loadInfo = saveStore.loadDetailed();
+      if (loadInfo.ok) raw = loadInfo.data;
+      readOnlyNewerSave = !!loadInfo.readOnly;
+      if (loadInfo.recovered) migrationSource = 'backup-slot';
+    }
+    if (!raw) raw = parse(safeStorageGet(KEY));
     var requiredReader = Math.max(
       Number(safeStorageGet(MIN_VERSION_KEY)) || 0,
       raw && raw.saveMeta ? Number(raw.saveMeta.minReaderVersion) || 0 : 0,
       raw ? Number(raw.version) || 0 : 0
     );
-    if (requiredReader > DATA.version) {
+    if (requiredReader > DATA.version || readOnlyNewerSave) {
       readOnlyNewerSave = true;
       /* Never overwrite a save that explicitly requires a newer reader. */
       state = raw ? Core.normalize(raw, now, today(now)) : Core.createFresh(now, today(now));
@@ -260,6 +282,13 @@
       savedAt: Date.now()
     };
     safeStorageSet(MIN_VERSION_KEY, String(DATA.version));
+    if (saveStore) {
+      var saved = saveStore.save(state);
+      if (saved && typeof saveStore.saveMirror === 'function') {
+        saveStore.saveMirror(state).catch(function () { /* IndexedDB 不可用时本地双槽仍是权威存档。 */ });
+      }
+      return saved;
+    }
     return safeStorageSet(KEY, JSON.stringify(state));
   }
 
@@ -292,8 +321,8 @@
         '<article class="how-to-play-item"><b>① 拖动合成</b><span>拖动素材到空格整理；拖到同类同阶素材上，会自动合成更高阶物品。长按素材可看完整路线。</span></article>' +
         '<article class="how-to-play-item"><b>② 完成委托</b><span>医馆始终保留三个委托槽。金色边框是主线，点开卡片可查看前置、需求和奖励，集齐后点击交付。</span></article>' +
         '<article class="how-to-play-item"><b>③ 体力怎么用</b><span>体力只消耗在生成器产出。体力为零仍能合成、领取岗位产出、整理棋盘和进行照料小游戏。</span></article>' +
-        '<article class="how-to-play-item"><b>④ 庭院照料</b><span>点击梳洗台进入消消乐，点击亭子进入连连看。图鉴会标出当前异兽的偏好；非偏好设施也能玩，但本局不发照料奖励。</span></article>' +
-        '<article class="how-to-play-item"><b>⑤ 零失败结算</b><span>小游戏可跳过或等待超时，仍会得到基础奖励。完成偏好小游戏后推进照料节点，帮助异兽完成三段故事并蜕变。</span></article>' +
+        '<article class="how-to-play-item"><b>④ 庭院照料</b><span>点击梳洗台或亭子后选择难度。每个设施每天前三局有效挑战产出合成素材；之后仍可练习并刷新成绩。</span></article>' +
+        '<article class="how-to-play-item"><b>⑤ 有效挑战结算</b><span>消消乐至少完成 3 次有效交换、连连看至少连成 4 对。达到门槛后即使时间到也有保底；直接跳过只保留陪伴反馈，不推进病历或奖励。</span></article>' +
         '<article class="how-to-play-item"><b>⑥ 继续成长</b><span>蜕变后会解锁图鉴、岗位和下一位住客；庭院快捷栏可以升级设施、领取产出、购买并切换背景。</span></article>' +
       '</div>' +
       '<div class="how-to-play-note">小提示：棋盘满时奖励会进入药匣暂存，不会丢失；看不懂任何图标时，长按它即可查看名称与来源。</div>' +
@@ -383,7 +412,7 @@
     if (state.activeCaseId) {
       var current = activeCaseForDisplay();
       if (current.entry.storyProgress >= 3 && !current.entry.careDone) {
-        node.innerHTML = '<button data-go-yard type="button">去庭院</button><strong>最后一步：陪伴 ' + esc(current.definition.name) + '</strong>照料不消耗体力；跳过或超时也有基础奖励。';
+        node.innerHTML = '<button data-go-yard type="button">去庭院</button><strong>最后一步：陪伴 ' + esc(current.definition.name) + '</strong>照料不消耗体力；达到有效操作门槛后，超时也有保底奖励。';
       } else {
         node.innerHTML = '<button data-focus-order="' + esc(story.id) + '" type="button">查看委托</button><strong>下一步：' + esc(story.title) + '</strong>' + esc(story.symptom || '合成并交付需要的素材。');
       }
@@ -561,7 +590,7 @@
       var stage = entry && entry.transformed ? 3 : Math.max(0, Math.min(3, Number(entry && entry.stage) || 0));
       var active = beast.id === state.yardBeastId;
       var role = beast.id === state.activeCaseId ? '当前治疗对象' : entry && entry.transformed ? '已康复居民' : '可查看居民';
-      return '<button type="button" data-yard-beast="' + esc(beast.id) + '" aria-current="' + (active ? 'true' : 'false') + '" class="' + (active ? 'active' : '') + '" aria-label="切换庭院显示为' + esc(beast.name) + '"><img src="' + esc(beast.art[stage] || beast.art[0]) + '" alt="" /><strong>' + esc(beast.name) + '</strong><small>' + role + '</small></button>';
+      return '<button type="button" data-yard-beast="' + esc(beast.id) + '" aria-current="' + (active ? 'true' : 'false') + '" class="' + (active ? 'active' : '') + '" aria-label="切换庭院显示为' + esc(beast.name) + '"><img src="' + esc(characterAssetPath(beast.art[stage] || beast.art[0])) + '" alt="" /><strong>' + esc(beast.name) + '</strong><small>' + role + '</small></button>';
     }).join('');
   }
 
@@ -571,9 +600,88 @@
     var active = state.backgrounds && state.backgrounds.active || state.yardBackground || 'courtyard';
     var definition = backgroundDef(active) || backgroundDef('courtyard');
     if (!definition) return;
-    scene.style.backgroundImage = 'linear-gradient(#fff3df1c,#fff0d61c),url("' + sceneAssetPath(definition.file) + '")';
+    var backgroundLayer = q('yard-background-layer');
+    if (backgroundLayer) backgroundLayer.style.backgroundImage = 'url("' + sceneAssetPath(definition.file) + '")';
+    else scene.style.backgroundImage = 'linear-gradient(#fff3df1c,#fff0d61c),url("' + sceneAssetPath(definition.file) + '")';
     var button = q('yard-background-open');
     if (button) button.textContent = '背景 · ' + definition.name;
+  }
+
+  function yardSceneModel(display, stage) {
+    var backgroundId = state.backgrounds && state.backgrounds.active || 'courtyard';
+    var background = backgroundDef(backgroundId) || backgroundDef('courtyard');
+    var herb = state.facilities.herb;
+    var groom = state.facilities.groom;
+    var cap = Number(DATA.careGames && DATA.careGames.rewardRunsPerFacility) || 3;
+    var groomLeft = Math.max(0, cap - Number(state.daily.careRewards && state.daily.careRewards.groom || 0));
+    var playLeft = Math.max(0, cap - Number(state.daily.careRewards && state.daily.careRewards.play || 0));
+    return {
+      background: { id: backgroundId, url: background ? sceneAssetPath(background.file) : '' },
+      buildings: {
+        clinic: { x: 21, y: 47, level: 1, state: 'ready', bubble: '故事 ' + display.entry.storyProgress + '/3' },
+        herb: { x: 22, y: 77, level: herb.level, state: !herb.level ? 'locked' : herb.stored.length ? 'ready' : 'producing', bubble: !herb.level ? '待建' : herb.stored.length ? '可领取 ×' + herb.stored.length : 'Lv' + herb.level + ' 生产中' },
+        groom: { x: 78, y: 77, level: groom.level, state: groomLeft ? 'care' : 'practice', bubble: groomLeft ? groomLeft + ' 局奖励' : '练习模式' },
+        play: { x: 79, y: 47, level: 1, state: playLeft ? 'care' : 'practice', bubble: playLeft ? playLeft + ' 局奖励' : '练习模式' }
+      },
+      character: { x: 50, y: 90, groundY: 90, stage: stage, state: display.entry.transformed ? 'transformed' : 'idle', transformed: !!display.entry.transformed },
+      speech: display.definition.dialogue[stage]
+    };
+  }
+
+  function renderCourtyardScene(display, stage) {
+    var model = yardSceneModel(display, stage);
+    if (!courtyardScene && root.MergeCourtyardScene && typeof root.MergeCourtyardScene.create === 'function') {
+      courtyardScene = root.MergeCourtyardScene.create();
+      courtyardScene.mount(q('yard-scene'));
+    }
+    if (courtyardScene && typeof courtyardScene.render === 'function') courtyardScene.render(model);
+    else Object.keys(model.buildings).forEach(function (id) {
+      var node = document.querySelector('[data-node-id="' + id + '"]');
+      var building = model.buildings[id];
+      if (!node) return;
+      node.dataset.state = building.state;
+      node.classList.toggle('is-locked', building.state === 'locked');
+      node.classList.toggle('is-ready', building.state === 'ready');
+      node.classList.toggle('is-producing', building.state === 'producing');
+      var bubble = node.querySelector('.world-state-bubble');
+      if (bubble) bubble.textContent = building.bubble;
+    });
+  }
+
+  function useCourtyardNode(id, action) {
+    if (!courtyardScene || typeof courtyardScene.moveCharacterTo !== 'function') return;
+    var building = document.querySelector('[data-node-id="' + id + '"]');
+    var x = building ? Number(building.getAttribute('data-world-x') || building.style.getPropertyValue('--scene-x')) : NaN;
+    var y = building ? Number(building.getAttribute('data-world-y') || building.style.getPropertyValue('--scene-y')) : NaN;
+    var payload = { id: 'resident' };
+    if (isFinite(x) && isFinite(y)) {
+      /* Facilities sit at the far left/right of the world. Keep the resident
+         on the centre path so its foreground hit box never covers the next
+         building the player wants to tap. */
+      payload.x = 50;
+      payload.groundY = Math.min(91, Math.max(58, y + 13));
+    }
+    courtyardScene.moveCharacterTo(payload, 'move');
+    root.setTimeout(function () {
+      if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') courtyardScene.moveCharacterTo({ id: 'resident' }, action || 'use');
+    }, 520);
+    root.setTimeout(function () {
+      if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') courtyardScene.moveCharacterTo({ id: 'resident', x: 50, groundY: 90 }, 'move');
+    }, 1250);
+    root.setTimeout(function () {
+      if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') courtyardScene.moveCharacterTo({ id: 'resident' }, 'idle');
+    }, 1800);
+  }
+
+  function showCourtyardReward(text) {
+    if (courtyardScene && typeof courtyardScene.react === 'function') {
+      courtyardScene.react('reward', text);
+      return;
+    }
+    var layer = q('yard-fx-layer');
+    if (!layer) return;
+    layer.innerHTML = '<span class="scene-reward-fx">' + esc(text || '奖励已入库') + '</span>';
+    root.setTimeout(function () { if (layer) layer.innerHTML = ''; }, 1100);
   }
 
   function renderYard() {
@@ -585,7 +693,7 @@
     var activeTarget = state.activeCaseId && state.beastCases[state.activeCaseId];
     var activeTargetDef = activeTarget && beastDef(activeTarget.id);
     var art = definition.art[stage] || definition.art[0];
-    q('yard-beast').src = art;
+    q('yard-beast').src = characterAssetPath(art);
     q('yard-beast').alt = definition.name + ' · ' + definition.stageNames[stage];
     q('yard-heading').textContent = activeResident ? '陪伴' + definition.name + '慢慢恢复' : entry.transformed ? definition.name + '已经成为疗愈所伙伴' : '查看' + definition.name + '的状态';
     q('yard-copy').textContent = activeResident ? activeCareText(entry) : entry.transformed ? '岗位已生效 · ' + (activeTargetDef ? '当前治疗对象：' + activeTargetDef.name + ' · ' : '') + '这里正在查看' + definition.name : '当前治疗对象：' + (activeTargetDef ? activeTargetDef.name : '暂无') + ' · 这里正在查看' + definition.name;
@@ -599,6 +707,7 @@
     q('heal-meter').style.width = Math.min(100, entry.heal) + '%';
     q('yard-reward').textContent = entry.transformed ? '已蜕变 · ' + definition.job.title + '岗位效果永久生效。' : activeCareText(entry) + '。三段故事与一次照料缺一不可。';
     renderYardBackground();
+    renderCourtyardScene(display, stage);
     renderYardSwitcher();
     var herbHotspot = document.querySelector('[data-hotspot="herb"]');
     if (herbHotspot) {
@@ -614,9 +723,12 @@
       button.classList.toggle('care-unneeded', !available);
       /* A non-preferred facility is still playable; only its care reward is withheld. */
       button.setAttribute('aria-disabled', 'false');
-      button.title = available ? '开始' + careTypeLabel(type) + '，不限次数且不消耗体力' : '可以体验' + careTypeLabel(type) + '，但本局不会获得照料奖励';
+      var rewardCap = Number(DATA.careGames && DATA.careGames.rewardRunsPerFacility) || 3;
+      var rewardUsed = Number(state.daily.careRewards && state.daily.careRewards[type]) || 0;
+      var rewardLeft = Math.max(0, rewardCap - rewardUsed);
+      button.title = available ? '选择' + careTypeLabel(type) + '难度；今日剩余 ' + rewardLeft + ' 局素材奖励' : '可以体验' + careTypeLabel(type) + '，但本局不会获得照料奖励';
       var caption = button.querySelector('small');
-      if (caption) caption.textContent = available ? (type === 'groom' ? '消消乐 · 不限次数' : '连连看 · 不限次数') : '可玩 · 无照料奖励';
+      if (caption) caption.textContent = available ? (rewardLeft ? '今日奖励 ' + rewardLeft + '/' + rewardCap + ' · 选难度' : '奖励已领 · 练习模式') : '可玩 · 无照料奖励';
     });
     renderDaily();
     renderFacilities();
@@ -637,6 +749,11 @@
     var button = q('claim-yard-goal');
     button.disabled = !complete || state.daily.claimed;
     button.textContent = state.daily.claimed ? '今日奖励已领取' : complete ? '领取今日奖励' : '完成三项目标后领取';
+    var weekly = q('weekly-goal');
+    if (weekly && state.weekly) {
+      var weeklyDone = state.weekly.merges >= 30 && state.weekly.orders >= 12 && state.weekly.care >= 6;
+      weekly.innerHTML = '<div><b>本周疗愈挑战</b><small>合成 ' + Math.min(30, state.weekly.merges) + '/30 · 委托 ' + Math.min(12, state.weekly.orders) + '/12 · 有效照料 ' + Math.min(6, state.weekly.care) + '/6</small></div><button data-claim-weekly type="button" ' + (!weeklyDone || state.weekly.claimed ? 'disabled' : '') + '>' + (state.weekly.claimed ? '本周已领' : weeklyDone ? '领取 ◆120 + T3' : '持续推进') + '</button>';
+    }
   }
 
   function facilitySummary(id) {
@@ -679,7 +796,7 @@
         var stored = state.jobs.qiongqi.stored;
         action = '<button data-claim-job="qiongqi" type="button" ' + (stored ? '' : 'disabled') + '>' + (stored ? '领取 ×' + stored : '积累中') + '</button>';
       } else action = '<button type="button" disabled>' + (available ? '已生效' : '待蜕变') + '</button>';
-      return '<div class="job-row ' + (available ? '' : 'locked') + '"><span class="job-avatar"><img src="' + esc(beast.art[available ? 3 : 0]) + '" alt="" /></span><span><strong>' + esc(beast.name + ' · ' + beast.job.title) + '</strong><small>' + esc(jobDescription(beast)) + '</small></span>' + action + '</div>';
+      return '<div class="job-row ' + (available ? '' : 'locked') + '"><span class="job-avatar"><img loading="lazy" src="' + esc(characterAssetPath(beast.art[available ? 3 : 0])) + '" alt="" /></span><span><strong>' + esc(beast.name + ' · ' + beast.job.title) + '</strong><small>' + esc(jobDescription(beast)) + '</small></span>' + action + '</div>';
     }).join('');
   }
 
@@ -694,7 +811,7 @@
       var unlock = beast.unlockFamily ? Core.getItemName(beast.unlockFamily, beast.unlockTier) : '初始住客';
       var careGuide = (beast.careTypes || []).map(careTypeLabel).join(' / ') || '暂无指定设施';
       return '<article class="codex-card ' + (discovered ? '' : 'locked') + '" data-beast-id="' + beast.id + '">' +
-        '<div class="codex-art"><img src="' + esc(beast.art[stage] || beast.art[0]) + '" alt="' + esc(beast.name) + '" /><b>' + (discovered ? esc(beast.stageNames[stage]) : '等待来信') + '</b></div>' +
+        '<div class="codex-art"><img loading="lazy" src="' + esc(characterAssetPath(beast.art[stage] || beast.art[0])) + '" alt="' + esc(beast.name) + '" /><b>' + (discovered ? esc(beast.stageNames[stage]) : '等待来信') + '</b></div>' +
         '<div class="codex-copy"><h2>' + (discovered ? esc(beast.name) : '未结识 · ' + esc(beast.name)) + '</h2><p>' + (discovered ? esc(beast.lore) : '解锁信物：' + esc(unlock)) + '</p>' +
         '<div class="codex-care"><strong>照料偏好：' + esc(careGuide) + '</strong><small>非偏好设施可玩，但不发放照料奖励</small></div>' +
         '<div class="story-dots" aria-label="三段故事与一次照料">' + [0, 1, 2].map(function (idx) { return '<i class="' + (idx < entry.storyProgress ? 'done' : '') + '"></i>'; }).join('') + '<i class="' + (entry.careDone ? 'done' : '') + '"></i></div>' +
@@ -955,7 +1072,7 @@
       var gateCare = gateBeast && gateBeast.careTypes ? gateBeast.careTypes.map(careTypeLabel).join(' / ') : '偏好设施';
       var gateModal = modalShell('<span class="eyebrow">主线照料节点 · 永久槽位</span><h2>' + esc(order.title) + '</h2><p class="task-symptom">' + esc(order.symptom || '') + '</p>' +
         '<div class="order-prerequisite"><b>主线前置</b><span>' + esc(prerequisiteText(order)) + '</span></div>' +
-        '<div class="care-gate-panel"><strong>这一步不需要合成素材</strong><span>请到庭院为 ' + esc(gateBeast ? gateBeast.name : '当前异兽') + ' 完成一次有效照料。偏好设施：' + esc(gateCare) + '。</span><small>不消耗体力；跳过或超时也会给基础照料奖励。</small></div>' +
+        '<div class="care-gate-panel"><strong>这一步不需要合成素材</strong><span>请到庭院为 ' + esc(gateBeast ? gateBeast.name : '当前异兽') + ' 完成一次有效照料。偏好设施：' + esc(gateCare) + '。</span><small>不消耗体力；达到有效操作门槛后，超时仍有保底，直接跳过不推进。</small></div>' +
         '<div class="task-reward">完成节点：推进主线并解锁下一段疗愈</div><button class="modal-action" data-care-gate-detail type="button">去庭院照料</button>', 'task-modal care-gate-modal');
       if (gateModal) gateModal.querySelector('[data-care-gate-detail]').addEventListener('click', function () { focusCareGate(order); });
       return;
@@ -1005,7 +1122,11 @@
     var upgrade = modal.querySelector('[data-upgrade-facility]');
     if (upgrade) upgrade.addEventListener('click', function () {
       var result = Core.upgradeFacility(state, id);
-      if (mutate(result, definition.name + '升到 Lv' + (facility.level), null, 'purchase')) closeModal();
+      if (mutate(result, definition.name + '升到 Lv' + (facility.level), null, 'purchase')) {
+        useCourtyardNode(id, 'upgrade');
+        showCourtyardReward('Lv' + facility.level + ' 升级完成');
+        closeModal();
+      }
     });
     var claim = modal.querySelector('[data-claim-facility]');
     if (claim) claim.addEventListener('click', function () {
@@ -1033,9 +1154,9 @@
       return esc(groups[key].item.name) + ' ×' + groups[key].count;
     }).join('、') || '暂无产出';
     closeModal();
-    modalShell('<span class="eyebrow">百草园 · 收成入库</span><h2>本次获得了具体药材</h2><div class="facility-claim-summary"><strong>' + itemsText + '</strong><small>已进入合成棋盘；棋盘满时自动进入药匣暂存（本次暂存 ' + result.pending + ' 份）。</small></div><div class="facility-loop"><b>下一步闭环</b><span>药材 → 合成高阶 → 完成委托 → 获得暖玉 → 升级百草园</span></div><button class="modal-action" data-close-facility-claim type="button">收下并继续</button>', 'task-modal facility-claim-modal');
-    var closeButton = q('modal-root').querySelector('[data-close-facility-claim]');
-    if (closeButton) closeButton.addEventListener('click', closeModal);
+    useCourtyardNode('herb', 'claim');
+    showCourtyardReward(itemsText);
+    toast('百草园收成已入棋盘' + (result.pending ? ' · ' + result.pending + ' 份安全暂存' : ''));
     return result;
   }
 
@@ -1112,12 +1233,75 @@
     });
   }
 
-  function openCare(type) {
+  function careRewardPreview(difficulty) {
+    var rewards = difficulty && difficulty.rewards || {};
+    function tiers(values) {
+      return (values || []).map(function (tier) { return 'T' + tier; }).join('+') || '—';
+    }
+    return '保底 ' + tiers(rewards.floor) + ' · B ' + tiers(rewards.B) + ' · A ' + tiers(rewards.A) + ' · S ' + tiers(rewards.S);
+  }
+
+  function careOrderRelevance(type) {
+    var found = null;
+    (state.activeOrders || []).some(function (order) {
+      return (order.requirements || []).some(function (need) {
+        if (need.family !== type) return false;
+        found = Core.makeItem(type, need.tier || 1);
+        return true;
+      });
+    });
+    return found ? '眼前委托需要“' + found.name + '”，本设施奖励可直接推进合成。' : '眼前委托暂不缺此系列；奖励会进入棋盘/暂存，供后续委托合成。';
+  }
+
+  function careUnlockText(id) {
+    if (id === 'normal') return '完成第一段主线故事后解锁';
+    if (id === 'hard') return '梳洗台升至 Lv2 后解锁';
+    if (id === 'master') return '梳洗台升至 Lv3 后解锁';
+    return '默认开放';
+  }
+
+  function openCareDifficulty(type) {
+    var display = caseForDisplay();
+    if (!display.entry) return { ok: false, reason: 'wrong-care-type' };
+    var config = DATA.careGames || {};
+    var recommended = Core.recommendCareDifficulty(state, type);
+    var rewardCap = Number(config.rewardRunsPerFacility) || 3;
+    var used = Number(state.daily.careRewards && state.daily.careRewards[type]) || 0;
+    var cards = (config.order || []).map(function (id) {
+      var difficulty = config.difficulties[id];
+      var unlocked = Core.careDifficultyUnlocked(state, id);
+      var game = difficulty[type];
+      return '<button class="care-difficulty-card ' + (recommended === id ? 'recommended' : '') + '" data-care-difficulty="' + id + '" type="button" ' + (unlocked ? '' : 'disabled') + '>' +
+        '<span><b>' + esc(difficulty.name) + (recommended === id ? ' · 推荐' : '') + '</b><small>' + game.cols + '×' + game.rows + ' · ' + game.timeLimit + ' 秒</small></span>' +
+        '<em>' + (unlocked ? esc(careRewardPreview(difficulty)) : esc(careUnlockText(id))) + '</em></button>';
+    }).join('');
+    var preferred = display.definition.careTypes.indexOf(type) >= 0;
+    var modal = modalShell('<span class="eyebrow">难度与奖励公开 · 不会暗调</span><h2>' + esc(careTypeLabel(type)) + '</h2>' +
+      '<p>' + esc(careOrderRelevance(type)) + '</p><div class="care-run-budget"><b>今日素材奖励</b><span>' + Math.max(0, rewardCap - used) + ' / ' + rewardCap + ' 局</span></div>' +
+      (preferred ? '' : '<div class="care-preference-warning">当前住客偏好其他设施：本局可练习并记录成绩，但不推进病历、不发合成素材。</div>') +
+      '<div class="care-difficulty-list">' + cards + '</div><p class="care-effective-rule">有效参与门槛：' + (type === 'groom' ? '3 次有效交换' : '连成 4 对') + '。达到门槛后超时也有保底；直接跳过无数值奖励。</p>', 'task-modal care-difficulty-modal');
+    if (!modal) return { ok: false, reason: 'modal-unavailable' };
+    modal.addEventListener('click', function (event) {
+      var button = event.target.closest('[data-care-difficulty]');
+      if (!button || button.disabled) return;
+      openCare(type, button.dataset.careDifficulty);
+    });
+    return { ok: true, selector: true, recommendedDifficulty: recommended };
+  }
+
+  function openCare(type, difficulty) {
+    if (!difficulty) return openCareDifficulty(type);
     var display = caseForDisplay();
     if (!display.entry) {
       toast('当前没有可照料住客');
       return { ok: false, reason: 'wrong-care-type' };
     }
+    if (!Core.careDifficultyUnlocked(state, difficulty)) {
+      toast(careUnlockText(difficulty));
+      return { ok: false, reason: 'difficulty-locked' };
+    }
+    var difficultyConfig = DATA.careGames && DATA.careGames.difficulties[difficulty];
+    if (!difficultyConfig) return { ok: false, reason: 'unknown-difficulty' };
     var rewardEligible = display.definition.careTypes.indexOf(type) >= 0;
     if (!rewardEligible) toast('可以体验' + careTypeLabel(type) + '，但本局不会获得照料奖励');
     closeModal();
@@ -1153,6 +1337,7 @@
       lastFrame: 0,
       width: 390,
       height: 844,
+      difficulty: difficulty,
       rewardEligible: rewardEligible,
       listeners: {},
       settled: false
@@ -1166,10 +1351,12 @@
       finishCare(outcome, summary || {});
     }
 
-    session.game = new Engine.Game(type === 'groom' ? 'GROOM' : 'PLAY', {
+    var engineOptions = Object.assign({}, difficultyConfig[type], {
+      difficulty: difficulty,
       onDone: function (perf, summary) { settle(perf, summary, false); },
       onCancel: function (summary) { settle(summary && summary.perf, summary, true); }
     });
+    session.game = new Engine.Game(type === 'groom' ? 'GROOM' : 'PLAY', engineOptions);
 
     function resizeCanvas() {
       if (!careSession || careSession !== session) return;
@@ -1255,10 +1442,11 @@
       rewardItems: [],
       rewardCount: 0,
       energy: state.energy
-    } : Core.recordCare(state, session.type, { outcome: outcome, beastId: session.beastId, game: summary || {} }, Date.now());
+    } : Core.recordCare(state, session.type, { outcome: outcome, beastId: session.beastId, difficulty: session.difficulty, game: summary || {} }, Date.now());
     if (!result.ok) { closeModal(); mutate(result); return result; }
     saveState(); render();
     playSfx(result.noReward ? 'click' : 'care');
+    if (!result.noReward) showCourtyardReward('评级 ' + (result.grade || 'B') + ' · 奖励入库');
     var items = result.rewardItems && result.rewardItems.length ? result.rewardItems : [result.rewardItem];
     var itemGroups = {};
     items.forEach(function (reward) {
@@ -1273,10 +1461,9 @@
     }).join('、') || '基础照料奖励';
     var score = Math.max(0, Math.round(Number(summary && summary.score) || 0));
     var perf = Math.round(Math.max(0, Math.min(1, Number(summary && summary.perf) || 0)) * 100);
-    var label = result.noReward ? '体验完成' : outcome === 'mastery' ? '精通' : outcome === 'complete' ? '完成' : outcome === 'timeout' ? '时间到也没关系' : '已跳过';
-    var tierNote = outcome === 'mastery' ? '精通：基础 3 阶' : outcome === 'complete' ? '完成：基础 2 阶' : '跳过/超时：基础 1 阶';
-    var rewardNote = result.noReward ? '当前异兽的照料偏好是' + ((beastDef(session.beastId).careTypes || []).map(careTypeLabel).join(' / ') || '其他设施') + '；切换到偏好设施后，小游戏才会推进病历并发放照料奖励。' : (result.firstCare ? '治疗节点已推进 · ' : '治疗节点已完成 · 本局仅获得素材 · ') + tierNote + '；' + (session.type === 'groom' ? '梳洗台得分 500/1200 分对应额外掉落数量。' : '本次奖励已进入棋盘或药匣暂存。');
-    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · ' + (result.noReward ? '无奖励体验' : '零失败结算') + '</span><h2>' + esc(beastDef(session.beastId).name) + (result.noReward ? '陪你玩了一局' : result.firstCare ? '完成了一次治疗照料' : '治疗已完成 · 本局仅获素材') + '</h2><img src="' + esc(beastDef(session.beastId).art[state.beastCases[session.beastId].stage]) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div><div class="task-reward">' + (result.noReward ? '' : '获得 ') + rewardText + '<br /><small>' + rewardNote + '</small></div><button class="modal-action" data-care-continue type="button">继续</button></div>', 'task-modal');
+    var label = result.rewardLimited ? '练习完成' : result.noReward ? (result.qualified ? '体验完成' : '尚未达到有效门槛') : '评级 ' + (result.grade || 'B');
+    var rewardNote = result.rewardLimited ? '今日该设施的 3 局素材奖励已领取；本局成绩已记录，明日重置。' : result.noReward ? (outcome === 'skip' ? '直接跳过只保留陪伴反馈，不推进照料节点或每日目标。' : !result.qualified ? '还差一些有效操作；达到门槛后即使超时也能领取保底。' : '当前异兽偏好其他设施，本局仅记录练习成绩。') : (result.firstCare ? '治疗节点已推进 · ' : '治疗节点已完成 · ') + '本局评级 ' + result.grade + '；奖励已进入棋盘或药匣暂存。今日还可领取 ' + result.remainingRewardRuns + ' 局素材。';
+    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · ' + (result.noReward ? '无数值结算' : '有效挑战结算') + '</span><h2>' + esc(beastDef(session.beastId).name) + (result.noReward ? '陪你玩了一局' : result.firstCare ? '完成了一次治疗照料' : '治疗已完成 · 本局仅获素材') + '</h2><img src="' + esc(characterAssetPath(beastDef(session.beastId).art[state.beastCases[session.beastId].stage])) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div><div class="task-reward">' + (result.noReward ? '' : '获得 ') + rewardText + '<br /><small>' + rewardNote + '</small></div><button class="modal-action" data-care-continue type="button">继续</button></div>', 'task-modal');
     if (modal) modal.querySelector('[data-care-continue]').addEventListener('click', function () {
       closeModal();
       if (state.pendingTransformation) showTransformation();
@@ -1287,8 +1474,9 @@
   function showTransformation() {
     var beastId = state.pendingTransformation;
     if (!beastId) return;
+    if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') courtyardScene.moveCharacterTo({ id: 'resident' }, 'transform');
     var definition = beastDef(beastId);
-    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">治疗节点完成 · 岗位解锁</span><h2>' + esc(definition.name) + '完成蜕变</h2><img src="' + esc(definition.art[3]) + '" alt="' + esc(definition.name) + '蜕变形态" /><p>' + esc(definition.dialogue[3]) + '</p><div class="task-reward">新岗位：' + esc(definition.job.title) + '<br />' + esc(jobDescription(definition)) + '</div><button class="modal-action" data-ack-transform type="button">一起迎接下一位住客</button></div>', 'task-modal transformation-modal');
+    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">治疗节点完成 · 岗位解锁</span><h2>' + esc(definition.name) + '完成蜕变</h2><img src="' + esc(characterAssetPath(definition.art[3])) + '" alt="' + esc(definition.name) + '蜕变形态" /><p>' + esc(definition.dialogue[3]) + '</p><div class="task-reward">新岗位：' + esc(definition.job.title) + '<br />' + esc(jobDescription(definition)) + '</div><button class="modal-action" data-ack-transform type="button">一起迎接下一位住客</button></div>', 'task-modal transformation-modal');
     if (modal) modal.querySelector('[data-ack-transform]').addEventListener('click', function () {
       Core.acknowledgeTransformation(state, beastId);
       saveState(); closeModal(); render(); switchView('merge-view');
@@ -1364,7 +1552,7 @@
     q('energy-help').addEventListener('click', openEnergyCenter);
     q('how-to-play-open').addEventListener('click', openHowToPlay);
     Array.prototype.forEach.call(document.querySelectorAll('[data-care]'), function (button) {
-      button.addEventListener('click', function () { openCare(button.dataset.care); });
+      button.addEventListener('click', function () { useCourtyardNode(button.dataset.care, 'care'); openCare(button.dataset.care); });
     });
     q('yard-beast-switcher').addEventListener('click', function (event) {
       var button = event.target.closest('[data-yard-beast]');
@@ -1382,6 +1570,8 @@
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-hotspot]'), function (button) {
       button.addEventListener('click', function () {
+        useCourtyardNode(button.dataset.hotspot, 'use');
+        playSfx('click');
         if (button.dataset.hotspot === 'clinic') { switchView('merge-view'); return; }
         if (button.dataset.hotspot === 'herb' && state.facilities.herb.stored.length) {
           claimFacilityAndShow('herb'); return;
@@ -1398,12 +1588,18 @@
       if (button) mutate(Core.claimJob(state, button.dataset.claimJob, Date.now()), '岗位补给已领取', null, 'order');
     });
     q('claim-yard-goal').addEventListener('click', function () { mutate(Core.claimDaily(state), '今日承诺完成 · 奖励已领取', null, 'order'); });
+    q('weekly-goal').addEventListener('click', function (event) {
+      if (!event.target.closest('[data-claim-weekly]')) return;
+      var result = Core.claimWeekly(state);
+      if (mutate(result, '本周疗愈挑战完成 · 高阶素材已入库', null, 'order')) showCourtyardReward('本周奖励 · T3');
+    });
     q('codex-list').addEventListener('click', function (event) {
       var card = event.target.closest('[data-beast-id]');
       if (card) openCodexDetails(card.dataset.beastId);
     });
     q('reset-btn').addEventListener('click', function () {
-      if (root.confirm && !root.confirm('重置 v4 疗愈进度？旧 v3 备份不会被删除。')) return;
+      if (root.confirm && !root.confirm('重置当前 H5 疗愈进度？旧版备份不会被删除。')) return;
+      if (saveStore) saveStore.removeAsync ? saveStore.removeAsync() : saveStore.remove();
       safeStorageRemove(KEY);
       state = Core.createFresh(Date.now(), today());
       selectedIndex = null;
@@ -1435,8 +1631,10 @@
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) saveState(); else { tick(); render(); }
     });
+    root.addEventListener('pagehide', saveState);
     if (readOnlyNewerSave) toast('检测到更高版本存档：当前仅预览，不会降级覆盖');
-    else if (migrationSource) toast('v3 进度已无损迁移到 v4，旧存档仍保留');
+    else if (migrationSource === 'backup-slot') toast('主存档校验失败，已自动从安全备份恢复');
+    else if (migrationSource) toast('旧版进度已无损迁移，原存档仍保留');
     if (!state.tutorialSeen) root.setTimeout(openHowToPlay, 30);
     else if (state.pendingTransformation) root.setTimeout(showTransformation, 30);
     else if (offline.elapsedMs >= 5 * 60 * 1000) root.setTimeout(function () { showOffline(offline); }, 30);
@@ -1444,6 +1642,7 @@
   }
 
   function resetForTests() {
+    if (saveStore) saveStore.remove();
     safeStorageRemove(KEY);
     state = Core.createFresh(Date.now(), today());
     selectedIndex = null;

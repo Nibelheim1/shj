@@ -68,7 +68,7 @@
 
   /*
    * The five merge families intentionally mirror the generated icon prompts.
-   * `path` is the basename used below ../wechat/assets/art/match3/ and every
+   * `path` is the basename used below assets/art/match3/ and every
    * item label follows the object actually shown in that tier's image.
    */
   var families = {
@@ -101,7 +101,7 @@
     {
       id: 'courtyard',
       name: '晨光庭院',
-      file: 'bg_courtyard_v2.png',
+      file: 'bg_courtyard_v2.webp',
       price: 0,
       ownedByDefault: true,
       description: '山雾与暖阳相伴的疗愈所。'
@@ -109,7 +109,7 @@
     {
       id: 'sunset',
       name: '桃霞山庭',
-      file: 'bg_courtyard_sunset.png',
+      file: 'bg_courtyard_sunset.webp',
       price: 180,
       ownedByDefault: false,
       description: '晚霞落在山门与花径上，适合安静散步。'
@@ -117,7 +117,7 @@
     {
       id: 'moonlit',
       name: '月影竹溪',
-      file: 'bg_courtyard_moonlit.png',
+      file: 'bg_courtyard_moonlit.webp',
       price: 260,
       ownedByDefault: false,
       description: '竹影、溪声与灯火，夜间也能安心休息。'
@@ -145,10 +145,10 @@
       unlockTier: 0,
       careTypes: ['groom', 'play'],
       art: [
-        '../wechat/assets/art/characters/qiongqi_s0.png',
-        '../wechat/assets/art/characters/qiongqi_s1.png',
-        '../wechat/assets/art/characters/qiongqi_s2.png',
-        '../wechat/assets/art/characters/qiongqi_s3.png'
+        'assets/art/characters/qiongqi_s0.png',
+        'assets/art/characters/qiongqi_s1.png',
+        'assets/art/characters/qiongqi_s2.png',
+        'assets/art/characters/qiongqi_s3.png'
       ],
       stageNames: ['门后怂包', '试着靠近', '可靠守卫', '温柔门卫'],
       dialogue: [
@@ -189,10 +189,10 @@
       unlockTier: 6,
       careTypes: ['groom'],
       art: [
-        '../wechat/assets/art/characters/jiuweihu_s0.png',
-        '../wechat/assets/art/characters/jiuweihu_s1.png',
-        '../wechat/assets/art/characters/jiuweihu_s2.png',
-        '../wechat/assets/art/characters/jiuweihu_s3.png'
+        'assets/art/characters/jiuweihu_s0.png',
+        'assets/art/characters/jiuweihu_s1.png',
+        'assets/art/characters/jiuweihu_s2.png',
+        'assets/art/characters/jiuweihu_s3.png'
       ],
       stageNames: ['尾巴焦虑', '愿意被看见', '九尾迎宾', '自信大使'],
       dialogue: [
@@ -231,10 +231,10 @@
       unlockTier: 6,
       careTypes: ['play'],
       art: [
-        '../wechat/assets/art/characters/xiangliu_s0.png',
-        '../wechat/assets/art/characters/xiangliu_s3.png',
-        '../wechat/assets/art/characters/xiangliu_s3.png',
-        '../wechat/assets/art/characters/xiangliu_s3.png'
+        'assets/art/characters/xiangliu_s0.png',
+        'assets/art/characters/xiangliu_s3.png',
+        'assets/art/characters/xiangliu_s3.png',
+        'assets/art/characters/xiangliu_s3.png'
       ],
       stageNames: ['九头内耗', '听见彼此', '一起浇花', '小火车园丁'],
       dialogue: [
@@ -274,10 +274,10 @@
       unlockTier: 6,
       careTypes: ['play'],
       art: [
-        '../wechat/assets/art/characters/taotie_s0.png',
-        '../wechat/assets/art/characters/taotie_s3.png',
-        '../wechat/assets/art/characters/taotie_s3.png',
-        '../wechat/assets/art/characters/taotie_s3.png'
+        'assets/art/characters/taotie_s0.png',
+        'assets/art/characters/taotie_s3.png',
+        'assets/art/characters/taotie_s3.png',
+        'assets/art/characters/taotie_s3.png'
       ],
       stageNames: ['担心不够吃', '学会慢慢尝', '不浪费主厨', '把第一口给你'],
       dialogue: [
@@ -369,8 +369,42 @@
     ]
   };
 
+  /* H5 照料小游戏与主棋盘共享的唯一奖励表。奖励数组表示依次掉落的素材阶位。 */
+  var careGames = {
+    rewardRunsPerFacility: 3,
+    historyLimit: 5,
+    effectiveActions: { groom: 3, play: 4 },
+    order: ['easy', 'normal', 'hard', 'master'],
+    difficulties: {
+      easy: {
+        id: 'easy', name: '轻松', unlock: 'default',
+        groom: { cols: 6, rows: 6, typeCount: 5, timeLimit: 60, knotMode: 'single' },
+        play: { cols: 5, rows: 6, pairs: 15, timeLimit: 75 },
+        rewards: { floor: [1], B: [1, 1], A: [2], S: [2, 1] }
+      },
+      normal: {
+        id: 'normal', name: '标准', unlock: 'firstStory',
+        groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 55, knotMode: 'mixed' },
+        play: { cols: 6, rows: 6, pairs: 18, timeLimit: 60 },
+        rewards: { floor: [1], B: [2], A: [2, 1], S: [3] }
+      },
+      hard: {
+        id: 'hard', name: '困难', unlock: 'groomLevel2',
+        groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 50, knotMode: 'double-spread' },
+        play: { cols: 6, rows: 8, pairs: 24, timeLimit: 50 },
+        rewards: { floor: [2], B: [2, 1], A: [3], S: [3, 2] }
+      },
+      master: {
+        id: 'master', name: '大师', unlock: 'groomLevel3',
+        groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 45, knotMode: 'double-triple' },
+        play: { cols: 7, rows: 8, pairs: 28, timeLimit: 45 },
+        rewards: { floor: [2], B: [3], A: [3, 2], S: [4], repeatS: [3, 2] }
+      }
+    }
+  };
+
   return {
-    version: 4,
+    version: 5,
     board: {
       cols: 7,
       rows: 8,
@@ -396,6 +430,7 @@
     order: order,
     beasts: beasts,
     facilities: { herb: herbFacility, groom: groomFacility },
+    careGames: careGames,
     dailyObjectives: dailyObjectives,
     featureFlags: { rewardedAds: false }
   };

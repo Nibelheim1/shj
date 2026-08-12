@@ -45,6 +45,58 @@ function assertHintLegal(game, hint) {
   assert.deepStrictEqual(hint.path[hint.path.length - 1], hint.b);
 }
 
+const DIFFICULTY_DIMENSIONS = {
+  easy: { match3: [6, 6, 5], link: [5, 6, 15] },
+  normal: { match3: [6, 6, 6], link: [6, 6, 18] },
+  hard: { match3: [6, 7, 6], link: [6, 8, 24] },
+  master: { match3: [7, 8, 6], link: [7, 8, 28] }
+};
+
+function runDifficultyProfileChecks(Match3) {
+  Object.keys(DIFFICULTY_DIMENSIONS).forEach(function (difficulty) {
+    const expected = DIFFICULTY_DIMENSIONS[difficulty];
+    const link = new LinkGame.Game('PLAY', { difficulty: difficulty, rng: deterministicRng() });
+    assert.strictEqual(link.cols, expected.link[0], difficulty + ' 连连看列数');
+    assert.strictEqual(link.rows, expected.link[1], difficulty + ' 连连看行数');
+    assert.strictEqual(link.totalPairs, expected.link[2], difficulty + ' 连连看对数');
+    assert.strictEqual(link.typeCount, 6, difficulty + ' 连连看图案种类');
+    assert.ok(link.hasMove(), difficulty + ' 连连看初盘可玩');
+
+    const match3 = new Match3.Game('GROOM', { difficulty: difficulty });
+    assert.strictEqual(match3.cols, expected.match3[0], difficulty + ' 消消乐列数');
+    assert.strictEqual(match3.rows, expected.match3[1], difficulty + ' 消消乐行数');
+    assert.strictEqual(match3.typeCount, expected.match3[2], difficulty + ' 消消乐图案种类');
+    assert.strictEqual(match3._findMatches(), null, difficulty + ' 消消乐初盘无三连');
+    assert.strictEqual(match3._hasPossibleMove(), true, difficulty + ' 消消乐初盘可玩');
+  });
+
+  /* Explicit constructor overrides are independent from a selected profile. */
+  const customLink = new LinkGame.Game('PLAY', {
+    difficulty: 'easy', cols: 6, rows: 8, typeCount: 4, timeLimit: 9,
+    itemCounts: { hint: 1, shuffle: 0, bell: 2 }, rng: deterministicRng()
+  });
+  assert.deepStrictEqual([customLink.cols, customLink.rows, customLink.typeCount], [6, 8, 4]);
+  assert.strictEqual(customLink.timeLimit, 9);
+  assert.deepStrictEqual(customLink.itemRemaining, { hint: 1, shuffle: 0, bell: 2 });
+  assert.strictEqual(customLink._useItem('shuffle'), false, '次数为 0 的连连看道具不可用');
+  assert.strictEqual(customLink._useItem('hint'), true, '配置次数的连连看提示道具可用');
+  assert.deepStrictEqual(customLink.itemRemaining, { hint: 0, shuffle: 0, bell: 2 });
+
+  const customMatch3 = new Match3.Game('GROOM', {
+    difficulty: 'master', cols: 6, rows: 6, typeCount: 4, timeLimit: 7,
+    knotStrength: 1, knotRate: 1, itemCounts: { hammer: 0, shuffle: 2, theme: 1 }
+  });
+  assert.deepStrictEqual([customMatch3.cols, customMatch3.rows, customMatch3.typeCount], [6, 6, 4]);
+  assert.strictEqual(customMatch3.timeLimit, 7);
+  assert.strictEqual(customMatch3.knotStrength, 1);
+  assert.ok(customMatch3.initialKnot > 0, '毛结强度/概率配置生效');
+  assert.strictEqual(customMatch3.canUseItem('hammer'), false, '次数为 0 的消消乐道具不可用');
+  customMatch3.energy = 100;
+  assert.strictEqual(customMatch3.canUseItem('shuffle'), true, '配置次数的消消乐洗牌道具可用');
+  customMatch3._tapItem('shuffle');
+  assert.strictEqual(customMatch3.itemRemaining.shuffle, 1);
+}
+
 function runLinkGameChecks() {
   let doneCount = 0;
   let doneSummary = null;
@@ -109,6 +161,8 @@ function runLinkGameChecks() {
   assert.strictEqual(doneSummary.summary.perf, 1, '清盘摘要表现分为 1');
   assert.strictEqual(doneSummary.summary.pairsCleared, 24, '清盘摘要为 24 对');
   assert.deepStrictEqual(doneSummary.summary.itemUses, { hint: 1, shuffle: 1, bell: 1 });
+  assert.strictEqual(doneSummary.summary.difficulty, 'hard', '连连看摘要包含 difficulty');
+  assert.ok(doneSummary.summary.effectiveMoves >= 24, '连连看摘要包含有效操作统计');
 
   let timeoutDone = 0;
   let timeoutSummary = null;
@@ -168,7 +222,7 @@ function runLinkGameChecks() {
 }
 
 function loadMatch3(constantRandom) {
-  const source = fs.readFileSync(path.resolve(__dirname, '../../wechat/src/minigames/match3.js'), 'utf8');
+  const source = fs.readFileSync(path.resolve(__dirname, '../js/merge/match3.js'), 'utf8');
   let seed = 0.3141592653;
   const math = Object.create(Math);
   math.random = typeof constantRandom === 'number' ? function () { return constantRandom; } : function () {
@@ -205,7 +259,7 @@ function runMatch3Checks() {
   }, { lineH: 1, lineV: 2, bomb: 3, rainbow: 4 }, '特殊块 API 存在');
 
   let summary = null;
-  const game = new Match3.Game('GROOM', {
+  const game = new Match3.Game('GROOM', { difficulty: 'master',
     onDone: function (perf, result) { summary = result; }
   });
   assert.strictEqual(game.cols, 7, '梳理消消乐宽度为 7');
@@ -224,12 +278,14 @@ function runMatch3Checks() {
   assert.strictEqual(summary.game, 'match3', '摘要包含 game');
   assert.ok(Object.prototype.hasOwnProperty.call(summary, 'movesUsed'), '摘要包含 movesUsed');
   assert.ok(summary.itemUses && typeof summary.itemUses === 'object', '摘要包含 itemUses');
+  assert.strictEqual(summary.difficulty, 'master', '摘要包含 difficulty');
+  assert.ok(summary.effectiveMoves >= 0 && summary.validMoves >= 0, '摘要包含有效操作统计');
 
   /* Regression sample: every fresh GROOM board must be match-free but not
    * deadlocked.  One hundred seeds catches regressions that only appear on a
    * particular refill/initialisation sequence. */
   for (let index = 0; index < 100; index++) {
-    const sample = new Match3.Game('GROOM');
+    const sample = new Match3.Game('GROOM', { difficulty: 'master' });
     assert.strictEqual(sample._findMatches(), null, 'GROOM 初盘无三连 #' + (index + 1));
     assert.strictEqual(sample._hasPossibleMove(), true, 'GROOM 初盘可走 #' + (index + 1));
   }
@@ -237,7 +293,7 @@ function runMatch3Checks() {
   /* Exercise the manual shuffle guard.  The first 80 probes are forced to
    * look deadlocked, so _shuffleBoard must reach _forceOpeningMove; the real
    * predicate is restored for the final assertion. */
-  const shuffleGame = new Match3.Game('GROOM');
+  const shuffleGame = new Match3.Game('GROOM', { difficulty: 'master' });
   const originalPossibleMove = shuffleGame._hasPossibleMove;
   let forcedShuffleChecks = 0;
   shuffleGame._hasPossibleMove = function () {
@@ -252,10 +308,11 @@ function runMatch3Checks() {
   /* A constant RNG used to expose the initial-board guard: it must avoid
    * initial triples and apply the opening-move repair when needed. */
   const ConstantMatch3 = loadMatch3(0);
-  const constantGame = new ConstantMatch3.Game('GROOM');
+  const constantGame = new ConstantMatch3.Game('GROOM', { difficulty: 'master' });
   assert.strictEqual(constantGame._findMatches(), null, '恒定随机初盘无三连');
   assert.strictEqual(constantGame._hasPossibleMove(), true, '恒定随机初盘经 guard 后可走');
-  console.log('  PASS  Match3 GROOM 7×8、无初始三连、特殊块/道具 API、summary');
+  runDifficultyProfileChecks(Match3);
+  console.log('  PASS  Match3 四级难度、无初始三连、特殊块/道具 API、summary');
 }
 
 runLinkGameChecks();

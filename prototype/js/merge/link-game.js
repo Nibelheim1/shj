@@ -27,9 +27,54 @@
   var DEFAULT_ASSET_ROOT = 'assets/art/match3/';
   var imageCache = {};
 
+  /* Four shared care-game tiers.  The legacy constructor remains hard
+   * (6x8/24 pairs), while callers can opt into any profile or override an
+   * individual dimension/count through opts. */
+  var DIFFICULTIES = {
+    easy:   { cols: 5, rows: 6, typeCount: 6, pairs: 15, itemCounts: { hint: 3, shuffle: 2, bell: 1 } },
+    normal: { cols: 6, rows: 6, typeCount: 6, pairs: 18, itemCounts: { hint: 3, shuffle: 2, bell: 1 } },
+    hard:   { cols: 6, rows: 8, typeCount: 6, pairs: 24, itemCounts: { hint: 3, shuffle: 2, bell: 1 } },
+    master: { cols: 7, rows: 8, typeCount: 6, pairs: 28, itemCounts: { hint: 2, shuffle: 1, bell: 1 } }
+  };
+  var DEFAULT_DIFFICULTY = 'hard';
+
   function finite(value, fallback) {
     var n = Number(value);
     return isFinite(n) ? n : fallback;
+  }
+
+  function integerOption(value, fallback, min) {
+    if (value == null) return fallback;
+    var n = Number(value);
+    if (!isFinite(n)) return fallback;
+    n = Math.floor(n);
+    return n < min ? min : n;
+  }
+
+  function firstOption(opts, names, fallback) {
+    for (var i = 0; i < names.length; i++) {
+      if (opts && opts[names[i]] != null) return opts[names[i]];
+    }
+    return fallback;
+  }
+
+  function normalizeDifficulty(value) {
+    var keyName = String(value == null ? '' : value).toLowerCase();
+    return DIFFICULTIES[keyName] ? keyName : null;
+  }
+
+  function itemLimits(opts, profile) {
+    var source = null;
+    if (opts) {
+      source = opts.itemCounts || opts.itemRemaining || opts.itemLimits || opts.items;
+      if (!source && opts.itemUses && typeof opts.itemUses === 'object') source = opts.itemUses;
+    }
+    var result = {};
+    ['hint', 'shuffle', 'bell'].forEach(function (id) {
+      var value = source && source[id] != null ? source[id] : (profile.itemCounts && profile.itemCounts[id]);
+      result[id] = value == null || value === Infinity ? null : Math.max(0, Math.floor(Number(value) || 0));
+    });
+    return result;
   }
 
   function clamp(value, min, max) {
@@ -96,10 +141,22 @@
   function Game(kind, opts) {
     this.kind = kind || 'PLAY';
     this.opts = opts || {};
-    this.cols = COLS;
-    this.rows = ROWS;
-    this.totalPairs = PAIRS;
-    this.totalCells = COLS * ROWS;
+    var requestedDifficulty = normalizeDifficulty(this.opts.difficulty);
+    this.difficulty = requestedDifficulty || DEFAULT_DIFFICULTY;
+    var profile = DIFFICULTIES[this.difficulty];
+    this.profile = profile;
+    this.cols = integerOption(this.opts.cols, profile.cols, 2);
+    this.rows = integerOption(this.opts.rows, profile.rows, 2);
+    this.typeCount = integerOption(this.opts.typeCount, profile.typeCount, 1);
+    this.typeCount = Math.min(this.typeCount, NAMES.length);
+    this.names = NAMES.slice(0, this.typeCount);
+    var customDimensions = this.opts.cols != null || this.opts.rows != null;
+    var pairOption = firstOption(this.opts, ['totalPairs', 'pairs', 'pairCount'], null);
+    this.totalCells = this.cols * this.rows;
+    this.totalPairs = integerOption(pairOption,
+      customDimensions ? Math.floor(this.totalCells / 2) : profile.pairs, 1);
+    this.totalPairs = Math.min(this.totalPairs, Math.floor(this.totalCells / 2));
+    this.boardCells = this.totalPairs * 2;
     this.assetRoot = normalizeRoot(this.opts.assetRoot || (global && global.LINK_GAME_ASSET_ROOT) || DEFAULT_ASSET_ROOT);
     this.rng = typeof this.opts.rng === 'function' ? this.opts.rng : Math.random;
 
@@ -130,7 +187,11 @@
     this._lastRect = null;
     this._images = {};
     this.itemUses = { hint: 0, shuffle: 0, bell: 0 };
-    this.itemRemaining = { hint: 3, shuffle: 2, bell: 1 };
+    this.itemRemaining = itemLimits(this.opts, this.profile);
+    this.movesAttempted = 0;
+    this.validMoves = 0;
+    this.invalidMoves = 0;
+    this.effectiveMoves = 0;
 
     this.grid = [];
     this.board = this.grid;
@@ -138,9 +199,10 @@
   }
 
   Game.prototype._newCell = function (type) {
+    type = type == null || type < 0 || type >= this.typeCount ? 0 : type;
     return {
       type: type,
-      id: NAMES[type],
+      id: this.names[type] || NAMES[type],
       symbol: SYMBOLS[type],
       clearing: false
     };
@@ -149,15 +211,22 @@
   Game.prototype._initBoard = function () {
     var values = [];
     var type, i, r, c;
-    for (type = 0; type < TYPES; type++) {
-      for (i = 0; i < this.totalCells / TYPES; i++) values.push(type);
+    // Build exact pairs first, then distribute them across the available
+    // typeCount.  This works for 15/18/24/28 pairs without relying on a
+    // particular board area being divisible by six types.
+    for (i = 0; i < this.totalPairs; i++) {
+      type = i % this.typeCount;
+      values.push(type, type);
     }
     shuffleArray(values, this.rng);
     this.grid = [];
     this.board = this.grid;
     for (r = 0; r < this.rows; r++) {
       this.grid[r] = [];
-      for (c = 0; c < this.cols; c++) this.grid[r][c] = this._newCell(values[r * this.cols + c]);
+      for (c = 0; c < this.cols; c++) {
+        var value = values[r * this.cols + c];
+        this.grid[r][c] = value == null && r * this.cols + c >= this.boardCells ? null : this._newCell(value);
+      }
     }
 
     /*
@@ -165,20 +234,29 @@
      * pair along the outer edge as a deterministic safety net.  It also makes
      * the first click discoverable without making the board auto-complete.
      */
-    var first = this.grid[0][0];
-    var partner = null;
-    for (r = 0; r < this.rows && !partner; r++) {
+    var first = null, firstPoint = null;
+    for (r = 0; r < this.rows && !first; r++) {
       for (c = 0; c < this.cols; c++) {
-        if (r === 0 && c < 2) continue;
+        if (this.grid[r][c]) { first = this.grid[r][c]; firstPoint = { r: r, c: c }; break; }
+      }
+    }
+    var partner = null;
+    for (r = 0; first && r < this.rows && !partner; r++) {
+      for (c = 0; c < this.cols; c++) {
+        if (r === firstPoint.r && c === firstPoint.c) continue;
         if (this.grid[r][c] && this.grid[r][c].type === first.type) {
           partner = { r: r, c: c };
           break;
         }
       }
     }
-    if (partner) {
-      var temp = this.grid[0][1];
-      this.grid[0][1] = this.grid[partner.r][partner.c];
+    if (partner && firstPoint) {
+      var target = null;
+      if (this._inside(firstPoint.r, firstPoint.c + 1)) target = { r: firstPoint.r, c: firstPoint.c + 1 };
+      else if (this._inside(firstPoint.r, firstPoint.c - 1)) target = { r: firstPoint.r, c: firstPoint.c - 1 };
+      else target = { r: firstPoint.r, c: firstPoint.c };
+      var temp = this.grid[target.r][target.c];
+      this.grid[target.r][target.c] = this.grid[partner.r][partner.c];
       this.grid[partner.r][partner.c] = temp;
     }
   };
@@ -268,14 +346,14 @@
 
   Game.prototype.findHint = function () {
     var byType = [], type, r, c, cell, list, i, j, path;
-    for (type = 0; type < TYPES; type++) byType[type] = [];
+    for (type = 0; type < this.typeCount; type++) byType[type] = [];
     for (r = 0; r < this.rows; r++) {
       for (c = 0; c < this.cols; c++) {
         cell = this._cellAt(r, c);
         if (cell) byType[cell.type].push({ r: r, c: c });
       }
     }
-    for (type = 0; type < TYPES; type++) {
+    for (type = 0; type < this.typeCount; type++) {
       list = byType[type];
       for (i = 0; i < list.length; i++) {
         for (j = i + 1; j < list.length; j++) {
@@ -308,6 +386,9 @@
     this.grid[a.r][a.c] = null;
     this.grid[b.r][b.c] = null;
     this.pairsCleared++;
+    this.movesAttempted++;
+    this.validMoves++;
+    this.effectiveMoves++;
     this.combo++;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
     this.score += 100 + (this.combo - 1) * 25;
@@ -392,11 +473,12 @@
   };
 
   Game.prototype._useItem = function (id) {
-    if (this.finished || !this.itemRemaining[id]) return false;
+    if (this.finished || !Object.prototype.hasOwnProperty.call(this.itemRemaining, id) ||
+        (this.itemRemaining[id] != null && this.itemRemaining[id] <= 0)) return false;
     if (id === 'hint') {
       var hint = this.findHint();
       if (!hint) return false;
-      this.itemRemaining.hint--;
+      if (this.itemRemaining.hint != null) this.itemRemaining.hint--;
       this.itemUses.hint++;
       this.hint = hint;
       this.hintTimer = 2.4;
@@ -405,7 +487,7 @@
       return true;
     }
     if (id === 'shuffle') {
-      this.itemRemaining.shuffle--;
+      if (this.itemRemaining.shuffle != null) this.itemRemaining.shuffle--;
       this.itemUses.shuffle++;
       this.selected = null;
       this.sel = null;
@@ -416,7 +498,7 @@
     if (id === 'bell') {
       var pairHint = this.findHint();
       if (!pairHint) return false;
-      this.itemRemaining.bell--;
+      if (this.itemRemaining.bell != null) this.itemRemaining.bell--;
       this.itemUses.bell++;
       this.hint = null;
       return this._clearPair(pairHint.a, pairHint.b, pairHint.path);
@@ -466,6 +548,8 @@
     if (path) {
       this._clearPair(first, cell, path);
     } else {
+      this.movesAttempted++;
+      this.invalidMoves++;
       this.feedback = { a: copyPoint(first), b: copyPoint(cell), life: 0.42 };
       this.selected = null;
       this.sel = null;
@@ -533,10 +617,25 @@
     return {
       game: 'link',
       kind: this.kind,
+      difficulty: this.difficulty,
+      cols: this.cols,
+      rows: this.rows,
+      typeCount: this.typeCount,
       perf: this.perf,
       score: this.score,
       pairsCleared: this.pairsCleared,
       totalPairs: this.totalPairs,
+      movesUsed: this.validMoves,
+      movesAttempted: this.movesAttempted,
+      validMoves: this.validMoves,
+      invalidMoves: this.invalidMoves,
+      effectiveMoves: this.effectiveMoves,
+      operations: {
+        attempted: this.movesAttempted,
+        valid: this.validMoves,
+        invalid: this.invalidMoves,
+        effective: this.effectiveMoves
+      },
       maxCombo: this.maxCombo,
       timeLimit: this.timeLimit,
       timePickups: this.timePickupsCollected,
@@ -545,6 +644,11 @@
         hint: this.itemUses.hint,
         shuffle: this.itemUses.shuffle,
         bell: this.itemUses.bell
+      },
+      itemRemaining: {
+        hint: this.itemRemaining.hint,
+        shuffle: this.itemRemaining.shuffle,
+        bell: this.itemRemaining.bell
       }
     };
   };
@@ -726,7 +830,9 @@
       var id = ids[i];
       var itemRect = { id: id, x: toolGap + i * (bw + toolGap), y: toolY, w: bw, h: Math.min(40, toolH - 10) };
       rect.items.push(itemRect);
-      this._drawButton(ctx, itemRect, labels[id] + ' ×' + this.itemRemaining[id], this.itemRemaining[id] > 0);
+      var remaining = this.itemRemaining[id];
+      this._drawButton(ctx, itemRect, labels[id] + ' ×' + (remaining == null ? '∞' : remaining),
+        remaining == null || remaining > 0);
     }
     var buttonY = H - bottomH + Math.max(4, gap * 0.35);
     var buttonW = (W - 48 - 12) / 2;
@@ -740,6 +846,7 @@
 
   return {
     Game: Game,
+    DIFFICULTIES: DIFFICULTIES,
     COLS: COLS,
     ROWS: ROWS,
     TOTAL_PAIRS: PAIRS,

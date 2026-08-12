@@ -186,10 +186,13 @@ function cardCount(root, selectors) {
     const stateBefore = W.MergeUI.state();
     const beforeCareCount = stateBefore.beastCases.qiongqi.careCount;
     groomButton.click();
+    const easy = W.document.querySelector('#modal-root [data-care-difficulty="easy"]');
+    expect(easy, '梳洗台先展示难度和奖励选择');
+    easy.click();
     expect(gameRoot.classList.contains('is-open') || gameRoot.getAttribute('aria-hidden') === 'false', '点击梳洗台后游戏层打开');
     expect(gameRoot.querySelector('canvas#care-game-canvas'), '梳洗台打开 canvas');
     expect(gameRoot.querySelector('.match3-shell'), '梳洗台进入消消乐');
-    const result = W.MergeUI.finishCare('complete');
+    const result = W.MergeUI.finishCare('complete', { perf: 0.6, score: 700, validActions: 3 });
     expect(result && result.ok, '完成照料结算成功');
     const stateAfter = W.MergeUI.state();
     expect(stateAfter.beastCases.qiongqi.careCount === beforeCareCount + 1, '照料次数增加');
@@ -210,6 +213,9 @@ function cardCount(root, selectors) {
     const gameRoot = W.document.getElementById('care-game-root');
     expect(playButton && gameRoot, '亭子入口和游戏根节点存在');
     playButton.click();
+    const easy = W.document.querySelector('#modal-root [data-care-difficulty="easy"]');
+    expect(easy, '亭子先展示难度和奖励选择');
+    easy.click();
     expect(gameRoot.classList.contains('is-open') || gameRoot.getAttribute('aria-hidden') === 'false', '点击亭子后游戏层打开');
     expect(gameRoot.querySelector('canvas#care-game-canvas'), '亭子打开 canvas');
     expect(gameRoot.querySelector('.link-shell'), '亭子进入连连看');

@@ -28,7 +28,8 @@ const BEASTS = ['qiongqi', 'jiuweihu', 'xiangliu', 'taotie'];
 const REQUIRED = [
   'createFresh', 'normalize', 'ensureOrders', 'generate', 'mergeItems',
   'deliverOrder', 'recordCare', 'advanceTime', 'claimJob', 'ensureDaily',
-  'upgradeFacility', 'moveToStorage', 'moveFromStorage'
+  'upgradeFacility', 'moveToStorage', 'moveFromStorage',
+  'selectBackground', 'purchaseBackground'
 ];
 
 let failures = 0;
@@ -279,12 +280,12 @@ check('首兽蜕变后交付 arrival 信物会激活下一只异兽', function (
   expect(state.activeCaseId === 'jiuweihu', '当前病例切换到九尾狐');
 });
 
-check('timeout/skip 仍发放基础照料奖励', function () {
+check('有效超时发放保底，直接跳过不发奖励也不推进', function () {
   const timeoutState = fresh();
   timeoutState.energy = 0;
   ensureActiveCase(timeoutState, 'qiongqi');
   const beforeTimeout = rewardFingerprint(timeoutState);
-  const timeout = Core.recordCare(timeoutState, 'groom', { outcome: 'timeout', beastId: 'qiongqi' }, NOW);
+  const timeout = Core.recordCare(timeoutState, 'groom', { outcome: 'timeout', beastId: 'qiongqi', difficulty: 'easy', game: { validActions: 3, perf: 0.2 } }, NOW);
   resultOk(timeout, 'timeout 照料返回 ok');
   expect(timeout.rewardItem !== undefined || rewardFingerprint(timeoutState) !== beforeTimeout,
     'timeout 至少产生基础奖励');
@@ -293,10 +294,13 @@ check('timeout/skip 仍发放基础照料奖励', function () {
   skipState.energy = 0;
   ensureActiveCase(skipState, 'qiongqi');
   const beforeSkip = rewardFingerprint(skipState);
-  const skip = Core.recordCare(skipState, 'groom', { outcome: 'skip', beastId: 'qiongqi' }, NOW);
+  const careBefore = skipState.daily.care;
+  const skip = Core.recordCare(skipState, 'groom', { outcome: 'skip', beastId: 'qiongqi', difficulty: 'easy', game: { validActions: 0, perf: 0 } }, NOW);
   resultOk(skip, 'skip 照料返回 ok');
-  expect(skip.rewardItem !== undefined || rewardFingerprint(skipState) !== beforeSkip,
-    'skip 至少产生基础奖励');
+  expect(skip.noReward === true && rewardFingerprint(skipState) === beforeSkip,
+    'skip 不产生可刷取奖励');
+  expect(skipState.daily.care === careBefore && skipState.beastCases.qiongqi.careDone === false,
+    'skip 不推进每日照料或病例节点');
 });
 
 check('energy=0 仍可 claimJob，且重复 claim 幂等', function () {
@@ -324,6 +328,26 @@ check('满盘时 pending 奖励不丢，腾出格后可继续领取', function (
   Core.advanceTime(state, NOW + 1);
   expect(pendingCount(state) < pendingBefore + 2 || state.grid.some(function (entry) { return entry && entry.family === 'herb'; }),
     '腾位后 pending 奖励仍可回到棋盘/继续保留');
+});
+
+check('背景购买扣费、持久拥有且可反复切换', function () {
+  const state = fresh();
+  const background = DATA.backgrounds.find(function (entry) { return entry.id === 'sunset'; });
+  const deniedBefore = state.jade;
+  const denied = Core.purchaseBackground(state, 'sunset');
+  expect(denied && denied.ok === false && denied.reason === 'jade', '余额不足时拒绝购买');
+  expect(state.jade === deniedBefore && state.backgrounds.owned.indexOf('sunset') < 0, '购买失败不扣款、不授予背景');
+  state.jade = background.price + 25;
+  const before = state.jade;
+  const bought = Core.purchaseBackground(state, 'sunset');
+  resultOk(bought, '购买夕照背景');
+  expect(bought.purchased === true, '首次购买标记 purchased');
+  expect(state.jade === before - background.price, '按配置价格扣除暖玉');
+  expect(state.backgrounds.owned.indexOf('sunset') >= 0 && state.backgrounds.active === 'sunset', '购买后拥有并激活');
+  resultOk(Core.selectBackground(state, 'courtyard'), '切回默认背景');
+  const normalized = Core.normalize(JSON.parse(JSON.stringify(state)), NOW);
+  expect(normalized.backgrounds.owned.indexOf('sunset') >= 0, '重载后仍拥有夕照背景');
+  resultOk(Core.selectBackground(normalized, 'sunset'), '重载后可再次切换夕照背景');
 });
 
 console.log('\n== core contract result ==');

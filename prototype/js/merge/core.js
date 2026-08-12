@@ -183,8 +183,23 @@
       freeRerolls: 1,
       rerollsUsed: 0,
       groomBoostsUsed: 0,
-      masteryDuplicateUsed: false
+      masteryDuplicateUsed: false,
+      careRewards: { groom: 0, play: 0 },
+      careHistory: { groom: [], play: [] },
+      masteryFirst: { groom: false, play: false }
     };
+  }
+
+  function weekKey(timestamp) {
+    var date = new Date(number(timestamp, Date.now()));
+    var day = (date.getDay() + 6) % 7;
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - day);
+    return isoDate(date.getTime());
+  }
+
+  function freshWeekly(timestamp) {
+    return { key: weekKey(timestamp), merges: 0, orders: 0, care: 0, claimed: false };
   }
 
   function createFresh(now, date) {
@@ -203,7 +218,7 @@
       };
     });
     var state = {
-      version: 4,
+      version: DATA.version,
       level: 1,
       xp: 0,
       xpNext: 70,
@@ -234,6 +249,7 @@
       codex: codex,
       jobs: jobs,
       daily: freshDaily(date),
+      weekly: freshWeekly(now),
       pendingRewards: [],
       lastSeenAt: now,
       lastEnergyTick: now,
@@ -408,7 +424,7 @@
     if (number(raw.version, 0) < 4) return migrateV3(raw, now, date);
 
     var base = createFresh(now, date);
-    var state = Object.assign(base, clone(raw), { version: 4 });
+    var state = Object.assign(base, clone(raw), { version: DATA.version });
     state.grid = Array.isArray(raw.grid) ? raw.grid.map(normalizeItem) : base.grid;
     state.unlockedCells = clamp(Math.floor(number(raw.unlockedCells, base.unlockedCells)), 0, TOTAL);
     state.unlockedGenerators = Array.isArray(raw.unlockedGenerators) ? raw.unlockedGenerators.filter(function (family, index, list) {
@@ -442,6 +458,14 @@
     state.jobs = Object.assign(clone(base.jobs), raw.jobs || {});
     BEAST_IDS.forEach(function (id) { state.jobs[id] = Object.assign(clone(base.jobs[id]), state.jobs[id] || {}); });
     state.daily = Object.assign(freshDaily(date), raw.daily || {});
+    state.daily.careRewards = Object.assign({ groom: 0, play: 0 }, state.daily.careRewards || {});
+    state.daily.careHistory = Object.assign({ groom: [], play: [] }, state.daily.careHistory || {});
+    ['groom', 'play'].forEach(function (type) {
+      state.daily.careHistory[type] = Array.isArray(state.daily.careHistory[type]) ? state.daily.careHistory[type].slice(-5) : [];
+    });
+    state.daily.masteryFirst = Object.assign({ groom: false, play: false }, state.daily.masteryFirst || {});
+    state.weekly = Object.assign(freshWeekly(now), raw.weekly || {});
+    if (state.weekly.key !== weekKey(now)) state.weekly = freshWeekly(now);
     state.activeOrders = Array.isArray(raw.activeOrders) ? raw.activeOrders.map(normalizeOrder).filter(Boolean).slice(0, 3) : [];
     state.pendingTransformation = raw.pendingTransformation || null;
     ensureYardBeast(state);
@@ -917,6 +941,7 @@
     state.completedOrders = Math.max(0, number(state.completedOrders, 0)) + 1;
     state.totalOrders = Math.max(0, number(state.totalOrders, 0)) + 1;
     state.daily.orders++;
+    state.weekly.orders++;
     var transformed = false;
 
     if (order.kind === 'story') {
@@ -989,6 +1014,7 @@
     state.grid[fromIndex] = null;
     state.grid[toIndex] = makeItem(to.family, to.tier + 1);
     state.daily.merges++;
+    state.weekly.merges++;
     depositPendingRewards(state);
     syncLegacyAliases(state);
     return { ok: true, index: toIndex, item: clone(state.grid[toIndex]), at: number(now, Date.now()) };
@@ -1012,28 +1038,57 @@
     return { ok: true, fromIndex: fromIndex, toIndex: toIndex, item: clone(item) };
   }
 
-  function careRewardTier(outcome) {
-    if (outcome === 'mastery') return 3;
-    if (outcome === 'complete') return 2;
-    return 1;
+  function careDifficultyUnlocked(state, difficulty) {
+    if (difficulty === 'easy') return true;
+    if (difficulty === 'normal') return !!state.firstStoryCompleted;
+    var level = state.facilities && state.facilities.groom ? number(state.facilities.groom.level, 0) : 0;
+    if (difficulty === 'hard') return level >= 2;
+    if (difficulty === 'master') return level >= 3;
+    return false;
   }
 
-  function careRewardCount(careType, result, outcome) {
-    /* Only the grooming game converts performance into multiple comb items.
-       Calls from old saves/tests without a game summary keep the old one-item
-       contract, while the browser game always supplies score/perf. */
-    if (careType !== 'groom' || !result.game || typeof result.game !== 'object') return 1;
-    var game = result.game;
-    var score = Math.max(0, number(game.score, 0));
-    var perf = clamp(number(game.perf, outcome === 'mastery' ? 1 : outcome === 'complete' ? 0.5 : 0), 0, 1);
-    if (Object.prototype.hasOwnProperty.call(game, 'score')) {
-      if (score >= 1200) return 3;
-      if (score >= 500) return 2;
-      return 1;
+  function careGrade(outcome, perf) {
+    if (outcome === 'skip') return 'skip';
+    perf = clamp(number(perf, outcome === 'mastery' ? 1 : outcome === 'complete' ? 0.6 : 0), 0, 1);
+    if (perf >= 0.85 || outcome === 'mastery') return 'S';
+    if (perf >= 0.65) return 'A';
+    if (perf >= 0.4 || outcome === 'complete') return 'B';
+    return 'floor';
+  }
+
+  function careEffectiveActions(careType, game, outcome) {
+    game = game && typeof game === 'object' ? game : null;
+    var required = number(DATA.careGames && DATA.careGames.effectiveActions && DATA.careGames.effectiveActions[careType], careType === 'groom' ? 3 : 4);
+    if (!game) return outcome === 'skip' ? 0 : required; /* 兼容 v4 调用与旧自动化测试。 */
+    var candidates = careType === 'groom'
+      ? [game.validActions, game.validMoves, game.validSwaps, game.movesUsed, game.swaps, game.moves]
+      : [game.validActions, game.pairsCleared, game.pairs, game.matchedPairs, game.matches];
+    for (var index = 0; index < candidates.length; index++) {
+      if (candidates[index] != null) return Math.max(0, Math.floor(number(candidates[index], 0)));
     }
-    if (perf >= 0.85) return 3;
-    if (perf >= 0.4) return 2;
-    return 1;
+    return 0;
+  }
+
+  function careHistory(state, careType, record) {
+    var limit = number(DATA.careGames && DATA.careGames.historyLimit, 5);
+    var history = state.daily.careHistory[careType];
+    history.push(record);
+    state.daily.careHistory[careType] = history.slice(-limit);
+  }
+
+  function recommendCareDifficulty(state, careType) {
+    var config = DATA.careGames || {};
+    var order = config.order || ['easy', 'normal', 'hard', 'master'];
+    var unlocked = order.filter(function (id) { return careDifficultyUnlocked(state, id); });
+    var history = state.daily && state.daily.careHistory && state.daily.careHistory[careType] || [];
+    if (!history.length) return unlocked[unlocked.length > 1 ? 1 : 0] || 'easy';
+    var last = history[history.length - 1];
+    var currentIndex = Math.max(0, unlocked.indexOf(last.difficulty));
+    var recent = history.slice(-2);
+    var average = recent.reduce(function (sum, item) { return sum + number(item.perf, 0); }, 0) / recent.length;
+    if (recent.length >= 2 && average >= 0.85 && currentIndex < unlocked.length - 1) return unlocked[currentIndex + 1];
+    if (recent.length >= 2 && average < 0.35 && currentIndex > 0) return unlocked[currentIndex - 1];
+    return unlocked[currentIndex] || unlocked[0] || 'easy';
   }
 
   function recordCare(state, careType, result, now) {
@@ -1044,26 +1099,46 @@
     if (!entry || !definition) return { ok: false, reason: 'no-active-case' };
     if (definition.careTypes.indexOf(careType) < 0) return { ok: false, reason: 'wrong-care-type' };
     var outcome = result.outcome || 'complete';
-    var tier = careRewardTier(outcome);
-    var groomLevel = state.facilities.groom.level;
-    var boosts = groomLevel > 0 ? DATA.facilities.groom.levels[groomLevel - 1].dailyBoosts : 0;
-    if (state.daily.groomBoostsUsed < boosts && tier < TIER_CAP) {
-      tier++;
-      state.daily.groomBoostsUsed++;
+    var difficulty = result.difficulty || result.game && result.game.difficulty || recommendCareDifficulty(state, careType) || 'easy';
+    if (!DATA.careGames.difficulties[difficulty]) difficulty = 'easy';
+    if (!careDifficultyUnlocked(state, difficulty)) return { ok: false, reason: 'difficulty-locked', difficulty: difficulty };
+    var game = result.game && typeof result.game === 'object' ? result.game : null;
+    var effectiveActions = careEffectiveActions(careType, game, outcome);
+    var requiredActions = number(DATA.careGames.effectiveActions[careType], careType === 'groom' ? 3 : 4);
+    var perf = clamp(number(game && game.perf, outcome === 'mastery' ? 1 : outcome === 'complete' ? 0.6 : 0), 0, 1);
+    var grade = careGrade(outcome, perf);
+    var qualified = outcome !== 'skip' && effectiveActions >= requiredActions;
+    var used = Math.max(0, number(state.daily.careRewards[careType], 0));
+    var cap = Math.max(1, number(DATA.careGames.rewardRunsPerFacility, 3));
+    var rewarded = qualified && used < cap;
+    if (!rewarded) {
+      careHistory(state, careType, {
+        difficulty: difficulty, grade: grade, perf: perf, score: Math.max(0, number(game && game.score, 0)),
+        effectiveActions: effectiveActions, rewarded: false, at: number(now, Date.now())
+      });
+      syncLegacyAliases(state);
+      return {
+        ok: true, outcome: outcome, difficulty: difficulty, grade: grade, qualified: qualified,
+        noReward: true, noProgress: true, practice: qualified && used >= cap,
+        rewardLimited: qualified && used >= cap, effectiveActions: effectiveActions,
+        requiredActions: requiredActions, rewardItems: [], rewardCount: 0,
+        remainingRewardRuns: Math.max(0, cap - used), recommendedDifficulty: recommendCareDifficulty(state, careType),
+        energy: state.energy, at: number(now, Date.now())
+      };
     }
-    var rewardCount = careRewardCount(careType, result, outcome);
+    var difficultyConfig = DATA.careGames.difficulties[difficulty];
+    var tiers = (difficultyConfig.rewards[grade] || difficultyConfig.rewards.floor || [1]).slice();
+    if (difficulty === 'master' && grade === 'S') {
+      if (state.daily.masteryFirst[careType]) tiers = (difficultyConfig.rewards.repeatS || [3, 2]).slice();
+      state.daily.masteryFirst[careType] = true;
+    }
     var rewardItems = [];
-    for (var rewardIndex = 0; rewardIndex < rewardCount; rewardIndex++) {
-      var rewardItem = makeItem(careType, tier);
+    tiers.forEach(function (tier) {
+      var rewardItem = makeItem(careType, clamp(Math.floor(number(tier, 1)), 1, TIER_CAP));
       queueItem(state, rewardItem);
       rewardItems.push(rewardItem);
-    }
-    if (outcome === 'mastery' && groomLevel >= 3 && !state.daily.masteryDuplicateUsed) {
-      var masteryItem = makeItem(careType, tier);
-      queueItem(state, masteryItem);
-      rewardItems.push(masteryItem);
-      state.daily.masteryDuplicateUsed = true;
-    }
+    });
+    state.daily.careRewards[careType] = used + 1;
     var firstCare = !entry.careDone;
     entry.careCount++;
     entry.bond = clamp(entry.bond + 1, 1, 5);
@@ -1073,6 +1148,11 @@
       entry.heal = clamp(entry.heal + 25, 0, 100);
     }
     state.daily.care++;
+    state.weekly.care++;
+    careHistory(state, careType, {
+      difficulty: difficulty, grade: grade, perf: perf, score: Math.max(0, number(game && game.score, 0)),
+      effectiveActions: effectiveActions, rewarded: true, at: number(now, Date.now())
+    });
     var transformed = maybeTransform(state, beastId);
     state.activeOrders = state.activeOrders.map(function (order) {
       return order && order.kind === 'care_gate' && order.beastId === beastId ? null : order;
@@ -1082,11 +1162,19 @@
     return {
       ok: true,
       outcome: outcome,
+      difficulty: difficulty,
+      grade: grade,
+      qualified: true,
+      rewarded: true,
       rewardItem: clone(rewardItems[0]),
       rewardItems: clone(rewardItems),
       rewardCount: rewardItems.length,
       firstCare: firstCare,
       transformed: transformed,
+      effectiveActions: effectiveActions,
+      requiredActions: requiredActions,
+      remainingRewardRuns: Math.max(0, cap - state.daily.careRewards[careType]),
+      recommendedDifficulty: recommendCareDifficulty(state, careType),
       energy: state.energy,
       at: number(now, Date.now())
     };
@@ -1209,6 +1297,7 @@
 
   function ensureDaily(state, date, now, rng) {
     date = date || isoDate(number(now, Date.now()));
+    ensureWeekly(state, now);
     var changed = !state.daily || state.daily.date !== date;
     if (!changed) return state.daily;
     state.daily = freshDaily(date);
@@ -1232,6 +1321,27 @@
 
   function dailyComplete(state) {
     return state.daily.merges >= 5 && state.daily.orders >= 2 && state.daily.care >= 1;
+  }
+
+  function ensureWeekly(state, now) {
+    var key = weekKey(now);
+    if (!state.weekly || state.weekly.key !== key) state.weekly = freshWeekly(now);
+    return state.weekly;
+  }
+
+  function weeklyComplete(state) {
+    return state.weekly.merges >= 30 && state.weekly.orders >= 12 && state.weekly.care >= 6;
+  }
+
+  function claimWeekly(state) {
+    if (state.weekly.claimed) return { ok: false, reason: 'claimed' };
+    if (!weeklyComplete(state)) return { ok: false, reason: 'incomplete' };
+    state.weekly.claimed = true;
+    state.jade += 120;
+    state.energy = Math.min(state.maxEnergy, state.energy + 15);
+    var item = makeItem(targetedSupplyFamily(state), 3);
+    queueItem(state, item);
+    return { ok: true, jade: 120, energy: 15, rewardItem: clone(item) };
   }
 
   function claimDaily(state) {
@@ -1443,6 +1553,7 @@
       claimJob: !!(state.jobs.qiongqi && state.jobs.qiongqi.stored > 0),
       claimFacility: !!(state.facilities.herb.stored && state.facilities.herb.stored.length),
       claimDaily: dailyComplete(state) && !state.daily.claimed,
+      claimWeekly: weeklyComplete(state) && !state.weekly.claimed,
       zeroEnergyPlayable: mergeable || !!current || (state.jobs.qiongqi && state.jobs.qiongqi.stored > 0)
     };
   }
@@ -1461,11 +1572,15 @@
     moveBoardItem: moveBoardItem,
     deliverOrder: deliverOrder,
     recordCare: recordCare,
+    careDifficultyUnlocked: careDifficultyUnlocked,
+    recommendCareDifficulty: recommendCareDifficulty,
     advanceTime: advanceTime,
     claimJob: claimJob,
     claimFacility: claimFacility,
     ensureDaily: ensureDaily,
+    ensureWeekly: ensureWeekly,
     claimDaily: claimDaily,
+    claimWeekly: claimWeekly,
     upgradeFacility: upgradeFacility,
     moveToStorage: moveToStorage,
     moveFromStorage: moveFromStorage,

@@ -1,9 +1,10 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const root = __dirname;
 const dist = path.join(root, 'dist');
-const ART_SOURCE = path.join(root, 'wechat', 'assets', 'art');
+const ART_SOURCE = path.join(root, 'prototype', 'assets', 'art');
 const ART_TARGET = path.join(dist, 'assets', 'art');
 
 // The merge slice currently ships four beasts.  Keep this list in one place so
@@ -112,11 +113,9 @@ function rewriteArtPath(content, sourceRelative, targetRelative) {
   const targetArtPath = toPosix(path.relative(dist, ART_TARGET));
   if (!sourceArtPath || sourceArtPath === targetArtPath) return content;
 
-  // Most source files use the path relative to their own directory, but a
-  // few migration modules historically used ../wechat/... regardless of their
-  // nesting.  Normalize both forms so the built module always reaches dist's
-  // art root.
-  const escapedMarker = '(?:\\.\\./)*wechat/assets/art';
+  // Normalize source-root references so the built module reaches dist's art
+  // root even if a future module is moved deeper below prototype/js/.
+  const escapedMarker = '(?:\\.\\./)*prototype/assets/art';
   return content
     .split(sourceArtPath).join(targetArtPath)
     .replace(new RegExp(escapedMarker, 'g'), targetArtPath);
@@ -132,9 +131,7 @@ function writeTextAsset(sourceRelative, targetRelative) {
 
 function copyReferencedScripts(html, entryRelative) {
   const entryDirectory = path.dirname(entryRelative);
-  const scriptSourceOverrides = {
-    'js/merge/match3.js': 'wechat/src/minigames/match3.js',
-  };
+  const scriptSourceOverrides = {};
   const references = [...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+\.js(?:\?[^"']*)?)["']/gi)]
     .map((match) => match[1].split('?')[0])
     .filter((reference) => !/^(?:[a-z]+:)?\/\//i.test(reference) && !reference.startsWith('data:'));
@@ -170,8 +167,7 @@ const entryRelative = firstExisting([
 ]);
 const entryHtml = readRequired(entryRelative, 'merge entry HTML');
 const html = entryHtml
-  .replace(/\bmerge_slice\.html\b/g, 'index.html')
-  .replace(/\.\.\/wechat\/src\/minigames\/match3\.js/g, 'js/merge/match3.js');
+  .replace(/\bmerge_slice\.html\b/g, 'index.html');
 fs.writeFileSync(path.join(dist, 'index.html'), html, 'utf8');
 copyReferencedScripts(html, entryRelative);
 
@@ -211,18 +207,49 @@ for (const entryName of ['bootstrap.js', 'ui.js']) {
 for (const beastId of BEAST_IDS) {
   for (const stage of STAGES) {
     const filename = `${beastId}_${stage}.png`;
-    copyFileIfPresent(
-      `wechat/assets/art/characters/${filename}`,
-      `assets/art/characters/${filename}`,
-    );
+    const sourceRelative = `prototype/assets/art/characters/${filename}`;
+    // Some beasts intentionally reuse their final-stage illustration for an
+    // intermediate stage. Those absent aliases are expected, not build noise.
+    if (isFile(absolute(sourceRelative))) {
+      copyFileIfPresent(sourceRelative, `assets/art/characters/${filename}`);
+    }
   }
 }
 
 // Reuse all currently available merge and courtyard art, but tolerate a
 // checkout that has not generated one of the optional asset directories yet.
-copyDirectoryIfPresent('wechat/assets/art/match3', 'assets/art/match3');
-copyDirectoryIfPresent('wechat/assets/art/scenes', 'assets/art/scenes');
-copyDirectoryIfPresent('wechat/assets/audio', 'assets/audio');
+copyDirectoryIfPresent('prototype/assets/art/match3', 'assets/art/match3');
+copyDirectoryIfPresent('prototype/assets/art/scenes', 'assets/art/scenes', (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp');
+copyDirectoryIfPresent('prototype/assets/audio', 'assets/audio');
+copyDirectoryIfPresent('prototype/assets/art/buildings', 'assets/art/buildings', (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp');
+
+// Publish a deterministic deployment inventory. Operations can compare the
+// hash and byte size before release, while the client can reason about boot,
+// scene, mini-game and audio bundles without guessing from directory names.
+const manifestEntries = walkFiles(dist)
+  .filter((filePath) => path.basename(filePath) !== 'asset-manifest.json')
+  .map((filePath) => {
+    const relative = toPosix(path.relative(dist, filePath));
+    const bytes = fs.readFileSync(filePath);
+    let bundle = 'boot';
+    if (relative.startsWith('assets/art/scenes/') || relative.startsWith('assets/art/buildings/') || relative.startsWith('assets/art/characters/')) bundle = 'scene';
+    else if (relative.startsWith('assets/art/match3/')) bundle = 'minigame';
+    else if (relative.startsWith('assets/audio/')) bundle = 'audio';
+    return {
+      path: relative,
+      bundle,
+      bytes: bytes.length,
+      sha256: crypto.createHash('sha256').update(bytes).digest('hex'),
+    };
+  })
+  .sort((left, right) => left.path.localeCompare(right.path, 'en'));
+const manifest = {
+  schema: 1,
+  generatedAt: new Date().toISOString(),
+  totalBytes: manifestEntries.reduce((total, entry) => total + entry.bytes, 0),
+  files: manifestEntries,
+};
+fs.writeFileSync(path.join(dist, 'asset-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 
 const builtFiles = walkFiles(dist).length;
 console.log(`Built dist/ with ${builtFiles} files.`);

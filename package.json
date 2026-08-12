@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "build": "node build-dist.js"
+    "build": "node build-dist.js",
+    "test:h5": "node prototype/tests/run_h5_release_suite.js"
   }
 }
