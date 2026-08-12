@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAt": "2026-08-12T16:14:11.264Z",
-  "totalBytes": 4954156,
+  "generatedAt": "2026-08-12T16:52:52.536Z",
+  "totalBytes": 4954388,
   "files": [
     {
       "path": "assets/art/buildings/clinic.webp",
@@ -403,13 +403,13 @@
       "path": "js/merge/data.js",
       "bundle": "boot",
       "bytes": 18283,
-      "sha256": "ac5d47c933210c00dd37bb01863962e35910562a2a3b955bded43d0023f6f918"
+      "sha256": "a90ae08f42075d4e19f5bf3f8dd08ba228044517c6c493dd5680c473153fb780"
     },
     {
       "path": "js/merge/link-game.js",
       "bundle": "boot",
-      "bytes": 38115,
-      "sha256": "c587bb7deb1eeb36165403b94a0aa0003c43de5b66f3ad0ec6a838acbfdb0884"
+      "bytes": 38347,
+      "sha256": "f32343bf8ede0b3064475c0215120ea2de5fab31e3e19fbf8e072bb60b4d1f08"
     },
     {
       "path": "js/merge/match3.js",

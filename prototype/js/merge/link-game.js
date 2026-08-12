@@ -35,24 +35,27 @@
    * individual dimension/count through opts. */
   var DIFFICULTIES = {
     easy: {
-      cols: 5, rows: 6, typeCount: 5, pairs: 15, maxTurns: 3, allowOutside: true,
+      cols: 5, rows: 6, typeCount: 6, pairs: 15, maxTurns: 3, allowOutside: true,
       layoutShift: 'none', lockedPairs: 0, comboWindow: 2.2, timeLimit: 60, timePickupBudget: 4,
       itemCounts: { hint: 4, shuffle: 2, bell: 2 }
     },
     normal: {
-      cols: 6, rows: 6, typeCount: 6, pairs: 18, maxTurns: 2, allowOutside: true,
+      cols: 6, rows: 6, typeCount: 7, pairs: 18, maxTurns: 2, allowOutside: true,
       layoutShift: 'down', lockedPairs: 1, comboWindow: 1.8, timeLimit: 52, timePickupBudget: 3,
       itemCounts: { hint: 3, shuffle: 2, bell: 1 }
     },
     hard: {
-      cols: 6, rows: 8, typeCount: 7, pairs: 24, maxTurns: 2, allowOutside: false,
+      cols: 6, rows: 8, typeCount: 8, pairs: 24, maxTurns: 2, allowOutside: false,
       layoutShift: 'left', lockedPairs: 2, comboWindow: 1.45, timeLimit: 46, timePickupBudget: 2,
       itemCounts: { hint: 2, shuffle: 1, bell: 1 }
     },
     master: {
-      cols: 7, rows: 8, typeCount: 8, pairs: 28, maxTurns: 1, allowOutside: false,
-      layoutShift: 'snake', lockedPairs: 3, comboWindow: 1.1, timeLimit: 40, timePickupBudget: 1,
-      itemCounts: { hint: 1, shuffle: 1, bell: 0 }
+      // Master adds board density and pressure instead of introducing a
+      // ninth icon: 8×8/32 pairs, four locked groups, one-turn paths and no
+      // rescue tools make the higher tier materially harder to read and route.
+      cols: 8, rows: 8, typeCount: 8, pairs: 32, maxTurns: 1, allowOutside: false,
+      layoutShift: 'snake', lockedPairs: 4, comboWindow: 0.95, timeLimit: 38, timePickupBudget: 0,
+      itemCounts: { hint: 1, shuffle: 0, bell: 0 }
     }
   };
   var DEFAULT_DIFFICULTY = 'hard';

@@ -379,25 +379,25 @@
       easy: {
         id: 'easy', name: '轻松', unlock: 'default',
         groom: { cols: 6, rows: 6, typeCount: 5, timeLimit: 60, moveLimit: 26, minLegalMoves: 5, objective: { mode: 'score', targetMultiplier: 0.72, label: '解开单层毛结并制造特殊块' }, knotMode: 'single', timePickupBudget: 4, itemCounts: { hammer: 3, shuffle: 2, theme: 2 } },
-        play: { cols: 5, rows: 6, typeCount: 5, pairs: 15, timeLimit: 60, maxTurns: 3, allowOutside: true, layoutShift: 'none', lockedPairs: 0, timePickupBudget: 4, itemCounts: { hint: 4, shuffle: 2, bell: 2 } },
+        play: { cols: 5, rows: 6, typeCount: 6, pairs: 15, timeLimit: 60, maxTurns: 3, allowOutside: true, layoutShift: 'none', lockedPairs: 0, timePickupBudget: 4, itemCounts: { hint: 4, shuffle: 2, bell: 2 } },
         rewards: { floor: [1], B: [1, 1], A: [2], S: [2, 1] }
       },
       normal: {
         id: 'normal', name: '标准', unlock: 'firstStory',
         groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 52, moveLimit: 23, minLegalMoves: 4, objective: { mode: 'score', targetMultiplier: 0.90, label: '收集目标图案并解开混合毛结' }, knotMode: 'mixed', timePickupBudget: 3, itemCounts: { hammer: 2, shuffle: 2, theme: 1 } },
-        play: { cols: 6, rows: 6, typeCount: 6, pairs: 18, timeLimit: 52, maxTurns: 2, allowOutside: true, layoutShift: 'down', lockedPairs: 1, timePickupBudget: 3, itemCounts: { hint: 3, shuffle: 2, bell: 1 } },
+        play: { cols: 6, rows: 6, typeCount: 7, pairs: 18, timeLimit: 52, maxTurns: 2, allowOutside: true, layoutShift: 'down', lockedPairs: 1, timePickupBudget: 3, itemCounts: { hint: 3, shuffle: 2, bell: 1 } },
         rewards: { floor: [1], B: [2], A: [2, 1], S: [3] }
       },
       hard: {
         id: 'hard', name: '困难', unlock: 'groomLevel2',
         groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 46, moveLimit: 20, minLegalMoves: 3, objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '清除扩散毛结并完成两次连锁' }, knotMode: 'double-spread', timePickupBudget: 2, itemCounts: { hammer: 2, shuffle: 1, theme: 1 } },
-        play: { cols: 6, rows: 8, typeCount: 7, pairs: 24, timeLimit: 46, maxTurns: 2, allowOutside: false, layoutShift: 'left', lockedPairs: 2, timePickupBudget: 2, itemCounts: { hint: 2, shuffle: 1, bell: 1 } },
+        play: { cols: 6, rows: 8, typeCount: 8, pairs: 24, timeLimit: 46, maxTurns: 2, allowOutside: false, layoutShift: 'left', lockedPairs: 2, timePickupBudget: 2, itemCounts: { hint: 2, shuffle: 1, bell: 1 } },
         rewards: { floor: [2], B: [2, 1], A: [3], S: [3, 2] }
       },
       master: {
         id: 'master', name: '大师', unlock: 'groomLevel3',
         groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 40, moveLimit: 18, minLegalMoves: 2, objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '破除三层毛结并组合两枚特殊块' }, knotMode: 'double-triple', timePickupBudget: 1, itemCounts: { hammer: 1, shuffle: 1, theme: 1 } },
-        play: { cols: 7, rows: 8, typeCount: 8, pairs: 28, timeLimit: 40, maxTurns: 1, allowOutside: false, layoutShift: 'snake', lockedPairs: 3, timePickupBudget: 1, itemCounts: { hint: 1, shuffle: 1, bell: 0 } },
+        play: { cols: 8, rows: 8, typeCount: 8, pairs: 32, timeLimit: 38, maxTurns: 1, allowOutside: false, layoutShift: 'snake', lockedPairs: 4, timePickupBudget: 0, itemCounts: { hint: 1, shuffle: 0, bell: 0 } },
         rewards: { floor: [2], B: [3], A: [3, 2], S: [4], repeatS: [3, 2] }
       }
     }
