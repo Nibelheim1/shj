@@ -28,11 +28,9 @@
   // 特殊块类型
   var SP = { NONE: 0, LINE_H: 1, LINE_V: 2, BOMB: 3, RAINBOW: 4 };
 
-  // Each match-3 tile uses a tier-1 merge icon.  The first five entries are
-  // kept in their historical order so a default game renders exactly as it
-  // did before difficulty profiles were introduced.  The sixth icon is used
-  // by the normal/hard/master profiles.
-  var TIER1_ICONS = ['herb_01', 'tool_01', 'feed_01', 'groom_01', 'play_01', 'clean_01'];
+  // Keep the board readable at phone size: one coherent grooming icon family,
+  // identical silhouette complexity and colour treatment across all tiles.
+  var TIER1_ICONS = ['groom_01', 'groom_02', 'groom_03', 'groom_04', 'groom_05', 'groom_06'];
   var SETS = {
     FEED: TIER1_ICONS.slice(),
     CLEAN: TIER1_ICONS.slice(),
@@ -67,10 +65,30 @@
    * `easy` mirrors the old 6x6/5-colour constructor defaults.
    */
   var DIFFICULTIES = {
-    easy:   { cols: 6, rows: 6, typeCount: 5, obstacleRate: 0.40, knotRate: 0.32, knotStrength: 2 },
-    normal: { cols: 6, rows: 6, typeCount: 6, obstacleRate: 0.44, knotRate: 0.36, knotStrength: 2 },
-    hard:   { cols: 6, rows: 7, typeCount: 6, obstacleRate: 0.50, knotRate: 0.40, knotStrength: 2 },
-    master: { cols: 7, rows: 8, typeCount: 6, obstacleRate: 0.56, knotRate: 0.44, knotStrength: 3 }
+    easy: {
+      cols: 6, rows: 6, typeCount: 5, obstacleRate: 0.32, knotRate: 0.24, knotStrength: 1,
+      moveLimit: 26, minLegalMoves: 5, timeLimit: 60, timePickupBudget: 4,
+      objective: { mode: 'score', targetMultiplier: 0.72, label: '入门目标' },
+      itemCounts: { hammer: 3, shuffle: 2, theme: 2 }
+    },
+    normal: {
+      cols: 6, rows: 6, typeCount: 6, obstacleRate: 0.40, knotRate: 0.32, knotStrength: 2,
+      moveLimit: 23, minLegalMoves: 4, timeLimit: 52, timePickupBudget: 3,
+      objective: { mode: 'score', targetMultiplier: 0.90, label: '标准目标' },
+      itemCounts: { hammer: 2, shuffle: 2, theme: 1 }
+    },
+    hard: {
+      cols: 6, rows: 7, typeCount: 6, obstacleRate: 0.48, knotRate: 0.39, knotStrength: 2,
+      moveLimit: 20, minLegalMoves: 3, timeLimit: 46, timePickupBudget: 2,
+      objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '进阶目标' },
+      itemCounts: { hammer: 2, shuffle: 1, theme: 1 }
+    },
+    master: {
+      cols: 7, rows: 8, typeCount: 6, obstacleRate: 0.56, knotRate: 0.44, knotStrength: 3,
+      moveLimit: 18, minLegalMoves: 2, timeLimit: 40, timePickupBudget: 1,
+      objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '大师目标' },
+      itemCounts: { hammer: 1, shuffle: 1, theme: 1 }
+    }
   };
   var DEFAULT_DIFFICULTY = 'easy';
 
@@ -90,7 +108,13 @@
   function imgOf(name) { return cache[MATCH_PATH + name + '.png']; }
 
   // ---------- 工具 ----------
-  function rnd(n) { return (Math.random() * n) | 0; }
+  function normalizedRandom(rng) {
+    var value = Number(rng());
+    if (!isFinite(value)) value = 0;
+    value -= Math.floor(value);
+    if (value < 0) value += 1;
+    return value;
+  }
   function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
 
   function integerOption(value, fallback, min) {
@@ -140,6 +164,7 @@
     this.difficulty = requestedDifficulty || DEFAULT_DIFFICULTY;
     var profile = DIFFICULTIES[this.difficulty];
     this.profile = profile;
+    this.rng = typeof this.opts.rng === 'function' ? this.opts.rng : Math.random;
     this.cols = integerOption(this.opts.cols, profile.cols, 3);
     this.rows = integerOption(this.opts.rows, profile.rows, 3);
     this.typeCount = integerOption(this.opts.typeCount, profile.typeCount, 3);
@@ -168,17 +193,24 @@
     this.finished = false;
     this.perf = 0;
 
-    // 每局以 45 秒倒计时为主，步数只保留为历史摘要兼容字段。
-    this.timeLimit = Math.max(1, Number(this.opts.timeLimit) || GAME_SECONDS);
+    this.moveLimit = integerOption(this.opts.moveLimit, profile.moveLimit || this.rule.moves, 1);
+    this.minLegalMoves = integerOption(this.opts.minLegalMoves, profile.minLegalMoves || 1, 1);
+    this.objective = Object.assign({}, profile.objective || {}, this.opts.objective || {});
+    this.objective.target = Math.max(1, Math.round(Number(this.objective.target) ||
+      this.rule.target * (Number(this.objective.targetMultiplier) || 1)));
+    this.timePickupBudget = integerOption(this.opts.timePickupBudget, profile.timePickupBudget == null ? 3 : profile.timePickupBudget, 0);
+    this.timeLimit = Math.max(1, Number(this.opts.timeLimit) || profile.timeLimit || GAME_SECONDS);
     this.timeLeft = this.timeLimit;
     this.elapsed = 0;
     this.timePickup = null;
-    this.nextTimePickupAt = 4 + Math.random() * 2;
+    this.nextTimePickupAt = 4 + this._random() * 2;
     this.timePickupsCollected = 0;
+    this.timePickupsSpawned = 0;
     this._pendingAutoFinish = false;
+    this._pendingMoveFinish = false;
 
     // 步数
-    this.movesLeft = this.rule.moves;
+    this.movesLeft = this.moveLimit;
     this.movesUsed = 0;
 
     // 拖拽状态
@@ -198,6 +230,9 @@
     this.validMoves = 0;
     this.invalidMoves = 0;
     this.effectiveMoves = 0;
+    this.autoReshuffles = 0;
+    this.manualReshuffles = 0;
+    this.deadBoards = 0;
 
     // 目标累计量
     this.cleaned = 0; this.initialDirt = 0;
@@ -214,9 +249,12 @@
     this._initBoard();
   }
 
+  Game.prototype._random = function () { return normalizedRandom(this.rng); };
+  Game.prototype._rnd = function (n) { return n > 0 ? Math.min(n - 1, Math.floor(this._random() * n)) : 0; };
+
   Game.prototype._newCell = function (t, spawnOff) {
     var cell = {
-      type: (t == null ? rnd(this.typeCount) : t),
+      type: (t == null ? this._rnd(this.typeCount) : t),
       sp: SP.NONE,
       dirt: false, knot: 0,
       off: spawnOff || 0,          // 纵向格偏移（下落用）
@@ -227,35 +265,40 @@
     return cell;
   };
 
-  Game.prototype._initBoard = function (attempt) {
-    attempt = attempt || 0;
+  Game.prototype._initBoard = function () {
     this.initialDirt = 0;
     this.initialKnot = 0;
-    var g = [];
-    for (var r = 0; r < this.rows; r++) {
-      g[r] = [];
-      for (var c = 0; c < this.cols; c++) {
-        var t;
-        var guard = 0;
-        do { t = rnd(this.typeCount); guard++; }
-        while (this._wouldMatchAt(g, r, c, t) && guard < 30);
-        if (this._wouldMatchAt(g, r, c, t)) {
-          for (var candidate = 0; candidate < this.typeCount; candidate++) {
+    var g = null;
+    for (var attempt = 0; attempt < 96; attempt++) {
+      g = [];
+      for (var r = 0; r < this.rows; r++) {
+        g[r] = [];
+        for (var c = 0; c < this.cols; c++) {
+          var start = this._rnd(this.typeCount), t = start;
+          for (var offset = 0; offset < this.typeCount; offset++) {
+            var candidate = (start + offset) % this.typeCount;
             if (!this._wouldMatchAt(g, r, c, candidate)) { t = candidate; break; }
           }
+          g[r][c] = this._newCell(t);
         }
-        var cell = this._newCell(t);
-        if (this.kind === 'CLEAN' && Math.random() < this.obstacleRate) { cell.dirt = true; this.initialDirt++; }
-        if (this.kind === 'GROOM' && this.knotStrength > 0 && Math.random() < this.knotRate) {
-          cell.knot = this.knotStrength; this.initialKnot += this.knotStrength;
-        }
-        g[r][c] = cell;
       }
+      this.grid = g;
+      if (!this._findMatches() && this.listLegalSwaps().length >= this.minLegalMoves) break;
     }
     this.grid = g;
-    if (!this._hasPossibleMove()) {
-      if (attempt < 80) return this._initBoard(attempt + 1);
-      this._forceOpeningMove();
+    if (this._findMatches() || this.listLegalSwaps().length < this.minLegalMoves) {
+      var freshTypes = [];
+      for (var index = 0; index < this.rows * this.cols; index++) freshTypes.push(index % this.typeCount);
+      if (!this._arrangeTypesStable(freshTypes, this.minLegalMoves)) this._forceOpeningMove();
+    }
+    for (var rr = 0; rr < this.rows; rr++) {
+      for (var cc = 0; cc < this.cols; cc++) {
+        var cell = this.grid[rr][cc];
+        if (this.kind === 'CLEAN' && this._random() < this.obstacleRate) { cell.dirt = true; this.initialDirt++; }
+        if (this.kind === 'GROOM' && this.knotStrength > 0 && this._random() < this.knotRate) {
+          cell.knot = this.knotStrength; this.initialKnot += this.knotStrength;
+        }
+      }
     }
   };
 
@@ -270,7 +313,8 @@
     return this.grid[r][c];
   };
 
-  Game.prototype._hasPossibleMove = function () {
+  Game.prototype.listLegalSwaps = function () {
+    var result = [];
     for (var r = 0; r < this.rows; r++) {
       for (var c = 0; c < this.cols; c++) {
         var a = this._cellAt(r, c);
@@ -280,15 +324,71 @@
           var nr = r + directions[d][0], nc = c + directions[d][1];
           var b = this._cellAt(nr, nc);
           if (!b || b.clearing) continue;
-          if (a.sp || b.sp) return true;
+          if (a.sp || b.sp) {
+            result.push({ a: { r: r, c: c }, b: { r: nr, c: nc }, special: true });
+            continue;
+          }
           this.grid[r][c] = b; this.grid[nr][nc] = a;
           var valid = this._hasMatchAt(r, c) || this._hasMatchAt(nr, nc);
           this.grid[r][c] = a; this.grid[nr][nc] = b;
-          if (valid) return true;
+          if (valid) result.push({ a: { r: r, c: c }, b: { r: nr, c: nc }, special: false });
         }
       }
     }
-    return false;
+    return result;
+  };
+
+  Game.prototype.hasPossibleMove = function () { return this.listLegalSwaps().length > 0; };
+  Game.prototype._hasPossibleMove = function () { return this.hasPossibleMove(); };
+
+  Game.prototype._applyTypes = function (types) {
+    var index = 0;
+    for (var r = 0; r < this.rows; r++) {
+      for (var c = 0; c < this.cols; c++) {
+        var cell = this._cellAt(r, c);
+        if (cell) { cell.type = types[index++]; cell.born = 1; cell.clearing = false; cell.pop = 0; }
+      }
+    }
+  };
+
+  /*
+   * Arrange an existing type histogram into a stable, playable board.  The
+   * first pass honours the injected RNG; the second uses a local deterministic
+   * PRNG derived from the histogram, so even rng() => 0 has a finite fallback.
+   * Only `type` moves: special blocks, dirt and knot layers stay on their cells.
+   */
+  Game.prototype._arrangeTypesStable = function (source, minimum) {
+    minimum = Math.max(1, Number(minimum) || 1);
+    var self = this;
+    function tryPermutation(values) {
+      self._applyTypes(values);
+      return !self._findMatches() && self.listLegalSwaps().length >= minimum;
+    }
+    for (var attempt = 0; attempt < 80; attempt++) {
+      var randomValues = source.slice();
+      for (var i = randomValues.length - 1; i > 0; i--) {
+        var j = self._rnd(i + 1), tmp = randomValues[i];
+        randomValues[i] = randomValues[j]; randomValues[j] = tmp;
+      }
+      if (tryPermutation(randomValues)) return true;
+    }
+
+    var seed = 0x9e3779b9;
+    for (var s = 0; s < source.length; s++) seed = (Math.imul(seed ^ (source[s] + 17), 1664525) + 1013904223) | 0;
+    for (attempt = 0; attempt < 4096; attempt++) {
+      var values = source.slice();
+      var state = (seed + Math.imul(attempt + 1, 0x6d2b79f5)) | 0;
+      for (i = values.length - 1; i > 0; i--) {
+        state ^= state << 13; state ^= state >>> 17; state ^= state << 5;
+        j = (state >>> 0) % (i + 1);
+        tmp = values[i]; values[i] = values[j]; values[j] = tmp;
+      }
+      if (tryPermutation(values)) return true;
+    }
+    /* The current ordering is the final deterministic fallback.  This matters
+     * for highly skewed but still playable histograms where almost every
+     * permutation creates a triple. */
+    return tryPermutation(source.slice());
   };
 
   Game.prototype._forceOpeningMove = function () {
@@ -305,7 +405,7 @@
         if (cell) cell.type = pattern[r][c] % this.typeCount;
       }
     }
-    return this._hasPossibleMove();
+    return !this._findMatches() && this.listLegalSwaps().length > 0;
   };
 
   // ---------- 匹配与特殊块判定 ----------
@@ -601,8 +701,8 @@
       }
     }
     if (!sources.length) return;
-    var pickList = sources[rnd(sources.length)];
-    var t = pickList[rnd(pickList.length)];
+    var pickList = sources[this._rnd(sources.length)];
+    var t = pickList[this._rnd(pickList.length)];
     var tc = this._cellAt(t.r, t.c);
     if (!tc || tc.dirt) return;
     tc.dirt = true;
@@ -631,8 +731,8 @@
       var spawn = 1;
       for (r = writeR; r >= 0; r--) {
         var nc = this._newCell(null, -(spawn++));
-        if (this.kind === 'CLEAN' && Math.random() < this.obstacleRate * 0.6) { nc.dirt = true; this.initialDirt++; }
-        if (this.kind === 'GROOM' && this.knotStrength > 0 && Math.random() < this.knotRate * 0.7) {
+        if (this.kind === 'CLEAN' && this._random() < this.obstacleRate * 0.6) { nc.dirt = true; this.initialDirt++; }
+        if (this.kind === 'GROOM' && this.knotStrength > 0 && this._random() < this.knotRate * 0.7) {
           nc.knot = this.knotStrength; this.initialKnot += this.knotStrength;
         }
         this.grid[r][c] = nc;
@@ -642,27 +742,18 @@
   };
 
   // 洗牌：保留特殊块与污渍/毛结属性，只打乱 type
-  Game.prototype._shuffleBoard = function () {
+  Game.prototype._shuffleBoard = function (automatic, wasDeadBoard) {
     var types = [], r, c;
     for (r = 0; r < this.rows; r++)
       for (c = 0; c < this.cols; c++) if (this.grid[r][c]) types.push(this.grid[r][c].type);
-    var source = types.slice();
-    for (var attempt = 0; attempt < 80; attempt++) {
-      types = source.slice();
-      for (var i = types.length - 1; i > 0; i--) {
-        var j = rnd(i + 1); var t = types[i]; types[i] = types[j]; types[j] = t;
-      }
-      var k = 0;
-      for (r = 0; r < this.rows; r++)
-        for (c = 0; c < this.cols; c++) if (this.grid[r][c]) {
-          this.grid[r][c].type = types[k++];
-          this.grid[r][c].born = 1;
-        }
-      if (this._hasPossibleMove()) break;
+    var success = this._arrangeTypesStable(types, this.minLegalMoves);
+    if (automatic) {
+      this.autoReshuffles++;
+      if (wasDeadBoard) this.deadBoards++;
     }
-    if (!this._hasPossibleMove()) this._forceOpeningMove();
+    else this.manualReshuffles++;
     this.shake = Math.max(this.shake, 5);
-    return this._hasPossibleMove();
+    return success && !this._findMatches() && this.listLegalSwaps().length >= this.minLegalMoves;
   };
 
   // ---------- 特效 ----------
@@ -676,9 +767,10 @@
   Game.prototype._pushFxCell = function (type, r, c, o) { this._pushFx(type, r, c, o || {}); };
 
   Game.prototype._spawnTimePickup = function () {
-    if (this.timePickup || this.finished) return;
+    if (this.timePickup || this.finished || this.timePickupsSpawned >= this.timePickupBudget) return;
     this.timePickup = { life: TIME_PICKUP_LIFE, seconds: TIME_PICKUP_SECONDS };
-    this.nextTimePickupAt = this.elapsed + 4 + Math.random() * 2;
+    this.timePickupsSpawned++;
+    this.nextTimePickupAt = this.elapsed + 4 + this._random() * 2;
   };
 
   Game.prototype.collectTimePickup = function () {
@@ -701,7 +793,7 @@
       this.timePickup.life -= dt;
       if (this.timePickup.life <= 0) this.timePickup = null;
     }
-    if (!this.timePickup && this.elapsed >= this.nextTimePickupAt && this.timeLeft > 0) this._spawnTimePickup();
+    if (!this.timePickup && this.timePickupsSpawned < this.timePickupBudget && this.elapsed >= this.nextTimePickupAt && this.timeLeft > 0) this._spawnTimePickup();
     if (this.timeLeft <= 0) {
       this.timeLeft = 0;
       this._pendingAutoFinish = true;
@@ -759,10 +851,11 @@
             // 无效交换不计步，同时撤销「最后一步」的结算预约
             this.movesLeft++; this.movesUsed--;
             this.invalidMoves++;
-            this._pendingAutoFinish = false;
+            this._pendingMoveFinish = false;
           } else {
             this.validMoves++;
             this.effectiveMoves++;
+            if (this.movesLeft <= 0) this._pendingMoveFinish = true;
           }
         } else {
           this.phase = 'idle'; this.swapA = this.swapB = null;
@@ -785,10 +878,9 @@
         if (m2) this._beginClear(m2);
         else {
           this.phase = 'idle'; this.combo = 0;
-          if (!this._hasPossibleMove()) {
-            this._shuffleBoard();
-            var shuffledMatch = this._findMatches();
-            if (shuffledMatch) this._beginClear(shuffledMatch);
+          var legalCount = this.listLegalSwaps().length;
+          if (legalCount < this.minLegalMoves) {
+            this._shuffleBoard(true, legalCount === 0);
           }
         }
       }
@@ -799,6 +891,10 @@
     // 时间耗尽：等棋盘完全稳定（所有连锁跑完）后自动结算
     if (this._pendingAutoFinish && this.phase === 'idle' && !this.drag) {
       this._pendingAutoFinish = false;
+      this.finish(true);
+    }
+    if (this._pendingMoveFinish && this.phase === 'idle' && !this.drag) {
+      this._pendingMoveFinish = false;
       this.finish(true);
     }
   };
@@ -908,7 +1004,7 @@
 
   Game.prototype._updatePerf = function () {
     if (this.kind === 'FEED' || this.kind === 'PLAY') {
-      this.perf = clamp(this.score / this.rule.target, 0, 1);
+      this.perf = clamp(this.score / (this.objective.target || this.rule.target), 0, 1);
     } else if (this.kind === 'CLEAN') {
       this.perf = this.initialDirt > 0 ? clamp(this.cleaned / this.initialDirt, 0, 1) : 1;
     } else if (this.kind === 'GROOM') {
@@ -1076,7 +1172,7 @@
     // 道具选格模式
     if (this.itemMode) return this._useItemAt(this.itemMode, cell.r, cell.c);
 
-    if (this.phase !== 'idle') return false;
+    if (this.phase !== 'idle' || this.movesLeft <= 0) return false;
     this.drag = {
       r: cell.r, c: cell.c,
       x0: x, y0: y,
@@ -1146,6 +1242,7 @@
   };
 
   Game.prototype._commitSwap = function (a, b) {
+    if (this.finished || this.movesLeft <= 0 || this.phase !== 'drag') return false;
     this.swapA = { r: a.r, c: a.c };
     this.swapB = { r: b.r, c: b.c };
     this._swapCells(this.swapA, this.swapB);
@@ -1154,6 +1251,7 @@
     this.movesLeft--; this.movesUsed++;
     this.movesAttempted++;
     this._spreadDirt();
+    return true;
   };
 
   Game.prototype._summary = function () {
@@ -1164,17 +1262,32 @@
       cols: this.cols,
       rows: this.rows,
       typeCount: this.typeCount,
+      icons: this.names.slice(),
       perf: this.perf,
       score: this.score,
       timeLeft: Math.max(0, this.timeLeft),
       timeLimit: this.timeLimit,
       timePickups: this.timePickupsCollected,
+      timePickupsSpawned: this.timePickupsSpawned,
+      timePickupBudget: this.timePickupBudget,
+      moveLimit: this.moveLimit,
       movesUsed: this.movesUsed,
       movesLeft: this.movesLeft,
       movesAttempted: this.movesAttempted,
       validMoves: this.validMoves,
       invalidMoves: this.invalidMoves,
       effectiveMoves: this.effectiveMoves,
+      legalMovesAtFinish: this.phase === 'idle' ? this.listLegalSwaps().length : null,
+      minLegalMoves: this.minLegalMoves,
+      deadBoards: this.deadBoards,
+      autoReshuffles: this.autoReshuffles,
+      manualReshuffles: this.manualReshuffles,
+      objective: {
+        mode: this.objective.mode,
+        label: this.objective.label,
+        target: this.objective.target,
+        targetMultiplier: this.objective.targetMultiplier
+      },
       operations: {
         attempted: this.movesAttempted,
         valid: this.validMoves,

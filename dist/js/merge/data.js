@@ -101,7 +101,7 @@
     {
       id: 'courtyard',
       name: '晨光庭院',
-      file: 'bg_courtyard_v2.webp',
+      file: 'bg_courtyard_buildingfree.webp',
       price: 0,
       ownedByDefault: true,
       description: '山雾与暖阳相伴的疗愈所。'
@@ -109,7 +109,7 @@
     {
       id: 'sunset',
       name: '桃霞山庭',
-      file: 'bg_courtyard_sunset.webp',
+      file: 'bg_courtyard_buildingfree_sunset.webp',
       price: 180,
       ownedByDefault: false,
       description: '晚霞落在山门与花径上，适合安静散步。'
@@ -117,7 +117,7 @@
     {
       id: 'moonlit',
       name: '月影竹溪',
-      file: 'bg_courtyard_moonlit.webp',
+      file: 'bg_courtyard_buildingfree_moonlit.webp',
       price: 260,
       ownedByDefault: false,
       description: '竹影、溪声与灯火，夜间也能安心休息。'
@@ -378,26 +378,26 @@
     difficulties: {
       easy: {
         id: 'easy', name: '轻松', unlock: 'default',
-        groom: { cols: 6, rows: 6, typeCount: 5, timeLimit: 60, knotMode: 'single' },
-        play: { cols: 5, rows: 6, pairs: 15, timeLimit: 75 },
+        groom: { cols: 6, rows: 6, typeCount: 5, timeLimit: 60, moveLimit: 26, minLegalMoves: 5, objective: { mode: 'score', targetMultiplier: 0.72, label: '解开单层毛结并制造特殊块' }, knotMode: 'single', timePickupBudget: 4, itemCounts: { hammer: 3, shuffle: 2, theme: 2 } },
+        play: { cols: 5, rows: 6, pairs: 15, timeLimit: 60, maxTurns: 3, allowOutside: true, layoutShift: 'none', lockedPairs: 0, timePickupBudget: 4, itemCounts: { hint: 4, shuffle: 2, bell: 2 } },
         rewards: { floor: [1], B: [1, 1], A: [2], S: [2, 1] }
       },
       normal: {
         id: 'normal', name: '标准', unlock: 'firstStory',
-        groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 55, knotMode: 'mixed' },
-        play: { cols: 6, rows: 6, pairs: 18, timeLimit: 60 },
+        groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 52, moveLimit: 23, minLegalMoves: 4, objective: { mode: 'score', targetMultiplier: 0.90, label: '收集目标图案并解开混合毛结' }, knotMode: 'mixed', timePickupBudget: 3, itemCounts: { hammer: 2, shuffle: 2, theme: 1 } },
+        play: { cols: 6, rows: 6, pairs: 18, timeLimit: 52, maxTurns: 2, allowOutside: true, layoutShift: 'down', lockedPairs: 1, timePickupBudget: 3, itemCounts: { hint: 3, shuffle: 2, bell: 1 } },
         rewards: { floor: [1], B: [2], A: [2, 1], S: [3] }
       },
       hard: {
         id: 'hard', name: '困难', unlock: 'groomLevel2',
-        groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 50, knotMode: 'double-spread' },
-        play: { cols: 6, rows: 8, pairs: 24, timeLimit: 50 },
+        groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 46, moveLimit: 20, minLegalMoves: 3, objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '清除扩散毛结并完成两次连锁' }, knotMode: 'double-spread', timePickupBudget: 2, itemCounts: { hammer: 2, shuffle: 1, theme: 1 } },
+        play: { cols: 6, rows: 8, pairs: 24, timeLimit: 46, maxTurns: 2, allowOutside: false, layoutShift: 'left', lockedPairs: 2, timePickupBudget: 2, itemCounts: { hint: 2, shuffle: 1, bell: 1 } },
         rewards: { floor: [2], B: [2, 1], A: [3], S: [3, 2] }
       },
       master: {
         id: 'master', name: '大师', unlock: 'groomLevel3',
-        groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 45, knotMode: 'double-triple' },
-        play: { cols: 7, rows: 8, pairs: 28, timeLimit: 45 },
+        groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 40, moveLimit: 18, minLegalMoves: 2, objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '破除三层毛结并组合两枚特殊块' }, knotMode: 'double-triple', timePickupBudget: 1, itemCounts: { hammer: 1, shuffle: 1, theme: 1 } },
+        play: { cols: 7, rows: 8, pairs: 28, timeLimit: 40, maxTurns: 1, allowOutside: false, layoutShift: 'snake', lockedPairs: 3, timePickupBudget: 1, itemCounts: { hint: 1, shuffle: 1, bell: 0 } },
         rewards: { floor: [2], B: [3], A: [3, 2], S: [4], repeatS: [3, 2] }
       }
     }

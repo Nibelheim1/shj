@@ -190,25 +190,15 @@ function runLinkGameChecks() {
   assert.strictEqual(cancelCount, 1, '取消走 onCancel');
   assert.strictEqual(cancelGame.finished, true, '取消后结束');
 
-  /* Force all 80 random attempts to report a dead board so the guarded
-   * fallback (which places a same-type pair on the outer edge) is exercised.
-   * Restore the real predicate before checking that the resulting board is
-   * playable; this keeps the test focused on fallback tile preservation. */
+  /* Constant RNG must still produce a completely solvable pair-preserving
+   * rearrangement; rescue generation is constructive rather than retry-only. */
   const fallbackGame = new LinkGame.Game('PLAY', { rng: function () { return 0; } });
   const beforeFallback = fallbackGame.grid.flat().filter(Boolean);
   const beforeFallbackCounts = beforeFallback.reduce(function (result, cell) {
     result[cell.type] = (result[cell.type] || 0) + 1;
     return result;
   }, {});
-  const realHasMove = fallbackGame.hasMove;
-  let forcedDeadChecks = 0;
-  fallbackGame.hasMove = function () {
-    forcedDeadChecks++;
-    return forcedDeadChecks > 80 ? realHasMove.call(fallbackGame) : false;
-  };
   assert.strictEqual(fallbackGame._shuffleRemaining(), true, '重排 fallback 应成功返回');
-  assert.strictEqual(forcedDeadChecks, 81, '重排 fallback 在 80 次随机尝试后校验结果');
-  fallbackGame.hasMove = realHasMove;
   const afterFallback = fallbackGame.grid.flat().filter(Boolean);
   const afterFallbackCounts = afterFallback.reduce(function (result, cell) {
     result[cell.type] = (result[cell.type] || 0) + 1;
@@ -217,6 +207,8 @@ function runLinkGameChecks() {
   assert.strictEqual(afterFallback.length, beforeFallback.length, 'fallback 前后非空格数量一致');
   assert.deepStrictEqual(afterFallbackCounts, beforeFallbackCounts, 'fallback 前后各 type 数量一致');
   assert.strictEqual(fallbackGame.hasMove(), true, 'fallback 后棋盘可继续消除');
+  assert.strictEqual(fallbackGame.solve().length, fallbackGame.totalPairs, 'fallback 后仍可完整求解');
+  assert.strictEqual(fallbackGame.manualShuffles, 1, '手动重排独立计数');
 
   console.log('  PASS  LinkGame 6×8 24 对、道具、清盘、超时、取消');
 }
@@ -290,19 +282,13 @@ function runMatch3Checks() {
     assert.strictEqual(sample._hasPossibleMove(), true, 'GROOM 初盘可走 #' + (index + 1));
   }
 
-  /* Exercise the manual shuffle guard.  The first 80 probes are forced to
-   * look deadlocked, so _shuffleBoard must reach _forceOpeningMove; the real
-   * predicate is restored for the final assertion. */
+  /* Manual shuffle must settle without a free match and retain enough legal
+   * candidates even under the highest difficulty. */
   const shuffleGame = new Match3.Game('GROOM', { difficulty: 'master' });
-  const originalPossibleMove = shuffleGame._hasPossibleMove;
-  let forcedShuffleChecks = 0;
-  shuffleGame._hasPossibleMove = function () {
-    forcedShuffleChecks++;
-    return forcedShuffleChecks > 80 ? originalPossibleMove.call(shuffleGame) : false;
-  };
   assert.strictEqual(shuffleGame._shuffleBoard(), true, '手动重排应恢复可走步');
-  assert.ok(forcedShuffleChecks >= 82, '重排 guard 走过 80 次尝试与最终校验');
-  shuffleGame._hasPossibleMove = originalPossibleMove;
+  assert.strictEqual(shuffleGame._findMatches(), null, '重排不会制造免费初始匹配');
+  assert.ok(shuffleGame.listLegalSwaps().length >= shuffleGame.minLegalMoves, '重排满足候选步下限');
+  assert.strictEqual(shuffleGame.manualReshuffles, 1, '手动重排独立计数');
   assert.strictEqual(shuffleGame._hasPossibleMove(), true, '重排恢复后仍有可走步');
 
   /* A constant RNG used to expose the initial-board guard: it must avoid

@@ -29,6 +29,9 @@
   var boardDragState = null;
   var suppressClickUntil = 0;
   var LONG_PRESS_MS = 520;
+  var yardAutonomyTimer = null;
+  var yardAutonomyStep = 0;
+  var yardInteractionUntil = 0;
 
   function q(id) { return document ? document.getElementById(id) : null; }
 
@@ -400,6 +403,24 @@
     if (energy) energy.addEventListener('click', openEnergyCenter);
   }
 
+  function openYardCharacterDetails() {
+    var display = caseForDisplay();
+    if (!display || !display.definition || !display.entry) return null;
+    var definition = display.definition;
+    var entry = display.entry;
+    var stage = Math.max(0, Math.min(3, Number(entry.stage) || 0));
+    var trustPercent = Math.min(100, entry.trust / 60 * 100);
+    var healPercent = Math.min(100, entry.heal);
+    var modal = modalShell(
+      '<span class="eyebrow">点击住客 · 关系详情</span>' +
+      '<div class="resident-detail-head"><img src="' + esc(characterAssetPath(definition.art[stage] || definition.art[0])) + '" alt="" /><div><h2>' + esc(definition.name) + ' · ' + esc(definition.stageNames[stage]) + '</h2><span class="stage-chip">羁绊 Lv' + entry.bond + '</span></div></div>' +
+      '<div class="resident-progress"><div class="progress-row"><span>信任</span><div class="meter"><i style="width:' + trustPercent + '%"></i></div><b>' + entry.trust + '/60</b></div>' +
+      '<div class="progress-row"><span>疗愈</span><div class="meter heal"><i style="width:' + healPercent + '%"></i></div><b>' + entry.heal + '/100</b></div></div>' +
+      '<p class="resident-detail-note">' + esc(entry.transformed ? '已蜕变 · ' + definition.job.title + '岗位效果永久生效。' : activeCareText(entry) + '。三段故事与一次偏好照料缺一不可。') + '</p>',
+      'task-modal resident-detail-modal');
+    return modal;
+  }
+
   function renderNextAction() {
     var node = q('next-action');
     if (!node) return;
@@ -618,12 +639,12 @@
     return {
       background: { id: backgroundId, url: background ? sceneAssetPath(background.file) : '' },
       buildings: {
-        clinic: { x: 21, y: 47, level: 1, state: 'ready', bubble: '故事 ' + display.entry.storyProgress + '/3' },
-        herb: { x: 22, y: 77, level: herb.level, state: !herb.level ? 'locked' : herb.stored.length ? 'ready' : 'producing', bubble: !herb.level ? '待建' : herb.stored.length ? '可领取 ×' + herb.stored.length : 'Lv' + herb.level + ' 生产中' },
-        groom: { x: 78, y: 77, level: groom.level, state: groomLeft ? 'care' : 'practice', bubble: groomLeft ? groomLeft + ' 局奖励' : '练习模式' },
-        play: { x: 79, y: 47, level: 1, state: playLeft ? 'care' : 'practice', bubble: playLeft ? playLeft + ' 局奖励' : '练习模式' }
+        clinic: { x: 22, y: 30, scale: 0.80, level: 1, state: 'ready', bubble: '故事 ' + display.entry.storyProgress + '/3' },
+        herb: { x: 23, y: 75, scale: 0.94, level: herb.level, state: !herb.level ? 'locked' : herb.stored.length ? 'ready' : 'producing', bubble: !herb.level ? '待建' : herb.stored.length ? '可领取 ×' + herb.stored.length : 'Lv' + herb.level + ' 生产中' },
+        groom: { x: 77, y: 75, scale: 0.94, level: groom.level, state: groomLeft ? 'care' : 'practice', bubble: groomLeft ? groomLeft + ' 局奖励' : '练习模式' },
+        play: { x: 78, y: 30, scale: 0.80, level: 1, state: playLeft ? 'care' : 'practice', bubble: playLeft ? playLeft + ' 局奖励' : '练习模式' }
       },
-      character: { x: 50, y: 90, groundY: 90, stage: stage, state: display.entry.transformed ? 'transformed' : 'idle', transformed: !!display.entry.transformed },
+      character: { x: 50, y: 84, groundY: 84, scale: 0.78, stage: stage, state: display.entry.transformed ? 'transformed' : 'idle', transformed: !!display.entry.transformed },
       speech: display.definition.dialogue[stage]
     };
   }
@@ -650,6 +671,7 @@
 
   function useCourtyardNode(id, action) {
     if (!courtyardScene || typeof courtyardScene.moveCharacterTo !== 'function') return;
+    yardInteractionUntil = Date.now() + 2400;
     var building = document.querySelector('[data-node-id="' + id + '"]');
     var x = building ? Number(building.getAttribute('data-world-x') || building.style.getPropertyValue('--scene-x')) : NaN;
     var y = building ? Number(building.getAttribute('data-world-y') || building.style.getPropertyValue('--scene-y')) : NaN;
@@ -658,19 +680,67 @@
       /* Facilities sit at the far left/right of the world. Keep the resident
          on the centre path so its foreground hit box never covers the next
          building the player wants to tap. */
-      payload.x = 50;
-      payload.groundY = Math.min(91, Math.max(58, y + 13));
+      payload.x = Math.min(68, Math.max(32, x + (x < 50 ? 10 : -10)));
+      payload.groundY = Math.min(86, Math.max(48, y + 10));
+      payload.scale = 0.75;
     }
     courtyardScene.moveCharacterTo(payload, 'move');
     root.setTimeout(function () {
       if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') courtyardScene.moveCharacterTo({ id: 'resident' }, action || 'use');
     }, 520);
     root.setTimeout(function () {
-      if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') courtyardScene.moveCharacterTo({ id: 'resident', x: 50, groundY: 90 }, 'move');
+      if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') courtyardScene.moveCharacterTo({ id: 'resident', x: 50, groundY: 84, scale: 0.78 }, 'move');
     }, 1250);
     root.setTimeout(function () {
       if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') courtyardScene.moveCharacterTo({ id: 'resident' }, 'idle');
     }, 1800);
+  }
+
+  var YARD_ROUTES = [
+    { id: 'clinic', x: 40, y: 38, action: 'inspect', line: '它在医馆门口嗅了嗅药香。' },
+    { id: 'play', x: 60, y: 38, action: 'play', line: '它追着亭边的风铃跑了两圈。' },
+    { id: 'groom', x: 60, y: 72, action: 'play', line: '它把落在地上的彩球轻轻拨了回来。' },
+    { id: 'herb', x: 40, y: 72, action: 'sniff', line: '它蹲在百草园旁认真闻了闻叶片。' },
+    { id: 'path-left', x: 46, y: 54, action: 'wander', line: '它沿着石径小跑，尾巴晃得很轻快。' },
+    { id: 'path-right', x: 54, y: 84, action: 'wander', line: '它停下来望了望远山，又继续散步。' }
+  ];
+
+  function courtyardIsVisible() {
+    var view = q('yard-view');
+    return !!(view && view.classList.contains('active') && document && !document.hidden && !q('modal-root').firstChild);
+  }
+
+  function runYardAutonomy() {
+    if (!courtyardScene || typeof courtyardScene.moveCharacterTo !== 'function' || !courtyardIsVisible() || Date.now() < yardInteractionUntil) return;
+    var route = YARD_ROUTES[yardAutonomyStep % YARD_ROUTES.length];
+    yardAutonomyStep++;
+    var speech = q('yard-speech');
+    courtyardScene.moveCharacterTo({ id: 'resident', x: route.x, groundY: route.y, scale: route.y < 65 ? 0.69 : 0.76, duration: 900 }, 'move');
+    if (speech) {
+      speech.textContent = route.line;
+      speech.classList.add('is-visible', 'autonomy-speech');
+    }
+    root.setTimeout(function () {
+      if (!courtyardScene || !courtyardIsVisible()) return;
+      courtyardScene.moveCharacterTo({ id: 'resident' }, route.action === 'wander' ? 'run' : route.action);
+      var character = q('yard-character');
+      if (character) {
+        character.dataset.autonomousAction = route.action;
+        character.classList.add('is-autonomous-' + route.action);
+      }
+    }, 950);
+    root.setTimeout(function () {
+      if (courtyardScene && courtyardIsVisible()) courtyardScene.moveCharacterTo({ id: 'resident' }, 'idle');
+      var character = q('yard-character');
+      if (character) character.className = character.className.replace(/\bis-autonomous-[^\s]+\b/g, '').trim();
+      if (speech) speech.classList.remove('autonomy-speech');
+    }, 2300);
+  }
+
+  function startYardAutonomy() {
+    if (yardAutonomyTimer) root.clearInterval(yardAutonomyTimer);
+    yardAutonomyTimer = root.setInterval(runYardAutonomy, 6200);
+    root.setTimeout(runYardAutonomy, 1800);
   }
 
   function showCourtyardReward(text) {
@@ -698,14 +768,6 @@
     q('yard-heading').textContent = activeResident ? '陪伴' + definition.name + '慢慢恢复' : entry.transformed ? definition.name + '已经成为疗愈所伙伴' : '查看' + definition.name + '的状态';
     q('yard-copy').textContent = activeResident ? activeCareText(entry) : entry.transformed ? '岗位已生效 · ' + (activeTargetDef ? '当前治疗对象：' + activeTargetDef.name + ' · ' : '') + '这里正在查看' + definition.name : '当前治疗对象：' + (activeTargetDef ? activeTargetDef.name : '暂无') + ' · 这里正在查看' + definition.name;
     q('yard-speech').textContent = '“' + definition.dialogue[stage] + '”';
-    q('case-label').textContent = definition.name + ' · 病历与关系';
-    q('beast-stage').textContent = definition.stageNames[stage];
-    q('bond-level').textContent = '羁绊 Lv' + entry.bond;
-    q('trust-value').textContent = entry.trust + '/60';
-    q('heal-value').textContent = entry.heal + '/100';
-    q('trust-meter').style.width = Math.min(100, entry.trust / 60 * 100) + '%';
-    q('heal-meter').style.width = Math.min(100, entry.heal) + '%';
-    q('yard-reward').textContent = entry.transformed ? '已蜕变 · ' + definition.job.title + '岗位效果永久生效。' : activeCareText(entry) + '。三段故事与一次照料缺一不可。';
     renderYardBackground();
     renderCourtyardScene(display, stage);
     renderYardSwitcher();
@@ -1260,6 +1322,15 @@
     return '默认开放';
   }
 
+  function careRulePreview(type, game) {
+    if (type === 'groom') {
+      var objectiveLabel = game.objective && typeof game.objective === 'object' ? game.objective.label : game.objective;
+      return (game.moveLimit ? game.moveLimit + ' 步 · ' : '') + esc(objectiveLabel || '完成关卡目标') + ' · 至少 ' + (game.minLegalMoves || 1) + ' 个候选交换';
+    }
+    var shift = { none: '静态棋盘', down: '消除后下落', left: '消除后向左收拢', snake: '蛇形重排' }[game.layoutShift] || '动态布局';
+    return '最多 ' + game.maxTurns + ' 转 · ' + (game.allowOutside === false ? '禁走外圈' : '可走外圈') + ' · ' + shift + (game.lockedPairs ? ' · ' + game.lockedPairs + ' 组锁链' : '');
+  }
+
   function openCareDifficulty(type) {
     var display = caseForDisplay();
     if (!display.entry) return { ok: false, reason: 'wrong-care-type' };
@@ -1273,7 +1344,8 @@
       var game = difficulty[type];
       return '<button class="care-difficulty-card ' + (recommended === id ? 'recommended' : '') + '" data-care-difficulty="' + id + '" type="button" ' + (unlocked ? '' : 'disabled') + '>' +
         '<span><b>' + esc(difficulty.name) + (recommended === id ? ' · 推荐' : '') + '</b><small>' + game.cols + '×' + game.rows + ' · ' + game.timeLimit + ' 秒</small></span>' +
-        '<em>' + (unlocked ? esc(careRewardPreview(difficulty)) : esc(careUnlockText(id))) + '</em></button>';
+        '<em class="care-rule-preview">' + (unlocked ? careRulePreview(type, game) : esc(careUnlockText(id))) + '</em>' +
+        '<em>' + (unlocked ? esc(careRewardPreview(difficulty)) : '') + '</em></button>';
     }).join('');
     var preferred = display.definition.careTypes.indexOf(type) >= 0;
     var modal = modalShell('<span class="eyebrow">难度与奖励公开 · 不会暗调</span><h2>' + esc(careTypeLabel(type)) + '</h2>' +
@@ -1316,7 +1388,7 @@
     gameRoot.classList.add('is-open');
     gameRoot.setAttribute('aria-hidden', 'false');
     var warning = rewardEligible ? '' : '<div class="care-game-warning" role="status">当前异兽偏好' + esc((display.definition.careTypes || []).map(careTypeLabel).join(' / ')) + '；本局可以体验，但不会获得照料奖励</div>';
-    gameRoot.innerHTML = '<section class="care-game-shell ' + (type === 'groom' ? 'match3-shell' : 'link-shell') + '" role="dialog" aria-modal="true" aria-label="' + (type === 'groom' ? '梳理消消乐' : '陪玩连连看') + '">' + warning + '<canvas id="care-game-canvas" tabindex="0" aria-label="' + (type === 'groom' ? '滑动交换图案，合成特殊块并解开毛结' : '点击两个相同图案，用不超过两次转弯的路径连接') + '"></canvas></section>';
+    gameRoot.innerHTML = '<section class="care-game-shell ' + (type === 'groom' ? 'match3-shell' : 'link-shell') + '" role="dialog" aria-modal="true" aria-label="' + (type === 'groom' ? '梳理消消乐' : '陪玩连连看') + '">' + warning + '<canvas id="care-game-canvas" tabindex="0" aria-label="' + (type === 'groom' ? '滑动交换简洁梳洗图案，规划步数、制造特殊块并完成毛结目标' : '点击两个相同图案，遵守本档转折、外圈和动态布局规则') + '"></canvas></section>';
     var canvas = q('care-game-canvas');
     var context = canvas && canvas.getContext ? canvas.getContext('2d') : null;
     if (!canvas || !context) {
@@ -1566,7 +1638,8 @@
     q('yard-character').addEventListener('click', function () {
       var button = q('yard-character');
       button.classList.remove('beast-react'); void button.offsetWidth; button.classList.add('beast-react');
-      toast('它听见了你的脚步声 · 这是观察互动，不推进照料进度');
+      if (courtyardScene && typeof courtyardScene.react === 'function') courtyardScene.react({ kind: 'greet', target: 'resident' });
+      openYardCharacterDetails();
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-hotspot]'), function (button) {
       button.addEventListener('click', function () {
@@ -1628,6 +1701,7 @@
     bindEvents();
     render();
     tickTimer = root.setInterval(tick, 5000);
+    startYardAutonomy();
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) saveState(); else { tick(); render(); }
     });
@@ -1665,6 +1739,8 @@
     openEnergyCenter: openEnergyCenter,
     openHowToPlay: openHowToPlay,
     openOrderDetails: openOrderDetails,
+    openYardCharacterDetails: openYardCharacterDetails,
+    runYardAutonomy: runYardAutonomy,
     showTransformation: showTransformation
   };
 }));

@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAt": "2026-08-12T14:16:10.814Z",
-  "totalBytes": 4961403,
+  "generatedAt": "2026-08-12T15:42:26.565Z",
+  "totalBytes": 4929731,
   "files": [
     {
       "path": "assets/art/buildings/clinic.webp",
@@ -316,22 +316,22 @@
       "sha256": "6cca46272cd3d0abfe4518e64c648ba6a73f7cf4cbd9b42318bccbb14ceed839"
     },
     {
-      "path": "assets/art/scenes/bg_courtyard_moonlit.webp",
+      "path": "assets/art/scenes/bg_courtyard_buildingfree_moonlit.webp",
       "bundle": "scene",
-      "bytes": 233484,
-      "sha256": "5281bae600955f76931f133cf0b8abbc5cb8651a156efd7632c36f60d0c33065"
+      "bytes": 213218,
+      "sha256": "653688be21d61fe3d34a45c80fb44a89cc154d7cce1336b9f2bec7fb7ea73fe5"
     },
     {
-      "path": "assets/art/scenes/bg_courtyard_sunset.webp",
+      "path": "assets/art/scenes/bg_courtyard_buildingfree_sunset.webp",
       "bundle": "scene",
-      "bytes": 141450,
-      "sha256": "d6038bba8f7c0f5f6963a3284c5bc110254f158e08ea81e75a15549d4d7f988f"
+      "bytes": 249716,
+      "sha256": "f2cf56e1978d45a13fa86244d735467518da47e7de9ef2fcefd40ae47f96667f"
     },
     {
-      "path": "assets/art/scenes/bg_courtyard_v2.webp",
+      "path": "assets/art/scenes/bg_courtyard_buildingfree.webp",
       "bundle": "scene",
-      "bytes": 399100,
-      "sha256": "f735cb39aa2bc73b543a7edec9e92cd3dd28108505074fb4b609ea34f71e456d"
+      "bytes": 255744,
+      "sha256": "fb51c43462292e8d59eb6fabc1e47ea39bc691724819ff7a9d41f936ec83e114"
     },
     {
       "path": "assets/audio/sfx_care.wav",
@@ -366,8 +366,8 @@
     {
       "path": "index.html",
       "bundle": "boot",
-      "bytes": 11431,
-      "sha256": "b950abddfefb0515af5599ab7e0e39fb6079555b52519d299c2e70d10b62e43e"
+      "bytes": 10716,
+      "sha256": "aee44023478a2178057a0860c94b7d8a1fa4e0eb2fccfa5879daa1522b05b15a"
     },
     {
       "path": "js/merge/audio.js",
@@ -384,26 +384,26 @@
     {
       "path": "js/merge/courtyard-scene.js",
       "bundle": "boot",
-      "bytes": 44761,
-      "sha256": "10c9db7ad2e3019b3db1f5c432e50097419c0027728dca649f0e07e2cba0a6e0"
+      "bytes": 45868,
+      "sha256": "97788616d3628a7a572e3d2b3a553eec8b0de742a9b297119daf6bf9368dc47c"
     },
     {
       "path": "js/merge/data.js",
       "bundle": "boot",
-      "bytes": 16794,
-      "sha256": "c6816eef55ceee3172a57e35a8642bef72d612dc74b272e3e6aa1deb32d2dda7"
+      "bytes": 18227,
+      "sha256": "efc1fa963e012bab8eb32e6c8b37362e14bf627debb30c2923ce44bc14b809a0"
     },
     {
       "path": "js/merge/link-game.js",
       "bundle": "boot",
-      "bytes": 31714,
-      "sha256": "1ce491e9bc041be72accb153b73cca1273cac2aa563f2091cc152da7439e3b57"
+      "bytes": 37878,
+      "sha256": "4069301a74c8aec3556deca26e0eda63c8c1a23bef76c10cc24b3cec7afe8e98"
     },
     {
       "path": "js/merge/match3.js",
       "bundle": "boot",
-      "bytes": 62248,
-      "sha256": "27a6e6e33ac9471ced2ad5f488e4be4f1ffdc378f4152386c534b667ae722605"
+      "bytes": 67821,
+      "sha256": "aa2c35b26ec29e54ee74faea132ce30949f0dbd224cb3c3124461caf0710ac09"
     },
     {
       "path": "js/merge/save-store.js",
@@ -414,14 +414,14 @@
     {
       "path": "js/merge/ui.js",
       "bundle": "boot",
-      "bytes": 93052,
-      "sha256": "c9675e872637fc0d71cd7e0c67ebe2d8b5a15f54e3198fea1a3380e57cb41e5d"
+      "bytes": 97659,
+      "sha256": "78e3690c1cebf65311c58bc4b2f3fae840f785040e859ae52943b4ed3b01ddf0"
     },
     {
       "path": "merge-slice.css",
       "bundle": "boot",
-      "bytes": 66348,
-      "sha256": "0e15650b66b5740eb0cc8bb60aa0c83558722921eec7acba5e567ab39dd508da"
+      "bytes": 71863,
+      "sha256": "61a1d7a158344ef77d3e1e2a76ad832826d7d4ddd8597553ec06d6d487d0e899"
     },
     {
       "path": "merge-slice.js",

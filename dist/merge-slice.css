@@ -102,7 +102,7 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 .route-step.current { border-color:var(--coral); background:#ffe2d4; color:var(--coral-dark); font-weight:900; }
 .route-step img { width:24px; height:24px; object-fit:contain; }
 .route-tip { margin-left:auto; color:var(--coral-dark); font-size:8px; font-weight:900; white-space:nowrap; }
-.yard-scene { position:relative; min-height:300px; overflow:hidden; border:1px solid #72533b2b; border-radius:18px; background:linear-gradient(#fff3df1c,#fff0d61c),url('assets/art/scenes/bg_courtyard_v2.webp') center/cover; box-shadow:var(--shadow); }
+.yard-scene { position:relative; min-height:300px; overflow:hidden; border:1px solid #72533b2b; border-radius:18px; background:linear-gradient(#fff3df1c,#fff0d61c),url('assets/art/scenes/bg_courtyard_buildingfree.webp') center/cover; box-shadow:var(--shadow); }
 .yard-sky-copy { position:relative; z-index:3; padding:11px 12px; max-width:245px; text-shadow:0 1px #fff8; }
 .yard-sky-copy h1 { font-size:18px; }
 .yard-sky-copy p { margin-top:3px; color:#795d4b; font-size:9px; }
@@ -393,7 +393,7 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 
 /* A non-preferred mini-game remains playable, but the warning stays visible above its canvas. */
 .care-game-warning { position:absolute; top:max(8px,env(safe-area-inset-top)); left:50%; z-index:3; width:min(92vw,460px); transform:translateX(-50%); padding:7px 10px; border:1px solid #f2c66d; border-radius:10px; background:#fff2cfee; color:#72472e; box-shadow:0 4px 12px #2b1c1466; font-size:11px; font-weight:900; line-height:1.35; text-align:center; pointer-events:none; }
-.care-run-budget{display:flex;justify-content:space-between;align-items:center;margin-top:9px;padding:8px 10px;border-radius:11px;background:#fff0cf;color:#825f35;font-size:10px}.care-run-budget span{font-weight:900}.care-preference-warning,.care-effective-rule{margin-top:8px;padding:7px 9px;border-radius:9px;background:#fff1d9;color:#8a6035;font-size:9px;line-height:1.45}.care-difficulty-list{display:grid;gap:6px;margin-top:9px}.care-difficulty-card{display:grid;grid-template-columns:1fr;gap:4px;min-height:58px;padding:8px 9px;border:1px solid #72533b29;border-radius:12px;background:#fffaf2;color:var(--brown);text-align:left;cursor:pointer}.care-difficulty-card span{display:flex;align-items:center;justify-content:space-between}.care-difficulty-card b{font-size:11px}.care-difficulty-card small{color:var(--muted);font-size:8px}.care-difficulty-card em{color:#8c684a;font-size:8px;font-style:normal}.care-difficulty-card.recommended{border-color:var(--coral);background:#ffebdc;box-shadow:0 0 0 2px #df795922}.care-difficulty-card:disabled{opacity:.5;filter:grayscale(.45);cursor:default}.care-effective-rule{background:#edf5e8;color:#5a7958}
+.care-run-budget{display:flex;justify-content:space-between;align-items:center;margin-top:9px;padding:8px 10px;border-radius:11px;background:#fff0cf;color:#825f35;font-size:10px}.care-run-budget span{font-weight:900}.care-preference-warning,.care-effective-rule{margin-top:8px;padding:7px 9px;border-radius:9px;background:#fff1d9;color:#8a6035;font-size:9px;line-height:1.45}.care-difficulty-list{display:grid;gap:6px;margin-top:9px}.care-difficulty-card{display:grid;grid-template-columns:1fr;gap:4px;min-height:58px;padding:8px 9px;border:1px solid #72533b29;border-radius:12px;background:#fffaf2;color:var(--brown);text-align:left;cursor:pointer}.care-difficulty-card span{display:flex;align-items:center;justify-content:space-between}.care-difficulty-card b{font-size:11px}.care-difficulty-card small{color:var(--muted);font-size:8px}.care-difficulty-card em{color:#8c684a;font-size:8px;font-style:normal}.care-difficulty-card .care-rule-preview{padding:4px 6px;border-radius:7px;background:#eef5e9;color:#557b56;font-weight:800;line-height:1.35}.care-difficulty-card.recommended{border-color:var(--coral);background:#ffebdc;box-shadow:0 0 0 2px #df795922}.care-difficulty-card:disabled{opacity:.5;filter:grayscale(.45);cursor:default}.care-effective-rule{background:#edf5e8;color:#5a7958}
 
 @media (max-width:370px) {
   .care-game-warning { width:calc(100vw - 20px); padding:6px 8px; font-size:10px; }
@@ -518,3 +518,59 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 @keyframes scene-character-step{to{transform:translate(-50%,calc(-100% - 4px)) scale(var(--scene-scale,1))}}
 @keyframes scene-character-use{35%{transform:translate(-50%,calc(-100% - 9px)) scale(var(--scene-scale,1)) rotate(-3deg)}75%{transform:translate(-50%,calc(-100% - 2px)) scale(var(--scene-scale,1)) rotate(3deg)}}
 @keyframes scene-character-transform{45%{transform:translate(-50%,calc(-100% - 12px)) scale(calc(var(--scene-scale,1) * 1.12)) rotate(3deg);filter:brightness(1.3)}100%{transform:translate(-50%,-100%) scale(var(--scene-scale,1))}}
+
+/* v7 courtyard composition: reveal the authored long background, keep world
+   objects subordinate to it, and preserve generous transparent hit regions. */
+.scene-world{
+  min-height:0;
+  height:auto;
+  aspect-ratio:4 / 5;
+  background:#d8cfaa url('assets/art/scenes/bg_courtyard_buildingfree.webp') center/cover no-repeat!important;
+}
+.scene-background{position:absolute;inset:0;width:100%;height:100%;background-position:center;background-size:cover;background-repeat:no-repeat}
+.scene-background:after{background:linear-gradient(180deg,#fff8e312 0%,transparent 35%,#36402614 100%)}
+.scene-ground{opacity:.28}.ground-path{bottom:-12%;width:31%;height:46%;background:linear-gradient(90deg,transparent,#f5ddb375 48%,transparent);filter:none}.ground-shadow{width:22%;height:5%;background:#34402728}
+.yard-sky-copy{padding:10px 12px;text-shadow:0 1px 3px #fff,0 0 8px #fff}.yard-sky-copy h1{font-size:clamp(15px,4.5vw,18px)}.yard-sky-copy p{font-size:8px}
+.scene-building{
+  width:clamp(70px,21vw,88px);
+  min-width:70px;
+  height:76px;
+  min-height:58px;
+  grid-template-rows:49px auto auto;
+  filter:saturate(.78) contrast(.92) sepia(.05);
+  transform:translate(-50%,-50%) scale(var(--scene-scale,.9));
+}
+.scene-building:before{content:"";position:absolute;left:18%;right:18%;bottom:20px;height:8px;border-radius:50%;background:#2f392325;filter:blur(3px);z-index:-1}
+.scene-building .building-sprite{width:100%;height:52px;filter:drop-shadow(0 4px 3px #4b37272f)}
+.scene-building>b{margin-top:-4px;padding:1px 5px;border-color:#765a3b50;background:#f2e4cbd9;color:#604b38;font-size:7px}
+.scene-building>small{display:none}
+.building-level-badge{left:0;top:6px;min-width:23px;padding:2px 4px;font-size:6px}
+.world-state-bubble{right:-3px;top:5px;min-width:29px;padding:2px 4px;border-radius:7px;background:#668062dd;font-size:6px}
+.scene-character{width:clamp(70px,21vw,88px);height:clamp(80px,24vw,100px);min-width:44px;min-height:44px;z-index:12}
+.scene-character:after{left:18%;width:64%;height:8px;background:#33402b30;filter:blur(3px)}
+.scene-character img{filter:drop-shadow(0 4px 3px #533e2b27) saturate(.9) contrast(.96)}
+.world-speech{top:auto;bottom:21%;max-width:62%;padding:5px 7px;background:#fffdf0e8;font-size:8px;opacity:0;transform:translate(-50%,5px);transition:opacity .2s,transform .2s}
+.world-speech.is-visible,.world-speech.autonomy-speech{opacity:1;transform:translate(-50%,0)}
+.yard-props{opacity:.34}.prop{font-size:18px}
+@keyframes building-ready{to{transform:translate(-50%,-51%) scale(calc(var(--scene-scale,.9) * 1.025))}}
+@keyframes building-upgrade{45%{transform:translate(-50%,-57%) scale(calc(var(--scene-scale,.9) * 1.08));filter:brightness(1.17) saturate(.82)}}
+.scene-character.is-running{animation:scene-character-run .22s ease-in-out infinite alternate}
+.scene-character.is-playing{animation:scene-character-play .62s ease-in-out infinite}
+.scene-character.is-sniffing,.scene-character.is-inspecting{animation:scene-character-sniff .75s ease-in-out infinite alternate}
+@keyframes scene-character-run{to{transform:translate(-50%,calc(-100% - 6px)) scale(var(--scene-scale,1)) rotate(2deg)}}
+@keyframes scene-character-play{35%{transform:translate(-50%,calc(-100% - 9px)) scale(var(--scene-scale,1)) rotate(-6deg)}70%{transform:translate(-50%,calc(-100% - 2px)) scale(var(--scene-scale,1)) rotate(5deg)}}
+@keyframes scene-character-sniff{to{transform:translate(-50%,calc(-100% + 2px)) scale(var(--scene-scale,1)) rotate(-3deg)}}
+.resident-detail-head{display:flex;align-items:center;gap:10px;margin-top:5px}.resident-detail-head img{width:72px;height:72px;object-fit:contain}.resident-detail-head h2{margin-bottom:6px}.resident-progress{margin-top:8px;padding:8px;border-radius:11px;background:#f7eadc}.resident-detail-note{margin-top:8px;padding:8px;border-radius:9px;background:#fff1cf;color:#805f43;font-size:9px;line-height:1.45}
+
+/* One visual grammar for all top resources: equal rounded rectangles, equal
+   label/value type scales. Global 44px touch sizing applies only to buttons. */
+.slice-hud{min-height:56px;gap:4px;padding:6px var(--phone-gutter)}
+.brand-mark{flex:0 0 auto}.brand-mark>span:last-child{display:none}.brand-leaf{width:34px;height:40px;border-radius:11px}
+.hud-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.hud-pill,.hud-pill.energy{display:flex;flex-direction:column;align-items:center;justify-content:center;width:auto;min-width:0;min-height:44px;height:44px;padding:4px 5px;border:1px solid #b4936b55;border-radius:11px;background:#fff8e6;box-shadow:none;font-size:10px;line-height:1}
+.hud-pill small{height:10px;margin:0;color:#957761;font-size:7px;line-height:10px}.hud-pill b{max-width:100%;overflow:hidden;text-overflow:ellipsis;font-size:11px;line-height:14px;white-space:nowrap}
+.hud-tools{display:none}.icon-button{flex:0 0 40px;width:40px;height:40px;border-radius:11px}.help-button,.audio-toggle{display:none}
+@media (max-width:350px){.slice-hud{gap:3px}.hud-values{gap:3px}.hud-pill,.hud-pill.energy{padding-inline:3px}.icon-button{flex-basis:36px;width:36px;height:40px}.brand-leaf{width:30px}}
+
+@media (max-height:720px){#yard-view .yard-scene{height:auto;min-height:0;aspect-ratio:4/5}.scene-character{width:clamp(66px,20vw,80px);height:clamp(76px,23vw,92px)}}
+@media (max-height:620px){#yard-view .yard-scene{height:auto;min-height:0;aspect-ratio:4/5}}

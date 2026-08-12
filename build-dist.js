@@ -219,7 +219,12 @@ for (const beastId of BEAST_IDS) {
 // Reuse all currently available merge and courtyard art, but tolerate a
 // checkout that has not generated one of the optional asset directories yet.
 copyDirectoryIfPresent('prototype/assets/art/match3', 'assets/art/match3');
-copyDirectoryIfPresent('prototype/assets/art/scenes', 'assets/art/scenes', (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp');
+const RELEASE_SCENES = new Set([
+  'bg_courtyard_buildingfree.webp',
+  'bg_courtyard_buildingfree_sunset.webp',
+  'bg_courtyard_buildingfree_moonlit.webp'
+]);
+copyDirectoryIfPresent('prototype/assets/art/scenes', 'assets/art/scenes', (relativeFile) => RELEASE_SCENES.has(toPosix(relativeFile)));
 copyDirectoryIfPresent('prototype/assets/audio', 'assets/audio');
 copyDirectoryIfPresent('prototype/assets/art/buildings', 'assets/art/buildings', (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp');
 

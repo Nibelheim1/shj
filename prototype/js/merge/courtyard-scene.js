@@ -49,7 +49,7 @@
     need: 'bubble',
     'need-bubble': 'bubble'
   };
-  var ACTIONS = ['idle', 'move', 'use', 'react', 'transform'];
+  var ACTIONS = ['idle', 'move', 'run', 'play', 'sit', 'sniff', 'inspect', 'use', 'react', 'transform'];
   var STATUS_KEYS = ['locked', 'producing', 'ready', 'care'];
   var OWNED_ATTRS = [
     'data-scene-controller', 'data-scene-kind', 'data-scene-id', 'data-world-x',
@@ -337,7 +337,14 @@
       var list = node && node.classList;
       if (!list) return classes;
       Array.prototype.forEach.call(list, function (name) {
-        if (/^(scene-|action-|is-|state-|status-|reaction-|motion-|stage-)/.test(name) || /^building-(locked|ready|producing|care|built|level-)/.test(name)) classes.push(name);
+        /* Only remove classes that this controller can have generated.
+           Structural author classes such as `scene-layer`, `scene-world`,
+           `scene-buildings` and `scene-character` define layout and must
+           survive every render.  The previous broad `scene-*` match removed
+           `scene-layer` from the background node, collapsing it to 0px. */
+        if (/^(scene-node-|action-|is-|state-|status-|reaction-|motion-|stage-)/.test(name) ||
+            /^scene-(background|ground|building|character|prop|fx|bubble)-/.test(name) ||
+            /^building-(locked|ready|producing|care|built|level-)/.test(name)) classes.push(name);
       });
       return classes;
     }
@@ -550,12 +557,20 @@
       }, []);
       var aliases = {
         move: ['action-moving', 'is-moving'],
+        run: ['action-moving', 'is-moving', 'action-running', 'is-running'],
+        play: ['action-using', 'is-using', 'action-playing', 'is-playing'],
+        sit: ['action-using', 'is-using', 'action-sitting', 'is-sitting'],
+        sniff: ['action-using', 'is-using', 'action-sniffing', 'is-sniffing'],
+        inspect: ['action-using', 'is-using', 'action-inspecting', 'is-inspecting'],
         use: ['action-using', 'is-using'],
         react: ['action-reacting', 'is-reacting'],
         transform: ['action-transforming', 'is-transforming']
       }[name] || [];
       setClasses(node, ['action-' + name, 'is-' + name].concat(aliases), classes.concat([
-        'action-moving', 'is-moving', 'action-using', 'is-using',
+        'action-moving', 'is-moving', 'action-running', 'is-running',
+        'action-playing', 'is-playing', 'action-sitting', 'is-sitting',
+        'action-sniffing', 'is-sniffing', 'action-inspecting', 'is-inspecting',
+        'action-using', 'is-using',
         'action-reacting', 'is-reacting', 'action-transforming', 'is-transforming'
       ]));
       safeSetAttr(node, 'data-action', name);
