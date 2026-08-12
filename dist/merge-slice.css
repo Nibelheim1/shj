@@ -104,6 +104,8 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 .route-tip { margin-left:auto; color:var(--coral-dark); font-size:8px; font-weight:900; white-space:nowrap; }
 .yard-scene { position:relative; min-height:300px; overflow:hidden; border:1px solid #72533b2b; border-radius:18px; background:linear-gradient(#fff3df1c,#fff0d61c),url('assets/art/scenes/bg_courtyard_buildingfree.webp') center/cover; box-shadow:var(--shadow); }
 .yard-sky-copy { position:relative; z-index:3; padding:11px 12px; max-width:245px; text-shadow:0 1px #fff8; }
+.yard-background-chip { position:absolute; top:8px; right:8px; z-index:25; max-width:48%; min-height:30px; padding:5px 9px; border:1px solid #e4b65f99; border-radius:999px; background:#fff8e8e8; box-shadow:0 3px 9px #72533b25; color:var(--coral-dark); font-size:9px; font-weight:900; line-height:1.1; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.yard-background-chip:active { transform:translateY(1px) scale(.98); }
 .yard-sky-copy h1 { font-size:18px; }
 .yard-sky-copy p { margin-top:3px; color:#795d4b; font-size:9px; }
 .yard-path { position:absolute; left:50%; bottom:-79px; width:174px; height:205px; transform:translateX(-50%); background:#f4e1b8b8; clip-path:ellipse(50% 70% at 50% 100%); }
@@ -138,7 +140,7 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 .yard-goal.done strong { color:#5d9460; }
 .goal-claim { display:block; width:100%; margin-top:6px; padding:5px; border:0; border-radius:99px; background:var(--coral); color:#fff; font-size:9px; font-weight:900; cursor:pointer; box-shadow:0 2px 0 var(--coral-dark); }
 .goal-claim:disabled { background:#c6b8aa; box-shadow:none; cursor:default; }
-.yard-quickbar { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; margin-top:6px; }
+.yard-quickbar { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; margin-top:6px; }
 .yard-quickbar button { min-height:28px; padding:5px 7px; border:1px solid #72533b2b; border-radius:9px; background:#fff8ed; color:var(--coral-dark); font-size:9px; font-weight:900; cursor:pointer; }
 .yard-quickbar button:active { transform:translateY(1px); }
 .progress-head{align-items:flex-start}.stage-chip{padding:4px 7px;border-radius:99px;background:#f8e3cb;color:var(--coral-dark);font-size:9px;font-weight:900}.progress-row{margin-top:7px;font-size:9px;font-weight:800}.progress-row>span{width:29px}.progress-row b{width:38px;text-align:right;font-size:8px}.meter{flex:1;height:8px;overflow:hidden;border-radius:99px;background:#f2e8df}.meter i{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#f3b08a,var(--coral));transition:width .4s}.meter.heal i{background:linear-gradient(90deg,#c8dfb7,var(--mint))}.yard-reward{margin-top:7px;padding:6px;border-radius:9px;background:#fff8ea;color:#88684d;font-size:8px;line-height:1.4}.compact-progress{padding:8px}
@@ -509,6 +511,9 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
    plaques instead of turning the courtyard back into a card list. */
 .scene-building{grid-template-columns:1fr;grid-template-rows:64px auto auto;width:clamp(104px,30vw,126px);height:91px;min-width:104px;min-height:91px;padding:0;border:0;background:transparent;box-shadow:none;text-align:center;overflow:visible}.scene-building .building-sprite{grid-row:1;width:100%;height:68px;margin:auto;border-radius:0;background:none;filter:drop-shadow(0 7px 5px #4b372744);overflow:visible}.scene-building .building-sprite img{width:100%;height:100%;object-fit:contain}.scene-building>b{justify-self:center;margin-top:-2px;padding:2px 7px;border:1px solid #72533b35;border-radius:99px;background:#fffaf0e8;box-shadow:0 2px 5px #4b37272b;font-size:9px}.scene-building>small{justify-self:center;margin-top:1px;padding:1px 5px;border-radius:99px;background:#fffaf0d9;font-size:7px}.scene-building:active{transform:translate(-50%,calc(-50% + 2px)) scale(.96)}.scene-building.is-ready{box-shadow:none}.world-state-bubble{right:3px;top:4px}.world-speech{top:38%;max-width:72%}@keyframes building-ready{to{transform:translate(-50%,-53%) scale(1.025)}}@keyframes building-upgrade{45%{transform:translate(-50%,-58%) scale(1.1);filter:brightness(1.25)}}
 @media (max-width:370px){.scene-building{width:100px;min-width:100px;height:84px;grid-template-rows:59px auto auto}.scene-building .building-sprite{width:100%;height:62px}.scene-building>b{font-size:8px}.scene-building>small{font-size:6px}}
+.yard-background-chip{transition:transform .16s,box-shadow .16s,background .16s}.yard-background-chip:hover{background:#fff4d8f5;box-shadow:0 4px 12px #72533b35}
+@media (max-width:370px){.yard-background-chip{top:6px;right:6px;min-height:27px;padding:4px 6px;font-size:8px;max-width:52%}}
+@media (max-height:620px){.yard-background-chip{top:5px;right:5px;min-height:24px;padding:3px 5px;font-size:7px}}
 
 /* Character animation must preserve the controller's foot-anchor transform.
    The legacy prototype keyframes translated only on X, which made an animated
