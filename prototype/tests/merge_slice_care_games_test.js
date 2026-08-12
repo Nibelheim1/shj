@@ -46,10 +46,10 @@ function assertHintLegal(game, hint) {
 }
 
 const DIFFICULTY_DIMENSIONS = {
-  easy: { match3: [6, 6, 5], link: [5, 6, 15] },
-  normal: { match3: [6, 6, 6], link: [6, 6, 18] },
-  hard: { match3: [6, 7, 6], link: [6, 8, 24] },
-  master: { match3: [7, 8, 6], link: [7, 8, 28] }
+  easy: { match3: [6, 6, 5], link: [5, 6, 15, 5] },
+  normal: { match3: [6, 6, 6], link: [6, 6, 18, 6] },
+  hard: { match3: [6, 7, 6], link: [6, 8, 24, 7] },
+  master: { match3: [7, 8, 6], link: [7, 8, 28, 8] }
 };
 
 function runDifficultyProfileChecks(Match3) {
@@ -59,7 +59,7 @@ function runDifficultyProfileChecks(Match3) {
     assert.strictEqual(link.cols, expected.link[0], difficulty + ' 连连看列数');
     assert.strictEqual(link.rows, expected.link[1], difficulty + ' 连连看行数');
     assert.strictEqual(link.totalPairs, expected.link[2], difficulty + ' 连连看对数');
-    assert.strictEqual(link.typeCount, 6, difficulty + ' 连连看图案种类');
+    assert.strictEqual(link.typeCount, expected.link[3], difficulty + ' 连连看图案种类随难度递增');
     assert.ok(link.hasMove(), difficulty + ' 连连看初盘可玩');
 
     const match3 = new Match3.Game('GROOM', { difficulty: difficulty });

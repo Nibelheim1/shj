@@ -1325,10 +1325,20 @@
   function careRulePreview(type, game) {
     if (type === 'groom') {
       var objectiveLabel = game.objective && typeof game.objective === 'object' ? game.objective.label : game.objective;
-      return (game.moveLimit ? game.moveLimit + ' 步 · ' : '') + esc(objectiveLabel || '完成关卡目标') + ' · 至少 ' + (game.minLegalMoves || 1) + ' 个候选交换';
+      return (game.typeCount ? game.typeCount + ' 种图标 · ' : '') + (game.moveLimit ? game.moveLimit + ' 步 · ' : '') + esc(objectiveLabel || '完成关卡目标') + ' · 至少 ' + (game.minLegalMoves || 1) + ' 个候选交换';
     }
     var shift = { none: '静态棋盘', down: '消除后下落', left: '消除后向左收拢', snake: '蛇形重排' }[game.layoutShift] || '动态布局';
-    return '最多 ' + game.maxTurns + ' 转 · ' + (game.allowOutside === false ? '禁走外圈' : '可走外圈') + ' · ' + shift + (game.lockedPairs ? ' · ' + game.lockedPairs + ' 组锁链' : '');
+    return (game.typeCount ? game.typeCount + ' 种图标 · ' : '') + '最多 ' + game.maxTurns + ' 转 · ' + (game.allowOutside === false ? '禁走外圈' : '可走外圈') + ' · ' + shift + (game.lockedPairs ? ' · ' + game.lockedPairs + ' 组锁链' : '');
+  }
+
+  function careGameGuide(type) {
+    if (type === 'groom') {
+      return '<div class="care-game-guide" role="note"><strong>先看懂棋子标记</strong>' +
+        '<div class="care-guide-row"><i class="care-guide-mark knot">×/2</i><span>毛结层数：需要通过相邻消除逐层解开；“2”表示还剩两层，不是要匹配两次。</span></div>' +
+        '<div class="care-guide-row"><i class="care-guide-mark line">↔↕</i><span>条纹块：消除整行或整列；○ 炸弹：清除周围 3×3；✦ 彩石：清除同色图标。</span></div>' +
+        '<div class="care-guide-row"><i class="care-guide-mark move">⇄</i><span>拖动相邻图标交换，三连即可消除；四连、五连或 L/T 形会制造特殊块。</span></div></div>';
+    }
+    return '<div class="care-game-guide" role="note"><strong>连连看玩法</strong><div class="care-guide-row"><i class="care-guide-mark move">↗</i><span>点击两个相同图标连线；路线最多转弯次数和是否能走外圈以所选难度卡为准。</span></div><div class="care-guide-row"><i class="care-guide-mark line">!</i><span>提示、重排、灵铃会显示剩余次数；锁定图标需要先完成前置配对。</span></div></div>';
   }
 
   function openCareDifficulty(type) {
@@ -1343,7 +1353,7 @@
       var unlocked = Core.careDifficultyUnlocked(state, id);
       var game = difficulty[type];
       return '<button class="care-difficulty-card ' + (recommended === id ? 'recommended' : '') + '" data-care-difficulty="' + id + '" type="button" ' + (unlocked ? '' : 'disabled') + '>' +
-        '<span><b>' + esc(difficulty.name) + (recommended === id ? ' · 推荐' : '') + '</b><small>' + game.cols + '×' + game.rows + ' · ' + game.timeLimit + ' 秒</small></span>' +
+        '<span><b>' + esc(difficulty.name) + (recommended === id ? ' · 推荐' : '') + '</b><small>' + game.cols + '×' + game.rows + ' · ' + (game.typeCount || 6) + ' 种图标 · ' + game.timeLimit + ' 秒</small></span>' +
         '<em class="care-rule-preview">' + (unlocked ? careRulePreview(type, game) : esc(careUnlockText(id))) + '</em>' +
         '<em>' + (unlocked ? esc(careRewardPreview(difficulty)) : '') + '</em></button>';
     }).join('');
@@ -1351,7 +1361,7 @@
     var modal = modalShell('<span class="eyebrow">难度与奖励公开 · 不会暗调</span><h2>' + esc(careTypeLabel(type)) + '</h2>' +
       '<p>' + esc(careOrderRelevance(type)) + '</p><div class="care-run-budget"><b>今日素材奖励</b><span>' + Math.max(0, rewardCap - used) + ' / ' + rewardCap + ' 局</span></div>' +
       (preferred ? '' : '<div class="care-preference-warning">当前住客偏好其他设施：本局可练习并记录成绩，但不推进病历、不发合成素材。</div>') +
-      '<div class="care-difficulty-list">' + cards + '</div><p class="care-effective-rule">有效参与门槛：' + (type === 'groom' ? '3 次有效交换' : '连成 4 对') + '。达到门槛后超时也有保底；直接跳过无数值奖励。</p>', 'task-modal care-difficulty-modal');
+      careGameGuide(type) + '<div class="care-difficulty-list">' + cards + '</div><p class="care-effective-rule">有效参与门槛：' + (type === 'groom' ? '3 次有效交换' : '连成 4 对') + '。达到门槛后超时也有保底；直接跳过无数值奖励。</p>', 'task-modal care-difficulty-modal');
     if (!modal) return { ok: false, reason: 'modal-unavailable' };
     modal.addEventListener('click', function (event) {
       var button = event.target.closest('[data-care-difficulty]');

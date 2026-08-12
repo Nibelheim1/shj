@@ -17,13 +17,16 @@
 
   var COLS = 6;
   var ROWS = 8;
-  var TYPES = 6;
+  var TYPES = 8;
   var PAIRS = 24;
   var GAME_SECONDS = 45;
   var TIME_PICKUP_SECONDS = 5;
   var TIME_PICKUP_LIFE = 4.5;
-  var SYMBOLS = ['🍎', '🪁', '🎈', '🧸', '🌸', '⭐'];
-  var NAMES = ['play_01', 'play_02', 'play_03', 'play_04', 'play_05', 'play_06'];
+  var SYMBOLS = ['🍎', '🪁', '🎈', '🥁', '⭐', '🍬', '🪀', '🎐'];
+  // The first six icons are the original toy set.  The last two are unlocked
+  // by the harder profiles so the board gains visual variety without making
+  // the first session unnecessarily noisy.
+  var NAMES = ['play_01', 'play_02', 'play_03', 'play_04', 'play_05', 'play_06', 'play_07', 'play_08'];
   var DEFAULT_ASSET_ROOT = 'assets/art/match3/';
   var imageCache = {};
 
@@ -32,7 +35,7 @@
    * individual dimension/count through opts. */
   var DIFFICULTIES = {
     easy: {
-      cols: 5, rows: 6, typeCount: 6, pairs: 15, maxTurns: 3, allowOutside: true,
+      cols: 5, rows: 6, typeCount: 5, pairs: 15, maxTurns: 3, allowOutside: true,
       layoutShift: 'none', lockedPairs: 0, comboWindow: 2.2, timeLimit: 60, timePickupBudget: 4,
       itemCounts: { hint: 4, shuffle: 2, bell: 2 }
     },
@@ -42,12 +45,12 @@
       itemCounts: { hint: 3, shuffle: 2, bell: 1 }
     },
     hard: {
-      cols: 6, rows: 8, typeCount: 6, pairs: 24, maxTurns: 2, allowOutside: false,
+      cols: 6, rows: 8, typeCount: 7, pairs: 24, maxTurns: 2, allowOutside: false,
       layoutShift: 'left', lockedPairs: 2, comboWindow: 1.45, timeLimit: 46, timePickupBudget: 2,
       itemCounts: { hint: 2, shuffle: 1, bell: 1 }
     },
     master: {
-      cols: 7, rows: 8, typeCount: 6, pairs: 28, maxTurns: 1, allowOutside: false,
+      cols: 7, rows: 8, typeCount: 8, pairs: 28, maxTurns: 1, allowOutside: false,
       layoutShift: 'snake', lockedPairs: 3, comboWindow: 1.1, timeLimit: 40, timePickupBudget: 1,
       itemCounts: { hint: 1, shuffle: 1, bell: 0 }
     }

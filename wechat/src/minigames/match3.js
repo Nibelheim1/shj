@@ -28,9 +28,9 @@
   // 特殊块类型
   var SP = { NONE: 0, LINE_H: 1, LINE_V: 2, BOMB: 3, RAINBOW: 4 };
 
-  // Each match-3 tile uses a tier-1 merge icon. The five families provide
-  // distinct silhouettes without exposing higher-tier upgrade artwork.
-  var TIER1_ICONS = ['herb_01', 'tool_01', 'feed_01', 'groom_01', 'play_01'];
+  // Keep the board visually clean by using one coherent tier-1 grooming set;
+  // higher-tier merge artwork never appears inside the mini-game.
+  var TIER1_ICONS = ['groom_01', 'groom_02', 'groom_03', 'groom_04', 'groom_05', 'groom_06'];
   var SETS = {
     FEED: TIER1_ICONS.slice(),
     CLEAN: TIER1_ICONS.slice(),
@@ -1343,61 +1343,32 @@
     if (img && img.width) ctx.drawImage(img, cx - isz / 2, cy - isz / 2, isz, isz);
     else { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, isz / 2, 0, Math.PI * 2); ctx.fill(); }
 
-    // 特殊块标记
-    if (s.sp === SP.LINE_H || s.sp === SP.LINE_V) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
-      var half = size * 0.3;
-      ctx.beginPath();
-      if (s.sp === SP.LINE_H) { ctx.moveTo(cx - half, cy); ctx.lineTo(cx + half, cy); }
-      else { ctx.moveTo(cx, cy - half); ctx.lineTo(cx, cy + half); }
-      ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      if (s.sp === SP.LINE_H) { ctx.moveTo(cx - half, cy - 4); ctx.lineTo(cx + half, cy - 4); ctx.moveTo(cx - half, cy + 4); ctx.lineTo(cx + half, cy + 4); }
-      else { ctx.moveTo(cx - 4, cy - half); ctx.lineTo(cx - 4, cy + half); ctx.moveTo(cx + 4, cy - half); ctx.lineTo(cx + 4, cy + half); }
-      ctx.stroke();
-    } else if (s.sp === SP.BOMB) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(cx, cy, size * 0.3, 0, Math.PI * 2); ctx.stroke();
-      ctx.setLineDash && ctx.setLineDash([3, 4]);
-      ctx.beginPath(); ctx.arc(cx, cy, size * 0.38, 0, Math.PI * 2); ctx.stroke();
-      ctx.setLineDash && ctx.setLineDash([]);
-    } else if (s.sp === SP.RAINBOW) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 1.8;
-      for (var a = 0; a < 4; a++) {
-        var ang = a * Math.PI / 4;
-        ctx.beginPath();
-        ctx.moveTo(cx - Math.cos(ang) * size * 0.33, cy - Math.sin(ang) * size * 0.33);
-        ctx.lineTo(cx + Math.cos(ang) * size * 0.33, cy + Math.sin(ang) * size * 0.33);
-        ctx.stroke();
-      }
+    // 状态标记使用小角标，避免遮住一阶图标主体；角标只表达玩法状态。
+    var game = this;
+    function drawBadge(label, fill, ink, left) {
+      var badge = Math.max(15, Math.min(22, size * 0.30));
+      var bx = left ? x + 3 : x + size - badge - 3;
+      var by = y + 3;
+      ctx.save();
+      game._roundRect(ctx, bx, by, badge, badge, badge * 0.34);
+      ctx.fillStyle = fill; ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.lineWidth = 1;
+      if (ctx.stroke) ctx.stroke();
+      ctx.fillStyle = ink; ctx.font = '900 ' + Math.max(10, Math.floor(badge * 0.62)) + 'px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (ctx.fillText) ctx.fillText(label, bx + badge / 2, by + badge / 2 + 0.5);
+      ctx.restore();
     }
 
-    // 污渍（CLEAN）
-    if (s.dirt) {
-      ctx.fillStyle = 'rgba(120,90,60,0.55)';
-      ctx.beginPath();
-      ctx.arc(x + size * 0.38, y + size * 0.4, size * 0.16, 0, Math.PI * 2);
-      ctx.arc(x + size * 0.6, y + size * 0.6, size * 0.13, 0, Math.PI * 2);
-      ctx.arc(x + size * 0.5, y + size * 0.34, size * 0.1, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    // 毛结（GROOM）
-    if (s.knot > 0) {
-      ctx.strokeStyle = '#7A4FB0'; ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(cx - isz * 0.18, cy - isz * 0.05);
-      ctx.lineTo(cx + isz * 0.18, cy + isz * 0.05);
-      ctx.moveTo(cx + isz * 0.18, cy - isz * 0.05);
-      ctx.lineTo(cx - isz * 0.18, cy + isz * 0.05);
-      ctx.stroke();
-      if (s.knot > 1) {
-        ctx.fillStyle = '#7A4FB0';
-        ctx.font = '700 ' + Math.round(size * 0.22) + 'px sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('2', cx + isz * 0.28, cy - isz * 0.28);
-      }
-    }
+    // 特殊块：横/竖线、炸弹、彩石仍保留，但改成不遮挡图案的角标。
+    if (s.sp === SP.LINE_H) drawBadge('↔', '#D889AC', '#FFF8FA', false);
+    else if (s.sp === SP.LINE_V) drawBadge('↕', '#D889AC', '#FFF8FA', false);
+    else if (s.sp === SP.BOMB) drawBadge('○', '#C47FC6', '#FFF8FA', false);
+    else if (s.sp === SP.RAINBOW) drawBadge('✦', '#8CB9D5', '#FFF8FA', false);
+
+    // 污渍与毛结也只占用角落；毛结的“×/2”就是需要解开的层数。
+    if (s.dirt) drawBadge('·', '#B9916C', '#FFF8FA', true);
+    if (s.knot > 0) drawBadge(s.knot > 1 ? '2' : '×', '#E5D4F7', '#6D459A', true);
     ctx.restore();
   };
 
