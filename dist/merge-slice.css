@@ -185,6 +185,11 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 .facility-modal-grid{display:grid;gap:6px;margin-top:9px}.facility-level{padding:7px;border:1px solid #72533b20;border-radius:10px;background:#fff7ed;font-size:9px}.facility-level.current{border-color:#80aa78;background:#edf7e9}.facility-level b{display:block}.facility-level small{color:var(--muted)}
 .background-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}.background-card{min-width:0;overflow:hidden;border:1px solid #72533b20;border-radius:10px;background:#fff8ef}.background-card.active{border-color:var(--coral);box-shadow:0 0 0 2px #df795944}.background-card img{display:block;width:100%;height:92px;object-fit:cover}.background-card-body{padding:5px}.background-card strong,.background-card small{display:block;overflow:hidden;text-overflow:ellipsis}.background-card strong{font-size:9px;white-space:nowrap}.background-card small{min-height:22px;margin-top:2px;color:var(--muted);font-size:7px;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}.background-card button{width:100%;margin-top:5px;padding:5px 3px;border:0;border-radius:99px;background:var(--coral);color:#fff;font-size:8px;font-weight:900;cursor:pointer}.background-card button:disabled{background:#c6b8aa;cursor:default}.background-shop-modal{max-height:min(calc(100dvh - 24px),500px);overflow:auto}
 .outcome-card{text-align:center}.outcome-card img{display:block;width:150px;height:150px;margin:auto;object-fit:contain}.outcome-card .task-reward{line-height:1.5}
+.modal-backdrop.beast-milestone-backdrop{padding:0;background:linear-gradient(145deg,#33241dcc,#7d4f42ee)}
+.care-modal.beast-milestone-modal{width:100vw;max-width:540px;height:100dvh;max-height:100dvh;border-radius:0;padding:clamp(22px,6svh,56px) clamp(18px,6vw,42px);display:grid;place-items:center;overflow:auto;background:radial-gradient(circle at 50% 20%,#fff8df 0,#fffaf1 42%,#f4dfcf 100%)}
+.beast-milestone-card{width:min(100%,420px);text-align:center;display:flex;flex-direction:column;align-items:center;gap:clamp(8px,2svh,16px)}
+.beast-milestone-card h2{font-size:clamp(22px,6vw,32px);margin:0;color:#6e4034}.beast-milestone-art{width:min(72vw,310px);height:min(48svh,330px);display:grid;place-items:center}.beast-milestone-art img{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 16px 16px #8b574433)}
+.beast-milestone-line{margin:0;max-width:34em;color:#704d41;font-size:clamp(15px,4vw,20px);line-height:1.65;font-weight:700}.beast-milestone-secret{max-width:34em;color:#9a7665;font-size:12px;line-height:1.45}.beast-milestone-card .modal-action{width:min(100%,280px);margin-top:4px}
 .offline-list{display:grid;gap:5px;margin-top:9px}.offline-list div{display:flex;justify-content:space-between;padding:6px;border-radius:8px;background:#f6eadc;font-size:9px}
 .slice-nav .nav-goal{min-width:84px}.slice-nav .nav-button{flex:0 0 44px;width:44px}.modal-action.danger{background:#9d6659}.muted-copy{color:var(--muted);font-size:8px;line-height:1.45}
 
@@ -589,3 +594,112 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 @media (max-height:720px){#yard-view .yard-scene{height:auto;min-height:0;aspect-ratio:4/5}.scene-character{width:clamp(66px,20vw,80px);height:clamp(76px,23vw,92px)}}
 @media (max-height:620px){#yard-view .yard-scene{height:auto;min-height:0;aspect-ratio:4/5}}
 @media (max-width:370px){.scene-building{width:clamp(108px,34vw,122px);min-width:108px;height:102px;grid-template-rows:78px auto auto}.scene-building .building-sprite{height:82px}}
+
+/* v8 responsive flow: keep flex/grid children from collapsing into each
+   other on short phones.  Every height below is derived from the current
+   small viewport; content that cannot fit gets its own scroll surface rather
+   than being clipped by the app shell. */
+html,body{min-block-size:100%;}
+body{min-block-size:100svh;}
+#slice-app{
+  inline-size:min(100%,480px);
+  block-size:100dvh;
+  min-block-size:100svh;
+  max-block-size:100dvh;
+  min-height:0;
+}
+#slice-main{
+  flex:1 1 0;
+  min-block-size:0;
+  block-size:auto;
+  padding-block:clamp(4px,1.2svh,10px) max(clamp(4px,1.2svh,10px),env(safe-area-inset-bottom));
+}
+.view.active{
+  flex:1 1 0;
+  min-block-size:0;
+  block-size:auto;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+
+/* Merge view: the action hint and board are fixed-size flex items in the
+   current viewport, so the hint can never be squeezed to a few pixels. */
+#merge-view{min-block-size:0;gap:clamp(3px,1svh,7px);}
+#merge-view>.view-heading,
+#merge-view>#next-action,
+#merge-view>.order-panel,
+#merge-view>.board-card,
+#merge-view>.storage-card{flex:0 0 auto;min-block-size:0;}
+#merge-view>#next-action{
+  block-size:auto;
+  min-block-size:clamp(28px,5.5svh,54px);
+  max-block-size:clamp(42px,9svh,64px);
+  overflow:hidden;
+  line-height:1.3;
+}
+#merge-view .merge-board{
+  inline-size:min(100%,clamp(184px,calc((100svh - 340px)*.88),340px));
+  max-inline-size:100%;
+  max-block-size:none;
+  block-size:auto;
+}
+
+/* A shorter viewport gets a smaller board before any surrounding text is
+   compressed.  This is a continuous scale, not a fixed phone breakpoint. */
+@media (max-height:720px){
+  #merge-view>#next-action{
+    min-block-size:clamp(26px,5.2svh,42px);
+    max-block-size:clamp(38px,7.5svh,48px);
+  }
+  #merge-view .merge-board{
+    inline-size:min(100%,clamp(184px,calc((100svh - 340px)*.88),320px));
+  }
+}
+@media (max-height:620px){
+  #merge-view .merge-board{
+    inline-size:min(100%,clamp(184px,calc((100svh - 348px)*.9),248px));
+  }
+}
+
+/* Yard view: preserve the authored tall scene, but cap the dense goal card
+   to the remaining viewport and let that card scroll internally. */
+#yard-view{min-block-size:0;overflow-y:auto;gap:clamp(3px,1svh,8px);}
+#yard-view .yard-scene{
+  flex:0 0 auto;
+  min-block-size:clamp(196px,118vw,480px);
+  block-size:auto;
+  aspect-ratio:4 / 5;
+}
+#yard-view .yard-goal-panel{
+  flex:0 0 auto;
+  min-block-size:0;
+  max-block-size:clamp(168px,min(34svh,calc(100svh - 380px)),300px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+
+/* Catalogue cards form the scroll region on very short devices instead of
+   forcing the heading and ending card to overlap. */
+.view#codex-view:not(.active){display:none;}
+#codex-view.active{
+  display:grid;
+  grid-template-rows:auto auto minmax(0,1fr) auto;
+  min-block-size:0;
+  gap:clamp(4px,1svh,8px);
+  overflow:hidden;
+}
+#codex-view>#chapter-goal,
+#codex-view>#ending-card{min-block-size:0;margin-block:0;}
+#codex-view>#codex-list{
+  min-block-size:0;
+  margin-block:0;
+  overflow-y:auto;
+  align-content:start;
+  overscroll-behavior:contain;
+}
+
+/* Care games use the same dynamic viewport units as the app shell, including
+   when the browser chrome expands or collapses during a touch gesture. */
+#care-game-root{block-size:100dvh;min-block-size:100svh;}
+.care-game-shell{inline-size:100%;block-size:100%;}

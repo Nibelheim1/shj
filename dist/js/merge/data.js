@@ -409,7 +409,7 @@
     costs: [0, 220, 520], healRewards: [8, 10, 12], beastXpMultipliers: [1, 1, 1.1]
   };
   var playFacility = {
-    id: 'play', name: '陪玩亭', levels: playLevels,
+    id: 'play', name: '嬉游亭', levels: playLevels,
     costs: [0, 240, 560]
   };
   herbLevels.forEach(function (level) { herbFacility[level.level] = level; });
@@ -441,7 +441,11 @@
 
   /* H5 照料小游戏与主棋盘共享的唯一奖励表。奖励数组表示依次掉落的素材阶位。 */
   var careGames = {
-    rewardRunsPerFacility: 3,
+    /* Mini-game material rewards are intentionally unlimited per day. Keep
+     * the legacy numeric field for older readers, while the explicit flag
+     * lets the core/UI distinguish unlimited from a finite cap. */
+    rewardRunsUnlimited: true,
+    rewardRunsPerFacility: 0,
     affectionDailyCap: 8,
     energyCosts: { easy: 1, normal: 2, hard: 3, master: 4 },
     historyLimit: 5,
@@ -506,7 +510,7 @@
       clinic: { id: 'clinic', name: '医馆', levels: clinicLevels, art: ['assets/art/buildings/clinic_lv1.webp', 'assets/art/buildings/clinic_lv2.webp', 'assets/art/buildings/clinic_lv3.webp'] },
       herb: { id: 'herb', name: '百草园', levels: herbLevels, art: ['assets/art/buildings/herb_lv1.webp', 'assets/art/buildings/herb_lv2.webp', 'assets/art/buildings/herb_lv3.webp'] },
       groom: { id: 'groom', name: '梳洗台', levels: groomLevels, art: ['assets/art/buildings/groom_lv1.webp', 'assets/art/buildings/groom_lv2.webp', 'assets/art/buildings/groom_lv3.webp'] },
-      play: { id: 'play', name: '陪玩亭', levels: playLevels, art: ['assets/art/buildings/play_lv1.webp', 'assets/art/buildings/play_lv2.webp', 'assets/art/buildings/play_lv3.webp'] }
+      play: { id: 'play', name: '嬉游亭', levels: playLevels, art: ['assets/art/buildings/play_lv1.webp', 'assets/art/buildings/play_lv2.webp', 'assets/art/buildings/play_lv3.webp'] }
     },
     growth: { requirements: genericGrowthRequirements, growthOrderRewards: { 1: { beastExp: 20, heal: 8, jade: 25 }, 2: { beastExp: 30, heal: 8, jade: 40 }, 3: { beastExp: 40, heal: 8, jade: 60 }, 4: { beastExp: 50, heal: 8, jade: 85 } } },
     signIn: {

@@ -1113,6 +1113,8 @@
     state.daily.orders++;
     state.weekly.orders++;
     var transformed = false;
+    var acquiredBeastId = null;
+    var acquiredLevel = null;
 
     if (order.kind === 'growth') {
       var growthEntry = state.beastCases[order.beastId];
@@ -1130,7 +1132,11 @@
         symptom: '成长经验、疗愈和暖玉都已经记下。', requirements: [], rewards: {}
       });
     } else if (order.slot === 'recruit' || order.kind === 'recruit') {
-      activateCase(state, order.beastId, now);
+      var recruited = activateCase(state, order.beastId, now);
+      if (recruited && recruited.ok && !recruited.alreadyActive) {
+        acquiredBeastId = order.beastId;
+        acquiredLevel = state.beastCases[order.beastId] && state.beastCases[order.beastId].level || 1;
+      }
     } else if (order.kind === 'supply') {
       state.daily.supplyCompleted = Math.min(3, state.daily.supplyCompleted + 1);
     } else if (order.kind === 'story') {
@@ -1149,14 +1155,22 @@
       }
       state.firstStoryCompleted = true;
     } else if (order.kind === 'arrival') {
-      activateCase(state, order.beastId, now);
+      var arrived = activateCase(state, order.beastId, now);
+      if (arrived && arrived.ok && !arrived.alreadyActive) {
+        acquiredBeastId = order.beastId;
+        acquiredLevel = state.beastCases[order.beastId] && state.beastCases[order.beastId].level || 1;
+      }
     }
 
     state.activeOrders[index] = null;
     ensureOrders(state, rng);
     depositPendingRewards(state);
     syncLegacyAliases(state);
-    return { ok: true, order: order, rewards: clone(rewards), transformed: transformed, levelsGained: levelsGained, level: state.level, previousLevel: previousLevel };
+    return {
+      ok: true, order: order, rewards: clone(rewards), transformed: transformed,
+      acquired: !!acquiredBeastId, acquiredBeastId: acquiredBeastId, acquiredLevel: acquiredLevel,
+      levelsGained: levelsGained, level: state.level, previousLevel: previousLevel
+    };
   }
 
   function missingRequirements(state, order) {
@@ -1298,7 +1312,7 @@
   function recommendCareDifficulty(state, careType) {
     var config = DATA.careGames || {};
     var order = config.order || ['easy', 'normal', 'hard', 'master'];
-    var unlocked = order.filter(function (id) { return careDifficultyUnlocked(state, id); });
+    var unlocked = order.filter(function (id) { return careDifficultyUnlocked(state, id, careType); });
     var history = state.daily && state.daily.careHistory && state.daily.careHistory[careType] || [];
     if (!history.length) return unlocked[unlocked.length > 1 ? 1 : 0] || 'easy';
     var last = history[history.length - 1];
@@ -1335,8 +1349,10 @@
     var grade = careGrade(outcome, perf);
     var qualified = outcome !== 'skip' && effectiveActions >= requiredActions;
     var used = Math.max(0, number(state.daily.careRewards[careType], 0));
-    var cap = Math.max(1, number(DATA.careGames.rewardRunsPerFacility, 15));
-    var rewarded = qualified && used < cap;
+    var rawCap = Number(DATA.careGames && DATA.careGames.rewardRunsPerFacility);
+    var unlimited = !!(DATA.careGames && DATA.careGames.rewardRunsUnlimited) || !isFinite(rawCap) || rawCap <= 0;
+    var cap = unlimited ? Infinity : Math.max(1, rawCap);
+    var rewarded = qualified && (unlimited || used < cap);
     var affectionGained = 0;
     var healGained = 0;
     if (qualified) {
@@ -1363,10 +1379,10 @@
       syncLegacyAliases(state);
       return {
         ok: true, outcome: outcome, difficulty: difficulty, grade: grade, qualified: qualified,
-        noReward: true, noProgress: true, practice: qualified && used >= cap,
-        rewardLimited: qualified && used >= cap, effectiveActions: effectiveActions,
+        noReward: true, noProgress: true, practice: !unlimited && qualified && used >= cap,
+        rewardLimited: !unlimited && qualified && used >= cap, effectiveActions: effectiveActions,
         requiredActions: requiredActions, rewardItems: [], rewardCount: 0,
-        remainingRewardRuns: Math.max(0, cap - used), recommendedDifficulty: recommendCareDifficulty(state, careType),
+        remainingRewardRuns: unlimited ? null : Math.max(0, cap - used), recommendedDifficulty: recommendCareDifficulty(state, careType),
         affectionGained: affectionGained, healGained: healGained,
         energy: state.energy, at: number(now, Date.now())
       };
@@ -1419,7 +1435,7 @@
       requiredActions: requiredActions,
       affectionGained: affectionGained,
       healGained: healGained,
-      remainingRewardRuns: Math.max(0, cap - state.daily.careRewards[careType]),
+      remainingRewardRuns: unlimited ? null : Math.max(0, cap - state.daily.careRewards[careType]),
       recommendedDifficulty: recommendCareDifficulty(state, careType),
       energy: state.energy,
       at: number(now, Date.now())

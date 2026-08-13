@@ -180,6 +180,13 @@
     return Core.getItemName(item.family, item.tier);
   }
 
+  function careRewardBudget() {
+    var config = DATA.careGames || {};
+    var raw = Number(config.rewardRunsPerFacility);
+    var unlimited = config.rewardRunsUnlimited === true || !isFinite(raw) || raw <= 0;
+    return { unlimited: unlimited, cap: unlimited ? Infinity : Math.max(1, raw) };
+  }
+
   function routeMarkup(family, currentTier) {
     var definition = familyDef(family);
     if (!definition) return '';
@@ -395,7 +402,7 @@
         '<article class="how-to-play-item"><b>① 拖动合成</b><span>拖动素材到空格整理；拖到同类同阶素材上，会自动合成更高阶物品。长按素材可看完整路线。</span></article>' +
         '<article class="how-to-play-item"><b>② 完成委托</b><span>医馆始终保留三个委托槽。金色边框是主线，点开卡片可查看前置、需求和奖励，集齐后点击交付。</span></article>' +
         '<article class="how-to-play-item"><b>③ 体力怎么用</b><span>生成素材和开始小游戏都会消耗体力。体力为零时仍可合成、交付委托和领取庭院产出。</span></article>' +
-        '<article class="how-to-play-item"><b>④ 庭院照料</b><span>点击梳洗台或亭子后选择难度。每个设施每天前三局有效挑战产出合成素材；之后仍可练习并刷新成绩。</span></article>' +
+        '<article class="how-to-play-item"><b>④ 庭院照料</b><span>点击梳洗台或嬉游亭后选择难度。达到有效操作门槛即可获得合成素材，奖励次数不限；练习与高难度挑战都会记录成绩。</span></article>' +
         '<article class="how-to-play-item"><b>⑤ 有效挑战结算</b><span>消消乐至少完成 3 次有效交换、连连看至少连成 4 对。达到门槛后即使时间到也有保底；直接跳过只保留陪伴反馈，不推进病历或奖励。</span></article>' +
         '<article class="how-to-play-item"><b>⑥ 继续成长</b><span>好感、疗愈和经验都达标后，点击突破解锁新形态与专属故事；高等级也能换回喜欢的旧形态。</span></article>' +
       '</div>' +
@@ -704,9 +711,9 @@
     var groom = state.facilities.groom;
     var clinic = state.facilities.clinic;
     var play = state.facilities.play;
-    var cap = Number(DATA.careGames && DATA.careGames.rewardRunsPerFacility) || 15;
-    var groomLeft = Math.max(0, cap - Number(state.daily.careRewards && state.daily.careRewards.groom || 0));
-    var playLeft = Math.max(0, cap - Number(state.daily.careRewards && state.daily.careRewards.play || 0));
+    var budget = careRewardBudget();
+    var groomLeft = budget.unlimited ? Infinity : Math.max(0, budget.cap - Number(state.daily.careRewards && state.daily.careRewards.groom || 0));
+    var playLeft = budget.unlimited ? Infinity : Math.max(0, budget.cap - Number(state.daily.careRewards && state.daily.careRewards.play || 0));
     function buildingScale(level, foreground) {
       var levelScale = [1, 1.06, 1.12][Math.max(0, Math.min(2, Number(level || 1) - 1))];
       return (foreground ? 1.03 : 0.95) * levelScale;
@@ -720,8 +727,8 @@
       buildings: {
         clinic: { x: 20, y: buildingY(clinic.level, false), scale: buildingScale(clinic.level, false), level: clinic.level, image: DATA.buildings.clinic.art[clinic.level - 1], state: 'ready', bubble: '疗愈 +' + DATA.facilities.clinic.levels[clinic.level - 1].healReward },
         herb: { x: 20, y: buildingY(herb.level, true), scale: buildingScale(herb.level, true), level: herb.level, image: DATA.buildings.herb.art[herb.level - 1], state: herb.stored.length ? 'ready' : 'producing', bubble: herb.stored.length ? '可领取 ×' + herb.stored.length : 'Lv' + herb.level + ' 生产中' },
-        groom: { x: 80, y: buildingY(groom.level, true), scale: buildingScale(groom.level, true), level: groom.level, image: DATA.buildings.groom.art[groom.level - 1], state: groomLeft ? 'care' : 'practice', bubble: groomLeft ? groomLeft + ' 局奖励' : '练习模式' },
-        play: { x: 80, y: buildingY(play.level, false), scale: buildingScale(play.level, false), level: play.level, image: DATA.buildings.play.art[play.level - 1], state: playLeft ? 'care' : 'practice', bubble: playLeft ? playLeft + ' 局奖励' : '练习模式' }
+        groom: { x: 80, y: buildingY(groom.level, true), scale: buildingScale(groom.level, true), level: groom.level, image: DATA.buildings.groom.art[groom.level - 1], state: budget.unlimited || groomLeft ? 'care' : 'practice', bubble: budget.unlimited ? '不限奖励' : (groomLeft ? groomLeft + ' 局奖励' : '练习模式') },
+        play: { x: 80, y: buildingY(play.level, false), scale: buildingScale(play.level, false), level: play.level, image: DATA.buildings.play.art[play.level - 1], state: budget.unlimited || playLeft ? 'care' : 'practice', bubble: budget.unlimited ? '不限奖励' : (playLeft ? playLeft + ' 局奖励' : '练习模式') }
       },
       character: { x: 50, y: 84, groundY: 84, scale: 0.78, src: beastArt(display.definition, display.entry), stage: display.entry.activeFormLevel - 1, state: display.entry.transformed ? 'transformed' : 'idle', transformed: !!display.entry.transformed },
       speech: display.definition.dialogue[stage]
@@ -865,12 +872,12 @@
       button.classList.toggle('care-unneeded', !available);
       /* A non-preferred facility is still playable; only its care reward is withheld. */
       button.setAttribute('aria-disabled', 'false');
-      var rewardCap = Number(DATA.careGames && DATA.careGames.rewardRunsPerFacility) || 15;
+      var rewardBudget = careRewardBudget();
       var rewardUsed = Number(state.daily.careRewards && state.daily.careRewards[type]) || 0;
-      var rewardLeft = Math.max(0, rewardCap - rewardUsed);
-      button.title = available ? '选择' + careTypeLabel(type) + '难度；今日剩余 ' + rewardLeft + ' 局素材奖励' : '可以体验' + careTypeLabel(type) + '，素材照常获得，但不会增加当前神兽好感';
+      var rewardLeft = rewardBudget.unlimited ? Infinity : Math.max(0, rewardBudget.cap - rewardUsed);
+      button.title = available ? (rewardBudget.unlimited ? '选择' + careTypeLabel(type) + '难度；今日素材奖励不限' : '选择' + careTypeLabel(type) + '难度；今日剩余 ' + rewardLeft + ' 局素材奖励') : '可以体验' + careTypeLabel(type) + '，素材照常获得，但不会增加当前神兽好感';
       var caption = button.querySelector('small');
-      if (caption) caption.textContent = available ? (rewardLeft ? '今日奖励 ' + rewardLeft + '/' + rewardCap + ' · 选难度' : '奖励已领 · 练习模式') : '可玩 · 不增加好感';
+      if (caption) caption.textContent = available ? (rewardBudget.unlimited ? '今日素材奖励不限 · 选难度' : (rewardLeft ? '今日奖励 ' + rewardLeft + '/' + rewardBudget.cap + ' · 选难度' : '奖励已领 · 练习模式')) : '可玩 · 不增加好感';
     });
     renderDaily();
     renderFacilities();
@@ -1205,7 +1212,11 @@
     if (result && result.levelsGained) message += ' · 升级 Lv.' + result.level + '，体力上限 +' + result.levelsGained;
     if (!mutate(result, message, null, 'order')) return result;
     closeModal();
-    if (result.transformed || state.pendingTransformation) root.setTimeout(showTransformation, 120);
+    if (result.acquired && result.acquiredBeastId) {
+      root.setTimeout(function () {
+        showBeastMilestone(result.acquiredBeastId, result.acquiredLevel || 1, 'acquired');
+      }, 120);
+    } else if (result.transformed || state.pendingTransformation) root.setTimeout(showTransformation, 120);
     return result;
   }
 
@@ -1329,7 +1340,7 @@
 
   function openFacilitiesDrawer() {
     var source = q('building-list');
-    var modal = modalShell('<span class="eyebrow">庭院建设</span><h2>让每一栋房子都长出新模样</h2><p>医馆提升疗愈，百草园持续产药，梳洗台和陪玩亭会开放更高难度与辅助奖励。</p><div class="building-list drawer-building-list">' + (source ? source.innerHTML : '') + '</div>', 'task-modal yard-drawer');
+    var modal = modalShell('<span class="eyebrow">庭院建设</span><h2>让每一栋房子都长出新模样</h2><p>医馆提升疗愈，百草园持续产药，梳洗台和嬉游亭会开放更高难度与辅助奖励。</p><div class="building-list drawer-building-list">' + (source ? source.innerHTML : '') + '</div>', 'task-modal yard-drawer');
     if (!modal) return;
     modal.addEventListener('click', function (event) {
       var button = event.target.closest('[data-facility]');
@@ -1399,7 +1410,7 @@
   }
 
   function careUnlockText(id, type) {
-    var facility = type === 'play' ? '陪玩亭' : '梳洗台';
+    var facility = type === 'play' ? '嬉游亭' : '梳洗台';
     if (id === 'hard') return facility + '升至 Lv2 后解锁';
     if (id === 'master') return facility + '升至 Lv3 后解锁';
     return '默认开放';
@@ -1430,11 +1441,11 @@
     if (!display.entry) return { ok: false, reason: 'wrong-care-type' };
     var config = DATA.careGames || {};
     var recommended = Core.recommendCareDifficulty(state, type);
-    var rewardCap = Number(config.rewardRunsPerFacility) || 15;
+    var rewardBudget = careRewardBudget();
     var used = Number(state.daily.careRewards && state.daily.careRewards[type]) || 0;
     var cards = (config.order || []).map(function (id) {
       var difficulty = config.difficulties[id];
-      var unlocked = Core.careDifficultyUnlocked(state, id);
+      var unlocked = Core.careDifficultyUnlocked(state, id, type);
       var game = difficulty[type];
       return '<button class="care-difficulty-card ' + (recommended === id ? 'recommended' : '') + '" data-care-difficulty="' + id + '" type="button" ' + (unlocked ? '' : 'disabled') + '>' +
         '<span><b>' + esc(difficulty.name) + (recommended === id ? ' · 推荐' : '') + '</b><small>' + game.cols + '×' + game.rows + ' · ' + (game.typeCount || 6) + ' 种图标 · ' + game.timeLimit + ' 秒</small></span>' +
@@ -1443,7 +1454,7 @@
     }).join('');
     var preferred = display.definition.careTypes.indexOf(type) >= 0;
     var modal = modalShell('<span class="eyebrow">挑一个合适的挑战</span><h2>' + esc(careTypeLabel(type)) + '</h2>' +
-      '<p>' + esc(careOrderRelevance(type)) + '</p><div class="care-run-budget"><b>今日素材奖励</b><span>' + Math.max(0, rewardCap - used) + ' / ' + rewardCap + ' 局</span></div>' +
+      '<p>' + esc(careOrderRelevance(type)) + '</p><div class="care-run-budget"><b>今日素材奖励</b><span>' + (rewardBudget.unlimited ? '不限' : Math.max(0, rewardBudget.cap - used) + ' / ' + rewardBudget.cap + ' 局') + '</span></div>' +
       (preferred ? '' : '<div class="care-preference-warning">当前住客偏好其他设施：本局仍可获得素材和疗愈，但不会增加好感。</div>') +
       careGameGuide(type) + '<div class="care-difficulty-list">' + cards + '</div><p class="care-effective-rule">体力消耗：轻松1 · 标准2 · 困难3 · 大师4。达到有效门槛后超时也有保底；离开或跳过不会返还体力。</p>', 'task-modal care-difficulty-modal');
     if (!modal) return { ok: false, reason: 'modal-unavailable' };
@@ -1472,7 +1483,7 @@
     var Engine = type === 'groom' ? root.Match3 : root.LinkGame;
     var gameRoot = q('care-game-root');
     if (!Engine || !Engine.Game || !gameRoot) {
-      toast(type === 'groom' ? '梳洗台正在备好软刷，请稍后再试' : '陪玩亭正在摆放玩具，请稍后再试');
+      toast(type === 'groom' ? '梳洗台正在备好软刷，请稍后再试' : '嬉游亭正在摆放玩具，请稍后再试');
       return { ok: false, reason: 'game-unavailable' };
     }
     var started = Core.beginCare(state, type, difficulty, display.id);
@@ -1634,7 +1645,7 @@
     var score = Math.max(0, Math.round(Number(summary && summary.score) || 0));
     var perf = Math.round(Math.max(0, Math.min(1, Number(summary && summary.perf) || 0)) * 100);
     var label = result.rewardLimited ? '练习完成' : result.noReward ? (result.qualified ? '体验完成' : '尚未达到有效门槛') : '评级 ' + (result.grade || 'B');
-    var rewardNote = result.rewardLimited ? '今日该设施的 3 局素材奖励已领取；成绩仍会记录，明天再来。' : result.noReward ? (outcome === 'skip' ? '这次先休息，体力不会返还；准备好后再挑战。' : !result.qualified ? '还差一些有效操作；达到门槛后即使超时也有保底。' : '今天的素材已经领完，成绩仍被记下。') : '评级 ' + result.grade + ' · 好感 +' + (result.affectionGained || 0) + ' · 疗愈 +' + (result.healGained || 0) + ' · 今日还可领取 ' + result.remainingRewardRuns + ' 局素材。';
+    var rewardNote = result.rewardLimited ? '今日该设施的素材奖励已领取；成绩仍会记录，明天再来。' : result.noReward ? (outcome === 'skip' ? '这次先休息，体力不会返还；准备好后再挑战。' : !result.qualified ? '还差一些有效操作；达到门槛后即使超时也有保底。' : '本局未达到奖励条件，但仍会记录成绩。') : '评级 ' + result.grade + ' · 好感 +' + (result.affectionGained || 0) + ' · 疗愈 +' + (result.healGained || 0) + ' · ' + (result.remainingRewardRuns == null ? '今日素材奖励不限。' : '今日还可领取 ' + result.remainingRewardRuns + ' 局素材。');
     var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · 本局回顾</span><h2>' + esc(beastDef(session.beastId).name) + (result.noReward ? '陪你玩了一局' : '把奖励收进了药匣') + '</h2><img src="' + esc(characterAssetPath(beastArt(beastDef(session.beastId), state.beastCases[session.beastId]))) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div><div class="task-reward">' + (result.noReward ? '' : '获得 ') + rewardText + '<br /><small>' + rewardNote + '</small></div><button class="modal-action" data-care-continue type="button">继续</button></div>', 'task-modal');
     if (modal) modal.querySelector('[data-care-continue]').addEventListener('click', function () {
       closeModal();
@@ -1643,12 +1654,55 @@
     return result;
   }
 
+  function beastMilestoneLine(definition, level, story) {
+    if (story && typeof story === 'object') {
+      if (story.text) return story.text;
+      if (story.line) return story.line;
+      if (story.secret) return story.secret;
+    }
+    var dialogue = definition && definition.dialogue || [];
+    if (dialogue.length) return dialogue[Math.min(dialogue.length - 1, Math.max(0, level - 1))];
+    return definition && definition.lore || '谢谢你把我带回灯火里。';
+  }
+
+  function showBeastMilestone(beastId, level, reason, story) {
+    var definition = beastDef(beastId);
+    var entry = state && state.beastCases && state.beastCases[beastId];
+    if (!definition || !entry) return null;
+    level = Math.max(1, Math.min(5, Number(level) || Number(entry.level) || 1));
+    var levelConfig = definition.levels && definition.levels[level - 1];
+    var portrait = levelConfig && levelConfig.portrait || beastArt(definition, Object.assign({}, entry, { activeFormLevel: level }));
+    var acquired = reason === 'acquired';
+    var title = acquired ? '新的神兽来到庭院' : '神兽形态升级';
+    var line = beastMilestoneLine(definition, level, story);
+    if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') {
+      courtyardScene.moveCharacterTo({ id: 'resident' }, acquired ? 'greet' : 'transform');
+    }
+    var modal = modalShell(
+      '<div class="beast-milestone-card">' +
+        '<span class="eyebrow">' + esc(title) + '</span>' +
+        '<h2>' + esc(definition.name) + ' · Lv' + level + '</h2>' +
+        '<div class="beast-milestone-art"><img src="' + esc(characterAssetPath(portrait)) + '" alt="' + esc(definition.name) + ' Lv' + level + '立绘" /></div>' +
+        '<p class="beast-milestone-line">“' + esc(line) + '”</p>' +
+        '<small class="beast-milestone-secret">' + esc(levelConfig && levelConfig.title || definition.lore || '图鉴已记录新的形态') + '</small>' +
+        '<button class="modal-action" data-beast-milestone-close type="button">收下这句心里话</button>' +
+      '</div>',
+      'beast-milestone-modal'
+    );
+    if (!modal) return null;
+    if (modal.parentNode) modal.parentNode.classList.add('beast-milestone-backdrop');
+    var close = modal.querySelector('[data-beast-milestone-close]');
+    if (close) close.addEventListener('click', closeModal);
+    return modal;
+  }
+
   function showTransformation() {
     var beastId = state.pendingTransformation;
     if (!beastId) return;
     if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') courtyardScene.moveCharacterTo({ id: 'resident' }, 'transform');
     var definition = beastDef(beastId);
-    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">治疗节点完成 · 岗位解锁</span><h2>' + esc(definition.name) + '完成蜕变</h2><img src="' + esc(characterAssetPath(definition.art[3])) + '" alt="' + esc(definition.name) + '蜕变形态" /><p>' + esc(definition.dialogue[3]) + '</p><div class="task-reward">新岗位：' + esc(definition.job.title) + '<br />' + esc(jobDescription(definition)) + '</div><button class="modal-action" data-ack-transform type="button">一起迎接下一位住客</button></div>', 'task-modal transformation-modal');
+    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">治疗节点完成 · 岗位解锁</span><h2>' + esc(definition.name) + '完成蜕变</h2><img src="' + esc(characterAssetPath(definition.art[3])) + '" alt="' + esc(definition.name) + '蜕变形态" /><p>' + esc(definition.dialogue[3]) + '</p><div class="task-reward">新岗位：' + esc(definition.job.title) + '<br />' + esc(jobDescription(definition)) + '</div><button class="modal-action" data-ack-transform type="button">一起迎接下一位住客</button></div>', 'task-modal transformation-modal beast-milestone-modal');
+    if (modal && modal.parentNode) modal.parentNode.classList.add('beast-milestone-backdrop');
     if (modal) modal.querySelector('[data-ack-transform]').addEventListener('click', function () {
       Core.acknowledgeTransformation(state, beastId);
       saveState(); closeModal(); render(); switchView('merge-view');
@@ -1688,7 +1742,10 @@
       }
       if (event.target.closest('[data-level-up-beast]')) {
         var result = Core.levelUpBeast(state, beastId);
-        if (mutate(result, result.ok ? '新形态与专属故事已解锁' : null, null, 'care')) { closeModal(); openCodexDetails(beastId); }
+        if (mutate(result, result.ok ? '新形态与专属故事已解锁' : null, null, 'care')) {
+          closeModal();
+          showBeastMilestone(result.beastId, result.level, 'level-up', result.story);
+        }
       }
     });
     return modal;
@@ -1863,6 +1920,7 @@
     openOrderDetails: openOrderDetails,
     openYardCharacterDetails: openYardCharacterDetails,
     runYardAutonomy: runYardAutonomy,
-    showTransformation: showTransformation
+    showTransformation: showTransformation,
+    showBeastMilestone: showBeastMilestone
   };
 }));
