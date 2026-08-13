@@ -196,6 +196,10 @@
       masteryDuplicateUsed: false,
       careRewards: { groom: 0, play: 0 },
       affectionGained: {},
+      /* Per-resident activity ledger.  It is deliberately separate from the
+         reward counter: a played game still counts as a visit even if it did
+         not meet the material-reward threshold. */
+      beastInteractions: {},
       growthCompleted: {},
       supplyCompleted: 0,
       completedObjective: false,
@@ -516,6 +520,7 @@
     state.daily.careRewards = Object.assign({ groom: 0, play: 0 }, state.daily.careRewards || {});
     state.daily.careHistory = Object.assign({ groom: [], play: [] }, state.daily.careHistory || {});
     state.daily.affectionGained = Object.assign({}, state.daily.affectionGained || {});
+    state.daily.beastInteractions = Object.assign({}, state.daily.beastInteractions || {});
     state.daily.growthCompleted = Object.assign({}, state.daily.growthCompleted || {});
     state.daily.supplyCompleted = Math.max(0, Math.floor(number(state.daily.supplyCompleted, 0)));
     ['groom', 'play'].forEach(function (type) {
@@ -532,6 +537,14 @@
     state.growthCounters = raw.growthCounters && typeof raw.growthCounters === 'object' ? clone(raw.growthCounters) : {};
     state.careTransactions = {};
     state.migrations = Object.assign({}, base.migrations, raw.migrations || {});
+    /* Existing saves predate the attendance ledger.  Seed one protected visit
+       so installing this update never retroactively removes good will. */
+    if (!(raw.daily && raw.daily.beastInteractions) && !state.migrations.affectionAttendanceV1) {
+      BEAST_IDS.forEach(function (beastId) {
+        if (isYardBeastAvailable(state, beastId)) state.daily.beastInteractions[beastId] = { migration: 1 };
+      });
+      state.migrations.affectionAttendanceV1 = true;
+    }
     if (number(raw.version, 0) < 6 && !(raw.migrations && raw.migrations.v6FacilityRefund)) {
       var legacyHerbLevel = Math.floor(number(raw.facilities && raw.facilities.herb && raw.facilities.herb.level != null ? raw.facilities.herb.level : raw.buildings && raw.buildings.herb, 0));
       var legacyGroomLevel = Math.floor(number(raw.facilities && raw.facilities.groom && raw.facilities.groom.level != null ? raw.facilities.groom.level : raw.buildings && raw.buildings.groom, 0));
@@ -1108,6 +1121,53 @@
     return { ok: true, beastId: beastId };
   }
 
+  function interactionLedger(state) {
+    if (!state.daily) state.daily = freshDaily(isoDate(Date.now()));
+    if (!state.daily.beastInteractions || typeof state.daily.beastInteractions !== 'object') {
+      state.daily.beastInteractions = {};
+    }
+    return state.daily.beastInteractions;
+  }
+
+  function markBeastInteraction(state, beastId, source) {
+    if (!beastId || !state.beastCases || !state.beastCases[beastId]) return false;
+    var ledger = interactionLedger(state);
+    var record = ledger[beastId] && typeof ledger[beastId] === 'object' ? ledger[beastId] : {};
+    record[source || 'other'] = Math.max(0, Math.floor(number(record[source || 'other'], 0))) + 1;
+    ledger[beastId] = record;
+    return true;
+  }
+
+  function hasBeastInteraction(state, beastId) {
+    var record = state.daily && state.daily.beastInteractions && state.daily.beastInteractions[beastId];
+    if (!record || typeof record !== 'object') return false;
+    return Object.keys(record).some(function (key) { return number(record[key], 0) > 0; });
+  }
+
+  function grantAffection(state, beastId, amount) {
+    var entry = state.beastCases && state.beastCases[beastId];
+    if (!entry) return 0;
+    if (!state.daily) state.daily = freshDaily(isoDate(Date.now()));
+    state.daily.affectionGained = Object.assign({}, state.daily.affectionGained || {});
+    var cap = Math.max(1, number(DATA.careGames && DATA.careGames.affectionDailyCap, 100));
+    var used = Math.max(0, number(state.daily.affectionGained[beastId], 0));
+    var gained = Math.min(Math.max(0, cap - used), Math.max(0, Math.floor(number(amount, 0))));
+    if (!gained) return 0;
+    entry.affection = Math.max(0, number(entry.affection, 0)) + gained;
+    entry.trust = entry.affection;
+    entry.bond = clamp(1 + Math.floor(entry.affection / 20), 1, 5);
+    state.daily.affectionGained[beastId] = used + gained;
+    return gained;
+  }
+
+  function affectionRewardForOrder(order) {
+    if (!order || !order.beastId) return 0;
+    if (order.kind === 'story') return 15;
+    if (order.kind === 'growth') return 10;
+    if (order.kind === 'care') return 6;
+    return 0;
+  }
+
   function deliverOrder(state, orderId, rng, now) {
     if (!Array.isArray(state.activeOrders)) state.activeOrders = [];
     /* Contract tests and migration repair may inject a valid permanent order.
@@ -1126,9 +1186,11 @@
     state.totalOrders = Math.max(0, number(state.totalOrders, 0)) + 1;
     state.daily.orders++;
     state.weekly.orders++;
+    if (order.beastId) markBeastInteraction(state, order.beastId, 'order');
     var transformed = false;
     var acquiredBeastId = null;
     var acquiredLevel = null;
+    var affectionGained = 0;
 
     if (order.kind === 'growth') {
       var growthEntry = state.beastCases[order.beastId];
@@ -1181,6 +1243,8 @@
       }
     }
 
+    affectionGained = grantAffection(state, order.beastId, affectionRewardForOrder(order));
+
     state.activeOrders[index] = null;
     ensureOrders(state, rng);
     depositPendingRewards(state);
@@ -1188,6 +1252,7 @@
     return {
       ok: true, order: order, rewards: clone(rewards), transformed: transformed,
       acquired: !!acquiredBeastId, acquiredBeastId: acquiredBeastId, acquiredLevel: acquiredLevel,
+      affectionGained: affectionGained,
       levelsGained: levelsGained, level: state.level, previousLevel: previousLevel
     };
   }
@@ -1367,6 +1432,9 @@
     var perf = clamp(number(game && game.perf, outcome === 'mastery' ? 1 : outcome === 'complete' ? 0.6 : 0), 0, 1);
     var grade = careGrade(outcome, perf);
     var qualified = outcome !== 'skip' && effectiveActions >= requiredActions;
+    /* A finished round is a visit even if it did not clear the material-reward
+       gate.  Skipping before play is intentionally not counted. */
+    if (outcome !== 'skip') markBeastInteraction(state, beastId, 'care');
     var used = Math.max(0, number(state.daily.careRewards[careType], 0));
     var rawCap = Number(DATA.careGames && DATA.careGames.rewardRunsPerFacility);
     var unlimited = !!(DATA.careGames && DATA.careGames.rewardRunsUnlimited) || !isFinite(rawCap) || rawCap <= 0;
@@ -1375,16 +1443,11 @@
     var affectionGained = 0;
     var healGained = 0;
     if (qualified) {
-      var preferred = definition.preferredCare || definition.careTypes[0];
-      if (careType === preferred) {
-        var gradeAffection = { S: 4, A: 3, B: 2, floor: 1 };
-        var affectionUsed = Math.max(0, number(state.daily.affectionGained[beastId], 0));
-        var affectionCap = Math.max(1, number(DATA.careGames.affectionDailyCap, 8));
-        affectionGained = Math.min(Math.max(0, affectionCap - affectionUsed), gradeAffection[grade] || 1);
-        entry.affection = Math.max(0, number(entry.affection, 0)) + affectionGained;
-        entry.trust = entry.affection;
-        state.daily.affectionGained[beastId] = affectionUsed + affectionGained;
-      }
+      /* Every resident can bond through either care game.  Preferences remain
+         useful for story requirements and material routing, not as a hard
+         good-will gate. */
+      var gradeAffection = { S: 4, A: 3, B: 2, floor: 1 };
+      affectionGained = grantAffection(state, beastId, gradeAffection[grade] || 1);
       var clinicLevel = state.facilities && state.facilities.clinic ? clamp(number(state.facilities.clinic.level, 1), 1, 3) : 1;
       var clinicConfig = DATA.facilities.clinic.levels[clinicLevel - 1];
       healGained = Math.max(0, number(clinicConfig.healReward, 8));
@@ -1421,7 +1484,6 @@
     state.daily.careRewards[careType] = used + 1;
     var firstCare = !entry.careDone;
     entry.careCount++;
-    entry.bond = clamp(1 + Math.floor(entry.affection / 20), 1, 5);
     if (firstCare) {
       entry.careDone = true;
       entry.trust = entry.affection;
@@ -1576,12 +1638,45 @@
     };
   }
 
+  function calendarDayNumber(date) {
+    var parts = String(date || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!parts) return NaN;
+    return Math.floor(Date.UTC(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3])) / DAY_MS);
+  }
+
+  function applyMissedInteractionDecay(state, nextDate) {
+    if (!state.daily || !state.daily.date) return {};
+    var previousDay = calendarDayNumber(state.daily.date);
+    var nextDay = calendarDayNumber(nextDate);
+    var elapsedDays = isFinite(previousDay) && isFinite(nextDay) ? nextDay - previousDay : 1;
+    if (elapsedDays <= 0) return {};
+    var lost = {};
+    BEAST_IDS.forEach(function (beastId) {
+      if (!isYardBeastAvailable(state, beastId)) return;
+      /* Assess the recorded day, then each elapsed calendar day with no
+         possible recorded activity.  This keeps a multi-day absence honest
+         without penalising residents the player has not met. */
+      var missedDays = elapsedDays - (hasBeastInteraction(state, beastId) ? 1 : 0);
+      if (missedDays <= 0) return;
+      var entry = state.beastCases[beastId];
+      var amount = Math.min(Math.max(0, number(entry.affection, 0)), missedDays * 10);
+      if (!amount) return;
+      entry.affection -= amount;
+      entry.trust = entry.affection;
+      entry.bond = clamp(1 + Math.floor(entry.affection / 20), 1, 5);
+      lost[beastId] = amount;
+    });
+    return lost;
+  }
+
   function ensureDaily(state, date, now, rng) {
     date = date || isoDate(number(now, Date.now()));
     ensureWeekly(state, now);
     var changed = !state.daily || state.daily.date !== date;
     if (!changed) return state.daily;
+    var affectionLost = applyMissedInteractionDecay(state, date);
     state.daily = freshDaily(date);
+    state.daily.affectionLost = affectionLost;
     var recruit = Array.isArray(state.activeOrders) ? state.activeOrders.filter(function (order) {
       return order && (order.slot === 'recruit' || order.slot === 'story');
     })[0] : null;
@@ -1903,6 +1998,7 @@
     mergeItems: mergeItems,
     moveBoardItem: moveBoardItem,
     deliverOrder: deliverOrder,
+    affectionRewardForOrder: affectionRewardForOrder,
     recordCare: recordCare,
     beginCare: beginCare,
     refundCare: refundCare,

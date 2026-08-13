@@ -867,17 +867,18 @@
     ['groom', 'play'].forEach(function (type) {
       var button = document.querySelector('[data-care="' + type + '"]');
       if (!button) return;
-      var available = !!display.entry && definition.careTypes.indexOf(type) >= 0;
+      /* Both facilities are valid bonding activities for every resident.
+         Their listed preferences still guide story-material requirements. */
+      var available = !!display.entry;
       button.classList.toggle('care-recommended', available);
-      button.classList.toggle('care-unneeded', !available);
-      /* A non-preferred facility is still playable; only its care reward is withheld. */
+      button.classList.remove('care-unneeded');
       button.setAttribute('aria-disabled', 'false');
       var rewardBudget = careRewardBudget();
       var rewardUsed = Number(state.daily.careRewards && state.daily.careRewards[type]) || 0;
       var rewardLeft = rewardBudget.unlimited ? Infinity : Math.max(0, rewardBudget.cap - rewardUsed);
-      button.title = available ? (rewardBudget.unlimited ? '选择' + careTypeLabel(type) + '难度；今日素材奖励不限' : '选择' + careTypeLabel(type) + '难度；今日剩余 ' + rewardLeft + ' 局素材奖励') : '可以体验' + careTypeLabel(type) + '，素材照常获得，但不会增加当前神兽好感';
+      button.title = available ? (rewardBudget.unlimited ? '选择' + careTypeLabel(type) + '难度；完成有效互动可增加好感，今日上限 100' : '选择' + careTypeLabel(type) + '难度；完成有效互动可增加好感') : '当前没有可互动的神兽';
       var caption = button.querySelector('small');
-      if (caption) caption.textContent = available ? (rewardBudget.unlimited ? '今日素材奖励不限 · 选难度' : (rewardLeft ? '今日奖励 ' + rewardLeft + '/' + rewardBudget.cap + ' · 选难度' : '奖励已领 · 练习模式')) : '可玩 · 不增加好感';
+      if (caption) caption.textContent = available ? (rewardBudget.unlimited ? '素材奖励不限 · 两种互动均加好感' : (rewardLeft ? '今日奖励 ' + rewardLeft + '/' + rewardBudget.cap + ' · 可增加好感' : '素材已领 · 互动仍加好感')) : '暂无可互动的神兽';
     });
     renderDaily();
     renderFacilities();
@@ -982,7 +983,7 @@
       return '<article class="codex-card ' + (discovered ? '' : 'locked') + '" data-beast-id="' + beast.id + '">' +
         '<div class="codex-art"><img loading="lazy" src="' + esc(characterAssetPath(beastArt(beast, entry))) + '" alt="' + esc(beast.name) + '大图立绘" /><b>' + (discovered ? esc(levelConfig && levelConfig.title || beast.stageNames[entry.stage]) : '等待来信') + '</b></div>' +
         '<div class="codex-copy"><h2>' + (discovered ? esc(beast.name) : '未结识 · ' + esc(beast.name)) + '</h2><p>' + (discovered ? esc(beast.lore) : '解锁信物：' + esc(unlock)) + '</p>' +
-        '<div class="codex-care"><strong>照料偏好：' + esc(careGuide) + '</strong><small>偏好玩法的评级会增加好感</small></div>' +
+        '<div class="codex-care"><strong>专属素材：' + esc(careGuide) + '</strong><small>消消乐、连连看和专属委托都增加好感；每日上限 100，未互动次日 -10</small></div>' +
         '<div class="codex-growth">Lv' + entry.level + '/5 · 好感 ' + entry.affection + (next ? '/' + next.affection : '') + ' · 疗愈 ' + entry.heal + (next ? '/' + next.heal : '') + ' · 经验 ' + entry.exp + (next ? '/' + next.exp : '') + '</div>' +
         '<div class="codex-job">点击查看大图、故事与形态</div></div></article>';
     }).join('');
@@ -1203,12 +1204,13 @@
     closeModal();
     render();
     switchView('yard-view');
-    toast('已定位主线异兽 · 点击偏好设施完成一次有效照料');
+    toast('已定位主线异兽 · 完成任一小游戏的有效互动即可推进');
   }
 
   function deliver(id) {
     var result = Core.deliverOrder(state, id, Math.random, Date.now());
     var message = '委托完成 · 新进展已记录';
+    if (result && result.affectionGained) message += ' · ' + beastDef(result.order.beastId).name + '好感 +' + result.affectionGained;
     if (result && result.levelsGained) message += ' · 升级 Lv.' + result.level + '，体力上限 +' + result.levelsGained;
     if (!mutate(result, message, null, 'order')) return result;
     closeModal();
@@ -1225,10 +1227,9 @@
     if (!order) return;
     if (order.kind === 'care_gate') {
       var gateBeast = beastDef(order.beastId);
-      var gateCare = gateBeast && gateBeast.careTypes ? gateBeast.careTypes.map(careTypeLabel).join(' / ') : '偏好设施';
       var gateModal = modalShell('<span class="eyebrow">伙伴的照料心愿</span><h2>' + esc(order.title) + '</h2><p class="task-symptom">' + esc(order.symptom || '') + '</p>' +
         '<div class="order-prerequisite"><b>主线前置</b><span>' + esc(prerequisiteText(order)) + '</span></div>' +
-        '<div class="care-gate-panel"><strong>去庭院陪陪它吧</strong><span>为 ' + esc(gateBeast ? gateBeast.name : '当前异兽') + ' 完成一次有效照料。偏好设施：' + esc(gateCare) + '。</span><small>不同难度消耗 1–4 点体力；达到有效门槛后，超时仍有保底。</small></div>' +
+        '<div class="care-gate-panel"><strong>去庭院陪陪它吧</strong><span>为 ' + esc(gateBeast ? gateBeast.name : '当前异兽') + ' 在任一设施完成一次有效照料。消消乐和连连看都能增加好感。</span><small>不同难度消耗 1–4 点体力；达到有效门槛后，超时仍有保底。</small></div>' +
         '<div class="task-reward">完成节点：推进主线并解锁下一段疗愈</div><button class="modal-action" data-care-gate-detail type="button">去庭院照料</button>', 'task-modal care-gate-modal');
       if (gateModal) gateModal.querySelector('[data-care-gate-detail]').addEventListener('click', function () { focusCareGate(order); });
       return;
@@ -1236,13 +1237,14 @@
     var can = Core.canDeliver(state, order);
     var roll = rerollInfo();
     var rerollAvailable = roll.remaining > 0;
+    var orderAffection = Core.affectionRewardForOrder(order);
     var modal = modalShell('<span class="eyebrow">' + kindLabel(order.kind) + '委托</span><h2>' + esc(order.title) + '</h2><p class="task-symptom">' + esc(order.symptom || '') + '</p>' +
       (order.mainline ? '<div class="order-prerequisite"><b>主线前置</b><span>' + esc(prerequisiteText(order)) + '</span></div>' : '') +
       '<div class="task-needs">' + order.requirements.map(function (need) {
         var item = Core.makeItem(need.family, need.tier);
         return '<div class="task-need-row" data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托详情"><img src="' + esc(itemPath(item)) + '" alt="" /><span><strong>' + esc(item.name) + '</strong><small>' + esc(familyDef(need.family).name) + ' · ' + need.tier + '阶 · 来源：' + esc(sourceLabelForFamily(need.family)) + '</small></span><b>' + countNeed(need) + '/' + need.count + '</b></div>';
       }).join('') + '</div><div class="task-source-note">同类同阶二合一；每种物品都标明了具体来源，小游戏材料需要在对应设施中获得。委托每日自动刷新，刷新页面不会改变槽位；手动刷新消耗今日次数。</div>' +
-      '<div class="task-reward">完成奖励：◆' + (order.rewards.jade || 0) + ' · 经验 ' + (order.rewards.xp || 0) + '</div>' +
+      '<div class="task-reward">完成奖励：◆' + (order.rewards.jade || 0) + ' · 经验 ' + (order.rewards.xp || 0) + (orderAffection ? ' · 好感 +' + orderAffection : '') + '</div>' +
       '<button class="modal-action" data-modal-deliver type="button" ' + (can ? '' : 'disabled') + '>' + (can ? '立即交付' : '素材尚未齐全') + '</button>' +
       ((order.slot === 'supply' || order.slot === 'care') ? '<button class="modal-secondary" data-reroll="' + order.slot + '" type="button" ' + (rerollAvailable ? '' : 'disabled') + '>免费刷新 ' + roll.remaining + '/' + roll.max + '</button>' : ''), 'task-modal');
     if (!modal) return;
@@ -1452,10 +1454,9 @@
         '<em class="care-rule-preview">' + (unlocked ? careRulePreview(type, game) : esc(careUnlockText(id, type))) + '</em>' +
         '<em>' + (unlocked ? esc(careRewardPreview(difficulty)) : '') + '</em></button>';
     }).join('');
-    var preferred = display.definition.careTypes.indexOf(type) >= 0;
     var modal = modalShell('<span class="eyebrow">挑一个合适的挑战</span><h2>' + esc(careTypeLabel(type)) + '</h2>' +
       '<p>' + esc(careOrderRelevance(type)) + '</p><div class="care-run-budget"><b>今日素材奖励</b><span>' + (rewardBudget.unlimited ? '不限' : Math.max(0, rewardBudget.cap - used) + ' / ' + rewardBudget.cap + ' 局') + '</span></div>' +
-      (preferred ? '' : '<div class="care-preference-warning">当前住客偏好其他设施：本局仍可获得素材和疗愈，但不会增加好感。</div>') +
+      '<div class="care-preference-warning">两种互动都会增加当前神兽好感；完成它的专属委托同样会增加。每只神兽每天最多获得 100 点，全天没有互动则次日减少 10 点。</div>' +
       careGameGuide(type) + '<div class="care-difficulty-list">' + cards + '</div><p class="care-effective-rule">体力消耗：轻松1 · 标准2 · 困难3 · 大师4。达到有效门槛后超时也有保底；离开或跳过不会返还体力。</p>', 'task-modal care-difficulty-modal');
     if (!modal) return { ok: false, reason: 'modal-unavailable' };
     modal.addEventListener('click', function (event) {
@@ -1479,7 +1480,6 @@
     }
     var difficultyConfig = DATA.careGames && DATA.careGames.difficulties[difficulty];
     if (!difficultyConfig) return { ok: false, reason: 'unknown-difficulty' };
-    var rewardEligible = display.definition.careTypes.indexOf(type) >= 0;
     var Engine = type === 'groom' ? root.Match3 : root.LinkGame;
     var gameRoot = q('care-game-root');
     if (!Engine || !Engine.Game || !gameRoot) {
@@ -1493,7 +1493,7 @@
 
     gameRoot.classList.add('is-open');
     gameRoot.setAttribute('aria-hidden', 'false');
-    var warning = rewardEligible ? '' : '<div class="care-game-warning" role="status">当前异兽偏好' + esc((display.definition.careTypes || []).map(careTypeLabel).join(' / ')) + '；本局仍有素材和疗愈奖励，但不会增加好感</div>';
+    var warning = '';
     gameRoot.innerHTML = '<section class="care-game-shell ' + (type === 'groom' ? 'match3-shell' : 'link-shell') + '" role="dialog" aria-modal="true" aria-label="' + (type === 'groom' ? '梳理消消乐' : '陪玩连连看') + '">' + warning + '<canvas id="care-game-canvas" tabindex="0" aria-label="' + (type === 'groom' ? '滑动交换简洁梳洗图案，规划步数、制造特殊块并完成毛结目标' : '点击两个相同图案，遵守本档转折、外圈和动态布局规则') + '"></canvas></section>';
     var canvas = q('care-game-canvas');
     var context = canvas && canvas.getContext ? canvas.getContext('2d') : null;
@@ -1517,7 +1517,6 @@
       width: 390,
       height: 844,
       difficulty: difficulty,
-      rewardEligible: rewardEligible,
       listeners: {},
       settled: false
     };

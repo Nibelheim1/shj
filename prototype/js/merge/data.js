@@ -446,7 +446,8 @@
      * lets the core/UI distinguish unlimited from a finite cap. */
     rewardRunsUnlimited: true,
     rewardRunsPerFacility: 0,
-    affectionDailyCap: 8,
+    /* Both care games and beast-specific commissions share this daily cap. */
+    affectionDailyCap: 100,
     energyCosts: { easy: 1, normal: 2, hard: 3, master: 4 },
     historyLimit: 5,
     effectiveActions: { groom: 3, play: 4 },
