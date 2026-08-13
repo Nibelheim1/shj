@@ -37,31 +37,31 @@
    * individual dimension/count through opts. */
   var DIFFICULTIES = {
     easy: {
-      cols: 5, rows: 6, typeCount: 6, pairs: 15, maxTurns: 3, allowOutside: true,
-      layoutShift: 'none', lockedPairs: 0, comboWindow: 2.2, timeLimit: 60, timePickupBudget: 4,
+      cols: 6, rows: 4, typeCount: 6, pairs: 12, maxTurns: 3, allowOutside: true,
+      layoutShift: 'none', lockedPairs: 0, comboWindow: 2.2, timeLimit: 70, timePickupBudget: 4,
       goalCount: 1,
       specialPairs: { bomb: 1, ice: 1, color: 1 },
       itemCounts: { hint: 4, shuffle: 2, bell: 2 }
     },
     normal: {
-      cols: 6, rows: 6, typeCount: 8, pairs: 18, maxTurns: 2, allowOutside: true,
-      layoutShift: 'down', lockedPairs: 1, comboWindow: 1.8, timeLimit: 52, timePickupBudget: 3,
+      cols: 8, rows: 4, typeCount: 6, pairs: 16, maxTurns: 2, allowOutside: true,
+      layoutShift: 'down', lockedPairs: 1, comboWindow: 1.8, timeLimit: 80, timePickupBudget: 3,
       goalCount: 2,
       specialPairs: { bomb: 1, ice: 1, color: 1 },
       itemCounts: { hint: 3, shuffle: 2, bell: 1 }
     },
     hard: {
-      cols: 6, rows: 8, typeCount: 9, pairs: 24, maxTurns: 2, allowOutside: false,
-      layoutShift: 'left', lockedPairs: 2, comboWindow: 1.45, timeLimit: 46, timePickupBudget: 2,
+      cols: 8, rows: 5, typeCount: 6, pairs: 20, maxTurns: 2, allowOutside: true,
+      layoutShift: 'left', lockedPairs: 2, comboWindow: 1.45, timeLimit: 90, timePickupBudget: 2,
       goalCount: 2,
       specialPairs: { bomb: 2, ice: 1, color: 1 },
       itemCounts: { hint: 2, shuffle: 1, bell: 1 }
     },
     master: {
-      // Master combines a dense 8×8 board, ten icon types, one-turn paths,
+      // Master combines a dense board and six highly legible icon silhouettes,
       // alternating gravity, six progressive locks and goal pressure.
-      cols: 8, rows: 8, typeCount: 10, pairs: 32, maxTurns: 1, allowOutside: false,
-      layoutShift: 'cascade', lockedPairs: 6, comboWindow: 0.8, timeLimit: 36, timePickupBudget: 0,
+      cols: 8, rows: 6, typeCount: 6, pairs: 24, maxTurns: 2, allowOutside: true,
+      layoutShift: 'cascade', lockedPairs: 4, comboWindow: 1.0, timeLimit: 100, timePickupBudget: 1,
       goalCount: 3,
       specialPairs: { bomb: 3, ice: 2, color: 2 },
       itemCounts: { hint: 1, shuffle: 0, bell: 0 }
@@ -162,7 +162,7 @@
   }
 
   function loadImage(rootPath, name) {
-    var path = normalizeRoot(rootPath) + name + '.png';
+    var path = normalizeRoot(rootPath) + name + '.webp';
     if (imageCache[path]) return imageCache[path];
     if (!global || typeof global.Image !== 'function') return null;
     try {
@@ -187,6 +187,11 @@
     var requestedDifficulty = normalizeDifficulty(this.opts.difficulty);
     this.difficulty = requestedDifficulty || DEFAULT_DIFFICULTY;
     var profile = DIFFICULTIES[this.difficulty];
+    if (!requestedDifficulty) {
+      // Preserve the original public constructor (6×8 / 24 pairs) for old
+      // embeds. The H5 care flow always supplies one of the four v6 profiles.
+      profile = Object.assign({}, profile, { cols: 6, rows: 8, pairs: 24, typeCount: 6 });
+    }
     this.profile = profile;
     this.cols = integerOption(this.opts.cols, profile.cols, 2);
     this.rows = integerOption(this.opts.rows, profile.rows, 2);
@@ -215,6 +220,7 @@
     this.goalProgress = {};
     this.goalCleared = 0;
     this.goalComplete = false;
+    this.goalTargetsComplete = false;
     this.goalBurst = null;
     this.comboBursts = [];
 
@@ -272,12 +278,13 @@
     this._selectGoals();
   }
 
-  Game.prototype._newCell = function (type) {
+  Game.prototype._newCell = function (type, pairId) {
     type = type == null || type < 0 || type >= this.typeCount ? 0 : type;
     return {
       type: type,
       id: this.names[type] || NAMES[type],
       uid: this._nextCellId++,
+      pairId: pairId,
       symbol: SYMBOLS[type],
       special: null,
       iceHits: 0,
@@ -336,15 +343,16 @@
     this.solutionQueue = [];
     for (i = 0; i < this.totalPairs; i++) {
       var a = slots[i * 2], b = slots[i * 2 + 1];
-      var first = this._newCell(pairTypes[i]);
-      var second = this._newCell(pairTypes[i]);
+      var pairId = 'pair-' + (i + 1);
+      var first = this._newCell(pairTypes[i], pairId);
+      var second = this._newCell(pairTypes[i], pairId);
       if (i >= 2 && i < 2 + this.lockedPairs) {
         first.locked = second.locked = true;
         first.unlockAt = second.unlockAt = i - 1;
       }
       this.grid[a.r][a.c] = first;
       this.grid[b.r][b.c] = second;
-      this.solutionQueue.push({ aId: first.uid, bId: second.uid, type: pairTypes[i] });
+      this.solutionQueue.push({ pairId: pairId, aId: first.uid, bId: second.uid, type: pairTypes[i] });
     }
   };
 
@@ -493,7 +501,7 @@
     var start = points.a, end = points.b;
     if (!this._inside(start.r, start.c) || !this._inside(end.r, end.c) || samePoint(start, end)) return null;
     var first = this._cellAt(start.r, start.c), second = this._cellAt(end.r, end.c);
-    if (!first || !second || first.type !== second.type || first.locked || second.locked) return null;
+    if (!first || !second || first.type !== second.type || first.pairId !== second.pairId || first.locked || second.locked) return null;
 
     var directions = [[-1, 0], [0, 1], [1, 0], [0, -1]];
     var queue = [], head = 0, best = {};
@@ -625,28 +633,38 @@
     return null;
   };
 
-  /* Return all cells that one successful move should remove.  A bomb clears
-   * the surrounding ring and pulls in both halves of each touched pair, so
-   * the remaining board never contains an orphaned icon. */
+  Game.prototype._cellsForPairId = function (pairId) {
+    var result = [];
+    for (var r = 0; r < this.rows; r++) for (var c = 0; c < this.cols; c++) {
+      var cell = this.grid[r][c];
+      if (cell && cell.pairId === pairId) result.push({ point: { r: r, c: c }, cell: cell });
+    }
+    return result;
+  };
+
+  /* A successful move always removes a whole permanent pair.  Bombs may add
+   * exactly one adjacent, unlocked complete pair; they never fan out through
+   * arbitrary neighbours or recursively trigger another bomb. */
   Game.prototype._removalSetForPair = function (first, second, trackSpecial) {
-    var removed = {}, queue = [first.uid, second.uid];
-    while (queue.length) {
-      var uid = queue.shift();
-      if (removed[uid]) continue;
-      var point = this._pointForUid(uid);
-      var cell = point && this._cellAt(point.r, point.c);
-      if (!cell || (cell.locked && uid !== first.uid && uid !== second.uid)) continue;
-      removed[uid] = true;
-      if (cell.special === 'bomb') {
-        if (trackSpecial !== false) this.specialActivations.bomb++;
+    var removed = {};
+    this._cellsForPairId(first.pairId).forEach(function (entry) { removed[entry.cell.uid] = true; });
+    if (first.special === 'bomb' || second.special === 'bomb') {
+      if (trackSpecial !== false) this.specialActivations.bomb++;
+      var candidateIds = [];
+      var origins = [this._pointForUid(first.uid), this._pointForUid(second.uid)];
+      for (var originIndex = 0; originIndex < origins.length; originIndex++) {
+        var point = origins[originIndex];
+        if (!point) continue;
         for (var dr = -1; dr <= 1; dr++) for (var dc = -1; dc <= 1; dc++) {
           if (!dr && !dc) continue;
           var near = this._cellAt(point.r + dr, point.c + dc);
-          if (!near || near.locked) continue;
-          queue.push(near.uid);
-          var nearPair = this._pairEntryForUid(near.uid);
-          if (nearPair) queue.push(nearPair.otherId);
+          if (!near || near.locked || near.pairId === first.pairId || candidateIds.indexOf(near.pairId) >= 0) continue;
+          var complete = this._cellsForPairId(near.pairId);
+          if (complete.length === 2 && !complete.some(function (entry) { return entry.cell.locked; })) candidateIds.push(near.pairId);
         }
+      }
+      if (candidateIds.length) {
+        this._cellsForPairId(candidateIds[0]).forEach(function (entry) { removed[entry.cell.uid] = true; });
       }
     }
     return removed;
@@ -670,8 +688,8 @@
     if (this.goalTypes.indexOf(type) < 0 || this.goalProgress[type]) return false;
     this.goalProgress[type] = 1;
     this.goalCleared++;
-    if (!this.goalComplete && this.goalTypes.length && this.goalCleared >= this.goalTypes.length) {
-      this.goalComplete = true;
+    if (!this.goalTargetsComplete && this.goalTypes.length && this.goalCleared >= this.goalTypes.length) {
+      this.goalTargetsComplete = true;
       this.goalBurst = { life: 1.4, fullScreen: true };
       this.score += 200;
       if (typeof this.opts.onGoal === 'function') this.opts.onGoal(this.goalTypes.slice());
@@ -696,17 +714,7 @@
   };
 
   Game.prototype._clearPaddingAfterGoals = function () {
-    if (!this.goalComplete) return 0;
-    var removed = 0;
-    for (var r = 0; r < this.rows; r++) for (var c = 0; c < this.cols; c++) {
-      if (this.grid[r][c]) { this.grid[r][c] = null; removed++; }
-    }
-    var pairs = Math.floor(removed / 2);
-    this.autoClearedPairs += pairs;
-    this.pairsCleared = this.totalPairs;
-    this.effectiveMoves += pairs;
-    this.score += pairs * 25;
-    return pairs;
+    return 0;
   };
 
   Game.prototype._shiftColorBlocks = function () {
@@ -739,7 +747,7 @@
   Game.prototype._clearPair = function (a, b, path) {
     if (!a || !b) return false;
     var first = this._cellAt(a.r, a.c), second = this._cellAt(b.r, b.c);
-    if (!first || !second || first.locked || second.locked || first.type !== second.type) return false;
+    if (!first || !second || first.locked || second.locked || first.type !== second.type || first.pairId !== second.pairId) return false;
     path = path || this.findPath(a, b);
     if (!path) return false;
     this.movesAttempted++;
@@ -785,11 +793,9 @@
     this._applyLayoutShift(true);
     this._refreshLocks();
     this._updatePerf();
-    if (goalFinished) {
-      this._clearPaddingAfterGoals();
-      this._updatePerf();
-      this.finish(true);
-    } else if (this.pairsCleared >= this.totalPairs) {
+    var remainingCells = this._remainingCellCount();
+    if (remainingCells === 0) {
+      this.goalComplete = this.goalTypes.length === 0 || this.goalTargetsComplete;
       this.finish(true);
     } else if (!this.hasMove()) {
       this._shuffleRemaining(true);
@@ -804,6 +810,12 @@
     this.timePickupsSpawned++;
     this.nextTimePickupAt = this.elapsed + 4 + randomInt(this.rng, 1000) / 500;
     return true;
+  };
+
+  Game.prototype._remainingCellCount = function () {
+    var count = 0;
+    for (var r = 0; r < this.rows; r++) for (var c = 0; c < this.cols; c++) if (this.grid[r][c]) count++;
+    return count;
   };
 
   Game.prototype.collectTimePickup = function () {
@@ -823,19 +835,23 @@
     }
     if (cells.length < 2) return false;
     for (r = 0; r < this.rows; r++) for (c = 0; c < this.cols; c++) this.grid[r][c] = null;
-    var byType = [], pairs = [];
-    for (i = 0; i < this.typeCount; i++) byType[i] = [];
-    cells.forEach(function (cell) { cell.locked = false; cell.unlockAt = 0; byType[cell.type].push(cell); });
-    for (i = 0; i < byType.length; i++) {
-      for (var j = 0; j + 1 < byType[i].length; j += 2) pairs.push([byType[i][j], byType[i][j + 1]]);
-    }
+    var byPairId = {}, pairs = [];
+    cells.forEach(function (cell) {
+      cell.locked = false; cell.unlockAt = 0;
+      if (!byPairId[cell.pairId]) byPairId[cell.pairId] = [];
+      byPairId[cell.pairId].push(cell);
+    });
+    Object.keys(byPairId).sort().forEach(function (pairId) {
+      if (byPairId[pairId].length === 2) pairs.push(byPairId[pairId]);
+    });
+    if (pairs.length * 2 !== cells.length) return false;
     shuffleArray(pairs, this.rng);
     var slots = this._layoutSlots(this.layoutShift), queue = [];
     for (i = 0; i < pairs.length; i++) {
       var a = slots[i * 2], b = slots[i * 2 + 1];
       this.grid[a.r][a.c] = pairs[i][0];
       this.grid[b.r][b.c] = pairs[i][1];
-      queue.push({ aId: pairs[i][0].uid, bId: pairs[i][1].uid, type: pairs[i][0].type });
+      queue.push({ pairId: pairs[i][0].pairId, aId: pairs[i][0].uid, bId: pairs[i][1].uid, type: pairs[i][0].type });
     }
     this.solutionQueue = queue;
     if (automatic) {
@@ -864,18 +880,8 @@
         var remaining = 0;
         for (var r = 0; r < this.rows; r++) for (var c = 0; c < this.cols; c++) if (this.grid[r][c]) remaining++;
         if (!remaining) {
-          /* Bomb chains can clear several pairs in one action while frozen
-           * pairs consume two actions.  Keep the historical `length ===
-           * totalPairs` contract without inventing fake moves.  The full
-           * executable sequence remains available through the deliberately
-           * compatible forEach override and the non-enumerable actions field. */
-          var actualPlan = plan.slice();
-          plan.actionCount = actualPlan.length;
-          Object.defineProperty(plan, 'actions', { value: actualPlan, enumerable: false });
-          Object.defineProperty(plan, 'forEach', { value: function (callback, thisArg) {
-            return actualPlan.forEach(callback, thisArg);
-          }, enumerable: false });
-          plan.length = this.totalPairs;
+          plan.actionCount = plan.length;
+          Object.defineProperty(plan, 'actions', { value: plan.slice(), enumerable: false });
           return plan;
         }
         this._refreshLocks();
@@ -1134,6 +1140,7 @@
       goalTotal: this.goalTypes.length,
       goalTypes: this.goalTypes.slice(),
       goalComplete: this.goalComplete,
+      goalTargetsComplete: this.goalTargetsComplete,
       autoClearedPairs: this.autoClearedPairs,
       specialPairs: Object.assign({}, this.specialPairs),
       specialActivations: Object.assign({}, this.specialActivations),
@@ -1145,6 +1152,9 @@
       timePickupsSpawned: this.timePickupsSpawned,
       timePickupBudget: this.timePickupBudget,
       timeLeft: Math.max(0, this.timeLeft),
+      remainingCells: this._remainingCellCount(),
+      cleared: this._remainingCellCount() === 0,
+      win: this.phase === 'done' && this._remainingCellCount() === 0,
       itemUses: {
         hint: this.itemUses.hint,
         shuffle: this.itemUses.shuffle,
@@ -1160,8 +1170,10 @@
 
   Game.prototype.finish = function (done) {
     if (this.finished) return this._summary();
+    var cleared = this._remainingCellCount() === 0;
     this.finished = true;
-    this.phase = done === false ? 'cancelled' : 'done';
+    this.phase = done === false ? 'cancelled' : (cleared ? 'done' : 'ended');
+    if (cleared) this.goalComplete = this.goalTypes.length === 0 || this.goalTargetsComplete;
     this._updatePerf();
     var summary = this._summary();
     var self = this;

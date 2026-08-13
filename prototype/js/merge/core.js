@@ -32,22 +32,26 @@
      本身用于订单、奖励与路线展示，只有 generator 被禁用。 */
   var GAME_SOURCE_FAMILIES = { groom: true, play: true };
   var ENERGY_CAP = Math.max(1, Math.floor(number(DATA.economy.energyCap, 100)));
+  var CARE_COSTS = Object.assign({ easy: 1, normal: 2, hard: 3, master: 4 }, DATA.careGames && DATA.careGames.energyCosts || {});
 
   function energyCapForLevel(level) {
-    var base = Math.max(1, Math.floor(number(DATA.economy.maxEnergy, 30)));
-    var perLevel = Math.max(0, Math.floor(number(DATA.economy.energyPerLevel, 1)));
-    var safeLevel = Math.max(1, Math.floor(number(level, 1)));
-    return Math.min(ENERGY_CAP, base + Math.max(0, safeLevel - 1) * perLevel);
+    return ENERGY_CAP;
   }
 
   function syncEnergyCap(state) {
     if (!state) return 0;
     var expected = energyCapForLevel(state.level);
-    /* Preserve an already higher cap from a future reader while granting the
-       new per-level increase to older v3/v4 saves. */
-    state.maxEnergy = clamp(Math.max(number(state.maxEnergy, expected), expected), 1, ENERGY_CAP);
+    state.maxEnergy = expected;
     state.energy = clamp(number(state.energy, 0), 0, state.maxEnergy);
     return state.maxEnergy;
+  }
+
+  function migrateEnergyGap(raw, state) {
+    if (number(raw && raw.version, 0) >= 6) return;
+    var oldMax = Math.max(1, number(raw && raw.maxEnergy, 30));
+    var oldEnergy = clamp(number(raw && raw.energy, oldMax), 0, oldMax);
+    state.maxEnergy = ENERGY_CAP;
+    state.energy = clamp(ENERGY_CAP - (oldMax - oldEnergy), 0, ENERGY_CAP);
   }
 
   function clone(value) {
@@ -138,12 +142,18 @@
     return {
       id: id,
       status: active ? 'active' : 'locked',
+      level: 1,
+      exp: 0,
+      affection: 0,
+      heal: 0,
+      unlockedForms: [1],
+      activeFormLevel: 1,
+      unlockedStories: [1],
       stage: 0,
       storyProgress: 0,
       storyDone: [false, false, false],
       careDone: false,
       trust: 0,
-      heal: 0,
       bond: 1,
       transformed: false,
       pendingTransformation: false,
@@ -185,6 +195,10 @@
       groomBoostsUsed: 0,
       masteryDuplicateUsed: false,
       careRewards: { groom: 0, play: 0 },
+      affectionGained: {},
+      growthCompleted: {},
+      supplyCompleted: 0,
+      completedObjective: false,
       careHistory: { groom: [], play: [] },
       masteryFirst: { groom: false, play: false }
     };
@@ -235,10 +249,12 @@
       activeOrders: [],
       orderSerial: 0,
       facilities: {
-        herb: { level: 0, stored: [], progressMs: 0 },
-        groom: { level: 0 }
+        clinic: { level: 1 },
+        herb: { level: 1, stored: [], progressMs: 0 },
+        groom: { level: 1 },
+        play: { level: 1 }
       },
-      buildings: { herb: 0, groom: 0 },
+      buildings: { clinic: 1, herb: 1, groom: 1, play: 1 },
       storage: { slots: 3, items: [null, null, null] },
       beastCases: cases,
       activeCaseId: 'qiongqi',
@@ -249,6 +265,10 @@
       codex: codex,
       jobs: jobs,
       daily: freshDaily(date),
+      signIn: { daysClaimed: 0, lastClaimDate: null, completed: false, claimedDates: [] },
+      growthOrders: {},
+      careTransactions: {},
+      migrations: { v6FacilityRefund: true },
       weekly: freshWeekly(now),
       pendingRewards: [],
       lastSeenAt: now,
@@ -270,8 +290,9 @@
   function syncLegacyAliases(state) {
     state.orders = state.activeOrders;
     state.buildings = state.buildings || {};
-    state.buildings.herb = state.facilities && state.facilities.herb ? state.facilities.herb.level : number(state.buildings.herb, 0);
-    state.buildings.groom = state.facilities && state.facilities.groom ? state.facilities.groom.level : number(state.buildings.groom, 0);
+    ['clinic', 'herb', 'groom', 'play'].forEach(function (id) {
+      state.buildings[id] = state.facilities && state.facilities[id] ? state.facilities[id].level : number(state.buildings[id], 1);
+    });
     var qiongqi = state.beastCases && state.beastCases.qiongqi;
     if (qiongqi) {
       state.beast = Object.assign({}, state.beast || {}, {
@@ -323,14 +344,36 @@
     result.careCount = Math.max(0, Math.floor(number(raw.careCount != null ? raw.careCount : raw.careProgress, 0)));
     result.careDone = !!(raw.careDone || raw.care || result.careCount > 0);
     result.trust = clamp(number(raw.trust, result.storyProgress * 15 + (result.careDone ? 15 : 0)), 0, 100);
-    result.heal = clamp(number(raw.heal, result.storyProgress * 25 + (result.careDone ? 25 : 0)), 0, 100);
-    result.transformed = !!raw.transformed;
+    result.heal = Math.max(0, number(raw.heal, result.storyProgress * 25 + (result.careDone ? 25 : 0)));
+    result.level = clamp(Math.floor(number(raw.level, raw.transformed ? 5 : number(raw.stage, 0) + 1)), 1, 5);
+    result.exp = Math.max(0, Math.floor(number(raw.exp != null ? raw.exp : raw.beastExp, 0)));
+    result.affection = Math.max(0, Math.floor(number(raw.affection, raw.trust != null ? raw.trust : Math.max(0, number(raw.bond, 1) - 1) * 8)));
+    result.unlockedForms = Array.isArray(raw.unlockedForms) ? raw.unlockedForms.map(function (level) {
+      return clamp(Math.floor(number(level, 1)), 1, result.level);
+    }).filter(function (level, index, list) { return list.indexOf(level) === index; }) : [];
+    for (var formLevel = 1; formLevel <= result.level; formLevel++) {
+      if (result.unlockedForms.indexOf(formLevel) < 0) result.unlockedForms.push(formLevel);
+    }
+    result.unlockedForms.sort(function (a, b) { return a - b; });
+    result.activeFormLevel = clamp(Math.floor(number(raw.activeFormLevel, result.level)), 1, result.level);
+    if (result.unlockedForms.indexOf(result.activeFormLevel) < 0) result.activeFormLevel = result.level;
+    result.unlockedStories = Array.isArray(raw.unlockedStories) ? raw.unlockedStories.map(function (level) {
+      return clamp(Math.floor(number(level, 1)), 1, 5);
+    }).filter(function (level, index, list) { return list.indexOf(level) === index; }) : [];
+    if (number(raw.version, 0) < 6 || raw.level == null) {
+      for (var storyLevel = 1; storyLevel <= result.level; storyLevel++) {
+        if (result.unlockedStories.indexOf(storyLevel) < 0) result.unlockedStories.push(storyLevel);
+      }
+    }
+    result.transformed = !!raw.transformed || result.level >= 5;
     if (result.transformed) {
       result.status = 'transformed';
       result.stage = 3;
     } else {
-      result.stage = clamp(Math.floor(number(raw.stage, result.storyProgress > 1 ? 2 : result.storyProgress)), 0, 2);
+      result.stage = clamp(result.level - 1, 0, 3);
     }
+    result.trust = result.affection;
+    result.bond = clamp(1 + Math.floor(result.affection / 20), 1, 5);
     result.pendingTransformation = !!raw.pendingTransformation;
     return result;
   }
@@ -410,6 +453,7 @@
     ensureBackgroundState(state);
     state.activeOrders = [];
     ensureOrders(state, Math.random);
+    migrateEnergyGap(raw, state);
     syncLegacyAliases(state);
     /* Keep the original building map byte-for-byte for downgrade protection;
        v4 gameplay reads the migrated `facilities` map instead. */
@@ -424,7 +468,8 @@
     if (number(raw.version, 0) < 4) return migrateV3(raw, now, date);
 
     var base = createFresh(now, date);
-    var state = Object.assign(base, clone(raw), { version: DATA.version });
+    var state = Object.assign({}, base, clone(raw), { version: DATA.version });
+    migrateEnergyGap(raw, state);
     state.grid = Array.isArray(raw.grid) ? raw.grid.map(normalizeItem) : base.grid;
     state.unlockedCells = clamp(Math.floor(number(raw.unlockedCells, base.unlockedCells)), 0, TOTAL);
     state.unlockedGenerators = Array.isArray(raw.unlockedGenerators) ? raw.unlockedGenerators.filter(function (family, index, list) {
@@ -433,7 +478,10 @@
     ['herb', 'tool'].forEach(function (family) {
       if (state.unlockedGenerators.indexOf(family) < 0) state.unlockedGenerators.push(family);
     });
-    state.maxEnergy = Math.max(1, number(raw.maxEnergy, base.maxEnergy));
+    if (number(raw.version, 0) >= 6) {
+      state.maxEnergy = ENERGY_CAP;
+      state.energy = clamp(number(raw.energy, base.energy), 0, ENERGY_CAP);
+    }
     syncEnergyCap(state);
     state.tutorialSeen = !!raw.tutorialSeen;
     state.jade = Math.max(0, number(raw.jade, base.jade));
@@ -444,10 +492,10 @@
     state.storage.items = Array.isArray(state.storage.items) ? state.storage.items.slice(0, state.storage.slots).map(normalizeItem) : [];
     while (state.storage.items.length < state.storage.slots) state.storage.items.push(null);
     state.facilities = state.facilities && typeof state.facilities === 'object' ? state.facilities : clone(base.facilities);
-    state.facilities.herb = Object.assign(clone(base.facilities.herb), state.facilities.herb || {});
-    state.facilities.groom = Object.assign(clone(base.facilities.groom), state.facilities.groom || {});
-    state.facilities.herb.level = clamp(Math.floor(number(state.facilities.herb.level, 0)), 0, 3);
-    state.facilities.groom.level = clamp(Math.floor(number(state.facilities.groom.level, 0)), 0, 3);
+    ['clinic', 'herb', 'groom', 'play'].forEach(function (id) {
+      state.facilities[id] = Object.assign(clone(base.facilities[id]), state.facilities[id] || {});
+      state.facilities[id].level = clamp(Math.floor(number(state.facilities[id].level, 1)), 1, 3);
+    });
     state.facilities.herb.stored = Array.isArray(state.facilities.herb.stored) ? state.facilities.herb.stored.map(normalizeItem) : [];
     state.beastCases = {};
     DATA.beasts.forEach(function (beast, index) {
@@ -460,12 +508,30 @@
     state.daily = Object.assign(freshDaily(date), raw.daily || {});
     state.daily.careRewards = Object.assign({ groom: 0, play: 0 }, state.daily.careRewards || {});
     state.daily.careHistory = Object.assign({ groom: [], play: [] }, state.daily.careHistory || {});
+    state.daily.affectionGained = Object.assign({}, state.daily.affectionGained || {});
+    state.daily.growthCompleted = Object.assign({}, state.daily.growthCompleted || {});
+    state.daily.supplyCompleted = Math.max(0, Math.floor(number(state.daily.supplyCompleted, 0)));
     ['groom', 'play'].forEach(function (type) {
       state.daily.careHistory[type] = Array.isArray(state.daily.careHistory[type]) ? state.daily.careHistory[type].slice(-5) : [];
     });
     state.daily.masteryFirst = Object.assign({ groom: false, play: false }, state.daily.masteryFirst || {});
     state.weekly = Object.assign(freshWeekly(now), raw.weekly || {});
     if (state.weekly.key !== weekKey(now)) state.weekly = freshWeekly(now);
+    state.signIn = Object.assign(clone(base.signIn), raw.signIn || {});
+    state.signIn.daysClaimed = clamp(Math.floor(number(state.signIn.daysClaimed, 0)), 0, 7);
+    state.signIn.claimedDates = Array.isArray(state.signIn.claimedDates) ? state.signIn.claimedDates.slice(0, 7) : [];
+    state.signIn.completed = state.signIn.daysClaimed >= 7 || !!state.signIn.completed;
+    state.growthOrders = raw.growthOrders && typeof raw.growthOrders === 'object' ? clone(raw.growthOrders) : {};
+    state.careTransactions = {};
+    state.migrations = Object.assign({}, base.migrations, raw.migrations || {});
+    if (number(raw.version, 0) < 6 && !(raw.migrations && raw.migrations.v6FacilityRefund)) {
+      var legacyHerbLevel = Math.floor(number(raw.facilities && raw.facilities.herb && raw.facilities.herb.level != null ? raw.facilities.herb.level : raw.buildings && raw.buildings.herb, 0));
+      var legacyGroomLevel = Math.floor(number(raw.facilities && raw.facilities.groom && raw.facilities.groom.level != null ? raw.facilities.groom.level : raw.buildings && raw.buildings.groom, 0));
+      var refund = (legacyHerbLevel > 0 ? 80 : 0) + (legacyGroomLevel > 0 ? 130 : 0);
+      state.jade += refund;
+      state.migrations.v6FacilityRefund = true;
+      state.migrations.v6FacilityRefundAmount = refund;
+    }
     state.activeOrders = Array.isArray(raw.activeOrders) ? raw.activeOrders.map(normalizeOrder).filter(Boolean).slice(0, 3) : [];
     state.pendingTransformation = raw.pendingTransformation || null;
     ensureYardBeast(state);
@@ -733,6 +799,104 @@
     });
   }
 
+  function makeRecruitOrder(state) {
+    var next = firstLockedBeast(state);
+    if (!next) {
+      return normalizeOrder({
+        id: 'recruit-complete', slot: 'recruit', kind: 'recruit_complete', status: 'COMPLETE',
+        title: '山海伙伴已到齐', symptom: '庭院里的相遇告一段落，新的来信还会继续寄来。',
+        requirements: [], rewards: {}, mainline: true
+      });
+    }
+    var family = next.unlockFamily || 'herb';
+    var tier = clamp(Math.floor(number(next.unlockTier, 2)), 1, TIER_CAP);
+    var support = family === 'herb' ? 'tool' : 'herb';
+    var requirements = [
+      normalizeRequirement({ family: family, tier: tier, count: 1 }),
+      normalizeRequirement({ family: support, tier: Math.min(3, Math.max(1, Math.ceil(tier / 3))), count: 1 })
+    ];
+    return normalizeOrder({
+      id: 'recruit-' + next.id,
+      // Keep the historical `arrival` kind for migrated saves and tooling;
+      // the stable v6 contract is expressed by the fixed `recruit` slot.
+      slot: 'recruit', kind: 'arrival', v6Type: 'recruit', beastId: next.id, mainline: true,
+      title: next.name + '循着信物来了',
+      symptom: '备好信物和一份草药，让新伙伴安心踏进庭院。',
+      requirements: requirements,
+      rewards: { jade: Math.max(30, Math.round(requirementValue(requirements) * 0.55)) }
+    });
+  }
+
+  function growthRewardForLevel(level) {
+    var rewards = DATA.growth && DATA.growth.growthOrderRewards || {};
+    return clone(rewards[Math.min(4, Math.max(1, level))] || { beastExp: 20, heal: 8, jade: 25 });
+  }
+
+  function makeGrowthOrder(state, beastId, rng) {
+    beastId = beastId || state.yardBeastId || state.activeCaseId || BEAST_IDS[0];
+    var entry = state.beastCases && state.beastCases[beastId];
+    var definition = beastDefinition(beastId);
+    if (!entry || !definition || !isYardBeastAvailable(state, beastId)) {
+      beastId = BEAST_IDS.find(function (id) { return isYardBeastAvailable(state, id); }) || BEAST_IDS[0];
+      entry = state.beastCases[beastId];
+      definition = beastDefinition(beastId);
+    }
+    var date = state.daily && state.daily.date || isoDate(Date.now());
+    var keyName = date + ':' + beastId;
+    if (state.growthOrders[keyName]) return normalizeOrder(state.growthOrders[keyName]);
+    if (state.daily.growthCompleted[beastId]) {
+      return normalizeOrder({
+        id: 'growth-' + keyName, slot: 'growth', kind: 'growth_complete', status: 'COMPLETE', beastId: beastId,
+        title: definition.name + '今天收获满满', symptom: '明天再准备一份成长礼物吧。', requirements: [], rewards: {}
+      });
+    }
+    var level = clamp(Math.floor(number(entry.level, 1)), 1, 5);
+    var preferred = definition.preferredCare || definition.careTypes[0] || 'herb';
+    var support = preferred === 'herb' ? 'tool' : 'herb';
+    var tier = Math.min(4, Math.max(1, level));
+    var requirements = [
+      normalizeRequirement({ family: preferred, tier: tier, count: 1 }),
+      normalizeRequirement({ family: support, tier: Math.min(3, Math.max(1, Math.ceil(level / 2))), count: 1 })
+    ];
+    var reward = growthRewardForLevel(level);
+    var order = normalizeOrder({
+      id: 'growth-' + keyName,
+      slot: 'growth', kind: 'growth', beastId: beastId, boundDate: date, beastLevel: level,
+      title: definition.name + '的成长心愿',
+      symptom: '这份心意只属于' + definition.name + '，交付后经验会记在它的成长册里。',
+      requirements: requirements,
+      rewards: { jade: reward.jade, beastExp: reward.beastExp, heal: reward.heal }
+    });
+    state.growthOrders[keyName] = clone(order);
+    return order;
+  }
+
+  function makeV6SupplyOrder(state) {
+    if (state.daily.supplyCompleted >= 3) {
+      return normalizeOrder({
+        id: 'supply-' + state.daily.date + '-complete', slot: 'supply', kind: 'supply_complete', status: 'COMPLETE',
+        title: '今日药箱已备齐', symptom: '百草园的药香会一直留到明天。', requirements: [], rewards: {}
+      });
+    }
+    var selected = beastDefinition(state.yardBeastId || state.activeCaseId);
+    var preferred = selected && (selected.preferredCare || selected.careTypes[0]);
+    var second = preferred && preferred !== 'herb' ? preferred : 'tool';
+    if (GAME_SOURCE_FAMILIES[second] && !hasCareSource(state, second)) second = 'tool';
+    var tier = state.daily.supplyCompleted >= 2 ? 2 : 1;
+    var requirements = [
+      normalizeRequirement({ family: 'herb', tier: tier, count: 1 }),
+      normalizeRequirement({ family: second, tier: 1, count: 1 })
+    ];
+    return normalizeOrder({
+      id: 'supply-' + state.daily.date + '-' + (state.daily.supplyCompleted + 1),
+      slot: 'supply', kind: 'supply',
+      title: '百草补给 · 第' + (state.daily.supplyCompleted + 1) + '箱',
+      symptom: '百草园的药材配上药具或伙伴偏好的素材，交付后换回暖玉。',
+      requirements: requirements,
+      rewards: { jade: 24 + state.daily.supplyCompleted * 8 }
+    });
+  }
+
   function isQualifiedMedicalOrder(order) {
     if (!order || (order.slot !== 'supply' && order.slot !== 'care')) return true;
     var requirements = order.requirements || [];
@@ -765,14 +929,19 @@
     var old = Array.isArray(state.activeOrders) ? state.activeOrders.filter(Boolean) : [];
     var bySlot = {};
     old.forEach(function (order, index) {
-      var slot = order.slot || (index === 0 ? 'story' : index === 1 ? 'supply' : 'care');
-      if (!isQualifiedMedicalOrder(order) || !isOrderSourceCompatible(state, order)) return;
+      var slot = order.slot || (index === 0 ? 'recruit' : index === 1 ? 'growth' : 'supply');
+      if (['recruit', 'growth', 'supply'].indexOf(slot) < 0) return;
       if (!bySlot[slot]) bySlot[slot] = normalizeOrder(Object.assign({}, order, { slot: slot }));
     });
-    if (!bySlot.story) bySlot.story = makeStoryOrder(state);
-    if (!bySlot.supply) bySlot.supply = makeSupplyOrder(state, rng);
-    if (!bySlot.care) bySlot.care = makeCareOrder(state, rng);
-    state.activeOrders = [bySlot.story, bySlot.supply, bySlot.care];
+    var selectedBeastId = state.yardBeastId || state.activeCaseId;
+    if (!bySlot.recruit || bySlot.recruit.kind === 'recruit_complete' && firstLockedBeast(state)) bySlot.recruit = makeRecruitOrder(state);
+    if (!bySlot.growth || bySlot.growth.boundDate && bySlot.growth.boundDate !== state.daily.date) {
+      bySlot.growth = makeGrowthOrder(state, selectedBeastId, rng);
+    }
+    if (!bySlot.supply || bySlot.supply.kind === 'supply_complete' && state.daily.supplyCompleted < 3 || bySlot.supply.boundDate && bySlot.supply.boundDate !== state.daily.date) {
+      bySlot.supply = makeV6SupplyOrder(state);
+    }
+    state.activeOrders = [bySlot.recruit, bySlot.growth, bySlot.supply];
     state.orders = state.activeOrders;
     return state.activeOrders;
   }
@@ -789,6 +958,7 @@
 
   function canDeliver(state, order) {
     if (!order) return false;
+    if (order.status === 'COMPLETE' || /_complete$/.test(order.kind || '')) return false;
     /* A care gate is a signpost into the no-energy interaction, never a
        material turn-in. Otherwise players could repeatedly submit it without
        advancing the treatment node. */
@@ -937,14 +1107,33 @@
     var rewards = order.rewards || {};
     state.jade += Math.max(0, number(rewards.jade, 0));
     var previousLevel = state.level;
-    var levelsGained = gainXp(state, rewards.xp);
+    var levelsGained = order.kind === 'growth' ? 0 : gainXp(state, rewards.xp);
     state.completedOrders = Math.max(0, number(state.completedOrders, 0)) + 1;
     state.totalOrders = Math.max(0, number(state.totalOrders, 0)) + 1;
     state.daily.orders++;
     state.weekly.orders++;
     var transformed = false;
 
-    if (order.kind === 'story') {
+    if (order.kind === 'growth') {
+      var growthEntry = state.beastCases[order.beastId];
+      if (!growthEntry || state.daily.growthCompleted[order.beastId]) return { ok: false, reason: 'growth-complete' };
+      var clinicLevel = state.facilities && state.facilities.clinic ? clamp(number(state.facilities.clinic.level, 1), 1, 3) : 1;
+      var xpMultiplier = number(DATA.facilities.clinic.levels[clinicLevel - 1].beastXpMultiplier, 1);
+      var beastExpAward = Math.max(0, Math.round(number(rewards.beastExp, 0) * xpMultiplier));
+      growthEntry.exp = Math.max(0, number(growthEntry.exp, 0)) + beastExpAward;
+      growthEntry.heal = Math.max(0, number(growthEntry.heal, 0)) + Math.max(0, number(rewards.heal, 0));
+      state.daily.growthCompleted[order.beastId] = true;
+      var growthKey = (order.boundDate || state.daily.date) + ':' + order.beastId;
+      state.growthOrders[growthKey] = normalizeOrder({
+        id: order.id, slot: 'growth', kind: 'growth_complete', status: 'COMPLETE', beastId: order.beastId,
+        boundDate: order.boundDate || state.daily.date, title: beastDefinition(order.beastId).name + '今天收获满满',
+        symptom: '成长经验、疗愈和暖玉都已经记下。', requirements: [], rewards: {}
+      });
+    } else if (order.slot === 'recruit' || order.kind === 'recruit') {
+      activateCase(state, order.beastId, now);
+    } else if (order.kind === 'supply') {
+      state.daily.supplyCompleted = Math.min(3, state.daily.supplyCompleted + 1);
+    } else if (order.kind === 'story') {
       var entry = state.beastCases[order.beastId];
       var definition = beastDefinition(order.beastId);
       var expected = entry && entry.storyProgress + 1;
@@ -1038,13 +1227,43 @@
     return { ok: true, fromIndex: fromIndex, toIndex: toIndex, item: clone(item) };
   }
 
-  function careDifficultyUnlocked(state, difficulty) {
+  function careDifficultyUnlocked(state, difficulty, careType) {
     if (difficulty === 'easy') return true;
-    if (difficulty === 'normal') return !!state.firstStoryCompleted;
-    var level = state.facilities && state.facilities.groom ? number(state.facilities.groom.level, 0) : 0;
+    if (difficulty === 'normal') return true;
+    var facilityId = careType === 'play' ? 'play' : 'groom';
+    var level = state.facilities && state.facilities[facilityId] ? number(state.facilities[facilityId].level, 1) : 1;
     if (difficulty === 'hard') return level >= 2;
     if (difficulty === 'master') return level >= 3;
     return false;
+  }
+
+  function beginCare(state, careType, difficulty, beastId) {
+    difficulty = DATA.careGames.difficulties[difficulty] ? difficulty : 'easy';
+    beastId = beastId || state.yardBeastId || state.activeCaseId;
+    var entry = state.beastCases && state.beastCases[beastId];
+    var definition = beastDefinition(beastId);
+    if (!entry || !definition || !isYardBeastAvailable(state, beastId)) return { ok: false, reason: 'beast-locked' };
+    if (!careDifficultyUnlocked(state, difficulty, careType)) return { ok: false, reason: 'difficulty-locked', difficulty: difficulty };
+    var cost = Math.max(1, Math.floor(number(CARE_COSTS[difficulty], 1)));
+    if (state.energy < cost) return { ok: false, reason: 'energy', cost: cost, energy: state.energy };
+    state.energy -= cost;
+    state.careTransactions = state.careTransactions || {};
+    var serial = Math.max(0, Math.floor(number(state.careSerial, 0))) + 1;
+    state.careSerial = serial;
+    var token = { id: 'care-' + serial, type: careType, difficulty: difficulty, beastId: beastId, cost: cost };
+    state.careTransactions[token.id] = { token: clone(token), status: 'started' };
+    return { ok: true, token: token, cost: cost, energy: state.energy };
+  }
+
+  function refundCare(state, token) {
+    var id = token && (token.id || token.tokenId) || token;
+    var transaction = state.careTransactions && state.careTransactions[id];
+    if (!transaction || transaction.status !== 'started') return { ok: false, reason: transaction ? transaction.status : 'unknown-token', refunded: 0, energy: state.energy };
+    transaction.status = 'refunded';
+    var cost = Math.max(0, number(transaction.token && transaction.token.cost, 0));
+    var before = state.energy;
+    state.energy = Math.min(state.maxEnergy, state.energy + cost);
+    return { ok: true, refunded: state.energy - before, cost: cost, energy: state.energy };
   }
 
   function careGrade(outcome, perf) {
@@ -1093,15 +1312,22 @@
 
   function recordCare(state, careType, result, now) {
     result = result || {};
+    var careToken = result.careToken || result.token;
+    if (careToken) {
+      var tokenId = careToken.id || careToken.tokenId || careToken;
+      var transaction = state.careTransactions && state.careTransactions[tokenId];
+      if (!transaction || transaction.status !== 'started') return { ok: false, reason: transaction ? transaction.status : 'unknown-token' };
+      if (transaction.token.type !== careType) return { ok: false, reason: 'token-type' };
+      transaction.status = 'settled';
+    }
     var beastId = result.beastId || state.activeCaseId;
     var entry = state.beastCases && state.beastCases[beastId];
     var definition = beastDefinition(beastId);
     if (!entry || !definition) return { ok: false, reason: 'no-active-case' };
-    if (definition.careTypes.indexOf(careType) < 0) return { ok: false, reason: 'wrong-care-type' };
     var outcome = result.outcome || 'complete';
     var difficulty = result.difficulty || result.game && result.game.difficulty || recommendCareDifficulty(state, careType) || 'easy';
     if (!DATA.careGames.difficulties[difficulty]) difficulty = 'easy';
-    if (!careDifficultyUnlocked(state, difficulty)) return { ok: false, reason: 'difficulty-locked', difficulty: difficulty };
+    if (!careDifficultyUnlocked(state, difficulty, careType)) return { ok: false, reason: 'difficulty-locked', difficulty: difficulty };
     var game = result.game && typeof result.game === 'object' ? result.game : null;
     var effectiveActions = careEffectiveActions(careType, game, outcome);
     var requiredActions = number(DATA.careGames.effectiveActions[careType], careType === 'groom' ? 3 : 4);
@@ -1111,6 +1337,24 @@
     var used = Math.max(0, number(state.daily.careRewards[careType], 0));
     var cap = Math.max(1, number(DATA.careGames.rewardRunsPerFacility, 15));
     var rewarded = qualified && used < cap;
+    var affectionGained = 0;
+    var healGained = 0;
+    if (qualified) {
+      var preferred = definition.preferredCare || definition.careTypes[0];
+      if (careType === preferred) {
+        var gradeAffection = { S: 4, A: 3, B: 2, floor: 1 };
+        var affectionUsed = Math.max(0, number(state.daily.affectionGained[beastId], 0));
+        var affectionCap = Math.max(1, number(DATA.careGames.affectionDailyCap, 8));
+        affectionGained = Math.min(Math.max(0, affectionCap - affectionUsed), gradeAffection[grade] || 1);
+        entry.affection = Math.max(0, number(entry.affection, 0)) + affectionGained;
+        entry.trust = entry.affection;
+        state.daily.affectionGained[beastId] = affectionUsed + affectionGained;
+      }
+      var clinicLevel = state.facilities && state.facilities.clinic ? clamp(number(state.facilities.clinic.level, 1), 1, 3) : 1;
+      var clinicConfig = DATA.facilities.clinic.levels[clinicLevel - 1];
+      healGained = Math.max(0, number(clinicConfig.healReward, 8));
+      entry.heal = Math.max(0, number(entry.heal, 0)) + healGained;
+    }
     if (!rewarded) {
       careHistory(state, careType, {
         difficulty: difficulty, grade: grade, perf: perf, score: Math.max(0, number(game && game.score, 0)),
@@ -1123,6 +1367,7 @@
         rewardLimited: qualified && used >= cap, effectiveActions: effectiveActions,
         requiredActions: requiredActions, rewardItems: [], rewardCount: 0,
         remainingRewardRuns: Math.max(0, cap - used), recommendedDifficulty: recommendCareDifficulty(state, careType),
+        affectionGained: affectionGained, healGained: healGained,
         energy: state.energy, at: number(now, Date.now())
       };
     }
@@ -1141,11 +1386,10 @@
     state.daily.careRewards[careType] = used + 1;
     var firstCare = !entry.careDone;
     entry.careCount++;
-    entry.bond = clamp(entry.bond + 1, 1, 5);
+    entry.bond = clamp(1 + Math.floor(entry.affection / 20), 1, 5);
     if (firstCare) {
       entry.careDone = true;
-      entry.trust = clamp(entry.trust + 15, 0, 100);
-      entry.heal = clamp(entry.heal + 25, 0, 100);
+      entry.trust = entry.affection;
     }
     state.daily.care++;
     state.weekly.care++;
@@ -1173,6 +1417,8 @@
       transformed: transformed,
       effectiveActions: effectiveActions,
       requiredActions: requiredActions,
+      affectionGained: affectionGained,
+      healGained: healGained,
       remainingRewardRuns: Math.max(0, cap - state.daily.careRewards[careType]),
       recommendedDifficulty: recommendCareDifficulty(state, careType),
       energy: state.energy,
@@ -1301,20 +1547,10 @@
     var changed = !state.daily || state.daily.date !== date;
     if (!changed) return state.daily;
     state.daily = freshDaily(date);
-    /* The story slot is a gated progression chain and stays in place. The
-       medical supply/care slots are daily work, so they receive new random
-       multi-item requirements whenever a new day is opened. */
-    var random = typeof rng === 'function' ? rng : Math.random;
-    if (!Array.isArray(state.activeOrders)) state.activeOrders = [];
-    var previousSupply = state.activeOrders[1];
-    var previousCare = state.activeOrders[2];
-    state.activeOrders[1] = makeSupplyOrder(state, random);
-    state.activeOrders[2] = makeCareOrder(state, random);
-    /* A daily refresh changes requirements but keeps the visible slot id
-       stable, so UI focus, accessibility labels and saved deep links do not
-       appear to jump to a different task. */
-    if (previousSupply && previousSupply.id) state.activeOrders[1].id = previousSupply.id;
-    if (previousCare && previousCare.id) state.activeOrders[2].id = previousCare.id;
+    var recruit = Array.isArray(state.activeOrders) ? state.activeOrders.filter(function (order) {
+      return order && order.slot === 'recruit';
+    })[0] : null;
+    state.activeOrders = [recruit || makeRecruitOrder(state), makeGrowthOrder(state, state.yardBeastId, rng), makeV6SupplyOrder(state)];
     state.orders = state.activeOrders;
     return state.daily;
   }
@@ -1348,12 +1584,42 @@
     if (state.daily.claimed) return { ok: false, reason: 'claimed' };
     if (!dailyComplete(state)) return { ok: false, reason: 'incomplete' };
     state.daily.claimed = true;
-    state.energy = Math.min(state.maxEnergy, state.energy + 8);
-    state.cleanTools++;
-    state.jade += 30;
-    var item = makeItem(targetedSupplyFamily(state), 2);
-    queueItem(state, item);
-    return { ok: true, jade: 30, energy: 8, rewardItem: clone(item) };
+    state.signIn = state.signIn || { daysClaimed: 0, lastClaimDate: null, completed: false, claimedDates: [] };
+    if (state.signIn.completed || state.signIn.daysClaimed >= 7) return { ok: false, reason: 'sign-in-complete' };
+    var date = state.daily.date;
+    if (state.signIn.claimedDates.indexOf(date) >= 0) return { ok: false, reason: 'claimed-date' };
+    var day = state.signIn.daysClaimed + 1;
+    var reward = clone(DATA.signIn && DATA.signIn.days && DATA.signIn.days[day - 1]);
+    if (!reward) return { ok: false, reason: 'sign-in-complete' };
+    var granted = { ok: true, day: day, jade: 0, energy: 0, items: [], background: null };
+    if (reward.energy) {
+      var beforeEnergy = state.energy;
+      state.energy = Math.min(state.maxEnergy, state.energy + reward.energy);
+      granted.energy = state.energy - beforeEnergy;
+    }
+    if (reward.jade) { state.jade += reward.jade; granted.jade = reward.jade; }
+    (reward.items || []).forEach(function (itemReward) {
+      for (var count = 0; count < number(itemReward.count, 1); count++) {
+        var item = makeItem(itemReward.family, itemReward.tier);
+        queueItem(state, item); granted.items.push(item);
+      }
+    });
+    if (reward.selectedPreferredTier) {
+      var definition = beastDefinition(state.yardBeastId || state.activeCaseId) || DATA.beasts[0];
+      var preferred = definition.preferredCare || definition.careTypes[0] || 'herb';
+      var preferredItem = makeItem(preferred, reward.selectedPreferredTier);
+      queueItem(state, preferredItem); granted.items.push(preferredItem);
+    }
+    if (reward.background) {
+      ensureBackgroundState(state);
+      if (state.backgrounds.owned.indexOf(reward.background) < 0) state.backgrounds.owned.push(reward.background);
+      granted.background = reward.background;
+    }
+    state.signIn.daysClaimed = day;
+    state.signIn.lastClaimDate = date;
+    state.signIn.claimedDates.push(date);
+    state.signIn.completed = day >= 7;
+    return granted;
   }
 
   function upgradeFacility(state, facilityId) {
@@ -1403,49 +1669,7 @@
   }
 
   function rerollOrder(state, slot, rng) {
-    ensureDaily(state, state.daily && state.daily.date, Date.now());
-    var maxFree = 1 + (state.beastCases.jiuweihu.transformed ? 1 : 0);
-    if (state.daily.rerollsUsed >= maxFree) return { ok: false, reason: 'no-rerolls' };
-    var index = slot === 'supply' ? 1 : slot === 'care' ? 2 : -1;
-    if (index < 0) return { ok: false, reason: 'fixed-story' };
-    var previous = state.activeOrders[index];
-    var previousSignature = orderRequirementSignature(previous);
-    state.daily.rerollsUsed++;
-    var make = slot === 'supply' ? makeSupplyOrder : makeCareOrder;
-    var next = make(state, rng);
-    var attempts = 0;
-    while (previousSignature && orderRequirementSignature(next) === previousSignature && attempts < 5) {
-      next = make(state, rng);
-      attempts++;
-    }
-    /* A deterministic test RNG or a very unlucky roll can still repeat the
-       same requirements.  Use an internal fallback sequence so “刷新” is
-       visibly meaningful instead of relying on randomness alone. */
-    var fallbackValues = [0.93, 0.07, 0.67, 0.31, 0.81, 0.19];
-    var fallbackAttempt = 0;
-    while (previousSignature && orderRequirementSignature(next) === previousSignature && fallbackAttempt < 6) {
-      var cursor = 0;
-      next = make(state, function () {
-        var value = fallbackValues[(cursor + fallbackAttempt) % fallbackValues.length];
-        cursor++;
-        return value;
-      });
-      fallbackAttempt++;
-    }
-    if (previousSignature && orderRequirementSignature(next) === previousSignature && next.requirements && next.requirements.length) {
-      next.requirements[0].tier = next.requirements[0].tier === 1 ? 2 : 1;
-      next.requirements[0] = normalizeRequirement(next.requirements[0]);
-      var firstDef = familyDefinition(next.requirements[0].family);
-      var secondDef = familyDefinition(next.requirements[1] && next.requirements[1].family);
-      var firstName = firstDef && firstDef.items[next.requirements[0].tier - 1];
-      var secondName = secondDef && secondDef.items[next.requirements[1].tier - 1];
-      next.title = slot === 'supply'
-        ? '邻里补给 · ' + firstName + ' + ' + secondName
-        : (beastDefinition(next.beastId) ? beastDefinition(next.beastId).name : '庭院') + '的日常照料 · ' + firstName + ' + ' + secondName;
-    }
-    state.activeOrders[index] = next;
-    state.orders = state.activeOrders;
-    return { ok: true, order: state.activeOrders[index], remaining: maxFree - state.daily.rerollsUsed };
+    return { ok: false, reason: 'fixed-v6-slots' };
   }
 
   function orderRequirementSignature(order) {
@@ -1470,6 +1694,73 @@
     return { ok: true, beastId: beastId };
   }
 
+  function nextBeastLevelConfig(beastId, entry) {
+    var definition = beastDefinition(beastId);
+    if (!definition || !entry || entry.level >= 5) return null;
+    return definition.levels && definition.levels[entry.level] || DATA.growth && DATA.growth.requirements && {
+      level: entry.level + 1,
+      requirements: DATA.growth.requirements[entry.level]
+    };
+  }
+
+  function canLevelUpBeast(state, beastId) {
+    var entry = state.beastCases && state.beastCases[beastId];
+    var config = nextBeastLevelConfig(beastId, entry);
+    if (!entry) return { ok: false, reason: 'unknown-beast' };
+    if (!config) return { ok: false, reason: 'max-level', level: entry.level };
+    var requirements = config.requirements || {};
+    var missing = {
+      affection: Math.max(0, number(requirements.affection, 0) - number(entry.affection, 0)),
+      heal: Math.max(0, number(requirements.heal, 0) - number(entry.heal, 0)),
+      exp: Math.max(0, number(requirements.exp, 0) - number(entry.exp, 0))
+    };
+    var ok = missing.affection === 0 && missing.heal === 0 && missing.exp === 0;
+    return { ok: ok, reason: ok ? null : 'requirements', level: entry.level + 1, requirements: clone(requirements), missing: missing };
+  }
+
+  function levelUpBeast(state, beastId) {
+    var gate = canLevelUpBeast(state, beastId);
+    if (!gate.ok) return gate;
+    var entry = state.beastCases[beastId];
+    var definition = beastDefinition(beastId);
+    var nextLevel = entry.level + 1;
+    if (entry.unlockedStories.indexOf(nextLevel) >= 0) return { ok: false, reason: 'already-unlocked', level: entry.level };
+    entry.level = nextLevel;
+    entry.stage = Math.min(3, nextLevel - 1);
+    entry.unlockedForms.push(nextLevel);
+    entry.unlockedForms.sort(function (a, b) { return a - b; });
+    entry.activeFormLevel = nextLevel;
+    entry.unlockedStories.push(nextLevel);
+    // v6 breakthroughs are acknowledged immediately in the codex.  The old
+    // global transformation modal remains only for migrated story saves.
+    entry.pendingTransformation = false;
+    if (state.pendingTransformation === beastId) state.pendingTransformation = null;
+    if (state.codex && state.codex[beastId]) state.codex[beastId].seenStage = Math.max(state.codex[beastId].seenStage, entry.stage);
+    if (nextLevel >= 5) {
+      entry.transformed = true;
+      entry.status = 'transformed';
+      if (state.transformedOrder.indexOf(beastId) < 0) state.transformedOrder.push(beastId);
+      if (state.codex && state.codex[beastId]) state.codex[beastId].transformed = true;
+    }
+    var levelConfig = definition.levels[nextLevel - 1];
+    var story = definition.growthStories && definition.growthStories[nextLevel - 1] || {
+      level: nextLevel, title: levelConfig.title, text: definition.dialogue[Math.min(nextLevel - 1, definition.dialogue.length - 1)]
+    };
+    syncLegacyAliases(state);
+    return { ok: true, beastId: beastId, level: nextLevel, title: levelConfig.title, story: clone(story), activeFormLevel: entry.activeFormLevel };
+  }
+
+  function selectBeastForm(state, beastId, formLevel) {
+    var entry = state.beastCases && state.beastCases[beastId];
+    if (!entry) return { ok: false, reason: 'unknown-beast' };
+    formLevel = Math.floor(number(formLevel, 0));
+    if (formLevel < 1 || formLevel > entry.level || entry.unlockedForms.indexOf(formLevel) < 0) {
+      return { ok: false, reason: 'form-locked', level: entry.level, formLevel: formLevel };
+    }
+    entry.activeFormLevel = formLevel;
+    return { ok: true, beastId: beastId, formLevel: formLevel, actualLevel: entry.level };
+  }
+
   function selectBackground(state, backgroundId) {
     var backgrounds = ensureBackgroundState(state);
     var definition = backgroundDefinition(backgroundId);
@@ -1488,6 +1779,9 @@
     if (!definition) return { ok: false, reason: 'unknown-background' };
     if (backgrounds.owned.indexOf(backgroundId) >= 0) {
       return selectBackground(state, backgroundId);
+    }
+    if (definition.signInExclusive) {
+      return { ok: false, reason: 'background-locked', background: clone(definition) };
     }
     var cost = Math.max(0, Math.floor(number(definition.price, 0)));
     var jade = Math.max(0, number(state.jade, 0));
@@ -1572,6 +1866,8 @@
     moveBoardItem: moveBoardItem,
     deliverOrder: deliverOrder,
     recordCare: recordCare,
+    beginCare: beginCare,
+    refundCare: refundCare,
     careDifficultyUnlocked: careDifficultyUnlocked,
     recommendCareDifficulty: recommendCareDifficulty,
     advanceTime: advanceTime,
@@ -1589,6 +1885,9 @@
     acknowledgeTransformation: acknowledgeTransformation,
     activateCase: activateCase,
     selectYardBeast: selectYardBeast,
+    canLevelUpBeast: canLevelUpBeast,
+    levelUpBeast: levelUpBeast,
+    selectBeastForm: selectBeastForm,
     selectBackground: selectBackground,
     purchaseBackground: purchaseBackground,
     unlockCell: unlockCell,

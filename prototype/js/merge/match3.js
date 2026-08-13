@@ -102,10 +102,10 @@
   }
   function preload() {
     Object.keys(SETS).forEach(function (k) {
-      SETS[k].forEach(function (n) { loadImg(MATCH_PATH + n + '.png'); });
+      SETS[k].forEach(function (n) { loadImg(MATCH_PATH + n + '.webp'); });
     });
   }
-  function imgOf(name) { return cache[MATCH_PATH + name + '.png']; }
+  function imgOf(name) { return cache[MATCH_PATH + name + '.webp']; }
 
   // ---------- 工具 ----------
   function normalizedRandom(rng) {

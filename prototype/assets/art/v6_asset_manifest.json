@@ -1,0 +1,815 @@
+{
+  "schema": 1,
+  "createdAt": "2026-08-13T10:31:28.124610+00:00",
+  "mode": "reviewed-imagegen-fallback-after-seedream-401",
+  "seedream": {
+    "model": "doubao-seedream-5-0-lite-260128",
+    "endpoint": "https://ark.cn-beijing.volces.com/api/v3/images/generations",
+    "status": "credential-rejected-http-401",
+    "credentialIncluded": false
+  },
+  "prompts": {
+    "buildings": "Three same-camera upgrade variants; Lv1 compact, Lv2 expanded, Lv3 celestial; transparent Shanhaijing watercolor cutouts.",
+    "fox_forms": "Five cute nine-tailed-fox evolutions with 1/3/5/7/9 tails, increasing costume detail, fixed identity/camera/baseline.",
+    "icons": "Six high-contrast merge tiers per family with family color, distinct silhouette and redundant pip shape; transparent mobile icons.",
+    "background": "Fox Lantern Night building-free portrait courtyard with four empty bases, pond/path perspective and warm fox lanterns."
+  },
+  "sourceSheets": [
+    {
+      "id": "building_clinic",
+      "path": "prototype/assets/art/source_v6/building_clinic.png",
+      "sha256": "44a184807ae850a0f819b999a9f78bd09fa9d2344523916983e4cadaad117f75"
+    },
+    {
+      "id": "building_herb",
+      "path": "prototype/assets/art/source_v6/building_herb.png",
+      "sha256": "5b54074d4ca49679568968fdbefc481ff0bf3040ccce0b9ace0eb491c6a7717d"
+    },
+    {
+      "id": "building_groom",
+      "path": "prototype/assets/art/source_v6/building_groom.png",
+      "sha256": "54bf21e6b84ca7abde8e70ad9547b9435573b22416730b17503359e74c46b0ae"
+    },
+    {
+      "id": "building_play",
+      "path": "prototype/assets/art/source_v6/building_play.png",
+      "sha256": "86182f0fa17f104f2fd90e7c88b3cd07580e0f9df0994bb132402ce63ff950eb"
+    },
+    {
+      "id": "fox_forms",
+      "path": "prototype/assets/art/source_v6/fox_forms.png",
+      "sha256": "881d99c9701306a1c23ade493da4cff626452d128dbfb3e40dd7f3de5b2f2d48"
+    },
+    {
+      "id": "background_fox_lantern",
+      "path": "prototype/assets/art/source_v6/background_fox_lantern.png",
+      "sha256": "5225818a9d22d35c1674500f657b6d9d8801a2290e14c9154ed2217e52c08217"
+    },
+    {
+      "id": "icons_herb",
+      "path": "prototype/assets/art/source_v6/icons_herb.png",
+      "sha256": "2b143079dc1cde115e1a571b7e22a0ca58835d76fcba24e0855ca350fda1fdd0"
+    },
+    {
+      "id": "icons_tool",
+      "path": "prototype/assets/art/source_v6/icons_tool.png",
+      "sha256": "ff31f29a1c60033ced06ae8714bc42bf27d2bcebae5f6f546350ddd73b6dd14c"
+    },
+    {
+      "id": "icons_feed",
+      "path": "prototype/assets/art/source_v6/icons_feed.png",
+      "sha256": "353a1d60c91743e4dd7566fb76e150f118c9f797915325f1b4d9b39adcc4084f"
+    },
+    {
+      "id": "icons_groom",
+      "path": "prototype/assets/art/source_v6/icons_groom.png",
+      "sha256": "971ceaa35ec6b0e804075b00e27be4b9ff46418d902f2d9fede52f15359b9a9a"
+    },
+    {
+      "id": "icons_play",
+      "path": "prototype/assets/art/source_v6/icons_play.png",
+      "sha256": "17fd88f0507377ff2620e4d03f04756c02bfd09410cfbb32b179ad440f296b9e"
+    }
+  ],
+  "outputs": [
+    {
+      "kind": "icon",
+      "id": "herb_01",
+      "path": "prototype/assets/art/match3/herb_01.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 59740,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 7494,
+      "sha256": "1d0f1ff3a61c470b9125947d9be92070997b1d107300cfe3cd11fa2ed020d8f0"
+    },
+    {
+      "kind": "icon",
+      "id": "herb_02",
+      "path": "prototype/assets/art/match3/herb_02.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 58371,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 8718,
+      "sha256": "320a4f594aed187fed29172403bad692be4b3a1b736d909b4f6973d365f8bd9d"
+    },
+    {
+      "kind": "icon",
+      "id": "herb_03",
+      "path": "prototype/assets/art/match3/herb_03.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 55258,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 14008,
+      "sha256": "60dd5399c6a004b6da9368a77abb5128debe49cd4354a84767c487c30e2f4ffb"
+    },
+    {
+      "kind": "icon",
+      "id": "herb_04",
+      "path": "prototype/assets/art/match3/herb_04.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 51373,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 14710,
+      "sha256": "4ea1d9c11557f4a34fd483acbfabf37f516999071785849595f9e7720f61b378"
+    },
+    {
+      "kind": "icon",
+      "id": "herb_05",
+      "path": "prototype/assets/art/match3/herb_05.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 49436,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 16158,
+      "sha256": "17b76f7b5d924e86b05027c9290baa54b0fc180712a57932527a1f2e35d57ebf"
+    },
+    {
+      "kind": "icon",
+      "id": "herb_06",
+      "path": "prototype/assets/art/match3/herb_06.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 48731,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 19744,
+      "sha256": "8955e337b65200e1eac89ee0a7a7957e07181768579be0442eaa69f139e4e26b"
+    },
+    {
+      "kind": "icon",
+      "id": "tool_01",
+      "path": "prototype/assets/art/match3/tool_01.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 55368,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 9898,
+      "sha256": "1d7d9d888ea474d3a081e73a887e31c1f1fdb0151200614f5e109b1b96216271"
+    },
+    {
+      "kind": "icon",
+      "id": "tool_02",
+      "path": "prototype/assets/art/match3/tool_02.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 55752,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 12238,
+      "sha256": "ac98838795007b3e5066a77c18fa1b599a1854ea244853d0652c80741991e139"
+    },
+    {
+      "kind": "icon",
+      "id": "tool_03",
+      "path": "prototype/assets/art/match3/tool_03.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 54423,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 12836,
+      "sha256": "77bd3bda78a052cbf77b3a089789c06bb13e0edcae01d2e1b75ba9dff9db419d"
+    },
+    {
+      "kind": "icon",
+      "id": "tool_04",
+      "path": "prototype/assets/art/match3/tool_04.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 50660,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 14290,
+      "sha256": "fa2f0a4693093b5cfff712a0128b27f4dd0ada4d5aeed72e4214c1786073cf52"
+    },
+    {
+      "kind": "icon",
+      "id": "tool_05",
+      "path": "prototype/assets/art/match3/tool_05.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 44879,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 20694,
+      "sha256": "a8721fc26b6aef64d553c1f7dfa9de3a432d63179245a54564295ce7ad3c336f"
+    },
+    {
+      "kind": "icon",
+      "id": "tool_06",
+      "path": "prototype/assets/art/match3/tool_06.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 45091,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 20716,
+      "sha256": "edfdfc5c0df2b34b2394ea2836857e02ca127a94bacf59ab27c510dd9adfb8eb"
+    },
+    {
+      "kind": "icon",
+      "id": "feed_01",
+      "path": "prototype/assets/art/match3/feed_01.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 59608,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 6334,
+      "sha256": "e88560ae0a9ebafefae569933a8c62521818f25340b756f4ddaca724f8614200"
+    },
+    {
+      "kind": "icon",
+      "id": "feed_02",
+      "path": "prototype/assets/art/match3/feed_02.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 58939,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 7034,
+      "sha256": "ba6eef977053a6488159bb1dd2130ebc1873535ce84bd529a24070ab4a86eb45"
+    },
+    {
+      "kind": "icon",
+      "id": "feed_03",
+      "path": "prototype/assets/art/match3/feed_03.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 57557,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 6724,
+      "sha256": "9fe4500aa6f3fc5c2bf3eedcadd3851e81be7c009a3200857d0f4328c03f2d63"
+    },
+    {
+      "kind": "icon",
+      "id": "feed_04",
+      "path": "prototype/assets/art/match3/feed_04.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 56397,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 8232,
+      "sha256": "56b047e2ccdefebe7e4243de09589c9d4c4234585d82620af515f370ec78c491"
+    },
+    {
+      "kind": "icon",
+      "id": "feed_05",
+      "path": "prototype/assets/art/match3/feed_05.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 48846,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 12548,
+      "sha256": "f88b6929b3b1b09e177982ff66df78c93d6e9b7735bdf647e23ffbff555ec307"
+    },
+    {
+      "kind": "icon",
+      "id": "feed_06",
+      "path": "prototype/assets/art/match3/feed_06.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 45687,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 17118,
+      "sha256": "1ea8f860d4e10efdd0361cbfeb7b4e7be08b89958c8a7c99825cab88a5dada7f"
+    },
+    {
+      "kind": "icon",
+      "id": "groom_01",
+      "path": "prototype/assets/art/match3/groom_01.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 47058,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 15598,
+      "sha256": "98985a65ca6101c2d69ffcec9a9ffa9c9f3827f51ac39440b653dcdf66ad7452"
+    },
+    {
+      "kind": "icon",
+      "id": "groom_02",
+      "path": "prototype/assets/art/match3/groom_02.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 55390,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 10630,
+      "sha256": "abb17de3b6183ccd3634bd14c859b48dd90516408ac011f176dfbbbd0ac1a25e"
+    },
+    {
+      "kind": "icon",
+      "id": "groom_03",
+      "path": "prototype/assets/art/match3/groom_03.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 48990,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 16442,
+      "sha256": "7546c4affa065a12711aa44a57ec79afece6193366c5c53524af7aaa77dd84c8"
+    },
+    {
+      "kind": "icon",
+      "id": "groom_04",
+      "path": "prototype/assets/art/match3/groom_04.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 49187,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 15462,
+      "sha256": "1f0d44c202a718ca8f1a54edced08404bb4ff53abf1cfe96c48eaa1bee145852"
+    },
+    {
+      "kind": "icon",
+      "id": "groom_05",
+      "path": "prototype/assets/art/match3/groom_05.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 48740,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 21848,
+      "sha256": "3f0f3d7595682f457f3af0e48564876280d640cb4f908346a46f885a880bcbfc"
+    },
+    {
+      "kind": "icon",
+      "id": "groom_06",
+      "path": "prototype/assets/art/match3/groom_06.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 46526,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 16782,
+      "sha256": "7bfaadabb0e90ebadcdc28807dcefdfdf2cd61fdba542258a00ff3c4c7968a91"
+    },
+    {
+      "kind": "icon",
+      "id": "play_01",
+      "path": "prototype/assets/art/match3/play_01.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 58760,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 5738,
+      "sha256": "5165da77804a2b3e153dae7fd41afc415b3250fe13da962df15637bbd68434bd"
+    },
+    {
+      "kind": "icon",
+      "id": "play_02",
+      "path": "prototype/assets/art/match3/play_02.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 49477,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 16256,
+      "sha256": "6e0ba7355cb70e2ad51bc3137c0e3e98a4accefa52697a091218e68909b21765"
+    },
+    {
+      "kind": "icon",
+      "id": "play_03",
+      "path": "prototype/assets/art/match3/play_03.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 52527,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 10268,
+      "sha256": "907760598e348c7d05a289852150632d7efd8a6dcc46c730a725744974816cf0"
+    },
+    {
+      "kind": "icon",
+      "id": "play_04",
+      "path": "prototype/assets/art/match3/play_04.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 43950,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 21490,
+      "sha256": "025b4b2635022d888fd8612c0061a4303e46d4d6f4992d8c451e4ab126b8c785"
+    },
+    {
+      "kind": "icon",
+      "id": "play_05",
+      "path": "prototype/assets/art/match3/play_05.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 44480,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 21882,
+      "sha256": "6a8ed4c6802a8abaab4cc5e7b6a8cea07158c7755340d3f0d3d2831ca751077f"
+    },
+    {
+      "kind": "icon",
+      "id": "play_06",
+      "path": "prototype/assets/art/match3/play_06.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 49583,
+      "dimensions": [
+        256,
+        256
+      ],
+      "bytes": 15948,
+      "sha256": "46fa3e6ca0e46659ee6f41b551c82fe0182ea6e877512bab6399b42db20ca13c"
+    },
+    {
+      "kind": "building",
+      "id": "clinic_lv1",
+      "path": "prototype/assets/art/buildings/clinic_lv1.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 361642,
+      "dimensions": [
+        768,
+        768
+      ],
+      "bytes": 108662,
+      "sha256": "c1068876864a692cbdb68c9283bb006a16c14c23c04646964baea1297ad68b1c"
+    },
+    {
+      "kind": "building",
+      "id": "clinic_lv2",
+      "path": "prototype/assets/art/buildings/clinic_lv2.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 297076,
+      "dimensions": [
+        768,
+        768
+      ],
+      "bytes": 136228,
+      "sha256": "2676b8d040becd5eb1aa8fecbe66f56c21877b22e66058ccc936bd8473575f9b"
+    },
+    {
+      "kind": "building",
+      "id": "clinic_lv3",
+      "path": "prototype/assets/art/buildings/clinic_lv3.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 256359,
+      "dimensions": [
+        768,
+        768
+      ],
+      "bytes": 174054,
+      "sha256": "a3840665fcb5ed07274ff656666e9ba75b3f4648286135a9fbfa1b3ea0d2f3ce"
+    },
+    {
+      "kind": "building",
+      "id": "herb_lv1",
+      "path": "prototype/assets/art/buildings/herb_lv1.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 432917,
+      "dimensions": [
+        768,
+        768
+      ],
+      "bytes": 74258,
+      "sha256": "d057c6335a16a636fdbd63c9040d9301e81dba1bc54208c3cb0567f35bcf2c76"
+    },
+    {
+      "kind": "building",
+      "id": "herb_lv2",
+      "path": "prototype/assets/art/buildings/herb_lv2.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 346944,
+      "dimensions": [
+        768,
+        768
+      ],
+      "bytes": 101638,
+      "sha256": "d9f9b583027109a50fae26da56078a488f8015a58af8557a1e26610832ac4b3b"
+    },
+    {
+      "kind": "building",
+      "id": "herb_lv3",
+      "path": "prototype/assets/art/buildings/herb_lv3.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 268667,
+      "dimensions": [
+        768,
+        768
+      ],
+      "bytes": 138198,
+      "sha256": "655eb2b7cc2a27b1b63699693bf8005b6d67b99bf3d8a10049a60abd93945bb4"
+    },
+    {
+      "kind": "building",
+      "id": "groom_lv1",
+      "path": "prototype/assets/art/buildings/groom_lv1.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 419406,
+      "dimensions": [
+        768,
+        768
+      ],
+      "bytes": 90272,
+      "sha256": "ad1c4481ff2d9ff7973947be4abbc1165a9466cfe3d2454c79c15ca8cefc456b"
+    },
+    {
+      "kind": "building",
+      "id": "groom_lv2",
+      "path": "prototype/assets/art/buildings/groom_lv2.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 375548,
+      "dimensions": [
+        768,
+        768
+      ],
+      "bytes": 110722,
+      "sha256": "d9888de064020e5b57b7f2fdbf8d1d1b65310a9f4afd826379f5bdb892c641b5"
+    },
+    {
+      "kind": "building",
+      "id": "groom_lv3",
+      "path": "prototype/assets/art/buildings/groom_lv3.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 314948,
+      "dimensions": [
+        768,
+        768
+      ],
+      "bytes": 134474,
+      "sha256": "581d16971ea9e171142d288a8ca0eb3704c1d33c23206ae30dc010f3123e798c"
+    },
+    {
+      "kind": "building",
+      "id": "play_lv1",
+      "path": "prototype/assets/art/buildings/play_lv1.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 426989,
+      "dimensions": [
+        768,
+        768
+      ],
+      "bytes": 105744,
+      "sha256": "448708c39d140650add7162ca773d501ddd027dc59e19f1a96ffd51dfbb5a4bb"
+    },
+    {
+      "kind": "building",
+      "id": "play_lv2",
+      "path": "prototype/assets/art/buildings/play_lv2.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 356738,
+      "dimensions": [
+        768,
+        768
+      ],
+      "bytes": 128460,
+      "sha256": "7bdeb4fff3e1406b2b18449fbad32819225a8ed74863d7296a596a3e2c2bbf7c"
+    },
+    {
+      "kind": "building",
+      "id": "play_lv3",
+      "path": "prototype/assets/art/buildings/play_lv3.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 309120,
+      "dimensions": [
+        768,
+        768
+      ],
+      "bytes": 150888,
+      "sha256": "0942fc2f38748a156ab15c9802b6d898626e336286aed3fb7a8a3963c766f026"
+    },
+    {
+      "kind": "fox-portrait",
+      "id": "jiuweihu_lv1",
+      "path": "prototype/assets/art/characters/jiuweihu_lv1.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 190245,
+      "dimensions": [
+        512,
+        512
+      ],
+      "bytes": 27406,
+      "sha256": "c9f84d2e6dc22bc40c8be05a0613bdb1d12c8c264e3fd99249bfe07b665d7c9d"
+    },
+    {
+      "kind": "fox-atlas",
+      "id": "jiuweihu_lv1_atlas",
+      "path": "prototype/assets/art/characters/jiuweihu_lv1_atlas.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 847921,
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "bytes": 114752,
+      "sha256": "8b00925f15da1ed5998955edd052043c067ea71699795b0e7c395a2944df53fa"
+    },
+    {
+      "kind": "fox-portrait",
+      "id": "jiuweihu_lv2",
+      "path": "prototype/assets/art/characters/jiuweihu_lv2.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 170470,
+      "dimensions": [
+        512,
+        512
+      ],
+      "bytes": 36544,
+      "sha256": "0a6463ac52c9edf02d739f0b5d859e4a6c48f2ddf7db0056c1f16b242d414981"
+    },
+    {
+      "kind": "fox-atlas",
+      "id": "jiuweihu_lv2_atlas",
+      "path": "prototype/assets/art/characters/jiuweihu_lv2_atlas.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 785049,
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "bytes": 158972,
+      "sha256": "b22c1975471acba8e3ed86956ac5b49690c387ca00a7eb082bb73fc7e61ebd39"
+    },
+    {
+      "kind": "fox-portrait",
+      "id": "jiuweihu_lv3",
+      "path": "prototype/assets/art/characters/jiuweihu_lv3.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 143407,
+      "dimensions": [
+        512,
+        512
+      ],
+      "bytes": 43036,
+      "sha256": "c6d56ee3583fada27d08f8e286aa6a2c38b99f4755a9255199383e0d5cc20de8"
+    },
+    {
+      "kind": "fox-atlas",
+      "id": "jiuweihu_lv3_atlas",
+      "path": "prototype/assets/art/characters/jiuweihu_lv3_atlas.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 708002,
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "bytes": 181990,
+      "sha256": "639b2695f6488e1198d97c4583e62273a552e5309ddddf0bff03e5eebea73101"
+    },
+    {
+      "kind": "fox-portrait",
+      "id": "jiuweihu_lv4",
+      "path": "prototype/assets/art/characters/jiuweihu_lv4.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 124199,
+      "dimensions": [
+        512,
+        512
+      ],
+      "bytes": 48654,
+      "sha256": "44082494f9bacfb53795d5b1383cfc50eae0debd234cf05a58b7fb6a89b93da0"
+    },
+    {
+      "kind": "fox-atlas",
+      "id": "jiuweihu_lv4_atlas",
+      "path": "prototype/assets/art/characters/jiuweihu_lv4_atlas.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 650357,
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "bytes": 207008,
+      "sha256": "33e47e94d42c020f8d0afb56a5d34c0910e02e1e5f2e90dc6b47644a989a7343"
+    },
+    {
+      "kind": "fox-portrait",
+      "id": "jiuweihu_lv5",
+      "path": "prototype/assets/art/characters/jiuweihu_lv5.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 113774,
+      "dimensions": [
+        512,
+        512
+      ],
+      "bytes": 48122,
+      "sha256": "e844a157f82aa9f261a76f40ede2385ac64f5e28ce735d5f3816e761dd1188ec"
+    },
+    {
+      "kind": "fox-atlas",
+      "id": "jiuweihu_lv5_atlas",
+      "path": "prototype/assets/art/characters/jiuweihu_lv5_atlas.webp",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 626086,
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "bytes": 189086,
+      "sha256": "272d36318ffab56656abd48c808ddada35cc11368a7d9d1ed6b35b2a7e70f869"
+    },
+    {
+      "kind": "background",
+      "id": "fox-lantern-night",
+      "path": "prototype/assets/art/scenes/bg_fox_lantern_buildingfree.webp",
+      "dimensions": [
+        1080,
+        1350
+      ],
+      "bytes": 271890,
+      "sha256": "b6a6383f92d8b898f0d9e927870b723bd49a5417d51141ef7fe631664483d784"
+    }
+  ]
+}

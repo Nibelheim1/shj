@@ -216,13 +216,26 @@ for (const beastId of BEAST_IDS) {
   }
 }
 
+// v6 five-form fox experiment: ship reviewed portraits and deterministic
+// WebP atlases, while leaving source sheets/generation artifacts out of dist.
+for (let level = 1; level <= 5; level += 1) {
+  for (const suffix of ['', '_atlas']) {
+    const filename = `jiuweihu_lv${level}${suffix}.webp`;
+    copyFileIfPresent(
+      `prototype/assets/art/characters/${filename}`,
+      `assets/art/characters/${filename}`
+    );
+  }
+}
+
 // Reuse all currently available merge and courtyard art, but tolerate a
 // checkout that has not generated one of the optional asset directories yet.
 copyDirectoryIfPresent('prototype/assets/art/match3', 'assets/art/match3');
 const RELEASE_SCENES = new Set([
   'bg_courtyard_buildingfree.webp',
   'bg_courtyard_buildingfree_sunset.webp',
-  'bg_courtyard_buildingfree_moonlit.webp'
+  'bg_courtyard_buildingfree_moonlit.webp',
+  'bg_fox_lantern_buildingfree.webp'
 ]);
 copyDirectoryIfPresent('prototype/assets/art/scenes', 'assets/art/scenes', (relativeFile) => RELEASE_SCENES.has(toPosix(relativeFile)));
 copyDirectoryIfPresent('prototype/assets/audio', 'assets/audio');

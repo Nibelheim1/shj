@@ -56,14 +56,24 @@
   }
 
   var herbLevels = [
-    { level: 1, cost: 80, interval: 120, intervalMinutes: 120, intervalMs: 120 * 60 * 1000, cap: 2, tier2Chance: 0 },
-    { level: 2, cost: 220, interval: 90, intervalMinutes: 90, intervalMs: 90 * 60 * 1000, cap: 3, tier2Chance: 0.2 },
-    { level: 3, cost: 450, interval: 60, intervalMinutes: 60, intervalMs: 60 * 60 * 1000, cap: 4, tier2Chance: 0.35 }
+    { level: 1, cost: 0, interval: 120, intervalMinutes: 120, intervalMs: 120 * 60 * 1000, cap: 2, tier2Chance: 0 },
+    { level: 2, cost: 180, interval: 90, intervalMinutes: 90, intervalMs: 90 * 60 * 1000, cap: 3, tier2Chance: 0.2 },
+    { level: 3, cost: 420, interval: 60, intervalMinutes: 60, intervalMs: 60 * 60 * 1000, cap: 4, tier2Chance: 0.35 }
   ];
   var groomLevels = [
-    { level: 1, cost: 130, dailyBoosts: 1, dailyMasteryDuplicate: 0 },
-    { level: 2, cost: 300, dailyBoosts: 2, dailyMasteryDuplicate: 0 },
-    { level: 3, cost: 600, dailyBoosts: 3, dailyMasteryDuplicate: 1 }
+    { level: 1, cost: 0, difficulty: 'normal', bonusTierChance: 0 },
+    { level: 2, cost: 240, difficulty: 'hard', bonusTierChance: 0.12 },
+    { level: 3, cost: 560, difficulty: 'master', bonusTierChance: 0.22 }
+  ];
+  var clinicLevels = [
+    { level: 1, cost: 0, healReward: 8, beastXpMultiplier: 1 },
+    { level: 2, cost: 220, healReward: 10, beastXpMultiplier: 1 },
+    { level: 3, cost: 520, healReward: 12, beastXpMultiplier: 1.1 }
+  ];
+  var playLevels = [
+    { level: 1, cost: 0, difficulty: 'normal', hintBonus: 0 },
+    { level: 2, cost: 240, difficulty: 'hard', hintBonus: 1 },
+    { level: 3, cost: 560, difficulty: 'master', hintBonus: 2 }
   ];
 
   /*
@@ -121,6 +131,15 @@
       price: 260,
       ownedByDefault: false,
       description: '竹影、溪声与灯火，夜间也能安心休息。'
+    },
+    {
+      id: 'fox-lantern-night',
+      name: '狐灯夜庭',
+      file: 'bg_fox_lantern_buildingfree.webp',
+      price: 0,
+      ownedByDefault: false,
+      signInExclusive: true,
+      description: '七盏狐灯照亮回家的路，只在七日约定中相赠。'
     }
   ];
 
@@ -312,8 +331,49 @@
     }
   ];
 
+  /* v6 keeps every resident on the same five-level save contract.  Only the
+     nine-tailed fox ships bespoke art, stories and expanded action sets in
+     this release; the other residents retain their compatible illustrations. */
+  var genericGrowthRequirements = [
+    { level: 1, affection: 0, heal: 0, exp: 0 },
+    { level: 2, affection: 15, heal: 15, exp: 40 },
+    { level: 3, affection: 30, heal: 30, exp: 100 },
+    { level: 4, affection: 55, heal: 55, exp: 220 },
+    { level: 5, affection: 95, heal: 95, exp: 500 }
+  ];
+  beasts.forEach(function (beast) {
+    beast.maxLevel = 5;
+    beast.levels = genericGrowthRequirements.map(function (requirements, index) {
+      return {
+        level: index + 1,
+        title: beast.stageNames[Math.min(index, beast.stageNames.length - 1)] || beast.name,
+        requirements: Object.assign({}, requirements),
+        portrait: beast.art[Math.min(index, beast.art.length - 1)],
+        actions: index === 0 ? ['idle', 'blink', 'sleep'] : ['idle', 'blink', 'sleep', 'walk']
+      };
+    });
+  });
+  var fox = beasts.filter(function (beast) { return beast.id === 'jiuweihu'; })[0];
+  if (fox) {
+    fox.preferredCare = 'groom';
+    fox.growthStories = [
+      { level: 1, title: '藏在尾巴里的来信', text: '那封没敢寄出的信，一直被它仔细藏在最暖的一条尾巴里。' },
+      { level: 2, title: '三条尾巴各有主意', text: '一条想迎风，一条想追球，还有一条只想悄悄挨着你。' },
+      { level: 3, title: '借出去的镜子', text: '它把最珍爱的镜子借给新朋友，也第一次没有躲开自己的倒影。' },
+      { level: 4, title: '七盏没有熄灭的灯', text: '七盏狐灯守了一整夜，为每一位晚归的朋友留着亮光。' },
+      { level: 5, title: '青丘来的第一阵风', text: '青丘的风穿过庭院，九条尾巴一起展开，像一朵会笑的云。' }
+    ];
+    fox.levels = [
+      { level: 1, title: '灵绒·云尾狐', tailCount: 1, requirements: genericGrowthRequirements[0], portrait: 'assets/art/characters/jiuweihu_lv1.webp', atlas: 'assets/art/characters/jiuweihu_lv1_atlas.webp', actions: ['breathe', 'blink', 'curl', 'sleep'] },
+      { level: 2, title: '绯霞·三尾灵使', tailCount: 3, requirements: genericGrowthRequirements[1], portrait: 'assets/art/characters/jiuweihu_lv2.webp', atlas: 'assets/art/characters/jiuweihu_lv2_atlas.webp', actions: ['breathe', 'blink', 'sleep', 'walk', 'sniff', 'chase-tail'] },
+      { level: 3, title: '青丘·五曜狐使', tailCount: 5, requirements: genericGrowthRequirements[2], portrait: 'assets/art/characters/jiuweihu_lv3.webp', atlas: 'assets/art/characters/jiuweihu_lv3_atlas.webp', actions: ['breathe', 'blink', 'sleep', 'walk', 'run', 'play-ball', 'groom-tail'] },
+      { level: 4, title: '天璇·七尾狐君', tailCount: 7, requirements: genericGrowthRequirements[3], portrait: 'assets/art/characters/jiuweihu_lv4.webp', atlas: 'assets/art/characters/jiuweihu_lv4_atlas.webp', actions: ['breathe', 'blink', 'sleep', 'walk', 'run', 'jump', 'spin', 'greet'] },
+      { level: 5, title: '九霄·九尾天狐', tailCount: 9, requirements: genericGrowthRequirements[4], portrait: 'assets/art/characters/jiuweihu_lv5.webp', atlas: 'assets/art/characters/jiuweihu_lv5_atlas.webp', actions: ['breathe', 'blink', 'sleep', 'walk', 'run', 'spin', 'nine-tail-fan', 'cloud-blink', 'star-celebrate'] }
+    ];
+  }
+
   var order = {
-    slotMultipliers: { supply: 1, care: 1.15, story: 1.4 },
+    slotMultipliers: { supply: 1, growth: 1.15, recruit: 1.4 },
     xpRatio: 0.8,
     firstStoryXpBonus: 25,
     slotCount: 3,
@@ -337,15 +397,25 @@
   /* Keep both one-based level lookup and an explicit levels array. */
   var herbFacility = {
     id: 'herb', name: '百草园', levels: herbLevels,
-    costs: [80, 220, 450], intervals: [120, 90, 60], caps: [2, 3, 4],
+    costs: [0, 180, 420], intervals: [120, 90, 60], caps: [2, 3, 4],
     tier2Chance: [0, 0.2, 0.35]
   };
   var groomFacility = {
     id: 'groom', name: '梳洗台', levels: groomLevels,
-    costs: [130, 300, 600], dailyBoosts: [1, 2, 3], dailyMasteryDuplicate: [0, 0, 1]
+    costs: [0, 240, 560]
+  };
+  var clinicFacility = {
+    id: 'clinic', name: '医馆', levels: clinicLevels,
+    costs: [0, 220, 520], healRewards: [8, 10, 12], beastXpMultipliers: [1, 1, 1.1]
+  };
+  var playFacility = {
+    id: 'play', name: '陪玩亭', levels: playLevels,
+    costs: [0, 240, 560]
   };
   herbLevels.forEach(function (level) { herbFacility[level.level] = level; });
   groomLevels.forEach(function (level) { groomFacility[level.level] = level; });
+  clinicLevels.forEach(function (level) { clinicFacility[level.level] = level; });
+  playLevels.forEach(function (level) { playFacility[level.level] = level; });
 
   var dailyObjectives = {
     progressAware: true,
@@ -371,7 +441,9 @@
 
   /* H5 照料小游戏与主棋盘共享的唯一奖励表。奖励数组表示依次掉落的素材阶位。 */
   var careGames = {
-    rewardRunsPerFacility: 15,
+    rewardRunsPerFacility: 3,
+    affectionDailyCap: 8,
+    energyCosts: { easy: 1, normal: 2, hard: 3, master: 4 },
     historyLimit: 5,
     effectiveActions: { groom: 3, play: 4 },
     order: ['easy', 'normal', 'hard', 'master'],
@@ -379,32 +451,32 @@
       easy: {
         id: 'easy', name: '轻松', unlock: 'default',
         groom: { cols: 6, rows: 6, typeCount: 5, timeLimit: 60, moveLimit: 26, minLegalMoves: 5, objective: { mode: 'score', targetMultiplier: 0.72, label: '解开单层毛结并制造特殊块' }, knotMode: 'single', timePickupBudget: 4, itemCounts: { hammer: 3, shuffle: 2, theme: 2 } },
-        play: { cols: 5, rows: 6, typeCount: 6, pairs: 15, timeLimit: 60, maxTurns: 3, allowOutside: true, layoutShift: 'none', lockedPairs: 0, goalCount: 1, specialPairs: { bomb: 1, ice: 1, color: 1 }, timePickupBudget: 4, itemCounts: { hint: 4, shuffle: 2, bell: 2 } },
+        play: { cols: 6, rows: 4, typeCount: 6, pairs: 12, timeLimit: 70, maxTurns: 3, allowOutside: true, layoutShift: 'none', lockedPairs: 0, goalCount: 1, specialPairs: { bomb: 1, ice: 0, color: 0 }, timePickupBudget: 4, itemCounts: { hint: 4, shuffle: 2, bell: 2 } },
         rewards: { floor: [1], B: [1, 1], A: [2], S: [2, 1] }
       },
       normal: {
         id: 'normal', name: '标准', unlock: 'firstStory',
         groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 60, moveLimit: 23, minLegalMoves: 4, objective: { mode: 'score', targetMultiplier: 0.90, label: '收集目标图案并解开混合毛结' }, knotMode: 'mixed', timePickupBudget: 3, itemCounts: { hammer: 2, shuffle: 2, theme: 1 } },
-        play: { cols: 6, rows: 6, typeCount: 8, pairs: 18, timeLimit: 52, maxTurns: 2, allowOutside: true, layoutShift: 'down', lockedPairs: 1, goalCount: 2, specialPairs: { bomb: 1, ice: 1, color: 1 }, timePickupBudget: 3, itemCounts: { hint: 3, shuffle: 2, bell: 1 } },
+        play: { cols: 8, rows: 4, typeCount: 6, pairs: 16, timeLimit: 80, maxTurns: 2, allowOutside: true, layoutShift: 'down', lockedPairs: 1, goalCount: 2, specialPairs: { bomb: 1, ice: 1, color: 1 }, timePickupBudget: 3, itemCounts: { hint: 3, shuffle: 2, bell: 1 } },
         rewards: { floor: [1], B: [2], A: [2, 1], S: [3] }
       },
       hard: {
         id: 'hard', name: '困难', unlock: 'groomLevel2',
         groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 60, moveLimit: 20, minLegalMoves: 3, objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '清除扩散毛结并完成两次连锁' }, knotMode: 'double-spread', timePickupBudget: 2, itemCounts: { hammer: 2, shuffle: 1, theme: 1 } },
-        play: { cols: 6, rows: 8, typeCount: 9, pairs: 24, timeLimit: 46, maxTurns: 2, allowOutside: false, layoutShift: 'left', lockedPairs: 2, goalCount: 2, specialPairs: { bomb: 2, ice: 1, color: 1 }, timePickupBudget: 2, itemCounts: { hint: 2, shuffle: 1, bell: 1 } },
+        play: { cols: 8, rows: 5, typeCount: 6, pairs: 20, timeLimit: 90, maxTurns: 2, allowOutside: true, layoutShift: 'left', lockedPairs: 2, goalCount: 2, specialPairs: { bomb: 2, ice: 1, color: 1 }, timePickupBudget: 2, itemCounts: { hint: 2, shuffle: 1, bell: 1 } },
         rewards: { floor: [2], B: [2, 1], A: [3], S: [3, 2] }
       },
       master: {
         id: 'master', name: '大师', unlock: 'groomLevel3',
         groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 60, moveLimit: 18, minLegalMoves: 2, objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '破除三层毛结并组合两枚特殊块' }, knotMode: 'double-triple', timePickupBudget: 1, itemCounts: { hammer: 1, shuffle: 1, theme: 1 } },
-        play: { cols: 8, rows: 8, typeCount: 10, pairs: 32, timeLimit: 36, maxTurns: 1, allowOutside: false, layoutShift: 'cascade', lockedPairs: 6, goalCount: 3, specialPairs: { bomb: 3, ice: 2, color: 2 }, timePickupBudget: 0, itemCounts: { hint: 1, shuffle: 0, bell: 0 } },
+        play: { cols: 8, rows: 6, typeCount: 6, pairs: 24, timeLimit: 100, maxTurns: 2, allowOutside: true, layoutShift: 'cascade', lockedPairs: 4, goalCount: 3, specialPairs: { bomb: 2, ice: 2, color: 2 }, timePickupBudget: 1, itemCounts: { hint: 1, shuffle: 1, bell: 0 } },
         rewards: { floor: [2], B: [3], A: [3, 2], S: [4], repeatS: [3, 2] }
       }
     }
   };
 
   return {
-    version: 5,
+    version: 6,
     board: {
       cols: 7,
       rows: 8,
@@ -419,9 +491,9 @@
     audio: audio,
     economy: {
       startJade: 120,
-      startEnergy: 22,
-      maxEnergy: 30,
-      energyPerLevel: 1,
+      startEnergy: 100,
+      maxEnergy: 100,
+      energyPerLevel: 0,
       energyCap: 100,
       energyMs: 150000,
       itemValues: [15, 30, 55, 95, 160, 260],
@@ -429,7 +501,25 @@
     },
     order: order,
     beasts: beasts,
-    facilities: { herb: herbFacility, groom: groomFacility },
+    facilities: { clinic: clinicFacility, herb: herbFacility, groom: groomFacility, play: playFacility },
+    buildings: {
+      clinic: { id: 'clinic', name: '医馆', levels: clinicLevels, art: ['assets/art/buildings/clinic_lv1.webp', 'assets/art/buildings/clinic_lv2.webp', 'assets/art/buildings/clinic_lv3.webp'] },
+      herb: { id: 'herb', name: '百草园', levels: herbLevels, art: ['assets/art/buildings/herb_lv1.webp', 'assets/art/buildings/herb_lv2.webp', 'assets/art/buildings/herb_lv3.webp'] },
+      groom: { id: 'groom', name: '梳洗台', levels: groomLevels, art: ['assets/art/buildings/groom_lv1.webp', 'assets/art/buildings/groom_lv2.webp', 'assets/art/buildings/groom_lv3.webp'] },
+      play: { id: 'play', name: '陪玩亭', levels: playLevels, art: ['assets/art/buildings/play_lv1.webp', 'assets/art/buildings/play_lv2.webp', 'assets/art/buildings/play_lv3.webp'] }
+    },
+    growth: { requirements: genericGrowthRequirements, growthOrderRewards: { 1: { beastExp: 20, heal: 8, jade: 25 }, 2: { beastExp: 30, heal: 8, jade: 40 }, 3: { beastExp: 40, heal: 8, jade: 60 }, 4: { beastExp: 50, heal: 8, jade: 85 } } },
+    signIn: {
+      days: [
+        { day: 1, energy: 15 },
+        { day: 2, jade: 40 },
+        { day: 3, items: [{ family: 'herb', tier: 2, count: 1 }, { family: 'tool', tier: 2, count: 1 }] },
+        { day: 4, energy: 25 },
+        { day: 5, jade: 80 },
+        { day: 6, selectedPreferredTier: 3 },
+        { day: 7, background: 'fox-lantern-night', jade: 120 }
+      ]
+    },
     careGames: careGames,
     dailyObjectives: dailyObjectives,
     featureFlags: { rewardedAds: false }
