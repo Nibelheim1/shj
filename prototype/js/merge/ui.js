@@ -1328,7 +1328,8 @@
       return (game.typeCount ? game.typeCount + ' 种图标 · ' : '') + (game.moveLimit ? game.moveLimit + ' 步 · ' : '') + esc(objectiveLabel || '完成关卡目标') + ' · 至少 ' + (game.minLegalMoves || 1) + ' 个候选交换';
     }
     var shift = { none: '静态棋盘', down: '消除后下落', left: '消除后向左收拢', snake: '蛇形重排' }[game.layoutShift] || '动态布局';
-    return (game.typeCount ? game.typeCount + ' 种图标 · ' : '') + '最多 ' + game.maxTurns + ' 转 · ' + (game.allowOutside === false ? '禁走外圈' : '可走外圈') + ' · ' + shift + (game.lockedPairs ? ' · ' + game.lockedPairs + ' 组锁链' : '');
+    var specialCount = game.specialPairs ? Object.keys(game.specialPairs).reduce(function (sum, key) { return sum + (Number(game.specialPairs[key]) || 0); }, 0) : 0;
+    return (game.typeCount ? game.typeCount + ' 种图标 · ' : '') + '最多 ' + game.maxTurns + ' 转 · ' + (game.allowOutside === false ? '禁走外圈' : '可走外圈') + ' · ' + shift + (game.lockedPairs ? ' · ' + game.lockedPairs + ' 组锁链' : '') + (game.goalCount ? ' · ' + game.goalCount + ' 个疗愈目标' : '') + (specialCount ? ' · ' + specialCount + ' 对特殊块' : '') + ' · 连击加时';
   }
 
   function careGameGuide(type) {
@@ -1338,7 +1339,7 @@
         '<div class="care-guide-row"><i class="care-guide-mark line">↔↕</i><span>条纹块：消除整行或整列；○ 炸弹：清除周围 3×3；✦ 彩石：清除同色图标。</span></div>' +
         '<div class="care-guide-row"><i class="care-guide-mark move">⇄</i><span>拖动相邻图标交换，三连即可消除；四连、五连或 L/T 形会制造特殊块。</span></div></div>';
     }
-    return '<div class="care-game-guide" role="note"><strong>连连看玩法</strong><div class="care-guide-row"><i class="care-guide-mark move">↗</i><span>点击两个相同图标连线；路线最多转弯次数和是否能走外圈以所选难度卡为准。</span></div><div class="care-guide-row"><i class="care-guide-mark line">!</i><span>提示、重排、灵铃会显示剩余次数；锁定图标需要先完成前置配对。</span></div></div>';
+    return '<div class="care-game-guide" role="note"><strong>连连看玩法</strong><div class="care-guide-row"><i class="care-guide-mark move">↗</i><span>顶部带金点标记的图标是本局「疗愈目标」，优先消除可额外加分；完成全部目标会触发疗愈达成。连续消除触发连击，3/5/8 连击会爆发、加时并掉落续命时间牌。</span></div><div class="care-guide-row"><i class="care-guide-mark line">✹</i><span>特殊块：✹ 炸弹会连带清除周围对子；蓝框冰冻块需连接两次；“变”色块会定时换成另一种图案。目标、特殊块和连击都能改变你的消除顺序。</span></div><div class="care-guide-row"><i class="care-guide-mark line">!</i><span>不再因错配扣时间：时间只增不减，靠连击与道具续命。提示、重排、灵铃会显示剩余次数；锁定图标需先完成前置配对。</span></div></div>';
   }
 
   function openCareDifficulty(type) {
@@ -1436,7 +1437,11 @@
     var engineOptions = Object.assign({}, difficultyConfig[type], {
       difficulty: difficulty,
       onDone: function (perf, summary) { settle(perf, summary, false); },
-      onCancel: function (summary) { settle(summary && summary.perf, summary, true); }
+      onCancel: function (summary) { settle(summary && summary.perf, summary, true); },
+      onGoal: function () { playSfx('care'); },
+      onCombo: function (tier) { if (tier >= 5) playSfx('merge'); },
+      onSpecial: function (kind) { playSfx(kind === 'color' ? 'click' : 'merge'); },
+      deferGoalFinish: true
     });
     session.game = new Engine.Game(type === 'groom' ? 'GROOM' : 'PLAY', engineOptions);
 

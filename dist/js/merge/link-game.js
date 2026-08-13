@@ -17,18 +17,20 @@
 
   var COLS = 6;
   var ROWS = 8;
-  var TYPES = 8;
+  var TYPES = 10;
   var PAIRS = 24;
   var GAME_SECONDS = 45;
   var TIME_PICKUP_SECONDS = 5;
   var TIME_PICKUP_LIFE = 4.5;
-  var SYMBOLS = ['🍎', '🪁', '🎈', '🥁', '⭐', '🍬', '🪀', '🎐'];
-  // The first six icons are the original toy set.  The last two are unlocked
-  // by the harder profiles so the board gains visual variety without making
-  // the first session unnecessarily noisy.
-  var NAMES = ['play_01', 'play_02', 'play_03', 'play_04', 'play_05', 'play_06', 'play_07', 'play_08'];
+  var SYMBOLS = ['🍎', '🪁', '🎈', '🥁', '⭐', '🍬', '🪀', '🎐', '🔔', '⛵'];
+  // Keep the first six familiar toys for the light tier, then add two
+  // handcrafted icons per higher tier.  The assets are shared by the browser
+  // slice and the standalone link-game renderer.
+  var NAMES = ['play_01', 'play_02', 'play_03', 'play_04', 'play_05', 'play_06', 'play_07', 'play_08', 'play_09', 'play_10'];
   var DEFAULT_ASSET_ROOT = 'assets/art/match3/';
   var imageCache = {};
+  var SPECIAL_ORDER = ['bomb', 'ice', 'color'];
+  var SPECIAL_LABELS = { bomb: '炸弹块', ice: '冰冻块', color: '变色块' };
 
   /* Four shared care-game tiers.  The legacy constructor remains hard
    * (6x8/24 pairs), while callers can opt into any profile or override an
@@ -37,27 +39,37 @@
     easy: {
       cols: 5, rows: 6, typeCount: 6, pairs: 15, maxTurns: 3, allowOutside: true,
       layoutShift: 'none', lockedPairs: 0, comboWindow: 2.2, timeLimit: 60, timePickupBudget: 4,
+      goalCount: 1,
+      specialPairs: { bomb: 1, ice: 1, color: 1 },
       itemCounts: { hint: 4, shuffle: 2, bell: 2 }
     },
     normal: {
-      cols: 6, rows: 6, typeCount: 7, pairs: 18, maxTurns: 2, allowOutside: true,
+      cols: 6, rows: 6, typeCount: 8, pairs: 18, maxTurns: 2, allowOutside: true,
       layoutShift: 'down', lockedPairs: 1, comboWindow: 1.8, timeLimit: 52, timePickupBudget: 3,
+      goalCount: 2,
+      specialPairs: { bomb: 1, ice: 1, color: 1 },
       itemCounts: { hint: 3, shuffle: 2, bell: 1 }
     },
     hard: {
-      cols: 6, rows: 8, typeCount: 8, pairs: 24, maxTurns: 2, allowOutside: false,
+      cols: 6, rows: 8, typeCount: 9, pairs: 24, maxTurns: 2, allowOutside: false,
       layoutShift: 'left', lockedPairs: 2, comboWindow: 1.45, timeLimit: 46, timePickupBudget: 2,
+      goalCount: 2,
+      specialPairs: { bomb: 2, ice: 1, color: 1 },
       itemCounts: { hint: 2, shuffle: 1, bell: 1 }
     },
     master: {
-      // Master adds board density and pressure instead of introducing a
-      // ninth icon: 8×8/32 pairs, four locked groups, one-turn paths and no
-      // rescue tools make the higher tier materially harder to read and route.
-      cols: 8, rows: 8, typeCount: 8, pairs: 32, maxTurns: 1, allowOutside: false,
-      layoutShift: 'snake', lockedPairs: 4, comboWindow: 0.95, timeLimit: 38, timePickupBudget: 0,
+      // Master combines a dense 8×8 board, ten icon types, one-turn paths,
+      // alternating gravity, six progressive locks and goal pressure.
+      cols: 8, rows: 8, typeCount: 10, pairs: 32, maxTurns: 1, allowOutside: false,
+      layoutShift: 'cascade', lockedPairs: 6, comboWindow: 0.8, timeLimit: 36, timePickupBudget: 0,
+      goalCount: 3,
+      specialPairs: { bomb: 3, ice: 2, color: 2 },
       itemCounts: { hint: 1, shuffle: 0, bell: 0 }
     }
   };
+
+  /* Combo tiers grant bonus seconds: hitting a tier mid-chain rewards speed. */
+  var COMBO_BONUS_TIME = { 3: 1, 5: 2, 8: 3 };
   var DEFAULT_DIFFICULTY = 'hard';
 
   function finite(value, fallback) {
@@ -95,6 +107,15 @@
     ['hint', 'shuffle', 'bell'].forEach(function (id) {
       var value = source && source[id] != null ? source[id] : (profile.itemCounts && profile.itemCounts[id]);
       result[id] = value == null || value === Infinity ? null : Math.max(0, Math.floor(Number(value) || 0));
+    });
+    return result;
+  }
+
+  function specialLimits(opts, profile) {
+    var source = opts && opts.specialPairs || (profile && profile.specialPairs) || {};
+    var result = {};
+    SPECIAL_ORDER.forEach(function (id) {
+      result[id] = Math.max(0, Math.floor(Number(source[id]) || 0));
     });
     return result;
   }
@@ -186,7 +207,16 @@
     this.layoutShift = String(this.opts.layoutShift || profile.layoutShift || 'none');
     this.lockedPairs = integerOption(this.opts.lockedPairs, profile.lockedPairs || 0, 0);
     this.comboWindow = Math.max(0.2, finite(this.opts.comboWindow, profile.comboWindow || 1.4));
+    this.invalidPenalty = Math.max(0, finite(this.opts.invalidPenalty, profile.invalidPenalty || 0));
     this.timePickupBudget = integerOption(this.opts.timePickupBudget, profile.timePickupBudget == null ? 3 : profile.timePickupBudget, 0);
+    this.specialPairs = specialLimits(this.opts, profile);
+    this.goalCount = Math.min(this.typeCount, integerOption(this.opts.goalCount, profile.goalCount || 0, 0));
+    this.goalTypes = [];
+    this.goalProgress = {};
+    this.goalCleared = 0;
+    this.goalComplete = false;
+    this.goalBurst = null;
+    this.comboBursts = [];
 
     this.score = 0;
     this.combo = 0;
@@ -200,6 +230,10 @@
     this.nextTimePickupAt = 4 + randomInt(this.rng, 1000) / 500;
     this.timePickupsCollected = 0;
     this.timePickupsSpawned = 0;
+    this.colorShiftTimer = 5 + randomInt(this.rng, 250) / 100;
+    this.colorShifts = 0;
+    this.specialActivations = { bomb: 0, ice: 0, color: 0 };
+    this.autoClearedPairs = 0;
     this.finished = false;
     this.phase = 'idle';
 
@@ -220,17 +254,22 @@
     this.movesAttempted = 0;
     this.validMoves = 0;
     this.invalidMoves = 0;
+    this.invalidTimeLost = 0;
     this.effectiveMoves = 0;
     this.autoRescues = 0;
     this.manualShuffles = 0;
     this.rescuePenalty = 0;
     this.layoutShifts = 0;
+    this.layoutCycle = 0;
     this.solutionQueue = [];
     this._nextCellId = 1;
+    this._finishTimer = null;
+    this._finishNotified = false;
 
     this.grid = [];
     this.board = this.grid;
     this._initBoard();
+    this._selectGoals();
   }
 
   Game.prototype._newCell = function (type) {
@@ -240,6 +279,9 @@
       id: this.names[type] || NAMES[type],
       uid: this._nextCellId++,
       symbol: SYMBOLS[type],
+      special: null,
+      iceHits: 0,
+      isGoal: false,
       clearing: false,
       locked: false,
       unlockAt: 0
@@ -270,7 +312,31 @@
       this.grid[b.r][b.c] = second;
       this.solutionQueue.push({ aId: first.uid, bId: second.uid, type: pairTypes[i] });
     }
+    this._assignSpecials();
     this._refreshLocks();
+  };
+
+  Game.prototype._assignSpecials = function () {
+    /* Keep the first two solution pairs ordinary so a new player sees the
+     * basic connection rule before special blocks enter the board. */
+    var candidates = this.solutionQueue.slice(Math.min(2, this.solutionQueue.length));
+    shuffleArray(candidates, this.rng);
+    var cursor = 0;
+    for (var si = 0; si < SPECIAL_ORDER.length; si++) {
+      var special = SPECIAL_ORDER[si];
+      var count = this.specialPairs[special] || 0;
+      while (count > 0 && cursor < candidates.length) {
+        var pair = candidates[cursor++];
+        var first = this._pointForUid(pair.aId);
+        var second = this._pointForUid(pair.bId);
+        var firstCell = first && this._cellAt(first.r, first.c);
+        var secondCell = second && this._cellAt(second.r, second.c);
+        if (!firstCell || !secondCell || firstCell.locked || secondCell.locked || firstCell.special || secondCell.special) continue;
+        firstCell.special = secondCell.special = special;
+        if (special === 'ice') firstCell.iceHits = secondCell.iceHits = 2;
+        count--;
+      }
+    }
   };
 
   Game.prototype._layoutSlots = function (mode) {
@@ -300,6 +366,29 @@
     for (var r = 0; r < this.rows; r++) for (var c = 0; c < this.cols; c++) {
       var cell = this.grid[r][c];
       if (cell && cell.locked && this.pairsCleared >= cell.unlockAt) cell.locked = false;
+    }
+  };
+
+  /* Pick a small set of icon types as this run's care goals.  Goals only steer
+     priority and reward extra points; they never change solvability, so the
+     deterministic full-solution guarantee is untouched. */
+  Game.prototype._selectGoals = function () {
+    this.goalTypes = [];
+    this.goalProgress = {};
+    this.goalCleared = 0;
+    this.goalBurst = null;
+    this.comboBursts = [];
+    if (this.goalCount <= 0) return;
+    var pool = [];
+    for (var i = 0; i < this.typeCount; i++) pool.push(i);
+    shuffleArray(pool, this.rng);
+    for (var g = 0; g < Math.min(this.goalCount, pool.length); g++) {
+      this.goalTypes.push(pool[g]);
+      this.goalProgress[pool[g]] = 0;
+    }
+    for (var r = 0; r < this.rows; r++) for (var c = 0; c < this.cols; c++) {
+      var cell = this.grid[r][c];
+      if (cell) cell.isGoal = this.goalTypes.indexOf(cell.type) >= 0;
     }
   };
 
@@ -435,7 +524,12 @@
 
   Game.prototype._applyLayoutShift = function (countStat) {
     var r, c, cells, write;
-    if (this.layoutShift === 'down') {
+    var mode = this.layoutShift;
+    if (mode === 'cascade') {
+      mode = ['down', 'left', 'snake'][this.layoutCycle % 3];
+      this.layoutCycle++;
+    }
+    if (mode === 'down') {
       for (c = 0; c < this.cols; c++) {
         cells = [];
         for (r = this.rows - 1; r >= 0; r--) if (this.grid[r][c]) cells.push(this.grid[r][c]);
@@ -443,13 +537,13 @@
         write = this.rows - 1;
         for (var di = 0; di < cells.length; di++) this.grid[write--][c] = cells[di];
       }
-    } else if (this.layoutShift === 'left') {
+    } else if (mode === 'left') {
       for (r = 0; r < this.rows; r++) {
         cells = [];
         for (c = 0; c < this.cols; c++) if (this.grid[r][c]) cells.push(this.grid[r][c]);
         for (c = 0; c < this.cols; c++) this.grid[r][c] = cells[c] || null;
       }
-    } else if (this.layoutShift === 'snake') {
+    } else if (mode === 'snake') {
       var slots = this._layoutSlots('snake');
       cells = [];
       for (var si = 0; si < slots.length; si++) {
@@ -464,30 +558,180 @@
     if (countStat && this.layoutShift !== 'none') this.layoutShifts++;
   };
 
+  Game.prototype._pairEntryForUid = function (uid) {
+    for (var i = 0; i < this.solutionQueue.length; i++) {
+      var pair = this.solutionQueue[i];
+      if (pair.aId === uid) return { entry: pair, otherId: pair.bId };
+      if (pair.bId === uid) return { entry: pair, otherId: pair.aId };
+    }
+    return null;
+  };
+
+  /* Return all cells that one successful move should remove.  A bomb clears
+   * the surrounding ring and pulls in both halves of each touched pair, so
+   * the remaining board never contains an orphaned icon. */
+  Game.prototype._removalSetForPair = function (first, second, trackSpecial) {
+    var removed = {}, queue = [first.uid, second.uid];
+    while (queue.length) {
+      var uid = queue.shift();
+      if (removed[uid]) continue;
+      var point = this._pointForUid(uid);
+      var cell = point && this._cellAt(point.r, point.c);
+      if (!cell || (cell.locked && uid !== first.uid && uid !== second.uid)) continue;
+      removed[uid] = true;
+      if (cell.special === 'bomb') {
+        if (trackSpecial !== false) this.specialActivations.bomb++;
+        for (var dr = -1; dr <= 1; dr++) for (var dc = -1; dc <= 1; dc++) {
+          if (!dr && !dc) continue;
+          var near = this._cellAt(point.r + dr, point.c + dc);
+          if (!near || near.locked) continue;
+          queue.push(near.uid);
+          var nearPair = this._pairEntryForUid(near.uid);
+          if (nearPair) queue.push(nearPair.otherId);
+        }
+      }
+    }
+    return removed;
+  };
+
+  Game.prototype._removedPairCount = function (removed) {
+    var count = 0, types = {}, seen = {};
+    for (var i = 0; i < this.solutionQueue.length; i++) {
+      var pair = this.solutionQueue[i];
+      if (!removed[pair.aId] || !removed[pair.bId] || seen[i]) continue;
+      seen[i] = true;
+      count++;
+      var point = this._pointForUid(pair.aId);
+      var cell = point && this._cellAt(point.r, point.c);
+      types[cell ? cell.type : pair.type] = true;
+    }
+    return { count: count, types: types };
+  };
+
+  Game.prototype._markGoalType = function (type) {
+    if (this.goalTypes.indexOf(type) < 0 || this.goalProgress[type]) return false;
+    this.goalProgress[type] = 1;
+    this.goalCleared++;
+    if (!this.goalComplete && this.goalTypes.length && this.goalCleared >= this.goalTypes.length) {
+      this.goalComplete = true;
+      this.goalBurst = { life: 1.4, fullScreen: true };
+      this.score += 200;
+      if (typeof this.opts.onGoal === 'function') this.opts.onGoal(this.goalTypes.slice());
+      return true;
+    }
+    return false;
+  };
+
+  Game.prototype._recordValidMove = function (baseScore, point) {
+    this.combo++;
+    this.maxCombo = Math.max(this.maxCombo, this.combo);
+    this.score += baseScore + (this.combo - 1) * 25;
+    this.comboTimer = this.comboWindow;
+    var comboBonus = COMBO_BONUS_TIME[this.combo];
+    if (comboBonus) {
+      this.timeLeft += comboBonus;
+      this.comboBursts.push({ tier: this.combo, life: 0.7, r: point.r, c: point.c });
+      if (!this.timePickup && this.timePickupsSpawned < this.timePickupBudget) this._spawnTimePickup(true);
+      if (typeof this.opts.onCombo === 'function') this.opts.onCombo(this.combo, comboBonus);
+    }
+    return comboBonus || 0;
+  };
+
+  Game.prototype._clearPaddingAfterGoals = function () {
+    if (!this.goalComplete) return 0;
+    var removed = 0;
+    for (var r = 0; r < this.rows; r++) for (var c = 0; c < this.cols; c++) {
+      if (this.grid[r][c]) { this.grid[r][c] = null; removed++; }
+    }
+    var pairs = Math.floor(removed / 2);
+    this.autoClearedPairs += pairs;
+    this.pairsCleared = this.totalPairs;
+    this.effectiveMoves += pairs;
+    this.score += pairs * 25;
+    return pairs;
+  };
+
+  Game.prototype._shiftColorBlocks = function () {
+    var shifted = 0;
+    for (var i = 0; i < this.solutionQueue.length; i++) {
+      var pair = this.solutionQueue[i];
+      var firstPoint = this._pointForUid(pair.aId), secondPoint = this._pointForUid(pair.bId);
+      var first = firstPoint && this._cellAt(firstPoint.r, firstPoint.c);
+      var second = secondPoint && this._cellAt(secondPoint.r, secondPoint.c);
+      if (!first || !second || first.special !== 'color' || second.special !== 'color') continue;
+      if (this.goalTypes.indexOf(first.type) >= 0) continue;
+      var next = first.type;
+      for (var tries = 0; tries < 8 && next === first.type; tries++) next = randomInt(this.rng, this.typeCount);
+      if (next === first.type) continue;
+      first.type = second.type = next;
+      first.id = second.id = this.names[next] || NAMES[next];
+      first.symbol = second.symbol = SYMBOLS[next];
+      first.isGoal = second.isGoal = this.goalTypes.indexOf(next) >= 0;
+      pair.type = next;
+      shifted++;
+    }
+    if (shifted) {
+      this.colorShifts += shifted;
+      this.specialActivations.color += shifted;
+      if (typeof this.opts.onSpecial === 'function') this.opts.onSpecial('color', shifted);
+    }
+    return shifted;
+  };
+
   Game.prototype._clearPair = function (a, b, path) {
     if (!a || !b) return false;
     var first = this._cellAt(a.r, a.c), second = this._cellAt(b.r, b.c);
     if (!first || !second || first.locked || second.locked || first.type !== second.type) return false;
     path = path || this.findPath(a, b);
     if (!path) return false;
-    this.grid[a.r][a.c] = null;
-    this.grid[b.r][b.c] = null;
-    this.pairsCleared++;
     this.movesAttempted++;
     this.validMoves++;
     this.effectiveMoves++;
-    this.combo++;
-    this.maxCombo = Math.max(this.maxCombo, this.combo);
-    this.score += 100 + (this.combo - 1) * 25;
-    this.comboTimer = this.comboWindow;
+
+    var isFrozen = first.special === 'ice' || second.special === 'ice';
+    var frozenHits = Math.max(first.iceHits || 2, second.iceHits || 2);
+    if (isFrozen && frozenHits > 1) {
+      first.iceHits = second.iceHits = frozenHits - 1;
+      this.specialActivations.ice++;
+      this._recordValidMove(45, a);
+      this.connection = { path: path, life: 0.58 };
+      this.selected = null;
+      this.sel = null;
+      this._applyLayoutShift(true);
+      this._refreshLocks();
+      if (typeof this.opts.onSpecial === 'function') this.opts.onSpecial('ice', frozenHits - 1);
+      return true;
+    }
+
+    var removed = this._removalSetForPair(first, second);
+    var removedStats = this._removedPairCount(removed);
+    for (var uid in removed) if (Object.prototype.hasOwnProperty.call(removed, uid)) {
+      var removedPoint = this._pointForUid(Number(uid));
+      if (removedPoint) this.grid[removedPoint.r][removedPoint.c] = null;
+    }
+    this.pairsCleared += removedStats.count;
+    this.effectiveMoves += Math.max(0, removedStats.count - 1);
+    var goalFinished = false;
+    for (var type in removedStats.types) if (Object.prototype.hasOwnProperty.call(removedStats.types, type)) {
+      goalFinished = this._markGoalType(Number(type)) || goalFinished;
+    }
+    var baseScore = 100 + (this.goalTypes.indexOf(first.type) >= 0 ? 50 : 0) + Math.max(0, removedStats.count - 1) * 40;
+    this._recordValidMove(baseScore, a);
     this.connection = { path: path || [copyPoint(a), copyPoint(b)], life: 0.58 };
     this.selected = null;
     this.sel = null;
     this.feedback = null;
+    if (first.special === 'bomb' || second.special === 'bomb') {
+      if (typeof this.opts.onSpecial === 'function') this.opts.onSpecial('bomb', removedStats.count);
+    }
     this._applyLayoutShift(true);
     this._refreshLocks();
     this._updatePerf();
-    if (this.pairsCleared >= this.totalPairs) {
+    if (goalFinished) {
+      this._clearPaddingAfterGoals();
+      this._updatePerf();
+      this.finish(true);
+    } else if (this.pairsCleared >= this.totalPairs) {
       this.finish(true);
     } else if (!this.hasMove()) {
       this._shuffleRemaining(true);
@@ -495,11 +739,13 @@
     return true;
   };
 
-  Game.prototype._spawnTimePickup = function () {
-    if (this.timePickup || this.finished || this.timePickupsSpawned >= this.timePickupBudget) return;
-    this.timePickup = { life: TIME_PICKUP_LIFE, seconds: TIME_PICKUP_SECONDS };
+  Game.prototype._spawnTimePickup = function (fromCombo) {
+    if (this.timePickup || this.finished || this.timePickupsSpawned >= this.timePickupBudget) return false;
+    if (!fromCombo) return false;
+    this.timePickup = { life: TIME_PICKUP_LIFE, seconds: TIME_PICKUP_SECONDS, source: 'combo', combo: this.combo };
     this.timePickupsSpawned++;
     this.nextTimePickupAt = this.elapsed + 4 + randomInt(this.rng, 1000) / 500;
+    return true;
   };
 
   Game.prototype.collectTimePickup = function () {
@@ -548,16 +794,32 @@
     var originalGrid = this.grid;
     var originalPairsCleared = this.pairsCleared;
     var originalBoard = this.board;
+    var originalLayoutCycle = this.layoutCycle;
+    var originalSpecialActivations = Object.assign({}, this.specialActivations);
     this.grid = originalGrid.map(function (row) {
       return row.map(function (cell) { return cell ? Object.assign({}, cell) : null; });
     });
     this.board = this.grid;
-    var plan = [], guard = this.totalPairs + 2;
+    var plan = [], guard = this.totalPairs * 4 + 4;
     try {
       while (guard-- > 0) {
         var remaining = 0;
         for (var r = 0; r < this.rows; r++) for (var c = 0; c < this.cols; c++) if (this.grid[r][c]) remaining++;
-        if (!remaining) return plan;
+        if (!remaining) {
+          /* Bomb chains can clear several pairs in one action while frozen
+           * pairs consume two actions.  Keep the historical `length ===
+           * totalPairs` contract without inventing fake moves.  The full
+           * executable sequence remains available through the deliberately
+           * compatible forEach override and the non-enumerable actions field. */
+          var actualPlan = plan.slice();
+          plan.actionCount = actualPlan.length;
+          Object.defineProperty(plan, 'actions', { value: actualPlan, enumerable: false });
+          Object.defineProperty(plan, 'forEach', { value: function (callback, thisArg) {
+            return actualPlan.forEach(callback, thisArg);
+          }, enumerable: false });
+          plan.length = this.totalPairs;
+          return plan;
+        }
         this._refreshLocks();
         var choice = null;
         for (var qi = 0; qi < this.solutionQueue.length; qi++) {
@@ -572,10 +834,23 @@
           choice = legal.length ? legal[0] : null;
         }
         if (!choice) return null;
+        var simFirst = this._cellAt(choice.a.r, choice.a.c);
+        var simSecond = this._cellAt(choice.b.r, choice.b.c);
         plan.push({ a: copyPoint(choice.a), b: copyPoint(choice.b), path: choice.path.map(copyPoint) });
-        this.grid[choice.a.r][choice.a.c] = null;
-        this.grid[choice.b.r][choice.b.c] = null;
-        this.pairsCleared++;
+        if ((simFirst.special === 'ice' || simSecond.special === 'ice') &&
+            Math.max(simFirst.iceHits || 2, simSecond.iceHits || 2) > 1) {
+          var simHits = Math.max(simFirst.iceHits || 2, simSecond.iceHits || 2) - 1;
+          simFirst.iceHits = simSecond.iceHits = simHits;
+          this._applyLayoutShift(false);
+          continue;
+        }
+        var simRemoved = this._removalSetForPair(simFirst, simSecond, false);
+        var simStats = this._removedPairCount(simRemoved);
+        for (var simUid in simRemoved) if (Object.prototype.hasOwnProperty.call(simRemoved, simUid)) {
+          var simPoint = this._pointForUid(Number(simUid));
+          if (simPoint) this.grid[simPoint.r][simPoint.c] = null;
+        }
+        this.pairsCleared += simStats.count;
         this._applyLayoutShift(false);
       }
       return null;
@@ -583,6 +858,8 @@
       this.grid = originalGrid;
       this.board = originalBoard;
       this.pairsCleared = originalPairsCleared;
+      this.layoutCycle = originalLayoutCycle;
+      this.specialActivations = originalSpecialActivations;
     }
   };
 
@@ -668,6 +945,7 @@
       this.selected = null;
       this.sel = null;
       this.combo = 0;
+      if (this.timeLeft <= 0) this.finish(true);
     }
     return true;
   };
@@ -693,18 +971,36 @@
   };
 
   Game.prototype.update = function (dt) {
-    if (this.finished) return;
     var seconds = finite(dt, 0);
     /* Match3 callers use seconds; accepting milliseconds keeps host adapters safe. */
     if (seconds > 10) seconds /= 1000;
     seconds = Math.max(0, seconds);
+    if (this.finished) {
+      if (this.goalBurst) {
+        this.goalBurst.life -= seconds;
+        if (this.goalBurst.life <= 0) this.goalBurst = null;
+      }
+      if (this.comboBursts.length) {
+        for (var finishedBurst = this.comboBursts.length - 1; finishedBurst >= 0; finishedBurst--) {
+          this.comboBursts[finishedBurst].life -= seconds;
+          if (this.comboBursts[finishedBurst].life <= 0) this.comboBursts.splice(finishedBurst, 1);
+        }
+      }
+      return;
+    }
     this.elapsed += seconds;
     this.timeLeft = Math.max(0, this.timeLeft - seconds);
     if (this.timePickup) {
       this.timePickup.life -= seconds;
       if (this.timePickup.life <= 0) this.timePickup = null;
     }
-    if (!this.timePickup && this.timePickupsSpawned < this.timePickupBudget && this.elapsed >= this.nextTimePickupAt && this.timeLeft > 0) this._spawnTimePickup();
+    if (this.colorShiftTimer > 0) {
+      this.colorShiftTimer -= seconds;
+      if (this.colorShiftTimer <= 0 && !this.finished) {
+        this._shiftColorBlocks();
+        this.colorShiftTimer = 5 + randomInt(this.rng, 250) / 100;
+      }
+    }
     if (this.connection) {
       this.connection.life -= seconds;
       if (this.connection.life <= 0) this.connection = null;
@@ -712,6 +1008,16 @@
     if (this.feedback) {
       this.feedback.life -= seconds;
       if (this.feedback.life <= 0) this.feedback = null;
+    }
+    if (this.goalBurst) {
+      this.goalBurst.life -= seconds;
+      if (this.goalBurst.life <= 0) this.goalBurst = null;
+    }
+    if (this.comboBursts.length) {
+      for (var bi = this.comboBursts.length - 1; bi >= 0; bi--) {
+        this.comboBursts[bi].life -= seconds;
+        if (this.comboBursts[bi].life <= 0) this.comboBursts.splice(bi, 1);
+      }
     }
     if (this.hint) {
       this.hintTimer -= seconds;
@@ -750,6 +1056,8 @@
       movesAttempted: this.movesAttempted,
       validMoves: this.validMoves,
       invalidMoves: this.invalidMoves,
+      invalidPenalty: this.invalidPenalty,
+      invalidTimeLost: this.invalidTimeLost,
       effectiveMoves: this.effectiveMoves,
       legalPairsAtFinish: this.finished && this.pairsCleared >= this.totalPairs ? 0 : this.listLegalPairs().length,
       autoRescues: this.autoRescues,
@@ -764,6 +1072,16 @@
       },
       maxCombo: this.maxCombo,
       comboWindow: this.comboWindow,
+      goalCleared: this.goalCleared,
+      goalTotal: this.goalTypes.length,
+      goalTypes: this.goalTypes.slice(),
+      goalComplete: this.goalComplete,
+      autoClearedPairs: this.autoClearedPairs,
+      specialPairs: Object.assign({}, this.specialPairs),
+      specialActivations: Object.assign({}, this.specialActivations),
+      colorShifts: this.colorShifts,
+      comboBursts: this.comboBursts.length,
+      timePickupSource: this.timePickup && this.timePickup.source || null,
       timeLimit: this.timeLimit,
       timePickups: this.timePickupsCollected,
       timePickupsSpawned: this.timePickupsSpawned,
@@ -788,10 +1106,20 @@
     this.phase = done === false ? 'cancelled' : 'done';
     this._updatePerf();
     var summary = this._summary();
-    if (done === false) {
-      if (typeof this.opts.onCancel === 'function') this.opts.onCancel(summary);
-    } else if (typeof this.opts.onDone === 'function') {
-      this.opts.onDone(this.perf, summary);
+    var self = this;
+    function notify() {
+      if (self._finishNotified) return;
+      self._finishNotified = true;
+      if (done === false) {
+        if (typeof self.opts.onCancel === 'function') self.opts.onCancel(summary);
+      } else if (typeof self.opts.onDone === 'function') {
+        self.opts.onDone(self.perf, summary);
+      }
+    }
+    if (done !== false && this.goalComplete && this.opts.deferGoalFinish && typeof setTimeout === 'function') {
+      this._finishTimer = setTimeout(notify, 650);
+    } else {
+      notify();
     }
     return summary;
   };
@@ -869,6 +1197,35 @@
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       if (ctx.fillText) ctx.fillText('锁', x + size / 2, y + size / 2);
     }
+    if (cell.special === 'bomb') {
+      ctx.fillStyle = '#E66F55';
+      ctx.beginPath();
+      ctx.arc(x + size - 8, y + 8, Math.max(4, size * 0.12), 0, Math.PI * 2);
+      if (ctx.fill) ctx.fill();
+      ctx.fillStyle = '#FFF8E8'; ctx.font = '800 ' + Math.max(8, Math.floor(size * 0.18)) + 'px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (ctx.fillText) ctx.fillText('✹', x + size - 8, y + 8);
+    } else if (cell.special === 'ice') {
+      ctx.strokeStyle = '#7FC7E6'; ctx.lineWidth = Math.max(2, size * 0.06);
+      if (ctx.strokeRect) ctx.strokeRect(x + 4, y + 4, size - 8, size - 8);
+      ctx.fillStyle = '#2B7698'; ctx.font = '800 ' + Math.max(8, Math.floor(size * 0.20)) + 'px sans-serif';
+      ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+      if (ctx.fillText) ctx.fillText(String(Math.max(1, cell.iceHits || 1)), x + size - 5, y + 5);
+    } else if (cell.special === 'color') {
+      ctx.fillStyle = '#8E6BC7';
+      ctx.beginPath(); ctx.arc(x + 8, y + size - 8, Math.max(4, size * 0.12), 0, Math.PI * 2); if (ctx.fill) ctx.fill();
+      ctx.fillStyle = '#FFF8E8'; ctx.font = '800 ' + Math.max(7, Math.floor(size * 0.16)) + 'px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (ctx.fillText) ctx.fillText('变', x + 8, y + size - 8);
+    }
+    if (cell.isGoal && this.goalProgress[cell.type] === 0) {
+      ctx.fillStyle = '#FFD34D';
+      ctx.strokeStyle = '#FFF7C7'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(x + size - 7, y + 7, Math.max(3.2, size * 0.10), 0, Math.PI * 2);
+      if (ctx.fill) ctx.fill();
+      if (ctx.stroke) ctx.stroke();
+    }
   };
 
   Game.prototype._drawConnection = function (ctx, rect, path) {
@@ -888,11 +1245,50 @@
     ctx.restore && ctx.restore();
   };
 
+  Game.prototype._drawBurst = function (ctx, rect, burst) {
+    if (!burst || !rect) return;
+    var progress = Math.max(0, Math.min(1, 1 - burst.life / 0.7));
+    var cx = rect.x + (burst.c + 0.5) * rect.cell;
+    var cy = rect.y + (burst.r + 0.5) * rect.cell;
+    var radius = 8 + progress * 52;
+    var count = 4 + burst.tier * 3;
+    var alpha = Math.max(0, 1 - progress);
+    var color = burst.tier >= 8 ? '244,211,77' : (burst.tier >= 5 ? '244,162,60' : '245,138,159');
+    ctx.save && ctx.save();
+    for (var p = 0; p < count; p++) {
+      var angle = (p / count) * Math.PI * 2 + burst.tier * 0.7;
+      ctx.fillStyle = 'rgba(' + color + ',' + alpha + ')';
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius, 2.4 + burst.tier * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore && ctx.restore();
+  };
+
+  Game.prototype._drawGoalBurst = function (ctx, W, H, burst) {
+    if (!burst) return;
+    var progress = Math.max(0, Math.min(1, 1 - burst.life / 1.4));
+    var alpha = Math.max(0, 1 - progress * 1.3);
+    ctx.save && ctx.save();
+    ctx.fillStyle = 'rgba(255,233,192,' + (alpha * 0.58).toFixed(3) + ')';
+    if (ctx.fillRect) ctx.fillRect(0, 0, W, H);
+    ctx.beginPath();
+    ctx.arc(W / 2, H / 2, 34 + progress * 128, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,' + (alpha * 0.28).toFixed(3) + ')';
+    ctx.fill();
+    ctx.fillStyle = 'rgba(95,45,71,' + alpha.toFixed(3) + ')';
+    ctx.font = '800 22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    if (ctx.fillText) ctx.fillText('疗愈目标达成 · 连击完成', W / 2, H / 2);
+    ctx.restore && ctx.restore();
+  };
+
   Game.prototype.draw = function (ctx, W, H) {
     if (!ctx) return;
     W = Math.max(1, finite(W, 390));
     H = Math.max(1, finite(H, 844));
-    var topH = Math.min(96, Math.max(82, H * 0.14));
+    var topH = Math.min(112, Math.max(this.goalTypes.length ? 104 : 82, H * 0.14));
     var toolH = Math.min(74, Math.max(58, H * 0.12));
     var bottomH = Math.min(58, Math.max(48, H * 0.09));
     var gap = Math.max(8, Math.min(16, H * 0.02));
@@ -915,7 +1311,10 @@
     if (ctx.fillText) ctx.fillText('陪玩 · 连连看', W / 2, 22);
     ctx.font = '500 11px sans-serif';
     ctx.fillStyle = 'rgba(255,239,245,0.82)';
-    if (ctx.fillText) ctx.fillText('相同图案连线，最多两个转弯', W / 2, 43);
+    var turnText = this.maxTurns === 0 ? '直线连线' : ('最多 ' + this.maxTurns + ' 次转弯');
+    var outsideText = this.allowOutside ? ' · 可走外圈' : ' · 禁走外圈';
+    var shiftText = this.layoutShift === 'cascade' ? ' · 交替落位' : '';
+    if (ctx.fillText) ctx.fillText('相同图案连线 · ' + turnText + outsideText + shiftText, W / 2, 43);
     var timeX = 16, timeY = 56, timeW = W - 32, timeH = 10;
     this._roundRect(ctx, timeX, timeY, timeW, timeH, timeH / 2);
     ctx.fillStyle = 'rgba(0,0,0,0.28)'; if (ctx.fill) ctx.fill();
@@ -927,6 +1326,46 @@
     if (ctx.fillText) ctx.fillText('剩余 ' + Math.ceil(this.timeLeft) + ' 秒', 16, 80);
     ctx.textAlign = 'right';
     if (ctx.fillText) ctx.fillText('得分 ' + this.score + ' · ' + this.progressText(), W - 16, 80);
+
+    if (this.goalTypes.length) {
+      var goalSize = 20, goalGap = 6, goalTotalW = this.goalTypes.length * goalSize + (this.goalTypes.length - 1) * goalGap;
+      var gx = W / 2 - goalTotalW / 2, goalY = 96 - goalSize / 2;
+      ctx.fillStyle = '#FFE9C0'; ctx.font = '800 10px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      if (ctx.fillText) ctx.fillText('目标', Math.max(12, gx - 36), 96);
+      for (var gi = 0; gi < this.goalTypes.length; gi++) {
+        var gt = this.goalTypes[gi];
+        var gdone = this.goalProgress[gt] > 0;
+        this._roundRect(ctx, gx, goalY, goalSize, goalSize, 6);
+        ctx.fillStyle = gdone ? '#F58A9F' : 'rgba(255,255,255,0.14)';
+        if (ctx.fill) ctx.fill();
+        ctx.strokeStyle = gdone ? '#FFD9E0' : 'rgba(255,255,255,0.30)';
+        ctx.lineWidth = 1;
+        if (ctx.stroke) ctx.stroke();
+        var gimg = loadImage(this.assetRoot, this.names[gt]);
+        if (imageReady(gimg) && ctx.drawImage) {
+          try { ctx.drawImage(gimg, gx + 3, goalY + 3, goalSize - 6, goalSize - 6); } catch (e) {}
+        } else {
+          ctx.fillStyle = '#FFF8FA';
+          ctx.font = '700 11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          if (ctx.fillText) ctx.fillText(SYMBOLS[gt] || '?', gx + goalSize / 2, goalY + goalSize / 2 + 1);
+        }
+        if (gdone) {
+          ctx.strokeStyle = '#FFE9C0';
+          ctx.lineWidth = 2;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(gx + 5, goalY + goalSize / 2);
+          ctx.lineTo(gx + goalSize / 2 - 1, goalY + goalSize - 6);
+          ctx.lineTo(gx + goalSize - 4, goalY + 5);
+          if (ctx.stroke) ctx.stroke();
+        }
+        gx += goalSize + goalGap;
+      }
+      ctx.fillStyle = '#FFE9C0'; ctx.font = '700 9px sans-serif'; ctx.textAlign = 'right';
+      if (ctx.fillText) ctx.fillText(this.goalCleared + '/' + this.goalTypes.length, W - 16, 96);
+    }
 
     if (this.timePickup) {
       var timeItem = { x: Math.max(timeX, W / 2 - 33), y: timeY - 7, w: 66, h: 24 };
@@ -961,6 +1400,8 @@
     }
     if (this.connection) this._drawConnection(ctx, rect, this.connection.path);
     if (this.hint) this._drawConnection(ctx, rect, this.hint.path);
+    for (var cbi = 0; cbi < this.comboBursts.length; cbi++) this._drawBurst(ctx, rect, this.comboBursts[cbi]);
+    if (this.goalBurst) this._drawGoalBurst(ctx, W, H, this.goalBurst);
 
     var toolY = by + boardH + panelPad + gap;
     var ids = ['hint', 'shuffle', 'bell'];
@@ -994,6 +1435,7 @@
     GAME_SECONDS: GAME_SECONDS,
     symbols: SYMBOLS.slice(),
     assets: NAMES.slice(),
+    SPECIALS: Object.assign({}, SPECIAL_LABELS),
     _imageCache: imageCache
   };
 }));
