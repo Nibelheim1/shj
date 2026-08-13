@@ -655,6 +655,7 @@
     if (first.special === 'bomb' || second.special === 'bomb') {
       if (trackSpecial !== false) this.specialActivations.bomb++;
       var candidateIds = [];
+      var sourcePairIds = [first.pairId, second.pairId];
       var origins = [this._pointForUid(first.uid), this._pointForUid(second.uid)];
       for (var originIndex = 0; originIndex < origins.length; originIndex++) {
         var point = origins[originIndex];
@@ -662,7 +663,7 @@
         for (var dr = -1; dr <= 1; dr++) for (var dc = -1; dc <= 1; dc++) {
           if (!dr && !dc) continue;
           var near = this._cellAt(point.r + dr, point.c + dc);
-          if (!near || near.locked || near.uid === first.uid || near.uid === second.uid || candidateIds.indexOf(near.pairId) >= 0) continue;
+          if (!near || near.locked || near.uid === first.uid || near.uid === second.uid || sourcePairIds.indexOf(near.pairId) >= 0 || candidateIds.indexOf(near.pairId) >= 0) continue;
           var complete = this._cellsForPairId(near.pairId);
           if (complete.length === 2 && !complete.some(function (entry) { return entry.cell.locked; })) candidateIds.push(near.pairId);
         }

@@ -1696,6 +1696,39 @@
     return modal;
   }
 
+  function showWelcomeGuide() {
+    if (!state || state.welcomeSeen || !state.beastCases || !state.beastCases.qiongqi) return null;
+    var definition = beastDef('qiongqi');
+    var entry = state.beastCases.qiongqi;
+    var portrait = beastArt(definition, entry);
+    var modal = modalShell(
+      '<div class="beast-milestone-card welcome-guide-card">' +
+        '<span class="eyebrow">欢迎来到疗愈所</span>' +
+        '<h2>穷奇在门口等你</h2>' +
+        '<div class="beast-milestone-art"><img src="' + esc(characterAssetPath(portrait)) + '" alt="穷奇立绘" /></div>' +
+        '<p class="beast-milestone-line">“' + esc(definition.dialogue[0] || '别怕，我会守住这里。') + '”</p>' +
+        '<p class="welcome-guide-copy">我是穷奇，先陪我把疗愈所点亮：在棋盘点击生成器获得素材，拖动同类同阶素材合成；再打开医馆完成金色主线委托。体力不足时也能合成、交付委托和领取岗位产出。</p>' +
+        '<button class="modal-action" data-welcome-start type="button">开始照顾穷奇</button>' +
+      '</div>',
+      'beast-milestone-modal welcome-guide-modal'
+    );
+    if (!modal) return null;
+    if (modal.parentNode) modal.parentNode.classList.add('beast-milestone-backdrop');
+    function dismiss() {
+      state.welcomeSeen = true;
+      state.tutorialSeen = true;
+      saveState();
+      closeModal();
+    }
+    var start = modal.querySelector('[data-welcome-start]');
+    if (start) start.addEventListener('click', dismiss);
+    var close = modal.querySelector('[data-close-modal]');
+    if (close) close.addEventListener('click', dismiss);
+    var backdrop = q('modal-root') && q('modal-root').querySelector('.modal-backdrop');
+    if (backdrop) backdrop.addEventListener('click', function (event) { if (event.target === backdrop) dismiss(); });
+    return modal;
+  }
+
   function showTransformation() {
     var beastId = state.pendingTransformation;
     if (!beastId) return;
@@ -1888,7 +1921,8 @@
     if (readOnlyNewerSave) toast('这份旅程来自未来，暂时只能在这里查看');
     else if (migrationSource === 'backup-slot') toast('刚才的记录有些模糊，已经为你找回最近一次旅程');
     else if (migrationSource) toast('欢迎回来，你和伙伴们的回忆都好好留着');
-    if (!state.tutorialSeen) root.setTimeout(openHowToPlay, 30);
+    if (!state.welcomeSeen) root.setTimeout(showWelcomeGuide, 30);
+    else if (!state.tutorialSeen) root.setTimeout(openHowToPlay, 30);
     else if (state.pendingTransformation) root.setTimeout(showTransformation, 30);
     else if (offline.elapsedMs >= 5 * 60 * 1000) root.setTimeout(function () { showOffline(offline); }, 30);
     return state;
@@ -1921,6 +1955,7 @@
     openYardCharacterDetails: openYardCharacterDetails,
     runYardAutonomy: runYardAutonomy,
     showTransformation: showTransformation,
-    showBeastMilestone: showBeastMilestone
+    showBeastMilestone: showBeastMilestone,
+    showWelcomeGuide: showWelcomeGuide
   };
 }));

@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAt": "2026-08-13T13:19:37.727Z",
-  "totalBytes": 17383596,
+  "generatedAt": "2026-08-13T14:27:55.597Z",
+  "totalBytes": 17597100,
   "files": [
     {
       "path": "assets/art/buildings/clinic_lv1.webp",
@@ -192,14 +192,14 @@
     {
       "path": "assets/art/characters/qiongqi_s1.png",
       "bundle": "scene",
-      "bytes": 64813,
-      "sha256": "3de244f219ba3869bef5e8a931dd1e089324adba2801792a499b1eb2239c9af4"
+      "bytes": 51863,
+      "sha256": "1dd9c0546cba7778122d4c8c4160c1b6ce379328f126ffb9cd8c178b32574524"
     },
     {
       "path": "assets/art/characters/qiongqi_s2.png",
       "bundle": "scene",
-      "bytes": 60762,
-      "sha256": "9a6f390b9795fe2cce54b6204f0b6c962db0f6ef2d56b5e9cf02320380dc67ec"
+      "bytes": 51188,
+      "sha256": "ffee0409df99ed2cea171b4e0f3bb3ed5761e3e52464f89bf14b4a21b0c68fc0"
     },
     {
       "path": "assets/art/characters/qiongqi_s3.png",
@@ -214,6 +214,18 @@
       "sha256": "749a40153727557c8ab45332f288eb25cde021bb7dd98699fdfbcc2796bd9739"
     },
     {
+      "path": "assets/art/characters/taotie_s1.png",
+      "bundle": "scene",
+      "bytes": 59929,
+      "sha256": "ffdf77ad1f5c582f1dd4e9f1d558513aa9ce29934f85c3294ef4e89e4f30bbcf"
+    },
+    {
+      "path": "assets/art/characters/taotie_s2.png",
+      "bundle": "scene",
+      "bytes": 56203,
+      "sha256": "5bc0411e03f7c4516c480e39046d65a334509164fa740431852d93a8deb3acd0"
+    },
+    {
       "path": "assets/art/characters/taotie_s3.png",
       "bundle": "scene",
       "bytes": 57630,
@@ -224,6 +236,18 @@
       "bundle": "scene",
       "bytes": 48281,
       "sha256": "beb042d4052e934fdc1ee59c1693e3e15c52fa4080cdcd60f4cb8088b71cce2c"
+    },
+    {
+      "path": "assets/art/characters/xiangliu_s1.png",
+      "bundle": "scene",
+      "bytes": 58580,
+      "sha256": "94d4f53a806e008ee33c7aa3b15e5b669578964f05d696517e936abc385d50fa"
+    },
+    {
+      "path": "assets/art/characters/xiangliu_s2.png",
+      "bundle": "scene",
+      "bytes": 57532,
+      "sha256": "74e0dde8359e03df93bfe747d63bde3f011b7816b163d0bfab1508c124e3b27d"
     },
     {
       "path": "assets/art/characters/xiangliu_s3.png",
@@ -720,8 +744,8 @@
     {
       "path": "js/merge/core.js",
       "bundle": "boot",
-      "bytes": 88605,
-      "sha256": "f285cffcb6d968a2b8e1ff5b9c241f0241feea83ab3298afde68e018b72b6c59"
+      "bytes": 90079,
+      "sha256": "743cc11d0308b549256cba76c6c6100d5ba7a861624f072e9ae62861a4beb3ae"
     },
     {
       "path": "js/merge/courtyard-scene.js",
@@ -732,14 +756,14 @@
     {
       "path": "js/merge/data.js",
       "bundle": "boot",
-      "bytes": 25240,
-      "sha256": "b771f01a647bcf9fdc19ec97fcb03f4adffce127efa64fd598e2df5d83bc142d"
+      "bytes": 25228,
+      "sha256": "1f1b4125dceb69e70b704f14ea62ef76b682628bd1b68dedf11d8c09fa91fbee"
     },
     {
       "path": "js/merge/link-game.js",
       "bundle": "boot",
-      "bytes": 63742,
-      "sha256": "b9b81de9ed9599c87cbd22e0f62bfe58f6b78dfb6289d7958d6076e6b8b8e630"
+      "bytes": 63842,
+      "sha256": "ec08fa50b068418953cea444e9bbc4995126dc6977d9dbd70f49309890112ad8"
     },
     {
       "path": "js/merge/match3.js",
@@ -756,14 +780,14 @@
     {
       "path": "js/merge/ui.js",
       "bundle": "boot",
-      "bytes": 112534,
-      "sha256": "2f2bf4e6d9d5e16d524a4fc2700ab0d7b2db35282dbec5dd9b1844e4ebd80099"
+      "bytes": 114519,
+      "sha256": "b31e9d49188e37a2bb13810a2900294374697b7ba1ea0647a02aeb57e1929ff1"
     },
     {
       "path": "merge-slice.css",
       "bundle": "boot",
-      "bytes": 79910,
-      "sha256": "4d2cc3a991a1fcfd68c523e4b577a1db57c5bc8933db502dc45b0eaa6273f4ea"
+      "bytes": 80147,
+      "sha256": "ef89e1bda0facae32af669cb1183d1bc6cc19690eaff6fa12511e76d6ef95d9f"
     },
     {
       "path": "merge-slice.js",

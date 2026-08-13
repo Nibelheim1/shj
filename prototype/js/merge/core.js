@@ -267,6 +267,7 @@
       daily: freshDaily(date),
       signIn: { daysClaimed: 0, lastClaimDate: null, completed: false, claimedDates: [] },
       growthOrders: {},
+      growthCounters: {},
       careTransactions: {},
       migrations: { v6FacilityRefund: true },
       weekly: freshWeekly(now),
@@ -278,6 +279,9 @@
       endingUnlocked: false,
       nextChapter: '第二卷 · 白泽的来信',
       tutorialSeen: false,
+      /* Fresh saves show the dedicated Qiongqi welcome once. Existing saves
+       * are treated as already welcomed during normalization below. */
+      welcomeSeen: false,
       analytics: []
     };
     syncEnergyCap(state);
@@ -454,6 +458,8 @@
     state.activeOrders = [];
     ensureOrders(state, Math.random);
     migrateEnergyGap(raw, state);
+    /* This is an existing-save migration, not a brand-new player. */
+    state.welcomeSeen = true;
     syncLegacyAliases(state);
     /* Keep the original building map byte-for-byte for downgrade protection;
        v4 gameplay reads the migrated `facilities` map instead. */
@@ -484,6 +490,7 @@
     }
     syncEnergyCap(state);
     state.tutorialSeen = !!raw.tutorialSeen;
+    state.welcomeSeen = raw.welcomeSeen == null ? true : !!raw.welcomeSeen;
     state.jade = Math.max(0, number(raw.jade, base.jade));
     state.pendingRewards = Array.isArray(raw.pendingRewards) ? raw.pendingRewards.map(normalizeItem).filter(Boolean) : [];
     removeGroomGenerator(state);
@@ -522,6 +529,7 @@
     state.signIn.claimedDates = Array.isArray(state.signIn.claimedDates) ? state.signIn.claimedDates.slice(0, 7) : [];
     state.signIn.completed = state.signIn.daysClaimed >= 7 || !!state.signIn.completed;
     state.growthOrders = raw.growthOrders && typeof raw.growthOrders === 'object' ? clone(raw.growthOrders) : {};
+    state.growthCounters = raw.growthCounters && typeof raw.growthCounters === 'object' ? clone(raw.growthCounters) : {};
     state.careTransactions = {};
     state.migrations = Object.assign({}, base.migrations, raw.migrations || {});
     if (number(raw.version, 0) < 6 && !(raw.migrations && raw.migrations.v6FacilityRefund)) {
@@ -800,6 +808,10 @@
   }
 
   function makeRecruitOrder(state) {
+    /* The first slot is the continuous mainline: story steps, care gate,
+       resident arrival, and post-chapter memory advance from one another. */
+    var storyline = makeStoryOrder(state);
+    if (storyline) return storyline;
     var next = firstLockedBeast(state);
     if (!next) {
       return normalizeOrder({
@@ -842,14 +854,10 @@
       definition = beastDefinition(beastId);
     }
     var date = state.daily && state.daily.date || isoDate(Date.now());
-    var keyName = date + ':' + beastId;
+    state.growthCounters = state.growthCounters || {};
+    var sequence = Math.max(0, Math.floor(number(state.growthCounters[beastId], 0))) + 1;
+    var keyName = date + ':' + beastId + ':' + sequence;
     if (state.growthOrders[keyName]) return normalizeOrder(state.growthOrders[keyName]);
-    if (state.daily.growthCompleted[beastId]) {
-      return normalizeOrder({
-        id: 'growth-' + keyName, slot: 'growth', kind: 'growth_complete', status: 'COMPLETE', beastId: beastId,
-        title: definition.name + '今天收获满满', symptom: '明天再准备一份成长礼物吧。', requirements: [], rewards: {}
-      });
-    }
     var level = clamp(Math.floor(number(entry.level, 1)), 1, 5);
     var preferred = definition.preferredCare || definition.careTypes[0] || 'herb';
     var support = preferred === 'herb' ? 'tool' : 'herb';
@@ -861,7 +869,7 @@
     var reward = growthRewardForLevel(level);
     var order = normalizeOrder({
       id: 'growth-' + keyName,
-      slot: 'growth', kind: 'growth', beastId: beastId, boundDate: date, beastLevel: level,
+      slot: 'growth', kind: 'growth', beastId: beastId, boundDate: date, growthSequence: sequence, beastLevel: level,
       title: definition.name + '的成长心愿',
       symptom: '这份心意只属于' + definition.name + '，交付后经验会记在它的成长册里。',
       requirements: requirements,
@@ -929,13 +937,19 @@
     var old = Array.isArray(state.activeOrders) ? state.activeOrders.filter(Boolean) : [];
     var bySlot = {};
     old.forEach(function (order, index) {
-      var slot = order.slot || (index === 0 ? 'recruit' : index === 1 ? 'growth' : 'supply');
-      if (['recruit', 'growth', 'supply'].indexOf(slot) < 0) return;
-      if (!bySlot[slot]) bySlot[slot] = normalizeOrder(Object.assign({}, order, { slot: slot }));
+      var declaredSlot = order.slot || (index === 0 ? 'recruit' : index === 1 ? 'growth' : 'supply');
+      var bucket = declaredSlot === 'story' ? 'recruit' : declaredSlot;
+      if (['recruit', 'growth', 'supply'].indexOf(bucket) < 0) return;
+      if (!bySlot[bucket]) bySlot[bucket] = normalizeOrder(Object.assign({}, order, { slot: declaredSlot }));
     });
     var selectedBeastId = state.yardBeastId || state.activeCaseId;
     if (!bySlot.recruit || bySlot.recruit.kind === 'recruit_complete' && firstLockedBeast(state)) bySlot.recruit = makeRecruitOrder(state);
-    if (!bySlot.growth || bySlot.growth.boundDate && bySlot.growth.boundDate !== state.daily.date) {
+    /* Growth is a persistent progression chain, not a daily quest. Keep an
+       unfinished node across date changes so a player never loses a partially
+       completed level just because the calendar rolled over. A new node is
+       created immediately after delivery (or if a legacy save contains a
+       completed placeholder). */
+    if (!bySlot.growth || bySlot.growth.kind === 'growth_complete') {
       bySlot.growth = makeGrowthOrder(state, selectedBeastId, rng);
     }
     if (!bySlot.supply || bySlot.supply.kind === 'supply_complete' && state.daily.supplyCompleted < 3 || bySlot.supply.boundDate && bySlot.supply.boundDate !== state.daily.date) {
@@ -1118,14 +1132,19 @@
 
     if (order.kind === 'growth') {
       var growthEntry = state.beastCases[order.beastId];
-      if (!growthEntry || state.daily.growthCompleted[order.beastId]) return { ok: false, reason: 'growth-complete' };
+      if (!growthEntry) return { ok: false, reason: 'growth-complete' };
       var clinicLevel = state.facilities && state.facilities.clinic ? clamp(number(state.facilities.clinic.level, 1), 1, 3) : 1;
       var xpMultiplier = number(DATA.facilities.clinic.levels[clinicLevel - 1].beastXpMultiplier, 1);
       var beastExpAward = Math.max(0, Math.round(number(rewards.beastExp, 0) * xpMultiplier));
       growthEntry.exp = Math.max(0, number(growthEntry.exp, 0)) + beastExpAward;
       growthEntry.heal = Math.max(0, number(growthEntry.heal, 0)) + Math.max(0, number(rewards.heal, 0));
       state.daily.growthCompleted[order.beastId] = true;
-      var growthKey = (order.boundDate || state.daily.date) + ':' + order.beastId;
+      state.growthCounters = state.growthCounters || {};
+      state.growthCounters[order.beastId] = Math.max(
+        Math.floor(number(state.growthCounters[order.beastId], 0)),
+        Math.floor(number(order.growthSequence, 1))
+      );
+      var growthKey = (order.boundDate || state.daily.date) + ':' + order.beastId + ':' + Math.max(1, Math.floor(number(order.growthSequence, 1)));
       state.growthOrders[growthKey] = normalizeOrder({
         id: order.id, slot: 'growth', kind: 'growth_complete', status: 'COMPLETE', beastId: order.beastId,
         boundDate: order.boundDate || state.daily.date, title: beastDefinition(order.beastId).name + '今天收获满满',
@@ -1564,9 +1583,12 @@
     if (!changed) return state.daily;
     state.daily = freshDaily(date);
     var recruit = Array.isArray(state.activeOrders) ? state.activeOrders.filter(function (order) {
-      return order && order.slot === 'recruit';
+      return order && (order.slot === 'recruit' || order.slot === 'story');
     })[0] : null;
-    state.activeOrders = [recruit || makeRecruitOrder(state), makeGrowthOrder(state, state.yardBeastId, rng), makeV6SupplyOrder(state)];
+    var growth = Array.isArray(state.activeOrders) ? state.activeOrders.filter(function (order) {
+      return order && order.slot === 'growth' && order.kind !== 'growth_complete';
+    })[0] : null;
+    state.activeOrders = [recruit || makeRecruitOrder(state), growth || makeGrowthOrder(state, state.yardBeastId, rng), makeV6SupplyOrder(state)];
     state.orders = state.activeOrders;
     return state.daily;
   }

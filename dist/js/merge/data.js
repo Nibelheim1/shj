@@ -251,8 +251,8 @@
       careTypes: ['play'],
       art: [
         'assets/art/characters/xiangliu_s0.png',
-        'assets/art/characters/xiangliu_s3.png',
-        'assets/art/characters/xiangliu_s3.png',
+        'assets/art/characters/xiangliu_s1.png',
+        'assets/art/characters/xiangliu_s2.png',
         'assets/art/characters/xiangliu_s3.png'
       ],
       stageNames: ['九头内耗', '听见彼此', '一起浇花', '小火车园丁'],
@@ -294,8 +294,8 @@
       careTypes: ['play'],
       art: [
         'assets/art/characters/taotie_s0.png',
-        'assets/art/characters/taotie_s3.png',
-        'assets/art/characters/taotie_s3.png',
+        'assets/art/characters/taotie_s1.png',
+        'assets/art/characters/taotie_s2.png',
         'assets/art/characters/taotie_s3.png'
       ],
       stageNames: ['担心不够吃', '学会慢慢尝', '不浪费主厨', '把第一口给你'],
