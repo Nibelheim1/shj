@@ -289,16 +289,50 @@
   };
 
   Game.prototype._initBoard = function () {
-    var pairTypes = [], i, r, c;
+    var pairTypes = [], i;
     for (i = 0; i < this.totalPairs; i++) pairTypes.push(i % this.typeCount);
     shuffleArray(pairTypes, this.rng);
+    var allSlots = this._layoutSlots(this.layoutShift);
+    var targetSlots = this.boardCells;
+    var bestSlots = null, bestAdjacent = Infinity, solved = false;
+    var attempts = Math.max(12, Math.min(80, this.totalPairs * 3));
+    for (var attempt = 0; attempt < attempts; attempt++) {
+      var candidate = this._randomPairSlots(allSlots, targetSlots);
+      var adjacent = this._adjacentPairCount(candidate);
+      if (adjacent < bestAdjacent) {
+        bestAdjacent = adjacent;
+        bestSlots = candidate.slice();
+      }
+      this._placeInitialBoard(pairTypes, candidate);
+      this._assignSpecials();
+      if (this.solve()) {
+        solved = true;
+        break;
+      }
+    }
+    if (!solved) {
+      /* A hostile/custom RNG should never strand a fresh game.  Prefer the
+       * best random placement, then fall back to the legacy layout only if
+       * even that placement cannot be solved under the active path rules. */
+      this._placeInitialBoard(pairTypes, bestSlots || allSlots.slice(0, targetSlots));
+      this._assignSpecials();
+      if (!this.solve()) {
+        this._placeInitialBoard(pairTypes, allSlots.slice(0, targetSlots));
+        this._assignSpecials();
+      }
+    }
+    this._refreshLocks();
+  };
+
+  Game.prototype._placeInitialBoard = function (pairTypes, slots) {
+    var i, r, c;
+    this._nextCellId = 1;
     this.grid = [];
     this.board = this.grid;
     for (r = 0; r < this.rows; r++) {
       this.grid[r] = [];
       for (c = 0; c < this.cols; c++) this.grid[r][c] = null;
     }
-    var slots = this._layoutSlots(this.layoutShift);
     this.solutionQueue = [];
     for (i = 0; i < this.totalPairs; i++) {
       var a = slots[i * 2], b = slots[i * 2 + 1];
@@ -312,8 +346,32 @@
       this.grid[b.r][b.c] = second;
       this.solutionQueue.push({ aId: first.uid, bId: second.uid, type: pairTypes[i] });
     }
-    this._assignSpecials();
-    this._refreshLocks();
+  };
+
+  Game.prototype._randomPairSlots = function (slots, count) {
+    var pool = slots.slice();
+    shuffleArray(pool, this.rng);
+    var result = [];
+    while (result.length < count && pool.length) {
+      var firstIndex = randomInt(this.rng, pool.length);
+      var first = pool.splice(firstIndex, 1)[0];
+      var candidates = [];
+      for (var i = 0; i < pool.length; i++) {
+        var other = pool[i];
+        if (Math.abs(first.r - other.r) + Math.abs(first.c - other.c) > 1) candidates.push(i);
+      }
+      var secondIndex = candidates.length ? candidates[randomInt(this.rng, candidates.length)] : randomInt(this.rng, pool.length);
+      result.push(first, pool.splice(secondIndex, 1)[0]);
+    }
+    return result;
+  };
+
+  Game.prototype._adjacentPairCount = function (slots) {
+    var count = 0;
+    for (var i = 0; i + 1 < slots.length; i += 2) {
+      if (Math.abs(slots[i].r - slots[i + 1].r) + Math.abs(slots[i].c - slots[i + 1].c) === 1) count++;
+    }
+    return count;
   };
 
   Game.prototype._assignSpecials = function () {
