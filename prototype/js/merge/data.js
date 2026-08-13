@@ -371,7 +371,7 @@
 
   /* H5 照料小游戏与主棋盘共享的唯一奖励表。奖励数组表示依次掉落的素材阶位。 */
   var careGames = {
-    rewardRunsPerFacility: 3,
+    rewardRunsPerFacility: 15,
     historyLimit: 5,
     effectiveActions: { groom: 3, play: 4 },
     order: ['easy', 'normal', 'hard', 'master'],
@@ -384,19 +384,19 @@
       },
       normal: {
         id: 'normal', name: '标准', unlock: 'firstStory',
-        groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 52, moveLimit: 23, minLegalMoves: 4, objective: { mode: 'score', targetMultiplier: 0.90, label: '收集目标图案并解开混合毛结' }, knotMode: 'mixed', timePickupBudget: 3, itemCounts: { hammer: 2, shuffle: 2, theme: 1 } },
+        groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 60, moveLimit: 23, minLegalMoves: 4, objective: { mode: 'score', targetMultiplier: 0.90, label: '收集目标图案并解开混合毛结' }, knotMode: 'mixed', timePickupBudget: 3, itemCounts: { hammer: 2, shuffle: 2, theme: 1 } },
         play: { cols: 6, rows: 6, typeCount: 8, pairs: 18, timeLimit: 52, maxTurns: 2, allowOutside: true, layoutShift: 'down', lockedPairs: 1, goalCount: 2, specialPairs: { bomb: 1, ice: 1, color: 1 }, timePickupBudget: 3, itemCounts: { hint: 3, shuffle: 2, bell: 1 } },
         rewards: { floor: [1], B: [2], A: [2, 1], S: [3] }
       },
       hard: {
         id: 'hard', name: '困难', unlock: 'groomLevel2',
-        groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 46, moveLimit: 20, minLegalMoves: 3, objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '清除扩散毛结并完成两次连锁' }, knotMode: 'double-spread', timePickupBudget: 2, itemCounts: { hammer: 2, shuffle: 1, theme: 1 } },
+        groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 60, moveLimit: 20, minLegalMoves: 3, objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '清除扩散毛结并完成两次连锁' }, knotMode: 'double-spread', timePickupBudget: 2, itemCounts: { hammer: 2, shuffle: 1, theme: 1 } },
         play: { cols: 6, rows: 8, typeCount: 9, pairs: 24, timeLimit: 46, maxTurns: 2, allowOutside: false, layoutShift: 'left', lockedPairs: 2, goalCount: 2, specialPairs: { bomb: 2, ice: 1, color: 1 }, timePickupBudget: 2, itemCounts: { hint: 2, shuffle: 1, bell: 1 } },
         rewards: { floor: [2], B: [2, 1], A: [3], S: [3, 2] }
       },
       master: {
         id: 'master', name: '大师', unlock: 'groomLevel3',
-        groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 40, moveLimit: 18, minLegalMoves: 2, objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '破除三层毛结并组合两枚特殊块' }, knotMode: 'double-triple', timePickupBudget: 1, itemCounts: { hammer: 1, shuffle: 1, theme: 1 } },
+        groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 60, moveLimit: 18, minLegalMoves: 2, objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '破除三层毛结并组合两枚特殊块' }, knotMode: 'double-triple', timePickupBudget: 1, itemCounts: { hammer: 1, shuffle: 1, theme: 1 } },
         play: { cols: 8, rows: 8, typeCount: 10, pairs: 32, timeLimit: 36, maxTurns: 1, allowOutside: false, layoutShift: 'cascade', lockedPairs: 6, goalCount: 3, specialPairs: { bomb: 3, ice: 2, color: 2 }, timePickupBudget: 0, itemCounts: { hint: 1, shuffle: 0, bell: 0 } },
         rewards: { floor: [2], B: [3], A: [3, 2], S: [4], repeatS: [3, 2] }
       }

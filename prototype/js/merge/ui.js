@@ -633,7 +633,7 @@
     var background = backgroundDef(backgroundId) || backgroundDef('courtyard');
     var herb = state.facilities.herb;
     var groom = state.facilities.groom;
-    var cap = Number(DATA.careGames && DATA.careGames.rewardRunsPerFacility) || 3;
+    var cap = Number(DATA.careGames && DATA.careGames.rewardRunsPerFacility) || 15;
     var groomLeft = Math.max(0, cap - Number(state.daily.careRewards && state.daily.careRewards.groom || 0));
     var playLeft = Math.max(0, cap - Number(state.daily.careRewards && state.daily.careRewards.play || 0));
     return {
@@ -785,7 +785,7 @@
       button.classList.toggle('care-unneeded', !available);
       /* A non-preferred facility is still playable; only its care reward is withheld. */
       button.setAttribute('aria-disabled', 'false');
-      var rewardCap = Number(DATA.careGames && DATA.careGames.rewardRunsPerFacility) || 3;
+      var rewardCap = Number(DATA.careGames && DATA.careGames.rewardRunsPerFacility) || 15;
       var rewardUsed = Number(state.daily.careRewards && state.daily.careRewards[type]) || 0;
       var rewardLeft = Math.max(0, rewardCap - rewardUsed);
       button.title = available ? '选择' + careTypeLabel(type) + '难度；今日剩余 ' + rewardLeft + ' 局素材奖励' : '可以体验' + careTypeLabel(type) + '，但本局不会获得照料奖励';
@@ -1347,7 +1347,7 @@
     if (!display.entry) return { ok: false, reason: 'wrong-care-type' };
     var config = DATA.careGames || {};
     var recommended = Core.recommendCareDifficulty(state, type);
-    var rewardCap = Number(config.rewardRunsPerFacility) || 3;
+    var rewardCap = Number(config.rewardRunsPerFacility) || 15;
     var used = Number(state.daily.careRewards && state.daily.careRewards[type]) || 0;
     var cards = (config.order || []).map(function (id) {
       var difficulty = config.difficulties[id];
@@ -1549,7 +1549,7 @@
     var score = Math.max(0, Math.round(Number(summary && summary.score) || 0));
     var perf = Math.round(Math.max(0, Math.min(1, Number(summary && summary.perf) || 0)) * 100);
     var label = result.rewardLimited ? '练习完成' : result.noReward ? (result.qualified ? '体验完成' : '尚未达到有效门槛') : '评级 ' + (result.grade || 'B');
-    var rewardNote = result.rewardLimited ? '今日该设施的 3 局素材奖励已领取；本局成绩已记录，明日重置。' : result.noReward ? (outcome === 'skip' ? '直接跳过只保留陪伴反馈，不推进照料节点或每日目标。' : !result.qualified ? '还差一些有效操作；达到门槛后即使超时也能领取保底。' : '当前异兽偏好其他设施，本局仅记录练习成绩。') : (result.firstCare ? '治疗节点已推进 · ' : '治疗节点已完成 · ') + '本局评级 ' + result.grade + '；奖励已进入棋盘或药匣暂存。今日还可领取 ' + result.remainingRewardRuns + ' 局素材。';
+    var rewardNote = result.rewardLimited ? '今日该设施的 15 局素材奖励已领取；本局成绩已记录，明日重置。' : result.noReward ? (outcome === 'skip' ? '直接跳过只保留陪伴反馈，不推进照料节点或每日目标。' : !result.qualified ? '还差一些有效操作；达到门槛后即使超时也能领取保底。' : '当前异兽偏好其他设施，本局仅记录练习成绩。') : (result.firstCare ? '治疗节点已推进 · ' : '治疗节点已完成 · ') + '本局评级 ' + result.grade + '；奖励已进入棋盘或药匣暂存。今日还可领取 ' + result.remainingRewardRuns + ' 局素材。';
     var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · ' + (result.noReward ? '无数值结算' : '有效挑战结算') + '</span><h2>' + esc(beastDef(session.beastId).name) + (result.noReward ? '陪你玩了一局' : result.firstCare ? '完成了一次治疗照料' : '治疗已完成 · 本局仅获素材') + '</h2><img src="' + esc(characterAssetPath(beastDef(session.beastId).art[state.beastCases[session.beastId].stage])) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div><div class="task-reward">' + (result.noReward ? '' : '获得 ') + rewardText + '<br /><small>' + rewardNote + '</small></div><button class="modal-action" data-care-continue type="button">继续</button></div>', 'task-modal');
     if (modal) modal.querySelector('[data-care-continue]').addEventListener('click', function () {
       closeModal();

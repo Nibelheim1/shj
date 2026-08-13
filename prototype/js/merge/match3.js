@@ -6,7 +6,7 @@
  *   2) 特殊块：4连=条状(消整行/列)、L/T型=炸弹(3x3)、5连=彩石(消全盘同色)，支持特殊块互撞组合
  *   3) 道具栏：局内消除攒「灵力」，可用 锤子 / 洗牌 / 主题道具（每种照料各异）
  *   4) 差异化规则：FEED 得分型 / CLEAN 污渍会扩散 / GROOM 解结连锁传染 / PLAY 热情槽计时倍率
- *   5) 倒计时：每局 45 秒，期间会随机出现可增加 5 秒的时间道具
+ *   5) 倒计时：每局 60 秒，期间会随机出现可增加 5 秒的时间道具
  *
  * 用法：
  *   Match3.preload();
@@ -18,7 +18,7 @@
   'use strict';
 
   var COLS = 6, ROWS = 6;
-  var GAME_SECONDS = 45;
+  var GAME_SECONDS = 60;
   var TIME_PICKUP_SECONDS = 5;
   var TIME_PICKUP_LIFE = 4.5;
   // 动画时长（秒）
@@ -73,19 +73,19 @@
     },
     normal: {
       cols: 6, rows: 6, typeCount: 6, obstacleRate: 0.40, knotRate: 0.32, knotStrength: 2,
-      moveLimit: 23, minLegalMoves: 4, timeLimit: 52, timePickupBudget: 3,
+      moveLimit: 23, minLegalMoves: 4, timeLimit: 60, timePickupBudget: 3,
       objective: { mode: 'score', targetMultiplier: 0.90, label: '标准目标' },
       itemCounts: { hammer: 2, shuffle: 2, theme: 1 }
     },
     hard: {
       cols: 6, rows: 7, typeCount: 6, obstacleRate: 0.48, knotRate: 0.39, knotStrength: 2,
-      moveLimit: 20, minLegalMoves: 3, timeLimit: 46, timePickupBudget: 2,
+      moveLimit: 20, minLegalMoves: 3, timeLimit: 60, timePickupBudget: 2,
       objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '进阶目标' },
       itemCounts: { hammer: 2, shuffle: 1, theme: 1 }
     },
     master: {
       cols: 7, rows: 8, typeCount: 6, obstacleRate: 0.56, knotRate: 0.44, knotStrength: 3,
-      moveLimit: 18, minLegalMoves: 2, timeLimit: 40, timePickupBudget: 1,
+      moveLimit: 18, minLegalMoves: 2, timeLimit: 60, timePickupBudget: 1,
       objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '大师目标' },
       itemCounts: { hammer: 1, shuffle: 1, theme: 1 }
     }
@@ -1415,7 +1415,7 @@
     ctx.fillStyle = 'rgba(251,234,210,0.72)';
     ctx.fillText(this.rule.tip, W / 2, 49);
 
-    // 时间进度条：不再用步数限制，45 秒内完成即可。
+    // 时间进度条：不再用步数限制，60 秒内完成即可。
     var pw = Math.min(boardW, W - 48), px = (W - pw) / 2, py = 62, ph = 10;
     this._roundRect(ctx, px, py, pw, ph, ph / 2);
     ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.fill();

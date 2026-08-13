@@ -1109,7 +1109,7 @@
     var grade = careGrade(outcome, perf);
     var qualified = outcome !== 'skip' && effectiveActions >= requiredActions;
     var used = Math.max(0, number(state.daily.careRewards[careType], 0));
-    var cap = Math.max(1, number(DATA.careGames.rewardRunsPerFacility, 3));
+    var cap = Math.max(1, number(DATA.careGames.rewardRunsPerFacility, 15));
     var rewarded = qualified && used < cap;
     if (!rewarded) {
       careHistory(state, careType, {

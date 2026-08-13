@@ -6,7 +6,7 @@
  *   2) 特殊块：4连=条状(消整行/列)、L/T型=炸弹(3x3)、5连=彩石(消全盘同色)，支持特殊块互撞组合
  *   3) 道具栏：局内消除攒「灵力」，可用 锤子 / 洗牌 / 主题道具（每种照料各异）
  *   4) 差异化规则：FEED 得分型 / CLEAN 污渍会扩散 / GROOM 解结连锁传染 / PLAY 热情槽计时倍率
- *   5) 倒计时：每局 45 秒，期间会随机出现可增加 5 秒的时间道具
+ *   5) 倒计时：每局 60 秒，期间会随机出现可增加 5 秒的时间道具
  *
  * 用法：
  *   Match3.preload();
@@ -18,7 +18,7 @@
   'use strict';
 
   var COLS = 6, ROWS = 6;
-  var GAME_SECONDS = 45;
+  var GAME_SECONDS = 60;
   var TIME_PICKUP_SECONDS = 5;
   var TIME_PICKUP_LIFE = 4.5;
   // 动画时长（秒）
@@ -92,7 +92,7 @@
     this.finished = false;
     this.perf = 0;
 
-    // 每局以 45 秒倒计时为主，步数只保留为历史摘要兼容字段。
+    // 每局以 60 秒倒计时为主，步数只保留为历史摘要兼容字段。
     this.timeLimit = Math.max(1, Number(this.opts.timeLimit) || GAME_SECONDS);
     this.timeLeft = this.timeLimit;
     this.elapsed = 0;
@@ -1176,7 +1176,7 @@
     ctx.fillStyle = 'rgba(251,234,210,0.72)';
     ctx.fillText(this.rule.tip, W / 2, 49);
 
-    // 时间进度条：不再用步数限制，45 秒内完成即可。
+    // 时间进度条：不再用步数限制，60 秒内完成即可。
     var pw = Math.min(boardW, W - 48), px = (W - pw) / 2, py = 62, ph = 10;
     this._roundRect(ctx, px, py, pw, ph, ph / 2);
     ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.fill();
