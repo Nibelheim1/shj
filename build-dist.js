@@ -216,16 +216,23 @@ for (const beastId of BEAST_IDS) {
   }
 }
 
-// v6 five-form fox experiment: ship reviewed portraits and deterministic
-// WebP atlases, while leaving source sheets/generation artifacts out of dist.
-for (let level = 1; level <= 5; level += 1) {
-  for (const suffix of ['', '_atlas']) {
-    const filename = `jiuweihu_lv${level}${suffix}.webp`;
+// Ship reviewed five-form portraits for every beast. The fox additionally
+// owns deterministic WebP action atlases; source/generation files stay out.
+for (const beastId of BEAST_IDS) {
+  for (let level = 1; level <= 5; level += 1) {
+    const filename = `${beastId}_lv${level}.webp`;
     copyFileIfPresent(
       `prototype/assets/art/characters/${filename}`,
       `assets/art/characters/${filename}`
     );
   }
+}
+for (let level = 1; level <= 5; level += 1) {
+  const filename = `jiuweihu_lv${level}_atlas.webp`;
+  copyFileIfPresent(
+    `prototype/assets/art/characters/${filename}`,
+    `assets/art/characters/${filename}`
+  );
 }
 
 // Reuse all currently available merge and courtyard art, but tolerate a

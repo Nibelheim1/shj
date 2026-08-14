@@ -225,6 +225,8 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 .generator-route-item span{display:grid;min-width:0;gap:2px}
 .generator-route-item b,.generator-route-item small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .generator-route-item b{font-size:8px}.generator-route-item small{color:var(--muted);font-size:7px}
+.generator-upgrade-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px;padding:7px 9px;border:1px solid #c8874d38;border-radius:10px;background:#fff3df;color:var(--brown)}
+.generator-upgrade-summary b{font-size:9px}.generator-upgrade-summary small{color:var(--muted);font-size:8px;text-align:right}
 .care-score-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:8px}
 .care-score-summary span{display:flex;align-items:center;justify-content:space-between;gap:5px;padding:6px 8px;border-radius:9px;background:#f6eadc;color:var(--muted);font-size:9px}
 .care-score-summary b{color:var(--coral-dark);font-size:12px}

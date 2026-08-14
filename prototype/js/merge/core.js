@@ -193,8 +193,72 @@
     };
   }
 
-  function makeGenerator(family) {
-    return { kind: 'generator', family: family, name: GENERATOR_NAMES[family] || family + '生成器' };
+  function generatorLevelConfig(level) {
+    var levels = DATA.generators && DATA.generators.levels || [{ level: 1, requiredPlayerLevel: 1, upgradeCost: 0, drops: [{ tier: 1, chance: 1 }] }];
+    return levels[clamp(Math.floor(number(level, 1)), 1, levels.length) - 1];
+  }
+
+  function generatorDropTable(level) {
+    return clone(generatorLevelConfig(level).drops || [{ tier: 1, chance: 1 }]);
+  }
+
+  function makeGenerator(family, level) {
+    return {
+      kind: 'generator', family: family,
+      name: GENERATOR_NAMES[family] || family + '生成器',
+      level: clamp(Math.floor(number(level, 1)), 1, number(DATA.generators && DATA.generators.maxLevel, 3))
+    };
+  }
+
+  function findGenerator(state, family) {
+    var lists = [state && state.grid, state && state.pendingRewards];
+    for (var listIndex = 0; listIndex < lists.length; listIndex++) {
+      var list = lists[listIndex] || [];
+      for (var index = 0; index < list.length; index++) {
+        if (list[index] && list[index].kind === 'generator' && list[index].family === family) {
+          return { item: list[index], list: lists[listIndex], index: index };
+        }
+      }
+    }
+    return null;
+  }
+
+  function getGeneratorState(state, family) {
+    var known = !!GENERATOR_NAMES[family] && !GAME_SOURCE_FAMILIES[family];
+    if (!known) return { ok: false, family: family, reason: 'generator-missing' };
+    var unlocked = !!(state && state.unlockedGenerators && state.unlockedGenerators.indexOf(family) >= 0);
+    if (!unlocked) return { ok: false, family: family, reason: 'generator-locked', level: 1 };
+    var found = findGenerator(state, family);
+    if (!found) return { ok: false, family: family, reason: 'generator-missing', level: 1 };
+    var maxLevel = number(DATA.generators && DATA.generators.maxLevel, 3);
+    var level = clamp(Math.floor(number(found.item.level, 1)), 1, maxLevel);
+    found.item.level = level;
+    var nextLevel = level < maxLevel ? level + 1 : null;
+    var next = nextLevel ? generatorLevelConfig(nextLevel) : null;
+    var reason = null;
+    if (!next) reason = 'max-level';
+    else if (number(state.level, 1) < number(next.requiredPlayerLevel, 1)) reason = 'player-level';
+    else if (number(state.jade, 0) < number(next.upgradeCost, 0)) reason = 'jade';
+    return {
+      ok: true, family: family, level: level, maxLevel: maxLevel,
+      dropTable: generatorDropTable(level), nextLevel: nextLevel,
+      nextCost: next ? number(next.upgradeCost, 0) : 0,
+      requiredPlayerLevel: next ? number(next.requiredPlayerLevel, 1) : null,
+      canUpgrade: !reason, reason: reason
+    };
+  }
+
+  function upgradeGenerator(state, family) {
+    var info = getGeneratorState(state, family);
+    if (!info.ok) return info;
+    if (!info.canUpgrade) return Object.assign({}, info, { ok: false });
+    var found = findGenerator(state, family);
+    state.jade -= info.nextCost;
+    found.item.level = info.nextLevel;
+    return {
+      ok: true, family: family, level: found.item.level, cost: info.nextCost,
+      dropTable: generatorDropTable(found.item.level)
+    };
   }
 
   function makeCase(id, active) {
@@ -378,6 +442,7 @@
 
   function normalizeItem(raw) {
     if (!raw || typeof raw !== 'object') return raw == null ? null : raw;
+    if (raw.kind === 'generator') return makeGenerator(raw.family, raw.level);
     if (raw.kind) return clone(raw);
     if (!raw.family) return clone(raw);
     var copied = clone(raw);
@@ -669,6 +734,29 @@
     }, 0);
   }
 
+  function requirementEffort(requirements) {
+    return (requirements || []).reduce(function (sum, need) {
+      return sum + Math.max(1, Math.floor(number(need.count, 1))) * Math.pow(2, Math.max(0, Math.floor(number(need.tier, 1)) - 1));
+    }, 0);
+  }
+
+  function playerOrderRank(state) {
+    return clamp(Math.floor((Math.max(1, Math.floor(number(state && state.level, 1))) + 1) / 2), 1, 5);
+  }
+
+  function orderDifficultyLabel(rank) {
+    return ['初诊', '进阶', '繁复', '珍稀', '灵契'][clamp(rank, 1, 5) - 1];
+  }
+
+  function annotateOrderDifficulty(order, rank) {
+    rank = clamp(Math.floor(number(rank, 1)), 1, 5);
+    order.difficultyRank = rank;
+    order.difficultyLabel = orderDifficultyLabel(rank);
+    order.effort = requirementEffort(order.requirements);
+    order.recommendedGeneratorLevel = rank >= 3 ? 3 : rank >= 2 ? 2 : 1;
+    return order;
+  }
+
   function rewardsFor(kind, requirements, state) {
     var multiplier = DATA.order.slotMultipliers[kind] || 1;
     var jade = Math.max(12, Math.round(requirementValue(requirements) * multiplier));
@@ -944,22 +1032,30 @@
     var keyName = date + ':' + beastId + ':' + sequence;
     if (state.growthOrders[keyName]) return normalizeOrder(state.growthOrders[keyName]);
     var level = clamp(Math.floor(number(entry.level, 1)), 1, 5);
+    var rank = Math.max(playerOrderRank(state), level);
     var preferred = definition.preferredCare || definition.careTypes[0] || 'herb';
     var support = preferred === 'herb' ? 'tool' : 'herb';
-    var tier = Math.min(4, Math.max(1, level));
+    var primaryTiers = [1, 2, 3, 4, 4];
+    var supportTiers = [1, 1, 2, 2, 3];
     var requirements = [
-      normalizeRequirement({ family: preferred, tier: tier, count: 1 }),
-      normalizeRequirement({ family: support, tier: Math.min(3, Math.max(1, Math.ceil(level / 2))), count: 1 })
+      normalizeRequirement({ family: preferred, tier: primaryTiers[rank - 1], count: rank >= 4 ? 2 : 1 }),
+      normalizeRequirement({ family: support, tier: supportTiers[rank - 1], count: rank >= 5 ? 2 : 1 })
     ];
     var reward = growthRewardForLevel(level);
-    var order = normalizeOrder({
+    var effort = requirementEffort(requirements);
+    var order = annotateOrderDifficulty(normalizeOrder({
       id: 'growth-' + keyName,
       slot: 'growth', kind: 'growth', beastId: beastId, boundDate: date, growthSequence: sequence, beastLevel: level,
       title: definition.name + '的成长心愿',
       symptom: '这份心意只属于' + definition.name + '，交付后经验会记在它的成长册里。',
       requirements: requirements,
-      rewards: { jade: reward.jade, beastExp: reward.beastExp, heal: reward.heal }
-    });
+      rewards: {
+        jade: Math.max(reward.jade, 18 + effort * 4 + rank * 3),
+        xp: 10 + effort * 2 + rank * 2,
+        beastExp: reward.beastExp + Math.max(0, rank - level) * 5,
+        heal: reward.heal
+      }
+    }), rank);
     state.growthOrders[keyName] = clone(order);
     return order;
   }
@@ -974,20 +1070,24 @@
     var selected = beastDefinition(state.yardBeastId || state.activeCaseId);
     var preferred = selected && (selected.preferredCare || selected.careTypes[0]);
     var second = preferred && preferred !== 'herb' ? preferred : 'tool';
-    if (GAME_SOURCE_FAMILIES[second] && !hasCareSource(state, second)) second = 'tool';
-    var tier = state.daily.supplyCompleted >= 2 ? 2 : 1;
+    if (GAME_SOURCE_FAMILIES[second] || state.unlockedGenerators.indexOf(second) < 0) second = 'tool';
+    var rank = playerOrderRank(state);
+    var sequence = state.daily.supplyCompleted + 1;
+    var primaryTiers = [1, 2, 3, 4, 4];
+    var supportTiers = [1, 1, 2, 2, 3];
     var requirements = [
-      normalizeRequirement({ family: 'herb', tier: tier, count: 1 }),
-      normalizeRequirement({ family: second, tier: 1, count: 1 })
+      normalizeRequirement({ family: 'herb', tier: primaryTiers[rank - 1], count: rank >= 3 && sequence >= 2 ? 2 : 1 }),
+      normalizeRequirement({ family: second, tier: supportTiers[rank - 1], count: rank >= 4 && sequence >= 3 ? 2 : 1 })
     ];
-    return normalizeOrder({
-      id: 'supply-' + state.daily.date + '-' + (state.daily.supplyCompleted + 1),
-      slot: 'supply', kind: 'supply',
-      title: '百草补给 · 第' + (state.daily.supplyCompleted + 1) + '箱',
-      symptom: '百草园的药材配上药具或伙伴偏好的素材，交付后换回暖玉。',
+    var effort = requirementEffort(requirements);
+    return annotateOrderDifficulty(normalizeOrder({
+      id: 'supply-' + state.daily.date + '-' + sequence,
+      slot: 'supply', kind: 'supply', boundDate: state.daily.date,
+      title: '百草补给 · 第' + sequence + '箱',
+      symptom: '药箱会随你的阅历逐步加量，完成后带回暖玉与庭院经验。',
       requirements: requirements,
-      rewards: { jade: 24 + state.daily.supplyCompleted * 8 }
-    });
+      rewards: { jade: 16 + effort * 4 + rank * 4, xp: 10 + effort * 2 + rank * 3 }
+    }), rank);
   }
 
   function isQualifiedMedicalOrder(order) {
@@ -1254,6 +1354,8 @@
     var rewards = order.rewards || {};
     state.jade += Math.max(0, number(rewards.jade, 0));
     var previousLevel = state.level;
+    /* Growth rewards belong to the resident's bound XP track; only ordinary
+       commissions award the player's global XP. */
     var levelsGained = order.kind === 'growth' ? 0 : gainXp(state, rewards.xp);
     state.completedOrders = Math.max(0, number(state.completedOrders, 0)) + 1;
     state.totalOrders = Math.max(0, number(state.totalOrders, 0)) + 1;
@@ -1351,23 +1453,40 @@
     advanceTime(state, number(now, Date.now()));
     if (state.unlockedGenerators.indexOf(family) < 0) return { ok: false, reason: 'generator-locked' };
     if (state.energy <= 0) return { ok: false, reason: 'energy' };
-    var item = makeItem(family, 1);
+    var found = findGenerator(state, family);
+    var generatorLevel = found ? clamp(number(found.item.level, 1), 1, number(DATA.generators && DATA.generators.maxLevel, 3)) : 1;
+    var dropTable = generatorDropTable(generatorLevel);
+    var roll = randomUnit(rng);
+    var accumulated = 0;
+    var rolledTier = dropTable[dropTable.length - 1].tier;
+    dropTable.some(function (drop) {
+      accumulated += number(drop.chance, 0);
+      if (roll < accumulated) { rolledTier = drop.tier; return true; }
+      return false;
+    });
+    var item = makeItem(family, rolledTier);
     if (firstFreeGridIndex(state) < 0) {
       state.energy--;
       state.pendingRewards.push(item);
-      return { ok: false, reason: 'board-full', pending: true, queued: true, rewardItem: clone(item) };
+      return {
+        ok: false, reason: 'board-full', pending: true, queued: true, rewardItem: clone(item),
+        generatorLevel: generatorLevel, rolledTier: rolledTier, dropTable: clone(dropTable)
+      };
     }
     state.energy--;
     queueItem(state, item);
     var drops = [item];
     var taotie = state.beastCases.taotie;
     if (family === 'food' && taotie && taotie.transformed && rng() < 0.2) {
-      var duplicate = makeItem(family, 1);
+      var duplicate = makeItem(family, rolledTier);
       queueItem(state, duplicate);
       drops.push(duplicate);
     }
     syncLegacyAliases(state);
-    return { ok: true, items: clone(drops), energy: state.energy };
+    return {
+      ok: true, items: clone(drops), energy: state.energy,
+      generatorLevel: generatorLevel, rolledTier: rolledTier, dropTable: clone(dropTable)
+    };
   }
 
   function mergeItems(state, fromIndex, toIndex, now) {
@@ -2132,6 +2251,11 @@
     normalize: normalize,
     ensureOrders: ensureOrders,
     generate: generate,
+    generatorDropTable: generatorDropTable,
+    getGeneratorState: getGeneratorState,
+    upgradeGenerator: upgradeGenerator,
+    requirementEffort: requirementEffort,
+    playerOrderRank: playerOrderRank,
     mergeItems: mergeItems,
     moveBoardItem: moveBoardItem,
     deliverOrder: deliverOrder,

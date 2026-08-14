@@ -209,13 +209,32 @@
   function openGeneratorDetails(family) {
     var definition = familyDef(family);
     if (!definition) return null;
+    var info = Core.getGeneratorState ? Core.getGeneratorState(state, family) : null;
     var title = family === 'groom' ? '梳洗台小游戏产出' : definition.name + '生成器';
-    var intro = family === 'groom' ? '梳子系列不再从合成棋盘生成；完成梳洗台消消乐后按得分领取数量。' : '点击生成器消耗 1 点体力，产出 1 阶素材；同类同阶可继续合成。';
-    return modalShell('<span class="eyebrow">生成说明 · 长按查看</span><h2>' + esc(title) + '</h2><p>' + esc(intro) + '</p>' +
+    var intro = family === 'groom' ? '梳子系列不再从合成棋盘生成；完成梳洗台消消乐后按得分领取数量。' : '每次消耗 1 点体力。升级后会随机直接产出更高阶素材，委托难度也会随庭院阅历成长。';
+    var odds = info && info.dropTable ? info.dropTable.map(function (drop) {
+      return drop.tier + '阶 ' + Math.round(drop.chance * 100) + '%';
+    }).join(' · ') : '1阶 100%';
+    var upgradeText = '';
+    if (info && info.nextLevel) {
+      upgradeText = '升至 Lv' + info.nextLevel + ' · ◆' + info.nextCost;
+      if (info.reason === 'player-level') upgradeText += '（玩家 Lv' + info.requiredPlayerLevel + ' 开放）';
+    } else if (info) upgradeText = '生成器已满级';
+    var modal = modalShell('<span class="eyebrow">生成说明 · 长按查看</span><h2>' + esc(title) + (info ? ' Lv' + info.level : '') + '</h2><p>' + esc(intro) + '</p>' +
+      (info ? '<div class="generator-upgrade-summary"><b>当前产出</b><small>' + esc(odds) + '</small></div>' : '') +
       '<div class="generator-route-list">' + definition.items.map(function (name, index) {
         var tier = index + 1;
-        return '<div class="generator-route-item"><img src="' + esc(itemPath({ family: family, tier: tier })) + '" alt="' + esc(name) + '" /><span><b>' + tier + ' 阶 · ' + esc(name) + '</b><small>' + (tier === 1 ? '基础产出/小游戏基础奖励' : '由 2 个 ' + (tier - 1) + ' 阶合成') + '</small></span></div>';
-      }).join('') + '</div>', 'task-modal generator-route-modal');
+        var direct = info && info.dropTable && info.dropTable.find(function (drop) { return Number(drop.tier) === tier; });
+        return '<div class="generator-route-item"><img src="' + esc(itemPath({ family: family, tier: tier })) + '" alt="' + esc(name) + '" /><span><b>' + tier + ' 阶 · ' + esc(name) + '</b><small>' + (direct ? '当前可直接产出 · ' + Math.round(direct.chance * 100) + '%' : tier === 1 ? '基础产出/小游戏基础奖励' : '由 2 个 ' + (tier - 1) + ' 阶合成') + '</small></span></div>';
+      }).join('') + '</div>' + (info ? '<button class="modal-action" data-upgrade-generator type="button" ' + (!info.nextLevel || info.reason === 'player-level' ? 'disabled' : '') + '>' + esc(upgradeText) + '</button>' : ''), 'task-modal generator-route-modal');
+    if (modal) {
+      var button = modal.querySelector('[data-upgrade-generator]');
+      if (button) button.addEventListener('click', function () {
+        var result = Core.upgradeGenerator(state, family);
+        if (mutate(result, definition.name + '生成器升到 Lv' + result.level, null, 'purchase')) closeModal();
+      });
+    }
+    return modal;
   }
 
   function openLongPressDetails(target) {
@@ -585,11 +604,12 @@
       var needsMarkup = complete ? '<div class="care-gate-hint">今天这一槽已经完成</div>' : '<div class="order-need-icons">' + requirements.map(needMarkup).join('') + '</div>';
       var rewardBits = [];
       if (order.rewards.jade) rewardBits.push('◆' + order.rewards.jade);
+      if (order.rewards.xp) rewardBits.push('阅历+' + order.rewards.xp);
       if (order.rewards.beastExp) rewardBits.push('经验+' + order.rewards.beastExp);
       if (order.rewards.heal) rewardBits.push('疗愈+' + order.rewards.heal);
       var actionMarkup = '<button class="deliver-btn" data-deliver="' + esc(order.id) + '" type="button" ' + (ready && !complete ? '' : 'disabled') + '>' + (complete ? '今日已完成' : '交付 · ' + rewardBits.join(' · ')) + '</button>';
       return '<article class="order-card ' + (mainline ? 'main-order ' : '') + (ready ? 'ready ' : '') + (!reachable ? 'unreachable' : '') + '" data-order-id="' + esc(order.id) + '">' +
-        '<div class="order-head">' + (mainline ? '<span class="mainline-badge">主线</span>' : '') + '<span class="order-kind">' + kindLabel(order.kind) + '</span><strong>' + esc(order.title) + '</strong></div>' +
+        '<div class="order-head">' + (mainline ? '<span class="mainline-badge">主线</span>' : '') + '<span class="order-kind">' + kindLabel(order.kind) + '</span>' + (order.difficultyLabel ? '<span class="order-kind">' + esc(order.difficultyLabel) + ' · 强度' + order.effort + '</span>' : '') + '<strong>' + esc(order.title) + '</strong></div>' +
         '<p>' + esc(order.symptom || '准备需要的素材并完成交付。') + '</p>' +
         needsMarkup +
         '<span class="order-progress ' + (ready ? 'ready' : '') + '">' + (ready ? '素材齐全，可以交付' : orderSourceText(order, reachable)) + '</span>' +
@@ -618,7 +638,7 @@
         if (state.unlockedGenerators.indexOf(item.family) < 0) classes.push('generator-locked');
         var family = familyDef(item.family);
         label = item.name || '生成器';
-        content = '<span>' + esc(family ? family.icon : '✦') + '</span><em>' + esc(label) + ' · ⚡1</em>';
+        content = '<span>' + esc(family ? family.icon : '✦') + '</span><em>' + esc(label) + ' Lv' + Math.max(1, Number(item.level) || 1) + ' · ⚡1</em>';
       } else if (item && item.kind === 'obstacle') {
         classes.push('obstacle'); label = item.name; content = '<span>🌿</span><em>刷 ' + state.cleanTools + '</em>';
       } else if (item && item.kind === 'sealed') {
@@ -1030,6 +1050,9 @@
       energy: '体力用完了，但仍可合成、交付委托或领取庭院产出',
       'board-full': '棋盘已满，产出已安全暂存',
       'generator-locked': '完成上一位异兽蜕变后解锁这条产线',
+      'generator-missing': '这台生成器暂时不在棋盘上',
+      'player-level': '庭院阅历还不够，继续完成委托后再来升级',
+      'max-level': '已经升到最高等级',
       requirements: '素材还没准备齐', jade: '暖玉不足',
       'storage-full': '暂存区已满', 'no-brush': '净化刷不足',
       empty: '当前没有可领取产出', 'no-rerolls': '今天的免费刷新已用完',
@@ -1158,7 +1181,7 @@
     if (!item) { playSfx('click'); selectedIndex = null; renderBoard(); return; }
     if (item.kind === 'generator') {
       var generated = Core.generate(state, item.family, Math.random, Date.now());
-      if (generated.ok) mutate(generated, '获得 ' + itemName(generated.items[0]) + (generated.items && generated.items.length > 1 ? ' · 饕餮双倍掉落' : ''));
+      if (generated.ok) mutate(generated, 'Lv' + generated.generatorLevel + ' 生成器获得 ' + itemName(generated.items[0]) + (generated.items && generated.items.length > 1 ? ' · 饕餮双倍掉落' : ''));
       else {
         saveState(); render(); toast(failureText(generated));
       }

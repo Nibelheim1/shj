@@ -164,12 +164,13 @@
       unlockTier: 0,
       careTypes: ['groom', 'play'],
       art: [
-        'assets/art/characters/qiongqi_s0.png',
-        'assets/art/characters/qiongqi_s1.png',
-        'assets/art/characters/qiongqi_s2.png',
-        'assets/art/characters/qiongqi_s3.png'
+        'assets/art/characters/qiongqi_lv1.webp',
+        'assets/art/characters/qiongqi_lv2.webp',
+        'assets/art/characters/qiongqi_lv3.webp',
+        'assets/art/characters/qiongqi_lv4.webp',
+        'assets/art/characters/qiongqi_lv5.webp'
       ],
-      stageNames: ['门后怂包', '试着靠近', '可靠守卫', '温柔门卫'],
+      stageNames: ['灵绒·藏门虎', '霁羽·听风虎使', '玄翼·镇庭灵卫', '云阙·护门虎君', '天穹·凌霄神将'],
       dialogue: [
         '别、别过来！我只是看看门外……',
         '你今天……还会回来吗？',
@@ -250,12 +251,13 @@
       unlockTier: 6,
       careTypes: ['play'],
       art: [
-        'assets/art/characters/xiangliu_s0.png',
-        'assets/art/characters/xiangliu_s1.png',
-        'assets/art/characters/xiangliu_s2.png',
-        'assets/art/characters/xiangliu_s3.png'
+        'assets/art/characters/xiangliu_lv1.webp',
+        'assets/art/characters/xiangliu_lv2.webp',
+        'assets/art/characters/xiangliu_lv3.webp',
+        'assets/art/characters/xiangliu_lv4.webp',
+        'assets/art/characters/xiangliu_lv5.webp'
       ],
-      stageNames: ['九头内耗', '听见彼此', '一起浇花', '小火车园丁'],
+      stageNames: ['涟芽·九首幼灵', '碧泉·同心水使', '沧澜·九脉灵使', '玄川·共潮蛇君', '九渊·万流神君'],
       dialogue: [
         '九个头都说不清，先让我想想……',
         '我们慢慢来，一个头浇一朵花。',
@@ -293,12 +295,13 @@
       unlockTier: 6,
       careTypes: ['play'],
       art: [
-        'assets/art/characters/taotie_s0.png',
-        'assets/art/characters/taotie_s1.png',
-        'assets/art/characters/taotie_s2.png',
-        'assets/art/characters/taotie_s3.png'
+        'assets/art/characters/taotie_lv1.webp',
+        'assets/art/characters/taotie_lv2.webp',
+        'assets/art/characters/taotie_lv3.webp',
+        'assets/art/characters/taotie_lv4.webp',
+        'assets/art/characters/taotie_lv5.webp'
       ],
-      stageNames: ['担心不够吃', '学会慢慢尝', '不浪费主厨', '把第一口给你'],
+      stageNames: ['馋绒·抱碗小饕', '暖灶·百味灵厨', '珍馐·聚福食使', '丰宴·纳祥饕君', '万象·盛宴圣尊'],
       dialogue: [
         '看见了就想吃……可是够大家分吗？',
         '先尝一口，别急，我们做热乎的。',
@@ -331,9 +334,9 @@
     }
   ];
 
-  /* v6 keeps every resident on the same five-level save contract.  Only the
-     nine-tailed fox ships bespoke art, stories and expanded action sets in
-     this release; the other residents retain their compatible illustrations. */
+  /* v6 keeps every resident on the same five-level save contract. Each beast
+     now has a dedicated portrait at every level; the nine-tailed fox alone
+     keeps the expanded action-atlas set in this release. */
   var genericGrowthRequirements = [
     { level: 1, affection: 0, heal: 0, exp: 0 },
     { level: 2, affection: 15, heal: 15, exp: 40 },
@@ -548,6 +551,15 @@
       energyMs: 150000,
       itemValues: [15, 30, 55, 95, 160, 260],
       storageCosts: [80, 160, 320]
+    },
+    generators: {
+      maxLevel: 3,
+      levelNames: ['初成', '精制', '灵蕴'],
+      levels: [
+        { level: 1, requiredPlayerLevel: 1, upgradeCost: 0, drops: [{ tier: 1, chance: 1 }] },
+        { level: 2, requiredPlayerLevel: 3, upgradeCost: 180, drops: [{ tier: 1, chance: 0.75 }, { tier: 2, chance: 0.25 }] },
+        { level: 3, requiredPlayerLevel: 6, upgradeCost: 480, drops: [{ tier: 1, chance: 0.55 }, { tier: 2, chance: 0.35 }, { tier: 3, chance: 0.1 }] }
+      ]
     },
     order: order,
     beasts: beasts,
