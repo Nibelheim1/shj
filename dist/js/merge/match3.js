@@ -88,6 +88,12 @@
       moveLimit: 18, minLegalMoves: 2, timeLimit: 60, timePickupBudget: 1,
       objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '大师目标' },
       itemCounts: { hammer: 1, shuffle: 1, theme: 1 }
+    },
+    challenge: {
+      cols: 7, rows: 8, typeCount: 6, obstacleRate: 0.42, knotRate: 0.34, knotStrength: 2,
+      moveLimit: 50, minLegalMoves: 3, timeLimit: 120, timePickupBudget: 4,
+      objective: { mode: 'score', targetMultiplier: 1.70, label: '挑战高分' },
+      itemCounts: { hammer: 2, shuffle: 2, theme: 2 }
     }
   };
   var DEFAULT_DIFFICULTY = 'easy';

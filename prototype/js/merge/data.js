@@ -353,6 +353,39 @@
       };
     });
   });
+  var revealLines = {
+    qiongqi: [
+      '门后那只小怂虎探出耳朵：我可以陪你看门吗？',
+      '穷奇往前挪半步，小声宣布：今天我守你身边。',
+      '雨声一响，穷奇举起小伞：别怕，我记得回家的路。',
+      '它把门灯擦得亮亮的：晚归的人，我一个也不漏。',
+      '穷奇甩甩翅膀：这扇门有我，安心把烦恼放下吧。'
+    ],
+    jiuweihu: [
+      '九尾狐捧着一条软尾巴报到：请把害羞藏在我身后。',
+      '一条尾巴变三条，九尾狐说：今天的风有三种香气。',
+      '五尾展开像花扇：镜子借你，我也要学着看自己。',
+      '七盏狐灯随尾尖亮起：晚归的朋友，别怕迷路啦。',
+      '九尾齐齐开屏，青丘的风把庭院吹成会笑的云。'
+    ],
+    xiangliu: [
+      '九个小脑袋挤进庭院：先给我们一块安静的水洼吧。',
+      '九个声音轮流说话：这次先听最紧张的那个头。',
+      '相柳排成小火车：一头浇花，八头替它加油。',
+      '花坛喝饱水啦，九个头一起宣布：今天配合满分！',
+      '相柳把浇水壶递给你：九头同行，慢慢也能到远方。'
+    ],
+    taotie: [
+      '饕餮抱着空碗来报到：别担心，我会把每口都分好。',
+      '它先闻一闻热饭：慢慢尝，香味不会偷偷跑掉。',
+      '饕餮把边角料变成小点心：一粒米也有好去处。',
+      '灶火噼啪响，饕餮举勺宣布：今天不浪费一口！',
+      '它把第一口递给你：吃饱再出发，朋友要并肩嘛。'
+    ]
+  };
+  beasts.forEach(function (beast) {
+    beast.revealLines = revealLines[beast.id] || beast.dialogue.slice(0, 5);
+  });
   var fox = beasts.filter(function (beast) { return beast.id === 'jiuweihu'; })[0];
   if (fox) {
     fox.preferredCare = 'groom';
@@ -441,14 +474,19 @@
 
   /* H5 照料小游戏与主棋盘共享的唯一奖励表。奖励数组表示依次掉落的素材阶位。 */
   var careGames = {
-    /* Mini-game material rewards are intentionally unlimited per day. Keep
-     * the legacy numeric field for older readers, while the explicit flag
-     * lets the core/UI distinguish unlimited from a finite cap. */
-    rewardRunsUnlimited: true,
-    rewardRunsPerFacility: 0,
+    /* Ordinary care rewards keep the three-runs-per-facility daily guardrail.
+     * Challenge mode is instead bounded by five-point energy cost and a
+     * six-item score cap, so its material economy stays independent. */
+    rewardRunsUnlimited: false,
+    rewardRunsPerFacility: 3,
     /* Both care games and beast-specific commissions share this daily cap. */
     affectionDailyCap: 100,
-    energyCosts: { easy: 1, normal: 2, hard: 3, master: 4 },
+    energyCosts: { easy: 1, normal: 2, hard: 3, master: 4, challenge: 5 },
+    challengeRewards: {
+      maxItems: 6,
+      groom: { countThresholds: [600, 1200, 2200, 3600], tier2Score: 1200, tier3Score: 3000 },
+      play: { countThresholds: [2500, 5000, 8500, 13000], tier2Score: 5000, tier3Score: 12000 }
+    },
     historyLimit: 5,
     effectiveActions: { groom: 3, play: 4 },
     order: ['easy', 'normal', 'hard', 'master'],
@@ -476,6 +514,13 @@
         groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 60, moveLimit: 18, minLegalMoves: 2, objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '破除三层毛结并组合两枚特殊块' }, knotMode: 'double-triple', timePickupBudget: 1, itemCounts: { hammer: 1, shuffle: 1, theme: 1 } },
         play: { cols: 8, rows: 6, typeCount: 6, pairs: 24, timeLimit: 100, maxTurns: 2, allowOutside: true, layoutShift: 'cascade', lockedPairs: 4, goalCount: 3, specialPairs: { bomb: 2, ice: 2, color: 2 }, timePickupBudget: 1, itemCounts: { hint: 1, shuffle: 1, bell: 0 } },
         rewards: { floor: [2], B: [3], A: [3, 2], S: [4], repeatS: [3, 2] }
+      },
+      challenge: {
+        id: 'challenge', name: '挑战模式', unlock: 'default', challenge: true,
+        rewardCap: 6, maxRewardItems: 6,
+        groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 120, moveLimit: 50, minLegalMoves: 3, objective: { mode: 'score', targetMultiplier: 1.7, label: '在长局中尽量刷新高分' }, knotMode: 'mixed', timePickupBudget: 4, itemCounts: { hammer: 2, shuffle: 2, theme: 2 } },
+        play: { cols: 8, rows: 8, typeCount: 6, pairs: 32, timeLimit: 150, maxTurns: 2, allowOutside: true, layoutShift: 'cascade', lockedPairs: 4, goalCount: 3, specialPairs: { bomb: 3, ice: 2, color: 2 }, timePickupBudget: 3, itemCounts: { hint: 2, shuffle: 1, bell: 1 } },
+        rewards: { scoreBased: true, minItems: 2, maxItems: 6, maxTier: 3 }
       }
     }
   };

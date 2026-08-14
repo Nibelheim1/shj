@@ -230,7 +230,13 @@ for (let level = 1; level <= 5; level += 1) {
 
 // Reuse all currently available merge and courtyard art, but tolerate a
 // checkout that has not generated one of the optional asset directories yet.
-copyDirectoryIfPresent('prototype/assets/art/match3', 'assets/art/match3');
+// Runtime data references the reviewed WebP set.  Source PNGs are retained for
+// future art iteration but are not duplicated into the install package.
+copyDirectoryIfPresent(
+  'prototype/assets/art/match3',
+  'assets/art/match3',
+  (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp'
+);
 const RELEASE_SCENES = new Set([
   'bg_courtyard_buildingfree.webp',
   'bg_courtyard_buildingfree_sunset.webp',
@@ -239,7 +245,13 @@ const RELEASE_SCENES = new Set([
 ]);
 copyDirectoryIfPresent('prototype/assets/art/scenes', 'assets/art/scenes', (relativeFile) => RELEASE_SCENES.has(toPosix(relativeFile)));
 copyDirectoryIfPresent('prototype/assets/audio', 'assets/audio');
-copyDirectoryIfPresent('prototype/assets/art/buildings', 'assets/art/buildings', (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp');
+// Four legacy, unlevelled building renders remain as generation references.
+// The live scene exclusively uses the 4 x 3 reviewed level matrix.
+copyDirectoryIfPresent(
+  'prototype/assets/art/buildings',
+  'assets/art/buildings',
+  (relativeFile) => /^(?:clinic|herb|groom|play)_lv[1-3]\.webp$/i.test(toPosix(relativeFile))
+);
 
 // Publish a deterministic deployment inventory. Operations can compare the
 // hash and byte size before release, while the client can reason about boot,

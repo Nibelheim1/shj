@@ -27,6 +27,32 @@ function run(state, difficulty, perf, validActions, outcome) {
 }
 function tiers(result) { return result.rewardItems.map(function (item) { return item.tier; }); }
 
+function challengeRewardValue(result) {
+  return (result && Array.isArray(result.rewardItems) ? result.rewardItems : []).reduce(function (total, item) {
+    return total + Math.max(0, Number(item && item.tier) || 0);
+  }, 0);
+}
+
+function runChallenge(score, validActions, outcome) {
+  const state = fresh('challenge');
+  const before = {
+    affection: state.beastCases.qiongqi.affection,
+    heal: state.beastCases.qiongqi.heal,
+    exp: state.beastCases.qiongqi.exp
+  };
+  const started = Core.beginCare(state, 'groom', 'challenge', 'qiongqi');
+  assert.strictEqual(started.ok, true, 'challenge care must begin from the independent challenge entry');
+  const result = Core.recordCare(state, 'groom', {
+    beastId: 'qiongqi',
+    difficulty: 'challenge',
+    outcome: outcome || 'complete',
+    token: started.token,
+    careToken: started.token,
+    game: { perf: score > 0 ? 1 : 0, score: score, validActions: validActions }
+  }, NOW + 1);
+  return { state: state, before: before, result: result };
+}
+
 console.log('\n== H5 care economy ==');
 
 check('配置含四档难度、双游戏尺寸、玩法规则和统一奖励表', function () {
@@ -118,6 +144,68 @@ check('周目标需要跨系统推进且只可领取一次', function () {
   assert.strictEqual(state.jade, beforeJade + 120);
   assert.strictEqual(claimed.rewardItem.tier, 3);
   assert.strictEqual(Core.claimWeekly(state).ok, false);
+});
+
+check('challenge 独立入口：所有设施可进入、体力成本固定为 5 且时长超过 master', function () {
+  const challenge = DATA.careGames && DATA.careGames.difficulties && DATA.careGames.difficulties.challenge;
+  assert.ok(challenge, 'DATA.careGames.difficulties.challenge must be public');
+  assert.ok(challenge.groom && challenge.play, 'challenge must configure both care games');
+  assert.ok(Number(challenge.groom.timeLimit) > Number(DATA.careGames.difficulties.master.groom.timeLimit),
+    'challenge groom time must exceed master');
+  assert.ok(Number(challenge.play.timeLimit) > Number(DATA.careGames.difficulties.master.play.timeLimit),
+    'challenge link time must exceed master');
+  const state = fresh('easy');
+  assert.strictEqual(Core.careDifficultyUnlocked(state, 'challenge'), true,
+    'challenge is an independent entry and must not require a facility level');
+  const started = Core.beginCare(state, 'groom', 'challenge', 'qiongqi');
+  assert.strictEqual(started.ok, true);
+  assert.strictEqual(Number(started.cost), 5, 'challenge care must cost exactly five energy');
+});
+
+check('challenge 只按分数给合成素材：分数单调、奖励封顶且不改好感/疗愈/经验', function () {
+  const profile = DATA.careGames.difficulties.challenge;
+  const cap = Number(profile.rewardCap != null ? profile.rewardCap :
+    (profile.maxRewardItems != null ? profile.maxRewardItems : profile.rewards && profile.rewards.maxItems));
+  assert.ok(Number.isFinite(cap) && cap > 0, 'challenge profile must expose a positive reward cap');
+  const scores = [0, 100, 500, 2000, 100000];
+  const values = scores.map(function (score) {
+    const runResult = runChallenge(score, 10, 'complete');
+    const result = runResult.result;
+    assert.strictEqual(result.ok, true, 'challenge score settlement must succeed');
+    assert.strictEqual(result.challenge, true, 'challenge settlement must be marked challenge');
+    assert.strictEqual(Number(result.affectionGained), 0, 'challenge must not increase affection');
+    assert.strictEqual(Number(result.healGained), 0, 'challenge must not increase healing');
+    assert.strictEqual(Number(result.beastExpGained), 0, 'challenge must not increase bound-beast XP');
+    assert.deepStrictEqual({
+      affection: runResult.state.beastCases.qiongqi.affection,
+      heal: runResult.state.beastCases.qiongqi.heal,
+      exp: runResult.state.beastCases.qiongqi.exp
+    }, runResult.before, 'challenge must leave beast progression counters unchanged');
+    assert.ok((result.rewardItems || []).every(function (item) { return item.family === 'groom'; }),
+      'challenge rewards must be consumable grooming synthesis materials');
+    assert.ok((result.rewardItems || []).length <= cap, 'challenge reward count must respect explicit cap');
+    return challengeRewardValue(result);
+  });
+  for (let index = 1; index < values.length; index += 1) {
+    assert.ok(values[index] >= values[index - 1], 'challenge reward value must be monotonic with score');
+  }
+  const cappedA = runChallenge(100000, 10, 'complete').result;
+  const cappedB = runChallenge(1000000000, 10, 'complete').result;
+  assert.strictEqual(challengeRewardValue(cappedB), challengeRewardValue(cappedA),
+    'scores above the challenge ceiling must not grant additional material');
+});
+
+check('challenge 跳过或无有效操作不得奖励', function () {
+  const skipped = runChallenge(100000, 10, 'skip');
+  assert.strictEqual(Number(skipped.result.affectionGained), 0);
+  assert.strictEqual(Number(skipped.result.healGained), 0);
+  assert.strictEqual(Number(skipped.result.beastExpGained), 0);
+  assert.strictEqual(challengeRewardValue(skipped.result), 0, 'skipping challenge must grant no synthesis material');
+  const noAction = runChallenge(100000, 0, 'complete');
+  assert.strictEqual(Number(noAction.result.affectionGained), 0);
+  assert.strictEqual(Number(noAction.result.healGained), 0);
+  assert.strictEqual(Number(noAction.result.beastExpGained), 0);
+  assert.strictEqual(challengeRewardValue(noAction.result), 0, 'challenge with no valid operations must grant no synthesis material');
 });
 
 console.log(failures ? failures + ' FAIL' : 'ALL PASS');

@@ -65,6 +65,13 @@
       goalCount: 3,
       specialPairs: { bomb: 3, ice: 2, color: 2 },
       itemCounts: { hint: 1, shuffle: 0, bell: 0 }
+    },
+    challenge: {
+      cols: 8, rows: 8, typeCount: 6, pairs: 32, maxTurns: 2, allowOutside: true,
+      layoutShift: 'cascade', lockedPairs: 4, comboWindow: 1.35, timeLimit: 150, timePickupBudget: 3,
+      goalCount: 3,
+      specialPairs: { bomb: 3, ice: 2, color: 2 },
+      itemCounts: { hint: 2, shuffle: 1, bell: 1 }
     }
   };
 
@@ -501,10 +508,13 @@
     var start = points.a, end = points.b;
     if (!this._inside(start.r, start.c) || !this._inside(end.r, end.c) || samePoint(start, end)) return null;
     var first = this._cellAt(start.r, start.c), second = this._cellAt(end.r, end.c);
-    /* A pairId is only an internal layout/lock bookkeeping key. Players match
-     * the visible icon type, so identical icons from different generated
-     * pairs must remain connectable (including adjacent cells). */
-    if (!first || !second || first.type !== second.type || first.locked || second.locked) return null;
+    /* pairId is permanent for the lifetime of a run.  Restricting a connection
+     * to the two cells born as one pair prevents a visually valid cross-match
+     * from stranding two unrelated singletons after a bomb or layout shift.
+     * Cells without a pairId are still supported by small path-finding fixtures
+     * (both values are undefined), but production boards always provide one. */
+    if (!first || !second || first.type !== second.type || first.pairId !== second.pairId ||
+        first.locked || second.locked) return null;
 
     var directions = [[-1, 0], [0, 1], [1, 0], [0, -1]];
     var queue = [], head = 0, best = {};
@@ -550,29 +560,31 @@
   };
 
   Game.prototype.listLegalPairs = function () {
-    var result = [], byType = [], type, r, c, cell, list, i, j, path;
-    for (type = 0; type < this.typeCount; type++) byType[type] = [];
+    var result = [], byPair = {}, order = [], r, c, cell, path;
     for (r = 0; r < this.rows; r++) {
       for (c = 0; c < this.cols; c++) {
         cell = this._cellAt(r, c);
-        if (cell) byType[cell.type].push({ r: r, c: c });
+        if (!cell || cell.pairId == null) continue;
+        if (!byPair[cell.pairId]) {
+          byPair[cell.pairId] = [];
+          order.push(cell.pairId);
+        }
+        byPair[cell.pairId].push({ r: r, c: c });
       }
     }
-    for (type = 0; type < this.typeCount; type++) {
-      list = byType[type];
-      for (i = 0; i < list.length; i++) {
-        for (j = i + 1; j < list.length; j++) {
-          path = this.findPath(list[i], list[j]);
-          if (path) {
-            result.push({
-              a: copyPoint(list[i]),
-              b: copyPoint(list[j]),
-              first: copyPoint(list[i]),
-              second: copyPoint(list[j]),
-              path: path
-            });
-          }
-        }
+    for (var i = 0; i < order.length; i++) {
+      var list = byPair[order[i]];
+      if (list.length !== 2) continue;
+      path = this.findPath(list[0], list[1]);
+      if (path) {
+        result.push({
+          a: copyPoint(list[0]),
+          b: copyPoint(list[1]),
+          first: copyPoint(list[0]),
+          second: copyPoint(list[1]),
+          pairId: order[i],
+          path: path
+        });
       }
     }
     return result;
@@ -686,26 +698,24 @@
     return { count: Math.floor(cellCount / 2), types: types };
   };
 
-  /* Rebuild the internal solution queue after a free-form visual match. The
-   * queue is an optimization for hints/auto-rescue, not the player's rule;
-   * pairing the remaining cells by visible type keeps it coherent after a
-   * player matches two cells that originated in different pairs. */
+  /* Re-index live pairs without changing their permanent identity.  This is
+   * intentionally conservative: an incomplete pair is never repaired by
+   * borrowing a same-looking cell from another pair. */
   Game.prototype._rebuildSolutionPairs = function () {
-    var byType = [], queue = [], pairSerial = 1, r, c, cell;
-    for (var type = 0; type < this.typeCount; type++) byType[type] = [];
+    var byPair = {}, order = [], queue = [], r, c, cell;
     for (r = 0; r < this.rows; r++) for (c = 0; c < this.cols; c++) {
       cell = this.grid[r][c];
-      if (cell && byType[cell.type]) byType[cell.type].push(cell);
-    }
-    for (type = 0; type < byType.length; type++) {
-      var list = byType[type];
-      for (var i = 0; i + 1 < list.length; i += 2) {
-        var pairId = 'pair-rebuilt-' + (pairSerial++);
-        list[i].pairId = pairId;
-        list[i + 1].pairId = pairId;
-        queue.push({ pairId: pairId, aId: list[i].uid, bId: list[i + 1].uid, type: type });
+      if (!cell || cell.pairId == null) continue;
+      if (!byPair[cell.pairId]) {
+        byPair[cell.pairId] = [];
+        order.push(cell.pairId);
       }
-      if (list.length % 2) list[list.length - 1].pairId = 'orphan-' + list[list.length - 1].uid;
+      byPair[cell.pairId].push(cell);
+    }
+    for (var i = 0; i < order.length; i++) {
+      var pairId = order[i], list = byPair[pairId];
+      if (list.length !== 2 || list[0].type !== list[1].type) continue;
+      queue.push({ pairId: pairId, aId: list[0].uid, bId: list[1].uid, type: list[0].type });
     }
     this.solutionQueue = queue;
     return queue;
@@ -774,7 +784,8 @@
   Game.prototype._clearPair = function (a, b, path) {
     if (!a || !b) return false;
     var first = this._cellAt(a.r, a.c), second = this._cellAt(b.r, b.c);
-    if (!first || !second || first.locked || second.locked || first.type !== second.type) return false;
+    if (!first || !second || first.locked || second.locked || first.type !== second.type ||
+        first.pairId == null || first.pairId !== second.pairId) return false;
     path = path || this.findPath(a, b);
     if (!path) return false;
     this.movesAttempted++;
@@ -818,7 +829,6 @@
       if (typeof this.opts.onSpecial === 'function') this.opts.onSpecial('bomb', removedStats.count);
     }
     this._applyLayoutShift(true);
-    this._rebuildSolutionPairs();
     this._refreshLocks();
     this._updatePerf();
     var remainingCells = this._remainingCellCount();
@@ -863,20 +873,31 @@
     }
     if (cells.length < 2) return false;
     for (r = 0; r < this.rows; r++) for (c = 0; c < this.cols; c++) this.grid[r][c] = null;
-    var byType = [], pairs = [], leftovers = [];
-    for (var type = 0; type < this.typeCount; type++) byType[type] = [];
+    var byPair = {}, pairOrder = [], pairs = [];
     cells.forEach(function (cell) {
       cell.locked = false; cell.unlockAt = 0;
-      if (byType[cell.type]) byType[cell.type].push(cell);
+      if (cell.pairId == null) return;
+      if (!byPair[cell.pairId]) {
+        byPair[cell.pairId] = [];
+        pairOrder.push(cell.pairId);
+      }
+      byPair[cell.pairId].push(cell);
     });
-    byType.forEach(function (list) {
-      for (var ti = 0; ti + 1 < list.length; ti += 2) pairs.push([list[ti], list[ti + 1]]);
-      if (list.length % 2) leftovers.push(list[list.length - 1]);
+    pairOrder.forEach(function (pairId) {
+      var list = byPair[pairId];
+      if (list.length === 2 && list[0].type === list[1].type) pairs.push(list);
     });
+    if (pairs.length * 2 !== cells.length) {
+      for (r = 0; r < this.rows; r++) for (c = 0; c < this.cols; c++) this.grid[r][c] = null;
+      for (i = 0; i < cells.length && i < this.rows * this.cols; i++) {
+        var restorePoint = this._layoutSlots(this.layoutShift)[i];
+        this.grid[restorePoint.r][restorePoint.c] = cells[i];
+      }
+      return false;
+    }
     shuffleArray(pairs, this.rng);
     var ordered = [];
     pairs.forEach(function (pair) { ordered.push(pair[0], pair[1]); });
-    leftovers.forEach(function (cell) { ordered.push(cell); });
     var slots = this._layoutSlots(this.layoutShift), queue = [];
     for (i = 0; i < ordered.length && i < slots.length; i++) {
       var target = slots[i];
@@ -884,9 +905,7 @@
     }
     for (i = 0; i < pairs.length; i++) {
       var first = pairs[i][0], second = pairs[i][1];
-      var pairId = 'pair-shuffled-' + (i + 1);
-      first.pairId = second.pairId = pairId;
-      queue.push({ pairId: pairId, aId: first.uid, bId: second.uid, type: first.type });
+      queue.push({ pairId: first.pairId, aId: first.uid, bId: second.uid, type: first.type });
     }
     this.solutionQueue = queue;
     if (automatic) {
@@ -903,6 +922,7 @@
     var originalGrid = this.grid;
     var originalPairsCleared = this.pairsCleared;
     var originalBoard = this.board;
+    var originalSolutionQueue = this.solutionQueue;
     var originalLayoutCycle = this.layoutCycle;
     var originalSpecialActivations = Object.assign({}, this.specialActivations);
     this.grid = originalGrid.map(function (row) {
@@ -951,11 +971,13 @@
         }
         this.pairsCleared += simStats.count;
         this._applyLayoutShift(false);
+        this._refreshLocks();
       }
       return null;
     } finally {
       this.grid = originalGrid;
       this.board = originalBoard;
+      this.solutionQueue = originalSolutionQueue;
       this.pairsCleared = originalPairsCleared;
       this.layoutCycle = originalLayoutCycle;
       this.specialActivations = originalSpecialActivations;

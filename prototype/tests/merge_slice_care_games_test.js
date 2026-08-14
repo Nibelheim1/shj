@@ -303,6 +303,38 @@ function runMatch3Checks() {
   console.log('  PASS  Match3 四级难度、无初始三连、特殊块/道具 API、summary');
 }
 
+function runChallengeProfileChecks() {
+  const Match3 = loadMatch3();
+  assert.ok(Match3 && Match3.DIFFICULTIES && Match3.DIFFICULTIES.challenge,
+    'Match3.DIFFICULTIES.challenge must be public');
+  assert.ok(LinkGame && LinkGame.DIFFICULTIES && LinkGame.DIFFICULTIES.challenge,
+    'LinkGame.DIFFICULTIES.challenge must be public');
+  assert.ok(Number(Match3.DIFFICULTIES.challenge.timeLimit) > Number(Match3.DIFFICULTIES.master.timeLimit),
+    'challenge Match3 time must exceed master');
+  assert.ok(Number(LinkGame.DIFFICULTIES.challenge.timeLimit) > Number(LinkGame.DIFFICULTIES.master.timeLimit),
+    'challenge LinkGame time must exceed master');
+
+  const match3 = new Match3.Game('GROOM', { difficulty: 'challenge' });
+  assert.strictEqual(match3.difficulty, 'challenge');
+  assert.ok(Number(match3.timeLimit) > Number(Match3.DIFFICULTIES.master.timeLimit));
+  const matchSummary = match3.finish(false);
+  assert.strictEqual(matchSummary.difficulty, 'challenge', 'Match3 challenge summary must expose difficulty');
+  assert.strictEqual(Number(matchSummary.score), 0, 'an untouched challenge Match3 must have zero score');
+  assert.ok(matchSummary.operations && Number(matchSummary.operations.valid) === 0,
+    'an untouched challenge Match3 must have no valid operations');
+
+  const link = new LinkGame.Game('PLAY', { difficulty: 'challenge', rng: deterministicRng() });
+  assert.strictEqual(link.difficulty, 'challenge');
+  assert.ok(Number(link.timeLimit) > Number(LinkGame.DIFFICULTIES.master.timeLimit));
+  const linkSummary = link.finish(false);
+  assert.strictEqual(linkSummary.difficulty, 'challenge', 'LinkGame challenge summary must expose difficulty');
+  assert.strictEqual(Number(linkSummary.score), 0, 'an untouched challenge LinkGame must have zero score');
+  assert.ok(linkSummary.operations && Number(linkSummary.operations.valid) === 0,
+    'an untouched challenge LinkGame must have no valid operations');
+  console.log('  PASS  challenge 双小游戏独立时长、构造器与 summary');
+}
+
 runLinkGameChecks();
 runMatch3Checks();
+runChallengeProfileChecks();
 console.log('ALL PASS');

@@ -17,6 +17,8 @@ const PROFILES = [
   { id: 'master', pairs: 24, seconds: 100, cols: 8, rows: 6 }
 ];
 const SEEDS = 2000;
+const CHALLENGE_PROFILE = { id: 'challenge', pairs: 32, seconds: 150, cols: 8, rows: 8 };
+const CHALLENGE_SEEDS = 1000;
 let failures = 0;
 
 function check(label, fn) {
@@ -171,6 +173,18 @@ check('LinkGame exposes four fixed profiles: 12/16/20/24 pairs and 70/80/90/100 
   });
 });
 
+check('LinkGame exposes an independent challenge profile: 32 pairs and 150 seconds', function () {
+  const profile = LinkGame.DIFFICULTIES.challenge;
+  expect(profile, 'missing Link challenge profile');
+  expect(Number(profile.pairs) === CHALLENGE_PROFILE.pairs, 'challenge must expose 32 pairs');
+  expect(Number(profile.timeLimit) === CHALLENGE_PROFILE.seconds, 'challenge must expose 150 seconds');
+  expect(Number(profile.cols) === CHALLENGE_PROFILE.cols && Number(profile.rows) === CHALLENGE_PROFILE.rows,
+    'challenge must expose an 8x8 board');
+  expect(profile !== LinkGame.DIFFICULTIES.master, 'challenge profile must not alias master');
+  expect(Number(profile.timeLimit) > Number(LinkGame.DIFFICULTIES.master.timeLimit),
+    'challenge must outlast master');
+});
+
 for (const profile of PROFILES) {
   check(profile.id + ' 2,000 fixed seeds: initial pairs, solve, no orphan/odd pairId, no early goal win', function () {
     expect(typeof LinkGame.Game === 'function', 'LinkGame.Game must be public');
@@ -209,6 +223,43 @@ for (const profile of PROFILES) {
       profile.id + ' had ' + bad + '/' + SEEDS + ' failing seeds' + (samples.length ? ' [' + samples.join(' | ') + ']' : ''));
   });
 }
+
+check('challenge 1,000 fixed seeds: 32 pairs, solve, no orphan/odd pairId, no early goal win', function () {
+  expect(typeof LinkGame.Game === 'function', 'LinkGame.Game must be public');
+  let bad = 0;
+  const samples = [];
+  for (let seed = 1; seed <= CHALLENGE_SEEDS; seed += 1) {
+    try {
+      const game = new LinkGame.Game('PLAY', {
+        difficulty: CHALLENGE_PROFILE.id,
+        cols: CHALLENGE_PROFILE.cols,
+        rows: CHALLENGE_PROFILE.rows,
+        totalPairs: CHALLENGE_PROFILE.pairs,
+        pairs: CHALLENGE_PROFILE.pairs,
+        timeLimit: CHALLENGE_PROFILE.seconds,
+        rng: seeded(seed)
+      });
+      expect(Number(game.totalPairs) === CHALLENGE_PROFILE.pairs,
+        'challenge seed ' + seed + ' totalPairs mismatch');
+      expect(Number(game.timeLimit) === CHALLENGE_PROFILE.seconds,
+        'challenge seed ' + seed + ' timeLimit mismatch');
+      const initialGroups = assertNoOrphans(game, 'challenge seed ' + seed + ' initial');
+      expect(initialGroups.size === CHALLENGE_PROFILE.pairs,
+        'challenge seed ' + seed + ' initial pair count is not exact');
+      const beforeSolve = boardFingerprint(game);
+      const plan = game.solve();
+      expect(boardFingerprint(game) === beforeSolve,
+        'challenge seed ' + seed + ' solve() must be non-mutating');
+      expect(plan, 'challenge seed ' + seed + ' must have a complete solve plan');
+      clearSolved(game, plan, CHALLENGE_PROFILE, seed);
+    } catch (error) {
+      bad += 1;
+      if (samples.length < 4) samples.push('seed ' + seed + ': ' + error.message);
+    }
+  }
+  expect(bad === 0,
+    'challenge had ' + bad + '/' + CHALLENGE_SEEDS + ' failing seeds' + (samples.length ? ' [' + samples.join(' | ') + ']' : ''));
+});
 
 console.log('\n== Link pair-integrity result ==');
 console.log(failures === 0 ? 'ALL PASS' : failures + ' FAIL');

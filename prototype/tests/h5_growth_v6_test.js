@@ -65,6 +65,29 @@ function entry(state, beastId) {
   return state.beastCases && state.beastCases[beastId];
 }
 
+function revealQueue(state) {
+  return state && Array.isArray(state.beastRevealQueue) ? state.beastRevealQueue : [];
+}
+
+function eventList(value) {
+  if (Array.isArray(value)) return value;
+  if (value && Array.isArray(value.events)) return value.events;
+  if (value && Array.isArray(value.revealEvents)) return value.revealEvents;
+  if (value && Array.isArray(value.autoLevels)) return value.autoLevels;
+  return [];
+}
+
+function assertRevealEvent(value, type) {
+  expect(value && typeof value === 'object', 'reveal event must be an object');
+  expect(value.id != null && String(value.id).length > 0, 'reveal event must expose a stable id');
+  expect(value.type === type, 'reveal event type must be ' + type);
+  expect(value.beastId && String(value.beastId).length > 0, 'reveal event must bind a beastId');
+  expect(Number(value.level) >= 1, 'reveal event must expose a level');
+  expect(typeof value.title === 'string' && value.title.length > 0, 'reveal event must expose title copy');
+  expect(value.art && String(value.art).length > 0, 'reveal event must expose art');
+  expect(typeof value.copy === 'string' && value.copy.length > 0, 'reveal event must expose copy');
+}
+
 function growthRequirements(beastId, level) {
   const definition = (DATA.beasts || []).find((beast) => beast.id === beastId);
   const levels = definition && definition.levels;
@@ -213,7 +236,7 @@ check('三门槛：affection + heal + bound-beast exp 缺一不可', function ()
 
   let order;
   let day = 1;
-  while (day <= 8 && !resultOk(Core.canLevelUpBeast(state, id))) {
+  while (day <= 8 && Number(entry(state, id).level) < 2) {
     /* Growth rewards are daily, beast-bound orders. Advance the calendar via
      * ensureDaily instead of forging XP/affection/heal directly. */
     if (day > 1) {
@@ -229,18 +252,18 @@ check('三门槛：affection + heal + bound-beast exp 缺一不可', function ()
     deliver(state, order, NOW + day);
     day += 1;
   }
-  expect(resultOk(Core.canLevelUpBeast(state, id)),
-    'all three public progression paths should eventually satisfy level 2 gates');
-  expect(typeof Core.levelUpBeast === 'function', 'Core.levelUpBeast must be public');
-  const leveled = Core.levelUpBeast(state, id);
-  expect(resultOk(leveled) && resultLevel(leveled) === 2, 'levelUpBeast must advance exactly one level');
-  expect(leveled.story || leveled.title, 'level-up must expose the newly unlocked story/title');
+  expect(Number(entry(state, id).level) >= 2,
+    'all three public progression paths should automatically satisfy and apply the level 2 gate');
+  expect(Array.isArray(state.beastRevealQueue), 'automatic level-up must leave a durable reveal queue');
+  const levelTwoReveal = state.beastRevealQueue.find((event) => event && event.type === 'level-up' && event.beastId === id && Number(event.level) === 2);
+  expect(levelTwoReveal && (levelTwoReveal.copy || levelTwoReveal.title),
+    'automatic level-up must expose the newly unlocked story/title for presentation');
   const lowerForm = Core.selectBeastForm(state, id, 1);
   expect(resultOk(lowerForm), 'an unlocked lower form remains selectable after growth');
   const highForm = Core.selectBeastForm(state, id, 2);
   expect(resultOk(highForm), 'the newly unlocked form becomes selectable after growth');
-  const duplicate = Core.levelUpBeast(state, id);
-  expect(!resultOk(duplicate), 'the same growth story/level-up must be idempotent');
+  const duplicate = Core.autoLevelUpBeasts(state, id);
+  expect(eventList(duplicate).length === 0, 'the same growth story/level-up must be idempotent');
 });
 
 check('beginCare 扣体力；refundCare 只退一次；记录结算继续有效', function () {
@@ -296,17 +319,15 @@ check('低形态切换限制：未升级不能切换到高形态', function () {
 
 check('growth 任务绑定兽；切换展示兽不刷新；XP 不串兽/不入全局', function () {
   const state = fresh();
-  /* Unlock one alternate resident through the public recruit flow first. This
-   * avoids writing a locked case's status just to manufacture a switch. */
-  Core.ensureOrders(state, seeded(23));
-  const recruit = findOrder(state, 'recruit') || findOrder(state, 'story');
-  expect(recruit && recruit.beastId, 'recruit order must bind the alternate beast');
-  clearFixtureMaterials(state);
-  deliver(state, recruit, NOW + 3);
+  /* Story-first saves expose no arrival order yet. Use the public arrival
+   * boundary directly rather than treating a story delivery as acquisition. */
+  expect(typeof Core.activateCase === 'function', 'Core.activateCase must be public');
+  const arrival = Core.activateCase(state, 'jiuweihu', NOW + 3);
+  expect(resultOk(arrival), 'public arrival boundary must leave a second resident selectable');
   const growth = ensureGrowthOrder(state);
   const bound = growth.beastId;
   const other = BEAST_IDS.find((id) => id !== bound && entry(state, id) && entry(state, id).status !== 'locked');
-  expect(other, 'public recruit flow must leave a second selectable resident');
+  expect(other, 'public arrival flow must leave a second selectable resident');
   const before = {};
   BEAST_IDS.forEach((id) => { before[id] = Number(entry(state, id).exp); });
   clearFixtureMaterials(state);
@@ -325,12 +346,12 @@ check('growth 任务绑定兽；切换展示兽不刷新；XP 不串兽/不入�
 
 check('九尾狐可通过公开接口在 14 个活跃日内完成五级成长', function () {
   const state = fresh();
-  Core.ensureOrders(state, seeded(31));
-  const recruit = findOrder(state, 'recruit');
-  expect(recruit && recruit.beastId === 'jiuweihu', 'first recruit order must introduce jiuweihu');
-  clearFixtureMaterials(state);
-  deliver(state, recruit, NOW);
-  expect(resultOk(Core.selectYardBeast(state, 'jiuweihu')), 'recruited fox must be selectable');
+  /* The mainline may be story-first; use the public arrival boundary for this
+   * deterministic growth-path check instead of requiring a particular order. */
+  expect(typeof Core.activateCase === 'function', 'Core.activateCase must be public');
+  const arrival = Core.activateCase(state, 'jiuweihu', NOW);
+  expect(resultOk(arrival), 'public arrival boundary must introduce jiuweihu');
+  expect(resultOk(Core.selectYardBeast(state, 'jiuweihu')), 'arrived fox must be selectable');
 
   let reachedLevelFiveOn = null;
   for (let day = 1; day <= 14; day += 1) {
@@ -349,12 +370,7 @@ check('九尾狐可通过公开接口在 14 个活跃日内完成五级成长', 
       expect(growth.beastId === 'jiuweihu', 'day ' + day + ' growth order must stay fox-bound');
       expect(resultOk(deliver(state, growth, timestamp + 10)), 'day ' + day + ' growth order must deliver');
     }
-    const gate = Core.canLevelUpBeast(state, 'jiuweihu');
-    if (resultOk(gate)) {
-      const result = Core.levelUpBeast(state, 'jiuweihu');
-      expect(resultOk(result), 'eligible fox breakthrough must succeed on day ' + day);
-      if (entry(state, 'jiuweihu').level === 5) reachedLevelFiveOn = day;
-    }
+    if (entry(state, 'jiuweihu').level === 5 && reachedLevelFiveOn == null) reachedLevelFiveOn = day;
   }
 
   const fox = entry(state, 'jiuweihu');
@@ -366,6 +382,92 @@ check('九尾狐可通过公开接口在 14 个活跃日内完成五级成长', 
     'each fox level must unlock its story once');
   expect(fox.affection >= 95 && fox.heal >= 95 && fox.exp >= 500,
     'final cumulative gates must all be satisfied');
+});
+
+check('神兽获得/升级均进入可消费的全屏演出队列，存档重载不重复', function () {
+  const state = fresh();
+  const oldSave = Core.normalize({
+    version: 6,
+    beastCases: { qiongqi: { level: 1, affection: 0, heal: 0, exp: 0 } }
+  }, NOW, DATE);
+  expect(revealQueue(oldSave).length === 0,
+    'normalizing an existing save without reveal history must not invent a historical acquire演出');
+  const initial = revealQueue(state).filter((event) => event && event.type === 'acquire' && event.beastId === 'qiongqi');
+  expect(initial.length === 1, 'fresh save must queue exactly one initial qiongqi acquire reveal');
+  assertRevealEvent(initial[0], 'acquire');
+  expect(typeof Core.peekBeastReveal === 'function', 'Core.peekBeastReveal must be public');
+  expect(typeof Core.acknowledgeBeastReveal === 'function', 'Core.acknowledgeBeastReveal must be public');
+  const pendingBeforeReload = clone(revealQueue(state));
+  const reloadedPending = Core.normalize(clone(state), NOW, DATE);
+  expect(revealQueue(reloadedPending).map((event) => event.id).join('|') === pendingBeforeReload.map((event) => event.id).join('|'),
+    'normalizing an unconsumed save must preserve, not duplicate, reveal queue entries');
+  const peeked = Core.peekBeastReveal(reloadedPending);
+  expect(peeked && peeked.id === initial[0].id, 'peek must expose the first pending reveal without consuming it');
+  const acknowledged = Core.acknowledgeBeastReveal(reloadedPending, peeked.id);
+  expect(resultOk(acknowledged), 'acknowledge must consume one reveal event');
+  expect(!Core.peekBeastReveal(reloadedPending), 'acknowledged reveal must leave no pending initial event');
+  expect(!resultOk(Core.acknowledgeBeastReveal(reloadedPending, peeked.id)), 'a reveal event must not be acknowledged twice');
+  const reloadedConsumed = Core.normalize(clone(reloadedPending), NOW, DATE);
+  expect(!revealQueue(reloadedConsumed).some((event) => event && event.id === peeked.id),
+    'consumed reveal must stay consumed after save reload');
+
+  /* The public recruit boundary must return the same event payload that was
+     queued for the full-screen presenter. */
+  Core.ensureOrders(state, seeded(31));
+  const recruit = findOrder(state, 'recruit');
+  let acquisitionResult;
+  if (recruit && recruit.beastId) {
+    clearFixtureMaterials(state);
+    acquisitionResult = deliver(state, recruit, NOW + 2);
+  } else {
+    /* Story-first saves expose the public arrival/switch boundary only after
+       the intro chain; activateCase is the same public acquisition boundary
+       and keeps this queue contract independent from story pacing. */
+    expect(typeof Core.activateCase === 'function', 'Core.activateCase must be public for acquisition boundary');
+    acquisitionResult = Core.activateCase(state, 'jiuweihu', NOW + 2);
+  }
+  expect(Array.isArray(acquisitionResult.revealEvents), 'acquisition result must expose revealEvents');
+  const acquisition = acquisitionResult.revealEvents.find((event) => event && event.type === 'acquire' && event.beastId);
+  expect(acquisition, 'recruit delivery must return an acquire reveal event');
+  assertRevealEvent(acquisition, 'acquire');
+  expect(revealQueue(state).some((event) => event && event.id === acquisition.id),
+    'acquisition reveal must also be durable in state.beastRevealQueue');
+});
+
+check('一次结算跨越多个三项门槛时自动逐级升级，且每级演出只触发一次', function () {
+  const state = fresh();
+  const beastId = 'qiongqi';
+  const beast = entry(state, beastId);
+  const final = growthRequirements(beastId, 5);
+  expect(final && final.affection != null && final.heal != null && final.exp != null,
+    'fixture requires final three-threshold growth requirements');
+  /* This fixture intentionally places the public progression counters at a
+     post-settlement value so the resolver can be tested without coupling the
+     regression to a particular order/care reward schedule. */
+  beast.affection = Number(final.affection);
+  beast.heal = Number(final.heal);
+  beast.exp = Number(final.exp);
+  expect(typeof Core.autoLevelUpBeasts === 'function', 'Core.autoLevelUpBeasts must be public');
+  const outcome = Core.autoLevelUpBeasts(state, beastId);
+  const events = eventList(outcome);
+  expect(events.length === 4, 'crossing levels 2-5 in one settlement must emit four events');
+  expect(events.map((event) => Number(event.level)).join(',') === '2,3,4,5',
+    'automatic level-up events must be ordered by ascending level');
+  events.forEach((event) => {
+    assertRevealEvent(event, 'level-up');
+    expect(event.beastId === beastId, 'level-up reveal must bind the settled beast');
+  });
+  expect(Number(beast.level) === 5, 'all satisfied gates must be applied without a manual level-up click');
+  const queued = revealQueue(state).filter((event) => event && event.type === 'level-up' && event.beastId === beastId);
+  expect(queued.length === 4, 'each crossed level must enqueue one full-screen reveal');
+  expect(new Set(queued.map((event) => event.id)).size === 4, 'level-up reveal ids must be unique');
+  const repeated = eventList(Core.autoLevelUpBeasts(state, beastId));
+  expect(repeated.length === 0, 'rechecking an already settled beast must be idempotent');
+  expect(revealQueue(state).filter((event) => event && event.type === 'level-up' && event.beastId === beastId).length === 4,
+    'a repeated resolver call must not enqueue duplicate level-up演出');
+  const loaded = Core.normalize(clone(state), NOW, DATE);
+  expect(revealQueue(loaded).filter((event) => event && event.type === 'level-up' && event.beastId === beastId).length === 4,
+    'reloading a progressed save must not replay level-up演出');
 });
 
 console.log('\n== v6 growth contract result ==');

@@ -36,9 +36,28 @@ function dataBeast(id) {
   return definition;
 }
 
+/* v6 keeps a stable recruit/growth/supply trio. Story-shaped mainline
+ * orders from older saves may still carry slot:'story'; treat that legacy
+ * spelling as the recruit slot while retaining story/arrival assertions. */
+function logicalSlot(order) {
+  if (!order) return null;
+  return order.slot === 'story' ? 'recruit' : order.slot;
+}
+
+function assertRevealEvent(event, label) {
+  expect(event && typeof event === 'object', label + ' reveal event must be an object');
+  expect(event.id && String(event.id).length > 0, label + ' reveal event must expose a stable id');
+  expect(event.type === 'acquire' || event.type === 'level-up', label + ' reveal event type must be acquire/level-up');
+  expect(event.beastId && String(event.beastId).length > 0, label + ' reveal event must bind beastId');
+  expect(Number(event.level) >= 1, label + ' reveal event must expose level');
+  expect(typeof event.art === 'string' && event.art.length > 0, label + ' reveal event must expose art');
+  expect(typeof event.copy === 'string' && event.copy.length > 0, label + ' reveal event must expose copy');
+}
+
 function storyOrder(state, id, step) {
   const order = (state.activeOrders || []).find((entry) =>
-    entry && entry.kind === 'story' && entry.beastId === id && Number(entry.storyStep) === step
+    entry && logicalSlot(entry) === 'recruit' && entry.kind === 'story' &&
+      entry.beastId === id && Number(entry.storyStep) === step
   );
   expect(order, id + ' 应生成故事 #' + step + ' 订单');
   return order;
@@ -59,8 +78,8 @@ function assertSlots(state, label) {
       label + ' activeOrders 应保持三个槽位，或在结局明确关闭');
     return;
   }
-  const slots = orders.map((order) => order.slot).sort().join('|');
-  expect(slots === 'care|story|supply', label + ' activeOrders 应覆盖 story/supply/care 三槽');
+  const slots = orders.map(logicalSlot).sort().join('|');
+  expect(slots === 'growth|recruit|supply', label + ' activeOrders 应覆盖 recruit/growth/supply 三槽');
   expect(orders.every((order) => order.id && order.permanent === true), label + ' 槽位订单应为有效永久订单');
 }
 
@@ -108,6 +127,13 @@ function rewardFingerprint(state) {
   });
 }
 
+function revealFingerprint(state) {
+  return JSON.stringify({
+    queue: state && state.beastRevealQueue,
+    seen: state && state.seenBeastReveals
+  });
+}
+
 function itemCount(state) {
   const lists = [state.grid, state.storage && state.storage.items, state.pendingRewards];
   return lists.reduce((total, list) => total + (Array.isArray(list) ? list.filter(Boolean).length : 0), 0);
@@ -116,11 +142,13 @@ function itemCount(state) {
 function reload(state, label, now) {
   const beforeInventory = inventoryFingerprint(state);
   const beforeRewards = rewardFingerprint(state);
+  const beforeReveals = revealFingerprint(state);
   const raw = JSON.parse(JSON.stringify(state));
   const loaded = Core.normalize(raw, now == null ? NOW : now, DATE);
   expect(loaded && loaded !== state, label + ' normalize 应返回重载状态对象');
   expect(inventoryFingerprint(loaded) === beforeInventory, label + ' 重载不得丢失棋盘/仓库存货或 pending 奖励');
   expect(rewardFingerprint(loaded) === beforeRewards, label + ' 重载不得丢失订单奖励与计数');
+  expect(revealFingerprint(loaded) === beforeReveals, label + ' reload must preserve reveal queue and seen ids');
   assertSlots(loaded, label + ' 重载后');
   return loaded;
 }
@@ -131,6 +159,11 @@ function deliverSeeded(state, order, label, now) {
   const beforeJade = Number(state.jade);
   const beforeXp = Number(state.xp);
   const result = ok(Core.deliverOrder(state, order.id, RNG, now), label + ' 交付');
+  expect(Array.isArray(result.revealEvents), label + ' delivery must expose revealEvents');
+  expect(Array.isArray(result.autoLevels), label + ' delivery must expose autoLevels');
+  result.revealEvents.concat(result.autoLevels).forEach((event, index) => {
+    assertRevealEvent(event, label + ' reveal #' + index);
+  });
   expect(Number(state.jade) === beforeJade + Number(result.rewards && result.rewards.jade || 0),
     label + ' jade 奖励应入账');
   /* XP may trigger a level-up and roll over, so compare the aggregate fields. */
@@ -203,7 +236,7 @@ function transform(state, id, now) {
 
 function unlockNextArrival(state, currentId, nextId, now) {
   const arrival = orderBy(state,
-    (order) => order.kind === 'arrival' && order.beastId === nextId,
+    (order) => logicalSlot(order) === 'recruit' && order.kind === 'arrival' && order.beastId === nextId,
     currentId + ' 后的 ' + nextId + ' arrival');
   const result = deliverSeeded(state, arrival, nextId + ' arrival 信物', now);
   expect(result.order && result.order.kind === 'arrival', nextId + ' 应由真实 arrival 订单解锁');
@@ -215,7 +248,8 @@ function unlockNextArrival(state, currentId, nextId, now) {
 
 function run() {
   ['createFresh', 'normalize', 'ensureOrders', 'canDeliver', 'deliverOrder', 'recordCare',
-    'acknowledgeTransformation', 'makeItem'].forEach((name) => {
+    'acknowledgeTransformation', 'makeItem', 'autoLevelUpBeasts', 'peekBeastReveal',
+    'acknowledgeBeastReveal'].forEach((name) => {
     expect(typeof Core[name] === 'function', 'Core.' + name + ' 应为公开 API');
   });
 
@@ -224,6 +258,10 @@ function run() {
   Core.ensureOrders(state, RNG);
   assertSlots(state, '新档');
   expect(state.activeCaseId === BEAST_IDS[0], '新档应从首只异兽开始');
+  const initialReveal = Core.peekBeastReveal(state);
+  expect(initialReveal && initialReveal.type === 'acquire' && initialReveal.beastId === BEAST_IDS[0],
+    'fresh save must expose the first beast acquire reveal');
+  assertRevealEvent(initialReveal, 'fresh acquire');
 
   for (let index = 0; index < BEAST_IDS.length; index += 1) {
     const id = BEAST_IDS[index];
@@ -242,7 +280,7 @@ function run() {
   expect(typeof state.nextChapter === 'string' && state.nextChapter.length > 0, '结局应保留下一章目标');
   assertSlots(state, '结局');
   const memory = orderBy(state,
-    (order) => order.slot === 'story' && order.kind === 'memory',
+    (order) => logicalSlot(order) === 'recruit' && order.kind === 'memory',
     '结局后的永久回忆订单');
   expect(memory.permanent === true, '结局后的 story 槽应保持永久订单');
   state = reload(state, '最终结局重载', NOW + 9999);

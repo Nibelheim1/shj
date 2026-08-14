@@ -531,8 +531,8 @@
         768,
         768
       ],
-      "bytes": 174054,
-      "sha256": "a3840665fcb5ed07274ff656666e9ba75b3f4648286135a9fbfa1b3ea0d2f3ce"
+      "bytes": 160930,
+      "sha256": "a9a706d0752133ec98d06fbe27ef4d40c75ca4a458f2ded8897e482dd95a124b"
     },
     {
       "kind": "building",
@@ -573,8 +573,8 @@
         768,
         768
       ],
-      "bytes": 138198,
-      "sha256": "655eb2b7cc2a27b1b63699693bf8005b6d67b99bf3d8a10049a60abd93945bb4"
+      "bytes": 145320,
+      "sha256": "eab81d13854736dc96c787251a6612124c0ce8ea8b1a8c52bd164cc50d351df3"
     },
     {
       "kind": "building",
@@ -615,8 +615,8 @@
         768,
         768
       ],
-      "bytes": 134474,
-      "sha256": "581d16971ea9e171142d288a8ca0eb3704c1d33c23206ae30dc010f3123e798c"
+      "bytes": 132470,
+      "sha256": "8e00dbb22889c2c4f9eb0dcb68e353f528a880a75a3e469c622c9b78b43a6f11"
     },
     {
       "kind": "building",
@@ -657,8 +657,8 @@
         768,
         768
       ],
-      "bytes": 150888,
-      "sha256": "0942fc2f38748a156ab15c9802b6d898626e336286aed3fb7a8a3963c766f026"
+      "bytes": 141134,
+      "sha256": "fa4a01bb3045dbc94fc2d755445ebe1bf91897b7db4ca74ee4d4de096c36128f"
     },
     {
       "kind": "fox-portrait",

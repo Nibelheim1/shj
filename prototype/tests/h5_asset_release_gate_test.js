@@ -326,7 +326,7 @@ function collectMergeData(report, data, roots) {
     addKey(report, key, 'MERGE_DATA.families');
     const itemCount = family && Array.isArray(family.items) ? family.items.length : 0;
     for (let index = 0; index < itemCount; index += 1) {
-      const filename = `${family.path}_${padTier(index + 1)}.png`;
+      const filename = `${family.path}_${padTier(index + 1)}.webp`;
       const record = addResource(report, `${key}:item:${index + 1}`, match3Root + filename, report.entryFile, 'MERGE_DATA merge material');
       if (record) report.dataResources.push(record);
     }

@@ -31,6 +31,24 @@ function histogram(cells) {
   }, {});
 }
 
+/* The four standard care tiers retain the deep fixed-seed contract. Challenge
+ * is a fifth, independent profile with its own longer session budget; it is
+ * checked as a profile below rather than weakening the standard-tier matrix. */
+const STANDARD_LEVELS = ['easy', 'normal', 'hard', 'master'];
+
+function assertStandardPlusChallenge(profiles, label) {
+  STANDARD_LEVELS.forEach(function (difficulty) {
+    assert.ok(profiles[difficulty], label + ' missing standard profile ' + difficulty);
+  });
+  assert.ok(profiles.challenge, label + ' missing independent challenge profile');
+  assert.strictEqual(Object.keys(profiles).length, STANDARD_LEVELS.length + 1,
+    label + ' must expose four standard profiles plus challenge');
+  assert.notStrictEqual(profiles.challenge, profiles.master,
+    label + ' challenge profile must not alias master');
+  assert.ok(Number(profiles.challenge.timeLimit) > Number(profiles.master.timeLimit),
+    label + ' challenge session must outlast master');
+}
+
 function settleMatch3(game) {
   let guard = 500;
   while (!game.finished && game.phase !== 'idle' && guard-- > 0) game.update(0.1);
@@ -39,7 +57,8 @@ function settleMatch3(game) {
 
 function runMatch3Depth() {
   const Match3 = loadMatch3();
-  const levels = Object.keys(Match3.DIFFICULTIES);
+  assertStandardPlusChallenge(Match3.DIFFICULTIES, 'Match3');
+  const levels = STANDARD_LEVELS.slice();
   const signatures = new Set();
 
   levels.forEach(function (difficulty, levelIndex) {
@@ -60,7 +79,7 @@ function runMatch3Depth() {
       assert.strictEqual(game.timePickupBudget, profile.timePickupBudget, difficulty + ' 使用档位时间拾取预算');
     }
   });
-  assert.strictEqual(signatures.size, 4, 'Match3 四档难度不能只改变棋盘尺寸');
+  assert.strictEqual(signatures.size, STANDARD_LEVELS.length, 'Match3 四个标准档不能只改变棋盘尺寸');
 
   /* Refill/cascade regression: every settled state remains match-free and
    * playable, not merely the freshly generated board. */
@@ -145,7 +164,8 @@ function replaceGrid(game, rows) {
 }
 
 function runLinkDepth() {
-  const levels = Object.keys(LinkGame.DIFFICULTIES);
+  assertStandardPlusChallenge(LinkGame.DIFFICULTIES, 'Link');
+  const levels = STANDARD_LEVELS.slice();
   const signatures = new Set();
   levels.forEach(function (difficulty, levelIndex) {
     const profile = LinkGame.DIFFICULTIES[difficulty];
@@ -168,7 +188,7 @@ function runLinkDepth() {
       assert.strictEqual(game.hasMove(), true, difficulty + ' hasMove 与合法对子一致 #' + seed);
     }
   });
-  assert.strictEqual(signatures.size, 4, 'Link 四档规则不能只改变棋盘尺寸');
+  assert.strictEqual(signatures.size, STANDARD_LEVELS.length, 'Link 四个标准档规则不能只改变棋盘尺寸');
 
   /* The public solution is executable against the real shifting/locking
    * board, not merely a declaration made by the generator. */

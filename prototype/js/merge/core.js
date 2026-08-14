@@ -32,7 +32,7 @@
      本身用于订单、奖励与路线展示，只有 generator 被禁用。 */
   var GAME_SOURCE_FAMILIES = { groom: true, play: true };
   var ENERGY_CAP = Math.max(1, Math.floor(number(DATA.economy.energyCap, 100)));
-  var CARE_COSTS = Object.assign({ easy: 1, normal: 2, hard: 3, master: 4 }, DATA.careGames && DATA.careGames.energyCosts || {});
+  var CARE_COSTS = Object.assign({ easy: 1, normal: 2, hard: 3, master: 4, challenge: 5 }, DATA.careGames && DATA.careGames.energyCosts || {});
 
   function energyCapForLevel(level) {
     return ENERGY_CAP;
@@ -81,6 +81,65 @@
 
   function beastDefinition(id) {
     return DATA.beasts.find(function (beast) { return beast.id === id; }) || null;
+  }
+
+  function ensureBeastRevealState(state) {
+    if (!state) return null;
+    state.beastRevealQueue = Array.isArray(state.beastRevealQueue) ? state.beastRevealQueue : [];
+    state.seenBeastReveals = state.seenBeastReveals && typeof state.seenBeastReveals === 'object' ? state.seenBeastReveals : {};
+    return state.beastRevealQueue;
+  }
+
+  function revealEvent(state, type, beastId, level) {
+    var definition = beastDefinition(beastId);
+    var entry = state && state.beastCases && state.beastCases[beastId];
+    if (!definition || !entry) return null;
+    level = clamp(Math.floor(number(level, entry.level || 1)), 1, 5);
+    var key = type + ':' + beastId + ':' + level;
+    ensureBeastRevealState(state);
+    if (state.seenBeastReveals[key] || state.beastRevealQueue.some(function (event) { return event && event.id === key; })) return null;
+    var config = definition.levels && definition.levels[level - 1] || {};
+    var art = config.portrait || definition.art[Math.min(definition.art.length - 1, Math.max(0, level - 1))];
+    var copyLine = definition.revealLines && definition.revealLines[level - 1] || definition.dialogue[Math.min(definition.dialogue.length - 1, level - 1)] || definition.lore;
+    var event = {
+      id: key,
+      type: type,
+      beastId: beastId,
+      beastName: definition.name,
+      level: level,
+      title: config.title || definition.stageNames[Math.min(definition.stageNames.length - 1, level - 1)] || definition.name,
+      art: art,
+      copy: copyLine
+    };
+    state.seenBeastReveals[key] = true;
+    state.beastRevealQueue.push(event);
+    return clone(event);
+  }
+
+  function seedHistoricalBeastReveals(state) {
+    ensureBeastRevealState(state);
+    BEAST_IDS.forEach(function (beastId) {
+      var entry = state.beastCases && state.beastCases[beastId];
+      if (!entry || !isYardBeastAvailable(state, beastId)) return;
+      state.seenBeastReveals['acquire:' + beastId + ':1'] = true;
+      for (var level = 2; level <= Math.max(1, number(entry.level, 1)); level++) {
+        state.seenBeastReveals['level-up:' + beastId + ':' + level] = true;
+      }
+    });
+  }
+
+  function peekBeastReveal(state) {
+    ensureBeastRevealState(state);
+    return state.beastRevealQueue.length ? clone(state.beastRevealQueue[0]) : null;
+  }
+
+  function acknowledgeBeastReveal(state, eventId) {
+    ensureBeastRevealState(state);
+    if (!state.beastRevealQueue.length) return { ok: false, reason: 'no-reveal' };
+    var index = eventId == null ? 0 : state.beastRevealQueue.findIndex(function (event) { return event && event.id === eventId; });
+    if (index < 0) return { ok: false, reason: 'reveal-not-found' };
+    var event = state.beastRevealQueue.splice(index, 1)[0];
+    return { ok: true, event: clone(event), remaining: state.beastRevealQueue.length };
   }
 
   function backgroundDefinition(id) {
@@ -273,6 +332,9 @@
       growthOrders: {},
       growthCounters: {},
       careTransactions: {},
+      challengeBest: { groom: 0, play: 0 },
+      beastRevealQueue: [],
+      seenBeastReveals: {},
       migrations: { v6FacilityRefund: true },
       weekly: freshWeekly(now),
       pendingRewards: [],
@@ -288,6 +350,7 @@
       welcomeSeen: false,
       analytics: []
     };
+    revealEvent(state, 'acquire', 'qiongqi', 1);
     syncEnergyCap(state);
     ensureOrders(state, Math.random);
     state.orders = state.activeOrders;
@@ -464,6 +527,9 @@
     migrateEnergyGap(raw, state);
     /* This is an existing-save migration, not a brand-new player. */
     state.welcomeSeen = true;
+    state.beastRevealQueue = [];
+    state.seenBeastReveals = {};
+    seedHistoricalBeastReveals(state);
     syncLegacyAliases(state);
     /* Keep the original building map byte-for-byte for downgrade protection;
        v4 gameplay reads the migrated `facilities` map instead. */
@@ -536,6 +602,12 @@
     state.growthOrders = raw.growthOrders && typeof raw.growthOrders === 'object' ? clone(raw.growthOrders) : {};
     state.growthCounters = raw.growthCounters && typeof raw.growthCounters === 'object' ? clone(raw.growthCounters) : {};
     state.careTransactions = {};
+    state.challengeBest = Object.assign({ groom: 0, play: 0 }, raw.challengeBest || {});
+    state.beastRevealQueue = Array.isArray(raw.beastRevealQueue) ? raw.beastRevealQueue.map(function (event) { return clone(event); }).filter(function (event) {
+      return event && event.id && event.beastId && beastDefinition(event.beastId);
+    }) : [];
+    state.seenBeastReveals = raw.seenBeastReveals && typeof raw.seenBeastReveals === 'object' ? clone(raw.seenBeastReveals) : {};
+    if (!Array.isArray(raw.beastRevealQueue) && !(raw.seenBeastReveals && typeof raw.seenBeastReveals === 'object')) seedHistoricalBeastReveals(state);
     state.migrations = Object.assign({}, base.migrations, raw.migrations || {});
     /* Existing saves predate the attendance ledger.  Seed one protected visit
        so installing this update never retroactively removes good will. */
@@ -1114,11 +1186,12 @@
     state.activeCaseId = beastId;
     state.yardBeastId = beastId;
     state.codex[beastId].discovered = true;
+    var acquisitionReveal = revealEvent(state, 'acquire', beastId, Math.max(1, number(entry.level, 1)));
     state.lastSeenAt = Math.max(number(state.lastSeenAt, 0), number(now, state.lastSeenAt));
     state.activeOrders = [];
     ensureOrders(state, Math.random);
     syncLegacyAliases(state);
-    return { ok: true, beastId: beastId };
+    return { ok: true, beastId: beastId, revealEvents: acquisitionReveal ? [acquisitionReveal] : [] };
   }
 
   function interactionLedger(state) {
@@ -1217,6 +1290,7 @@
       if (recruited && recruited.ok && !recruited.alreadyActive) {
         acquiredBeastId = order.beastId;
         acquiredLevel = state.beastCases[order.beastId] && state.beastCases[order.beastId].level || 1;
+        var recruitedReveals = recruited.revealEvents || [];
       }
     } else if (order.kind === 'supply') {
       state.daily.supplyCompleted = Math.min(3, state.daily.supplyCompleted + 1);
@@ -1240,10 +1314,13 @@
       if (arrived && arrived.ok && !arrived.alreadyActive) {
         acquiredBeastId = order.beastId;
         acquiredLevel = state.beastCases[order.beastId] && state.beastCases[order.beastId].level || 1;
+        var arrivedReveals = arrived.revealEvents || [];
       }
     }
 
     affectionGained = grantAffection(state, order.beastId, affectionRewardForOrder(order));
+    var autoLevelResult = autoLevelUpBeasts(state, order.beastId);
+    var revealEvents = (recruitedReveals || []).concat(arrivedReveals || [], autoLevelResult.events || []);
 
     state.activeOrders[index] = null;
     ensureOrders(state, rng);
@@ -1252,6 +1329,7 @@
     return {
       ok: true, order: order, rewards: clone(rewards), transformed: transformed,
       acquired: !!acquiredBeastId, acquiredBeastId: acquiredBeastId, acquiredLevel: acquiredLevel,
+      revealEvents: clone(revealEvents), autoLevels: clone(autoLevelResult.events || []),
       affectionGained: affectionGained,
       levelsGained: levelsGained, level: state.level, previousLevel: previousLevel
     };
@@ -1328,6 +1406,7 @@
   function careDifficultyUnlocked(state, difficulty, careType) {
     if (difficulty === 'easy') return true;
     if (difficulty === 'normal') return true;
+    if (difficulty === 'challenge') return true;
     var facilityId = careType === 'play' ? 'play' : 'groom';
     var level = state.facilities && state.facilities[facilityId] ? number(state.facilities[facilityId].level, 1) : 1;
     if (difficulty === 'hard') return level >= 2;
@@ -1432,6 +1511,42 @@
     var perf = clamp(number(game && game.perf, outcome === 'mastery' ? 1 : outcome === 'complete' ? 0.6 : 0), 0, 1);
     var grade = careGrade(outcome, perf);
     var qualified = outcome !== 'skip' && effectiveActions >= requiredActions;
+    var challenge = difficulty === 'challenge';
+    var score = Math.max(0, Math.floor(number(game && game.score, 0)));
+    if (challenge) {
+      var challengeRewardConfig = DATA.careGames && DATA.careGames.challengeRewards || {};
+      var scoreConfig = challengeRewardConfig[careType] || {};
+      var maxItems = Math.max(2, Math.floor(number(challengeRewardConfig.maxItems, 6)));
+      var challengeItems = [];
+      if (qualified && score > 0) {
+        state.challengeBest = Object.assign({ groom: 0, play: 0 }, state.challengeBest || {});
+        state.challengeBest[careType] = Math.max(number(state.challengeBest[careType], 0), score);
+        var count = 2;
+        (scoreConfig.countThresholds || []).forEach(function (threshold) {
+          if (score >= number(threshold, Infinity)) count++;
+        });
+        count = clamp(count, 2, maxItems);
+        for (var challengeIndex = 0; challengeIndex < count; challengeIndex++) {
+          var challengeTier = 1;
+          if (challengeIndex === 0 && score >= number(scoreConfig.tier3Score, Infinity)) challengeTier = 3;
+          else if (challengeIndex === 0 && score >= number(scoreConfig.tier2Score, Infinity)) challengeTier = 2;
+          else if (challengeIndex === 1 && score >= number(scoreConfig.tier3Score, Infinity)) challengeTier = 2;
+          var challengeItem = makeItem(careType, challengeTier);
+          queueItem(state, challengeItem);
+          challengeItems.push(challengeItem);
+        }
+      }
+      syncLegacyAliases(state);
+      return {
+        ok: true, outcome: outcome, difficulty: difficulty, challenge: true, grade: grade,
+        qualified: qualified, rewarded: challengeItems.length > 0, noReward: challengeItems.length === 0,
+        noProgress: true, effectiveActions: effectiveActions, requiredActions: requiredActions,
+        rewardItem: clone(challengeItems[0]), rewardItems: clone(challengeItems), rewardCount: challengeItems.length,
+        rewardCap: maxItems, score: score, affectionGained: 0, healGained: 0, beastExpGained: 0,
+        revealEvents: [], autoLevels: [], remainingRewardRuns: null,
+        recommendedDifficulty: recommendCareDifficulty(state, careType), energy: state.energy, at: number(now, Date.now())
+      };
+    }
     /* A finished round is a visit even if it did not clear the material-reward
        gate.  Skipping before play is intentionally not counted. */
     if (outcome !== 'skip') markBeastInteraction(state, beastId, 'care');
@@ -1495,6 +1610,7 @@
       effectiveActions: effectiveActions, rewarded: true, at: number(now, Date.now())
     });
     var transformed = maybeTransform(state, beastId);
+    var autoLevelResult = autoLevelUpBeasts(state, beastId);
     state.activeOrders = state.activeOrders.map(function (order) {
       return order && order.kind === 'care_gate' && order.beastId === beastId ? null : order;
     });
@@ -1516,6 +1632,9 @@
       requiredActions: requiredActions,
       affectionGained: affectionGained,
       healGained: healGained,
+      beastExpGained: 0,
+      revealEvents: clone(autoLevelResult.events || []),
+      autoLevels: clone(autoLevelResult.events || []),
       remainingRewardRuns: unlimited ? null : Math.max(0, cap - state.daily.careRewards[careType]),
       recommendedDifficulty: recommendCareDifficulty(state, careType),
       energy: state.energy,
@@ -1879,8 +1998,26 @@
     var story = definition.growthStories && definition.growthStories[nextLevel - 1] || {
       level: nextLevel, title: levelConfig.title, text: definition.dialogue[Math.min(nextLevel - 1, definition.dialogue.length - 1)]
     };
+    var event = revealEvent(state, 'level-up', beastId, nextLevel);
     syncLegacyAliases(state);
-    return { ok: true, beastId: beastId, level: nextLevel, title: levelConfig.title, story: clone(story), activeFormLevel: entry.activeFormLevel };
+    return { ok: true, beastId: beastId, level: nextLevel, title: levelConfig.title, story: clone(story), activeFormLevel: entry.activeFormLevel, revealEvent: event };
+  }
+
+  function autoLevelUpBeasts(state, beastId) {
+    ensureBeastRevealState(state);
+    var ids = beastId ? [beastId] : BEAST_IDS.slice();
+    var events = [];
+    ids.forEach(function (id) {
+      var guard = 0;
+      while (guard++ < 5) {
+        var gate = canLevelUpBeast(state, id);
+        if (!gate.ok) break;
+        var result = levelUpBeast(state, id);
+        if (!result.ok) break;
+        if (result.revealEvent) events.push(clone(result.revealEvent));
+      }
+    });
+    return { ok: true, events: events, revealEvents: clone(events), autoLevels: clone(events) };
   }
 
   function selectBeastForm(state, beastId, formLevel) {
@@ -2021,6 +2158,9 @@
     selectYardBeast: selectYardBeast,
     canLevelUpBeast: canLevelUpBeast,
     levelUpBeast: levelUpBeast,
+    autoLevelUpBeasts: autoLevelUpBeasts,
+    peekBeastReveal: peekBeastReveal,
+    acknowledgeBeastReveal: acknowledgeBeastReveal,
     selectBeastForm: selectBeastForm,
     selectBackground: selectBackground,
     purchaseBackground: purchaseBackground,
