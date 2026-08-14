@@ -36,6 +36,7 @@
   var foxActionTimer = null;
   var foxSpriteKey = '';
   var foxActionIndex = 0;
+  var sectAreaSelection = 'gate';
 
   function q(id) { return document ? document.getElementById(id) : null; }
 
@@ -97,13 +98,28 @@
     return (root.SCENE_ASSET_ROOT || 'assets/art/scenes/') + String(file || '');
   }
 
+  function backgroundAssetPath(background) {
+    return background && background.assetPath ? background.assetPath : sceneAssetPath(background && background.file);
+  }
+
   function characterAssetPath(path) {
     return String(path || '');
   }
 
   function itemPath(item) {
+    if (item && item.kind === 'generator') {
+      var generatorChain = DATA.generators && DATA.generators.producerChains && DATA.generators.producerChains[item.family];
+      return item.art || generatorChain && generatorChain.artRoot + '05.webp' || '';
+    }
+    if (item && item.kind === 'generator_part') {
+      var chain = DATA.generators && DATA.generators.producerChains && DATA.generators.producerChains[item.family];
+      return item.art || chain && chain.artRoot + String(item.tier).padStart(2, '0') + '.webp' || '';
+    }
     var family = item && familyDef(item.family);
     if (!family) return '';
+    var useV7 = item.family === 'build' ||
+      ((item.family === 'herb' || item.family === 'tool' || item.family === 'groom' || item.family === 'play') && Number(item.tier) >= 7);
+    if (useV7) return 'assets/art/v7/match3/' + family.path + '_' + String(item.tier).padStart(2, '0') + '.webp';
     return (root.MATCH3_ASSET_ROOT || 'assets/art/match3/') + family.path + '_' + String(item.tier).padStart(2, '0') + '.webp';
   }
 
@@ -199,11 +215,16 @@
   function openItemRoute(family, tier, source) {
     var definition = familyDef(family);
     if (!definition) return null;
-    var current = Core.makeItem(family, tier);
+    var producer = source === '生产器部件' && DATA.generators && DATA.generators.producerChains && DATA.generators.producerChains[family];
+    var current = producer ? Core.makeGeneratorPart(family, tier) : Core.makeItem(family, tier);
+    var routeNames = producer ? producer.names : definition.items;
     var sourceLabel = source ? '<small class="route-source">' + esc(source) + '</small>' : '';
     return modalShell('<span class="eyebrow">物品说明 · 长按查看</span><h2>' + esc(current.name) + '</h2>' + sourceLabel +
-      '<p>两个同类同阶物品合成下一阶；路线从 1 阶持续到 6 阶。</p><div class="route-list item-route-list">' + routeMarkup(family, tier) + '</div>' +
-      '<div class="route-merge-rule">当前：' + esc(definition.name) + ' · ' + Number(tier) + ' 阶　→　' + (Number(tier) < definition.items.length ? '下一阶可由 2 个当前物品合成' : '已达最高阶') + '</div>', 'task-modal item-route-modal');
+      '<p>' + (producer ? '两个同阶部件继续合成；四阶部件合到五阶时，会真正变成可产出素材的生成器。' : '两个同类同阶物品合成下一阶；路线从 1 阶持续到 ' + routeNames.length + ' 阶。') + '</p><div class="route-list item-route-list">' + (producer ? routeNames.map(function (name, index) {
+        var partTier = index + 1;
+        return '<span class="route-step ' + (partTier === Number(tier) ? 'current' : '') + '">' + (partTier < 5 ? '<img src="' + esc(itemPath({ kind: 'generator_part', family: family, tier: partTier })) + '" alt="" />' : '<b>⚙</b>') + '<b>' + partTier + '阶</b><small>' + esc(name) + '</small></span>';
+      }).join('') : routeMarkup(family, tier)) + '</div>' +
+      '<div class="route-merge-rule">当前：' + esc(producer ? '生产器部件' : definition.name) + ' · ' + Number(tier) + ' 阶　→　' + (Number(tier) < routeNames.length ? '下一阶可由 2 个当前物品合成' : '已达最高阶') + '</div>', 'task-modal item-route-modal');
   }
 
   function openGeneratorDetails(family) {
@@ -211,14 +232,13 @@
     if (!definition) return null;
     var info = Core.getGeneratorState ? Core.getGeneratorState(state, family) : null;
     var title = family === 'groom' ? '梳洗台小游戏产出' : definition.name + '生成器';
-    var intro = family === 'groom' ? '梳子系列不再从合成棋盘生成；完成梳洗台消消乐后按得分领取数量。' : '每次消耗 1 点体力。升级后会随机直接产出更高阶素材，委托难度也会随庭院阅历成长。';
+    var intro = family === 'groom' ? '梳子系列不再从合成棋盘生成；完成梳洗台消消乐后按得分领取数量。' : '每次消耗 1 点体力和 1 次储能。产出时会小概率掉落自己的部件；两个同级生成器可以合成更高一级。';
     var odds = info && info.dropTable ? info.dropTable.map(function (drop) {
       return drop.tier + '阶 ' + Math.round(drop.chance * 100) + '%';
     }).join(' · ') : '1阶 100%';
     var upgradeText = '';
     if (info && info.nextLevel) {
-      upgradeText = '升至 Lv' + info.nextLevel + ' · ◆' + info.nextCost;
-      if (info.reason === 'player-level') upgradeText += '（玩家 Lv' + info.requiredPlayerLevel + ' 开放）';
+      upgradeText = info.canUpgrade ? '合并两个 Lv' + info.level + ' · 升至 Lv' + info.nextLevel : '还需另一个 Lv' + info.level + ' 生成器';
     } else if (info) upgradeText = '生成器已满级';
     var modal = modalShell('<span class="eyebrow">生成说明 · 长按查看</span><h2>' + esc(title) + (info ? ' Lv' + info.level : '') + '</h2><p>' + esc(intro) + '</p>' +
       (info ? '<div class="generator-upgrade-summary"><b>当前产出</b><small>' + esc(odds) + '</small></div>' : '') +
@@ -226,12 +246,12 @@
         var tier = index + 1;
         var direct = info && info.dropTable && info.dropTable.find(function (drop) { return Number(drop.tier) === tier; });
         return '<div class="generator-route-item"><img src="' + esc(itemPath({ family: family, tier: tier })) + '" alt="' + esc(name) + '" /><span><b>' + tier + ' 阶 · ' + esc(name) + '</b><small>' + (direct ? '当前可直接产出 · ' + Math.round(direct.chance * 100) + '%' : tier === 1 ? '基础产出/小游戏基础奖励' : '由 2 个 ' + (tier - 1) + ' 阶合成') + '</small></span></div>';
-      }).join('') + '</div>' + (info ? '<button class="modal-action" data-upgrade-generator type="button" ' + (!info.nextLevel || info.reason === 'player-level' ? 'disabled' : '') + '>' + esc(upgradeText) + '</button>' : ''), 'task-modal generator-route-modal');
+      }).join('') + '</div>' + (info ? '<button class="modal-action" data-upgrade-generator type="button" ' + (!info.nextLevel || !info.canUpgrade ? 'disabled' : '') + '>' + esc(upgradeText) + '</button>' : ''), 'task-modal generator-route-modal');
     if (modal) {
       var button = modal.querySelector('[data-upgrade-generator]');
       if (button) button.addEventListener('click', function () {
         var result = Core.upgradeGenerator(state, family);
-        if (mutate(result, definition.name + '生成器升到 Lv' + result.level, null, 'purchase')) closeModal();
+        if (mutate(result, '两个同级生成器合成了更高阶生产设施', null, 'merge')) closeModal();
       });
     }
     return modal;
@@ -419,11 +439,11 @@
       '<p class="how-to-play-intro">把合成、委托和庭院照料连成一条温柔的疗愈路线。每一步都可以慢慢完成，不会因为失败丢失进度。</p>' +
       '<div class="how-to-play-list">' +
         '<article class="how-to-play-item"><b>① 拖动合成</b><span>拖动素材到空格整理；拖到同类同阶素材上，会自动合成更高阶物品。长按素材可看完整路线。</span></article>' +
-        '<article class="how-to-play-item"><b>② 完成委托</b><span>医馆始终保留三个委托槽。金色边框是主线，点开卡片可查看前置、需求和奖励，集齐后点击交付。</span></article>' +
-        '<article class="how-to-play-item"><b>③ 体力怎么用</b><span>生成素材和开始小游戏都会消耗体力。体力为零时仍可合成、交付委托和领取庭院产出。</span></article>' +
+        '<article class="how-to-play-item"><b>② 完成委托</b><span>目标条固定保留主线、修缮、医案、访客与七日旅程五槽，点开卡片即可查看需求和奖励。</span></article>' +
+        '<article class="how-to-play-item"><b>③ 养成生成器</b><span>生成素材消耗 1 体力和 1 储能，也可能掉落部件。两个同阶部件继续合成，五阶变为生成器；两个同级生成器还能再合阶。</span></article>' +
         '<article class="how-to-play-item"><b>④ 庭院照料</b><span>点击梳洗台或嬉游亭后选择难度。达到有效操作门槛即可获得合成素材，奖励次数不限；练习与高难度挑战都会记录成绩。</span></article>' +
         '<article class="how-to-play-item"><b>⑤ 有效挑战结算</b><span>消消乐至少完成 3 次有效交换、连连看至少连成 4 对。达到门槛后即使时间到也有保底；直接跳过只保留陪伴反馈，不推进病历或奖励。</span></article>' +
-        '<article class="how-to-play-item"><b>⑥ 继续成长</b><span>好感、疗愈和经验都达标后，点击突破解锁新形态与专属故事；高等级也能换回喜欢的旧形态。</span></article>' +
+        '<article class="how-to-play-item"><b>⑥ 继续成长</b><span>好感、疗愈和经验都达标后会自动解锁新形态与专属故事；高等级也能换回喜欢的旧形态。</span></article>' +
       '</div>' +
       '<div class="how-to-play-note">小提示：棋盘满时奖励会进入药匣暂存，不会丢失；看不懂任何图标时，长按它即可查看名称与来源。</div>' +
       '<button class="modal-action" data-how-to-play-close type="button">知道了，开始疗愈</button>',
@@ -524,8 +544,17 @@
   function renderNextAction() {
     var node = q('next-action');
     if (!node) return;
-    var orders = Core.ensureOrders(state, Math.random);
     var display = caseForDisplay();
+    q('merge-title').textContent = '陪' + display.definition.name + '一起成长';
+    /* P1：幕一修缮优先出现在"下一步"，把合成 → 修缮 → 收容串成可见目标链。 */
+    var progress = Core.chapterProgress ? Core.chapterProgress(state) : null;
+    var reno = Core.currentRenovation ? Core.currentRenovation(state) : null;
+    if (progress && progress.act === 1 && reno) {
+      var renoReady = Core.canDeliverRenovation ? Core.canDeliverRenovation(state) : false;
+      node.innerHTML = '<button data-go-sect type="button">去宗门修缮</button><strong>下一步：' + esc(reno.area.name) + ' · ' + esc(reno.order.title) + '</strong>' + (renoReady ? '素材已备齐，去宗门页交付修缮。' : esc(reno.order.text));
+      return;
+    }
+    var orders = Core.ensureOrders(state, Math.random);
     var gate = Core.canLevelUpBeast(state, display.id);
     if (gate.ok) {
       node.innerHTML = '<button data-open-codex-beast="' + esc(display.id) + '" type="button">查看新形态</button><strong>' + esc(display.definition.name) + '正在迎来新变化</strong>好感、疗愈和经验达标后会自动成长。';
@@ -533,7 +562,6 @@
       var nextOrder = orders.filter(function (order) { return Core.canDeliver(state, order); })[0] || orders.filter(function (order) { return order.status !== 'COMPLETE'; })[0] || orders[0];
       node.innerHTML = '<button data-focus-order="' + esc(nextOrder.id) + '" type="button">查看委托</button><strong>下一步：' + esc(nextOrder.title) + '</strong>' + esc(nextOrder.symptom || '合成并交付需要的素材。');
     }
-    q('merge-title').textContent = '陪' + display.definition.name + '一起成长';
   }
 
   function countNeed(need) {
@@ -554,7 +582,10 @@
   }
 
   function kindLabel(kind) {
-    return { recruit: '相遇', recruit_complete: '相遇', growth: '成长', growth_complete: '成长', supply: '百草补给', supply_complete: '百草补给' }[kind] || '委托';
+    return {
+      main: '主线', renovation: '修缮', medical: '医案', visitor: '访客', journey: '七日旅程',
+      recruit: '相遇', recruit_complete: '相遇', growth: '成长', growth_complete: '成长', supply: '百草补给', supply_complete: '百草补给'
+    }[kind] || '委托';
   }
 
   function prerequisiteText(order) {
@@ -602,11 +633,13 @@
       var mainline = order.mainline === true || order.kind === 'recruit';
       var complete = order.status === 'COMPLETE' || /_complete$/.test(order.kind || '');
       var needsMarkup = complete ? '<div class="care-gate-hint">今天这一槽已经完成</div>' : '<div class="order-need-icons">' + requirements.map(needMarkup).join('') + '</div>';
+      var rewards = order.rewards || {};
       var rewardBits = [];
-      if (order.rewards.jade) rewardBits.push('◆' + order.rewards.jade);
-      if (order.rewards.xp) rewardBits.push('阅历+' + order.rewards.xp);
-      if (order.rewards.beastExp) rewardBits.push('经验+' + order.rewards.beastExp);
-      if (order.rewards.heal) rewardBits.push('疗愈+' + order.rewards.heal);
+      if (rewards.jade) rewardBits.push('◆' + rewards.jade);
+      if (rewards.xp) rewardBits.push('阅历+' + rewards.xp);
+      if (rewards.beastExp) rewardBits.push('经验+' + rewards.beastExp);
+      if (rewards.heal) rewardBits.push('疗愈+' + rewards.heal);
+      if (order.productNeed) needsMarkup += '<div class="care-gate-hint">配方柜：' + esc(order.productNeed.productId) + ' ×' + order.productNeed.count + '</div>';
       var actionMarkup = '<button class="deliver-btn" data-deliver="' + esc(order.id) + '" type="button" ' + (ready && !complete ? '' : 'disabled') + '>' + (complete ? '今日已完成' : '交付 · ' + rewardBits.join(' · ')) + '</button>';
       return '<article class="order-card ' + (mainline ? 'main-order ' : '') + (ready ? 'ready ' : '') + (!reachable ? 'unreachable' : '') + '" data-order-id="' + esc(order.id) + '">' +
         '<div class="order-head">' + (mainline ? '<span class="mainline-badge">主线</span>' : '') + '<span class="order-kind">' + kindLabel(order.kind) + '</span>' + (order.difficultyLabel ? '<span class="order-kind">' + esc(order.difficultyLabel) + ' · 强度' + order.effort + '</span>' : '') + '<strong>' + esc(order.title) + '</strong></div>' +
@@ -616,6 +649,21 @@
         actionMarkup +
         '</article>';
     }).join('');
+    var readyCount = 0;
+    var slots = document.querySelectorAll('[data-order-target-slot]');
+    Array.prototype.forEach.call(slots, function (slot, index) {
+      var order = orders[index];
+      var complete = order && (order.status === 'COMPLETE' || /_complete$/.test(order.kind || ''));
+      var ready = order && !complete && order.kind !== 'care_gate' && Core.canDeliver(state, order);
+      if (ready || complete) readyCount++;
+      slot.dataset.slotState = complete ? 'done' : ready ? 'ready' : order ? 'open' : 'empty';
+      slot.title = order ? order.title : '等待目标';
+      slot.setAttribute('aria-label', order ? kindLabel(order.slot || order.kind) + '：' + order.title : '等待目标');
+    });
+    var summary = document.querySelector('[data-order-target-summary]');
+    var bar = document.querySelector('[data-order-target-progress]');
+    if (summary) summary.textContent = readyCount + ' / ' + orders.length + ' 可推进';
+    if (bar) bar.style.width = Math.round(readyCount / Math.max(1, orders.length) * 100) + '%';
   }
 
   function renderBoard() {
@@ -638,7 +686,13 @@
         if (state.unlockedGenerators.indexOf(item.family) < 0) classes.push('generator-locked');
         var family = familyDef(item.family);
         label = item.name || '生成器';
-        content = '<span>' + esc(family ? family.icon : '✦') + '</span><em>' + esc(label) + ' Lv' + Math.max(1, Number(item.level) || 1) + ' · ⚡1</em>';
+        var generatorArt = itemPath(item);
+        content = (generatorArt ? '<img src="' + esc(generatorArt) + '" alt="" />' : '<span>' + esc(family ? family.icon : '✦') + '</span>') + '<b>Lv' + Math.max(1, Number(item.level) || 1) + '</b><em>' + Math.max(0, Number(item.charges) || 0) + '/' + Math.max(1, Number(item.capacity) || 1) + '</em>';
+      } else if (item && item.kind === 'generator_part') {
+        classes.push('generator-part-tile');
+        if (selectedIndex === index) classes.push('selected');
+        label = item.name + '，生产器部件' + item.tier + '阶';
+        content = '<img src="' + esc(itemPath(item)) + '" alt="" /><b>' + item.tier + '</b><em>部件</em>';
       } else if (item && item.kind === 'obstacle') {
         classes.push('obstacle'); label = item.name; content = '<span>🌿</span><em>刷 ' + state.cleanTools + '</em>';
       } else if (item && item.kind === 'sealed') {
@@ -648,7 +702,7 @@
         label = itemName(item) + ' ' + item.tier + '阶';
         content = '<img src="' + esc(itemPath(item)) + '" alt="" /><b>' + item.tier + '</b>';
       }
-      var longPress = item && item.kind === 'generator' ? ' data-longpress-generator="' + esc(item.family) + '"' : item && !item.kind ? ' data-longpress-family="' + esc(item.family) + '" data-longpress-tier="' + item.tier + '" data-longpress-source="合成棋盘"' : '';
+      var longPress = item && item.kind === 'generator' ? ' data-longpress-generator="' + esc(item.family) + '"' : item && (!item.kind || item.kind === 'generator_part') ? ' data-longpress-family="' + esc(item.family) + '" data-longpress-tier="' + item.tier + '" data-longpress-source="' + (item.kind === 'generator_part' ? '生产器部件' : '合成棋盘') + '"' : '';
       cells.push('<button class="' + classes.join(' ') + '" data-grid-index="' + index + '"' + longPress + ' role="gridcell" type="button" aria-label="' + esc(label) + '">' + content + '</button>');
     }
     board.innerHTML = cells.join('');
@@ -661,12 +715,15 @@
     var node = q('item-info-root');
     if (!node) return;
     var item = selectedIndex == null ? null : state.grid[selectedIndex];
-    if (!item || item.kind) { node.innerHTML = ''; return; }
+    if (!item || item.kind && item.kind !== 'generator_part') { node.innerHTML = ''; return; }
     var family = familyDef(item.family);
+    var producerChain = item.kind === 'generator_part' && DATA.generators && DATA.generators.producerChains && DATA.generators.producerChains[item.family];
+    var routeNames = producerChain ? producerChain.names : family.items;
     node.innerHTML = '<div class="item-info-drawer"><div class="item-info-head"><img src="' + esc(itemPath(item)) + '" alt="" /><div><strong>' + esc(itemName(item)) + '</strong><small>' + esc(family.name) + ' · ' + item.tier + '阶</small></div><button class="drawer-close" data-clear-selection type="button">×</button></div>' +
-      '<div class="route-title">六阶合成路线 · 两个同阶合成下一阶</div><div class="route-list">' + family.items.map(function (name, idx) {
+      '<div class="route-title">' + routeNames.length + '阶' + (producerChain ? '生产器部件链 · 五阶变为生成器' : '合成路线 · 两个同阶合成下一阶') + '</div><div class="route-list">' + routeNames.map(function (name, idx) {
         var tier = idx + 1;
-        return '<span class="route-step ' + (tier === item.tier ? 'current' : '') + '"><img src="' + esc(itemPath({ family: item.family, tier: tier })) + '" alt="" />' + esc(name) + '</span>';
+        var routeItem = producerChain ? tier < 5 ? { kind: 'generator_part', family: item.family, tier: tier, art: producerChain.artRoot + String(tier).padStart(2, '0') + '.webp' } : null : { family: item.family, tier: tier };
+        return '<span class="route-step ' + (tier === item.tier ? 'current' : '') + '">' + (routeItem ? '<img src="' + esc(itemPath(routeItem)) + '" alt="" />' : '<b>⚙</b>') + esc(name) + '</span>';
       }).join('') + '</div><button class="modal-secondary" data-store-selected type="button">放入暂存区</button></div>';
   }
 
@@ -685,6 +742,63 @@
     var cost = DATA.economy.storageCosts[upgradeIndex];
     q('storage-upgrade').textContent = state.storage.slots >= 6 ? '已满级' : '扩容 ◆' + cost;
     q('storage-upgrade').disabled = state.storage.slots >= 6;
+  }
+
+  function renderMergeTools() {
+    var special = state.special || {};
+    var rack = special.bubbleRack || [];
+    var rackCount = document.querySelector('[data-rack-count]');
+    if (rackCount) rackCount.textContent = rack.length + ' / 3';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-tool="spirit-bubble"] [data-slot]'), function (slot, index) {
+      var bubble = rack[index];
+      slot.dataset.slotState = bubble ? (Date.now() >= bubble.opensAt ? 'ready' : 'opening') : 'empty';
+      if (!bubble) {
+        slot.removeAttribute('data-open-bubble');
+        slot.innerHTML = '<span aria-hidden="true">＋</span>';
+        slot.setAttribute('aria-label', '空灵泡槽 ' + (index + 1));
+        return;
+      }
+      var remaining = Math.max(0, bubble.opensAt - Date.now());
+      slot.dataset.openBubble = bubble.id;
+      slot.innerHTML = '<img src="' + esc(itemPath(bubble)) + '" alt="" /><small>' + (remaining ? Math.ceil(remaining / 60000) + '分' : '可开启') + '</small>';
+      slot.setAttribute('aria-label', itemName(bubble) + (remaining ? '，还需' + Math.ceil(remaining / 60000) + '分钟' : '，点击开启'));
+    });
+
+    var cabinet = q('recipe-cabinet-list');
+    if (cabinet) {
+      cabinet.innerHTML = Object.keys(state.products || {}).filter(function (id) { return state.products[id] > 0; }).map(function (id) {
+        var recipe = (DATA.recipes || []).find(function (entry) { return entry.id === id; });
+        return '<span role="listitem" title="' + esc(recipe && recipe.name || id) + '"><b>' + esc(recipe && recipe.name || id) + '</b><small>×' + state.products[id] + '</small></span>';
+      }).join('');
+    }
+    var workbench = q('recipe-workbench');
+    if (workbench) {
+      var unlockedRecipes = (DATA.recipes || []).filter(function (recipe) { return Core.recipeUnlocked && Core.recipeUnlocked(state, recipe.id); });
+      workbench.innerHTML = unlockedRecipes.map(function (recipe) {
+        var gate = Core.canCraftRecipe(state, recipe.id);
+        var input = (recipe.inputs || []).map(function (need) { return Core.getItemName(need.family, need.tier); }).join(' + ');
+        return '<button class="recipe-craft-button" data-craft-recipe="' + esc(recipe.id) + '" type="button" ' + (gate.ok ? '' : 'disabled') + '><b>' + esc(recipe.name) + '</b><small>' + esc(input) + '</small></button>';
+      }).join('');
+    }
+
+    var chests = special.chests || {};
+    var chestConfig = DATA.specials && DATA.specials.chests || {};
+    var dailyTarget = chestConfig.dailyMerges || chestConfig.daily && chestConfig.daily.merges || 20;
+    var weeklyTarget = chestConfig.weeklyOrders || chestConfig.weekly && chestConfig.weekly.orders || 10;
+    var dailyProgress = document.querySelector('[data-chest-progress="daily"]');
+    var weeklyProgress = document.querySelector('[data-chest-progress="weekly"]');
+    if (dailyProgress) dailyProgress.textContent = Math.min(chests.dailyMerges || 0, dailyTarget) + ' / ' + dailyTarget;
+    if (weeklyProgress) weeklyProgress.textContent = Math.min(chests.weeklyOrders || 0, weeklyTarget) + ' / ' + weeklyTarget;
+    if (q('daily-chest')) q('daily-chest').classList.toggle('ready', (chests.dailyMerges || 0) >= dailyTarget);
+    if (q('weekly-chest')) q('weekly-chest').classList.toggle('ready', (chests.weeklyOrders || 0) >= weeklyTarget);
+
+    var recycle = q('recycle-drawer-list');
+    if (recycle) {
+      recycle.innerHTML = state.grid.slice(0, state.unlockedCells).map(function (item, index) {
+        if (!item || item.kind && item.kind !== 'generator_part') return '';
+        return '<button role="listitem" data-recycle-index="' + index + '" type="button" title="回收 ' + esc(itemName(item)) + '"><img src="' + esc(itemPath(item)) + '" alt="" /><small>' + (item.tier >= 4 ? '需确认' : '回收') + '</small></button>';
+      }).join('');
+    }
   }
 
   function activeCareText(entry) {
@@ -718,8 +832,8 @@
     var definition = backgroundDef(active) || backgroundDef('courtyard');
     if (!definition) return;
     var backgroundLayer = q('yard-background-layer');
-    if (backgroundLayer) backgroundLayer.style.backgroundImage = 'url("' + sceneAssetPath(definition.file) + '")';
-    else scene.style.backgroundImage = 'linear-gradient(#fff3df1c,#fff0d61c),url("' + sceneAssetPath(definition.file) + '")';
+    if (backgroundLayer) backgroundLayer.style.backgroundImage = 'url("' + backgroundAssetPath(definition) + '")';
+    else scene.style.backgroundImage = 'linear-gradient(#fff3df1c,#fff0d61c),url("' + backgroundAssetPath(definition) + '")';
     var button = q('yard-background-open');
     if (button) button.textContent = '背景 · ' + definition.name;
   }
@@ -743,7 +857,7 @@
       return foreground ? 71 - level : 24 + level * 2;
     }
     return {
-      background: { id: backgroundId, url: background ? sceneAssetPath(background.file) : '' },
+      background: { id: backgroundId, url: background ? backgroundAssetPath(background) : '' },
       buildings: {
         clinic: { x: 20, y: buildingY(clinic.level, false), scale: buildingScale(clinic.level, false), level: clinic.level, image: DATA.buildings.clinic.art[clinic.level - 1], state: 'ready', bubble: '疗愈 +' + DATA.facilities.clinic.levels[clinic.level - 1].healReward },
         herb: { x: 20, y: buildingY(herb.level, true), scale: buildingScale(herb.level, true), level: herb.level, image: DATA.buildings.herb.art[herb.level - 1], state: herb.stored.length ? 'ready' : 'producing', bubble: herb.stored.length ? '可领取 ×' + herb.stored.length : 'Lv' + herb.level + ' 生产中' },
@@ -944,8 +1058,8 @@
     if (id === 'herb') {
       if (!level) return '未建成 · 升级后开始定时产药';
       var config = DATA.facilities.herb.levels[level - 1];
-      var cap = config.cap + (state.beastCases.xiangliu.transformed ? 1 : 0);
-      var minutes = Math.round(config.intervalMinutes * (state.beastCases.xiangliu.transformed ? 0.8 : 1));
+      var cap = config.cap + ((state.beastCases.dijiang && state.beastCases.dijiang.transformed) ? 1 : 0);
+      var minutes = Math.round(config.intervalMinutes * ((state.beastCases.dijiang && state.beastCases.dijiang.transformed) ? 0.8 : 1));
       var stored = state.facilities.herb.stored.length;
       var next = stored >= cap ? '已满，点击领取' : '下一份约 ' + Math.max(1, Math.ceil((config.intervalMs - state.facilities.herb.progressMs) / 60000)) + ' 分钟';
       return minutes + '分钟/份 · 暂存' + stored + '/' + cap + ' · ' + next;
@@ -972,20 +1086,20 @@
   function jobDescription(beast) {
     if (beast.id === 'qiongqi') return '每90分钟带回定向补给，最多3份';
     if (beast.id === 'jiuweihu') return '每日额外1次免费委托刷新';
-    if (beast.id === 'xiangliu') return '百草园提速20%，容量+1';
+    if (beast.id === 'dijiang') return '百草园提速20%，容量+1';
     return '膳食生成时有20%概率双倍掉落';
   }
 
   function renderJobs() {
     q('job-list').innerHTML = DATA.beasts.map(function (beast) {
       var entry = state.beastCases[beast.id];
-      var available = entry.transformed;
+      var available = !!(state.jobs && state.jobs[beast.id] && state.jobs[beast.id].unlocked) || entry.transformed;
       var action = '';
       if (beast.id === 'qiongqi' && available) {
         var stored = state.jobs.qiongqi.stored;
         action = '<button data-claim-job="qiongqi" type="button" ' + (stored ? '' : 'disabled') + '>' + (stored ? '领取 ×' + stored : '积累中') + '</button>';
       } else action = '<button type="button" disabled>' + (available ? '已生效' : '待蜕变') + '</button>';
-      return '<div class="job-row ' + (available ? '' : 'locked') + '"><span class="job-avatar"><img loading="lazy" src="' + esc(characterAssetPath(beast.art[available ? 3 : 0])) + '" alt="" /></span><span><strong>' + esc(beast.name + ' · ' + beast.job.title) + '</strong><small>' + esc(jobDescription(beast)) + '</small></span>' + action + '</div>';
+      return '<div class="job-row ' + (available ? '' : 'locked') + '"><span class="job-avatar"><img loading="lazy" src="' + esc(characterAssetPath(beastArt(beast, entry))) + '" alt="" /></span><span><strong>' + esc(beast.name + ' · ' + beast.job.title) + '</strong><small>' + esc(jobDescription(beast)) + '</small></span>' + action + '</div>';
     }).join('');
   }
 
@@ -1007,13 +1121,98 @@
         '<div class="codex-growth">Lv' + entry.level + '/5 · 好感 ' + entry.affection + (next ? '/' + next.affection : '') + ' · 疗愈 ' + entry.heal + (next ? '/' + next.heal : '') + ' · 经验 ' + entry.exp + (next ? '/' + next.exp : '') + '</div>' +
         '<div class="codex-job">点击查看大图、故事与形态</div></div></article>';
     }).join('');
-    q('ending-card').innerHTML = state.endingUnlocked ? '<h2>第一卷 · 灯火长明</h2><p>伙伴们会继续成长，百草园与三槽委托每天都有新的心愿。</p>' : '<h2>下一页正等你翻开</h2><p>陪九尾狐突破新形态，每一级都会解锁一段只属于它的小故事。</p>';
+    q('ending-card').innerHTML = state.endingUnlocked ? '<h2>第一卷 · 灯火长明</h2><p>伙伴们会继续成长，五条目标与宗门修缮每天都有新的心愿。</p>' : '<h2>下一页正等你翻开</h2><p>陪九尾狐突破新形态，每一级都会解锁一段只属于它的小故事。</p>';
   }
 
   function renderProgress() {
     var progress = overallProgress();
     q('goal-progress').textContent = '第一卷疗愈进度 · ' + progress + '%';
     q('goal-bar').style.width = progress + '%';
+  }
+
+  function renderSectScene(progress, areas) {
+    var scene = q('sect-scene');
+    if (!scene || !areas.length) return;
+    if (!areas.some(function (area) { return area.id === sectAreaSelection; })) sectAreaSelection = areas[0].id;
+    var area = areas.find(function (entry) { return entry.id === sectAreaSelection; }) || areas[0];
+    var stageIndex = Math.max(0, Math.min(3, Number(state.sect && state.sect.stages && state.sect.stages[area.id]) || 0));
+    var stateNames = ['ruined', 'cleaned', 'repaired', 'renewed'];
+    var stateName = stateNames[stageIndex];
+    var stageLabel = (DATA.sect.stageNames || [])[stageIndex] || stateName;
+    var art = Core.sectAreaStageArt ? Core.sectAreaStageArt(state, area.id).art : area.art && area.art[stageIndex];
+    scene.dataset.currentArea = area.id;
+    scene.dataset.stage = stateName;
+    q('sect-building-layer').dataset.currentArea = area.id;
+    q('sect-building-layer').dataset.stage = stateName;
+    q('sect-scene-title').textContent = area.name;
+    q('sect-scene-stage').textContent = stageLabel;
+    q('sect-scene-stage').dataset.stage = stateName;
+    q('sect-scene-progress').textContent = stageIndex + ' / 3';
+    var background = q('sect-scene-background-layer');
+    if (background) background.style.backgroundImage = 'url("' + sceneAssetPath('bg_courtyard_buildingfree.webp') + '")';
+    Array.prototype.forEach.call(scene.querySelectorAll('[data-area]'), function (node) {
+      var allowed = areas.some(function (entry) { return entry.id === node.dataset.area; });
+      node.hidden = !allowed;
+      if (!allowed) return;
+      var selected = node.dataset.area === area.id;
+      node.setAttribute('aria-current', selected ? 'true' : 'false');
+      node.classList.toggle('is-current', selected);
+      if (node.matches('.sect-building-hotspot')) {
+        var nodeArea = areas.find(function (entry) { return entry.id === node.dataset.area; });
+        var nodeStage = Math.max(0, Math.min(3, Number(state.sect.stages[nodeArea.id]) || 0));
+        var nodeState = stateNames[nodeStage];
+        var nodeArt = Core.sectAreaStageArt ? Core.sectAreaStageArt(state, nodeArea.id).art : nodeArea.art && nodeArea.art[nodeStage];
+        node.dataset.stage = nodeState;
+        node.dataset.state = nodeState;
+        var visual = node.querySelector('.sect-building-visual');
+        if (visual && nodeArt) visual.style.backgroundImage = 'url("' + String(nodeArt).replace(/"/g, '') + '")';
+        var stageNode = node.querySelector('small[data-stage-label]');
+        if (stageNode) stageNode.textContent = (DATA.sect.stageNames || [])[nodeStage] || nodeState;
+      }
+    });
+  }
+
+  function renderSect() {
+    if (!DATA.sect || !q('sect-view')) return;
+    var volume = Math.max(1, Number(state.chapter && state.chapter.volume) || 1);
+    var volumeConfig = (DATA.sect.volumes || []).find(function (entry) { return entry.volume === volume; }) || (DATA.sect.volumes || [])[0] || {};
+    var areaIds = volumeConfig.areaIds || [];
+    var areas = (DATA.sect.areas || []).filter(function (area) { return areaIds.indexOf(area.id) >= 0; });
+    q('sect-chapter-chip').textContent = volumeConfig.title || DATA.sect.chapterChip || '卷一 · 穷奇篇';
+    q('sect-quote').textContent = DATA.sect.volumeQuote || '';
+    q('sect-note').textContent = DATA.sect.volumeNote || '';
+    var progress = Core.chapterProgress ? Core.chapterProgress(state) : { act: 1, actName: '修缮', actNames: ['修缮', '收容', '疗愈', '焕新', '上岗'], renovationDone: 0, renovationTarget: 9, chapterDone: false };
+    renderSectScene(progress, areas);
+    q('sect-acts-title').textContent = '幕' + ['一', '二', '三', '四', '五'][Math.max(0, progress.act - 1)] + ' · ' + progress.actName;
+    q('sect-reno-progress').textContent = '修缮度 ' + progress.renovationDone + '/' + progress.renovationTarget;
+    q('sect-acts').innerHTML = progress.actNames.map(function (name, index) {
+      var actNo = index + 1;
+      var cls = actNo < progress.act ? 'done' : actNo === progress.act ? 'current' : '';
+      return '<span class="sect-act ' + cls + '"><b>' + esc(name) + '</b><small>' + (actNo < progress.act ? '✓' : actNo === progress.act ? '进行中' : '未开启') + '</small></span>';
+    }).join('');
+    var stageNames = DATA.sect.stageNames || [];
+    q('sect-areas').innerHTML = areas.map(function (area) {
+      var done = (state.sect && state.sect.stages && state.sect.stages[area.id]) || 0;
+      var pips = stageNames.slice(0, 4).map(function (stageName, index) {
+        var cls = index < done ? 'done' : index === done ? 'current' : '';
+        return '<span class="sect-stage-pip ' + cls + '">' + esc(stageName || String(index + 1)) + (index < done ? ' ✓' : '') + '</span>';
+      }).join('');
+      return '<div class="sect-area-card"><div class="sect-area-head"><strong>' + esc((area.icon || '') + ' ' + area.name) + '</strong><span class="stage-chip">' + done + '/3 段</span></div><div class="sect-stage-pips">' + pips + '</div></div>';
+    }).join('');
+    var reno = Core.currentRenovation ? Core.currentRenovation(state) : null;
+    var renoNode = q('sect-reno');
+    if (reno) {
+      var renoReady = Core.canDeliverRenovation ? Core.canDeliverRenovation(state) : false;
+      renoNode.innerHTML = '<div class="section-title-row"><div><span class="eyebrow">当前修缮委托 · ' + esc(reno.area.name) + ' · ' + esc(reno.stageName) + '段</span><h2>' + esc(reno.order.title) + '</h2></div></div>' +
+        '<p>' + esc(reno.order.text) + '</p>' +
+        '<div class="order-need-icons">' + reno.order.requirements.map(needMarkup).join('') + '</div>' +
+        '<button class="deliver-btn" data-deliver-reno type="button" ' + (renoReady ? '' : 'disabled') + '>' + (renoReady ? '交付修缮' : '素材未齐 · 去医馆合成') + '</button>';
+    } else {
+      renoNode.innerHTML = '<div class="section-title-row"><div><span class="eyebrow">幕一完成</span><h2>宗门修缮完毕</h2></div></div><p>山门、医馆与前院都已焕新。接下来，去医馆完成穷奇的医案吧。</p>';
+    }
+    q('sect-hook').innerHTML = progress.chapterDone
+      ? '<h2>' + esc(DATA.sect.nextChapter.label) + '</h2><p>' + esc(DATA.sect.nextChapter.hook) + '</p>'
+      : '<h2>卷终 · 山海册新页</h2><p>' + (progress.act >= 4 ? '穷奇即将焕新上岗，卷章完成时，山海册会写下新的一页。' : '先修好宗门、治好穷奇，卷终就会写下新的一页。') + '</p>';
   }
 
   function render() {
@@ -1024,8 +1223,10 @@
     renderNextAction();
     renderOrders();
     renderBoard();
+    renderMergeTools();
     renderStorage();
     renderYard();
+    renderSect();
     renderCodex();
     renderProgress();
     switchView(activeView);
@@ -1060,7 +1261,14 @@
       'not-match': '只能合成同类、同阶的两个素材',
       occupied: '目标格已有素材，请拖到空格或同类同阶素材上',
       'locked-cell': '这个格子还未解锁',
-      'invalid-cell': '这个位置暂时不能放置素材'
+      'invalid-cell': '这个位置暂时不能放置素材',
+      incomplete: '还差一点进度，继续合成或完成委托吧',
+      claimed: '这只宝箱已经领取过了',
+      'bubble-locked': '灵泡还在孕育中，稍后再来开启',
+      'bubble-not-found': '这个灵泡已经开启了',
+      'recipe-locked': '这份配方会在后续卷章解锁',
+      'protected-item': '生成器和特殊物品不能回收',
+      'confirm-required': '四阶以上素材需要再次确认'
     }[reason] || '现在还不能完成这个动作';
   }
 
@@ -1090,7 +1298,9 @@
       else { render(); toast(failureText(moved)); }
       return moved;
     }
-    if (target.kind) {
+    var source = state.grid[fromIndex];
+    var producerPair = target.kind && source && ((target.kind === 'generator_part' && source.kind === 'generator_part') || (target.kind === 'generator' && source.kind === 'generator'));
+    if (target.kind && !producerPair) {
       render();
       toast('只能把素材拖到空格，或拖到同类同阶素材上');
       return { ok: false, reason: 'occupied' };
@@ -1108,7 +1318,7 @@
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     var index = Number(target.dataset.gridIndex);
     var item = state.grid[index];
-    if (index >= state.unlockedCells || !item || item.kind) return;
+    if (index >= state.unlockedCells || !item || item.kind && item.kind !== 'generator' && item.kind !== 'generator_part') return;
     boardDragState = {
       pointerId: event.pointerId,
       fromIndex: index,
@@ -1180,8 +1390,8 @@
     }
     if (!item) { playSfx('click'); selectedIndex = null; renderBoard(); return; }
     if (item.kind === 'generator') {
-      var generated = Core.generate(state, item.family, Math.random, Date.now());
-      if (generated.ok) mutate(generated, 'Lv' + generated.generatorLevel + ' 生成器获得 ' + itemName(generated.items[0]) + (generated.items && generated.items.length > 1 ? ' · 饕餮双倍掉落' : ''));
+      var generated = Core.generate(state, item.family, Math.random, Date.now(), index);
+      if (generated.ok) mutate(generated, 'Lv' + generated.generatorLevel + ' 生成器获得 ' + itemName(generated.items[0]) + (generated.items && generated.items.length > 1 ? ' · 饕餮双倍掉落' : '') + (generated.partDrop ? ' · 还发现了' + itemName(generated.partDrop) : ''));
       else {
         saveState(); render(); toast(failureText(generated));
       }
@@ -1214,7 +1424,7 @@
   }
 
   function rerollInfo() {
-    var max = 1 + (state.beastCases.jiuweihu && state.beastCases.jiuweihu.transformed ? 1 : 0);
+    var max = 1 + (state.jobs && state.jobs.jiuweihu && state.jobs.jiuweihu.unlocked ? 1 : 0);
     var used = Math.max(0, Number(state.daily.rerollsUsed) || 0);
     return { max: max, remaining: Math.max(0, max - used) };
   }
@@ -1394,7 +1604,7 @@
       var isActive = active === background.id;
       var action = isActive ? '当前使用' : isOwned ? '使用' : background.signInExclusive ? '七日约定限定' : '购买 · ◆' + background.price;
       return '<article class="background-card ' + (isActive ? 'active' : '') + '">' +
-        '<img src="' + esc(sceneAssetPath(background.file)) + '" alt="' + esc(background.name) + '" />' +
+        '<img src="' + esc(backgroundAssetPath(background)) + '" alt="' + esc(background.name) + '" />' +
         '<div class="background-card-body"><strong>' + esc(background.name) + '</strong><small>' + esc(background.description || '') + '</small>' +
         '<button type="button" data-background-id="' + esc(background.id) + '" ' + (isActive || background.signInExclusive && !isOwned ? 'disabled' : '') + '>' + action + '</button></div></article>';
     }).join('');
@@ -1749,11 +1959,11 @@
     var portrait = beastArt(definition, entry);
     var modal = modalShell(
       '<div class="beast-milestone-card welcome-guide-card">' +
-        '<span class="eyebrow">欢迎来到疗愈所</span>' +
+        '<span class="eyebrow">欢迎回到栖霞宗</span>' +
         '<h2>穷奇在门口等你</h2>' +
         '<div class="beast-milestone-art"><img src="' + esc(characterAssetPath(portrait)) + '" alt="穷奇立绘" /></div>' +
         '<p class="beast-milestone-line">“' + esc(definition.revealLines && definition.revealLines[0] || definition.dialogue[0] || '别怕，我会守住这里。') + '”</p>' +
-        '<p class="welcome-guide-copy">我是穷奇，先陪我把疗愈所点亮：在棋盘点击生成器获得素材，拖动同类同阶素材合成；再打开医馆完成金色主线委托。体力不足时也能合成、交付委托和领取岗位产出。</p>' +
+        '<p class="welcome-guide-copy">末法时代，灵气稀薄，宗门也荒了很久。我是穷奇，先陪你把栖霞宗重新点亮：去「宗门」页交付修缮委托，再去医馆点生成器得素材、拖同类同阶素材合成。体力不足时也能合成、交付委托和领取岗位产出。</p>' +
         '<button class="modal-action" data-welcome-start type="button">开始照顾穷奇</button>' +
       '</div>',
       'beast-milestone-modal welcome-guide-modal'
@@ -1849,16 +2059,79 @@
       var card = event.target.closest('[data-order-id]');
       if (card) openOrderDetails(card.dataset.orderId);
     });
+    q('order-target-toggle').addEventListener('click', function () {
+      var button = q('order-target-toggle');
+      var expanded = button.getAttribute('aria-expanded') !== 'false';
+      button.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+      q('order-target-bar').dataset.state = expanded ? 'collapsed' : 'expanded';
+      q('order-drawer').dataset.state = expanded ? 'collapsed' : 'expanded';
+      playSfx('click');
+    });
+    q('spirit-bubble-slots').addEventListener('click', function (event) {
+      var slot = event.target.closest('[data-open-bubble]');
+      if (!slot) return;
+      mutate(Core.openBubble(state, slot.dataset.openBubble, Date.now()), '灵泡开启，素材已经入盘', null, 'order');
+    });
+    q('recipe-table-open').addEventListener('click', function () {
+      var workbench = q('recipe-workbench');
+      var open = workbench.hidden;
+      workbench.hidden = !open;
+      workbench.dataset.state = open ? 'open' : 'closed';
+      q('recipe-table-open').setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    q('recipe-workbench').addEventListener('click', function (event) {
+      var button = event.target.closest('[data-craft-recipe]');
+      if (!button) return;
+      mutate(Core.craftRecipe(state, button.dataset.craftRecipe), '配方完成，成品已收入配方柜', null, 'merge');
+    });
+    q('chest-dock').addEventListener('click', function (event) {
+      var button = event.target.closest('[data-chest-type]');
+      if (!button) return;
+      mutate(Core.claimChest(state, button.dataset.chestType, Math.random, Date.now()), button.dataset.chestType === 'weekly' ? '周宝箱开启，暖玉与高阶素材已到账' : '每日宝箱开启，体力与素材已到账', null, 'order');
+    });
+    q('recycle-open').addEventListener('click', function () {
+      var drawer = q('recycle-drawer-list');
+      var open = drawer.hidden;
+      drawer.hidden = !open;
+      q('recycle-drawer').dataset.state = open ? 'open' : 'closed';
+      q('recycle-open').setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    q('recycle-drawer-list').addEventListener('click', function (event) {
+      var button = event.target.closest('[data-recycle-index]');
+      if (!button) return;
+      var index = Number(button.dataset.recycleIndex);
+      var item = state.grid[index];
+      var confirmed = !item || item.tier < 4 || !root.confirm || root.confirm('这是高阶素材。确定要回收 ' + itemName(item) + ' 吗？');
+      if (!confirmed) return;
+      if (selectedIndex === index) selectedIndex = null;
+      mutate(Core.recycleItem(state, index, true), '素材已回收为暖玉', null, 'purchase');
+    });
     bindLongPress(q('merge-board'), '[data-longpress-family], [data-longpress-generator]');
     bindLongPress(q('order-list'), '[data-longpress-family]');
     bindLongPress(q('modal-root'), '[data-longpress-family]');
     q('next-action').addEventListener('click', function (event) {
       if (event.target.closest('[data-show-transform]')) showTransformation();
       if (event.target.closest('[data-go-yard]')) switchView('yard-view');
+      if (event.target.closest('[data-go-sect]')) switchView('sect-view');
       var codexBeast = event.target.closest('[data-open-codex-beast]');
       if (codexBeast) openCodexDetails(codexBeast.dataset.openCodexBeast);
       var focus = event.target.closest('[data-focus-order]');
       if (focus) openOrderDetails(focus.dataset.focusOrder);
+    });
+    q('sect-view').addEventListener('click', function (event) {
+      var areaButton = event.target.closest('[data-action="select-sect-area"], .sect-building-hotspot[data-area]');
+      if (areaButton && areaButton.dataset.area) {
+        sectAreaSelection = areaButton.dataset.area;
+        renderSect();
+        playSfx('click');
+        return;
+      }
+      var deliverReno = event.target.closest('[data-deliver-reno]');
+      if (!deliverReno) return;
+      var result = Core.deliverRenovation ? Core.deliverRenovation(state) : { ok: false, reason: 'unavailable' };
+      if (mutate(result, result.actOneDone ? '幕一完成 · 宗门焕然一新，去医馆迎接穷奇' : '修缮完成 · ' + (result.areaName || '宗门') + '又亮了一点', null, 'order')) {
+        if (result.actOneDone) { renderSect(); switchView('sect-view'); }
+      }
     });
     q('item-info-root').addEventListener('click', function (event) {
       if (event.target.closest('[data-clear-selection]')) { selectedIndex = null; renderBoard(); }
@@ -1940,7 +2213,7 @@
     Core.ensureDaily(state, today(), Date.now());
     if (result.appliedMs > 0) {
       saveState();
-      renderHud(); renderStorage(); renderFacilities(); renderJobs(); renderDaily();
+      renderHud(); renderStorage(); renderMergeTools(); renderFacilities(); renderJobs(); renderDaily();
     }
   }
 

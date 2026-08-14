@@ -17,7 +17,7 @@ const DATA = Core.DATA || require(path.join(ROOT, 'js', 'merge', 'data.js'));
 const NOW = 1_735_689_600_000;
 const DAY = 24 * 60 * 60 * 1000;
 const DATE = '2025-01-01';
-const BEAST_IDS = ['qiongqi', 'jiuweihu', 'xiangliu', 'taotie'];
+const BEAST_IDS = ['qiongqi', 'jiuweihu', 'taotie'];
 
 let failures = 0;
 
@@ -202,7 +202,7 @@ check('schema v5/旧状态 energy 22/30 -> v6 92/100', function () {
   expect(Number(migrated.jade) === 321, 'migration must preserve currency');
 });
 
-check('四兽统一 level/exp/affection/heal/form/story 字段', function () {
+check('三兽统一 level/exp/affection/heal/form/story 字段', function () {
   const state = fresh();
   BEAST_IDS.forEach((id) => {
     const value = entry(state, id);

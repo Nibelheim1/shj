@@ -19,7 +19,7 @@ const DATA = Core.DATA && (Core.DATA.MERGE_DATA || Core.DATA.GAME_DATA || Core.D
 
 const NOW = 1_735_689_600_000;
 const DATE = '2025-01-01';
-const BEAST_IDS = ['qiongqi', 'jiuweihu', 'xiangliu', 'taotie'];
+const BEAST_IDS = ['qiongqi', 'jiuweihu', 'taotie'];
 const RNG = () => 0.31;
 
 function expect(condition, message) {
@@ -276,7 +276,7 @@ function run() {
 
   expect(BEAST_IDS.every((id) => state.beastCases[id].transformed === true), '四只异兽都应完成蜕变');
   expect(state.transformedOrder.length === BEAST_IDS.length, '蜕变顺序应记录四只异兽');
-  expect(state.endingUnlocked === true, '四兽完成后应解锁结局');
+  expect(state.endingUnlocked === true, '三兽完成后应解锁结局');
   expect(typeof state.nextChapter === 'string' && state.nextChapter.length > 0, '结局应保留下一章目标');
   assertSlots(state, '结局');
   const memory = orderBy(state,
@@ -285,10 +285,10 @@ function run() {
   expect(memory.permanent === true, '结局后的 story 槽应保持永久订单');
   state = reload(state, '最终结局重载', NOW + 9999);
   expect(state.endingUnlocked === true && BEAST_IDS.every((id) => state.beastCases[id].transformed),
-    '最终重载后仍应保留 endingUnlocked 与四兽蜕变');
+    '最终重载后仍应保留 endingUnlocked 与三兽蜕变');
 
   console.log('== H5 full progression ==');
-  console.log('  PASS  新档 -> 四兽三段故事 -> 有效偏好照料 -> 蜕变 ack -> 下一 arrival -> endingUnlocked');
+  console.log('  PASS  新档 -> 三兽三段故事 -> 有效偏好照料 -> 蜕变 ack -> 下一 arrival -> endingUnlocked');
   console.log('  PASS  关键节点 JSON clone + normalize 重载、奖励保留与三槽订单契约');
 }
 

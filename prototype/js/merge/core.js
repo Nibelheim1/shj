@@ -24,8 +24,8 @@
   var FAMILY_IDS = Object.keys(DATA.families);
   var BEAST_IDS = DATA.beasts.map(function (beast) { return beast.id; });
   var GENERATOR_NAMES = {
-    herb: '百草药篓', tool: '医师药箱', food: '膳食篮',
-    play: '风铃玩具箱'
+    herb: '百草药篓', tool: '医师药箱', food: '膳堂灶台', build: '修缮工坊',
+    charm: '后山符台', treasure: '云海宝台'
   };
 
   /* 梳子系列由梳洗台小游戏发放，不再拥有棋盘生成器。保留 family
@@ -77,6 +77,33 @@
 
   function familyDefinition(id) {
     return DATA.families[id] || null;
+  }
+
+  function familyTierCap(id) {
+    var definition = familyDefinition(id);
+    return Math.min(TIER_CAP, definition && definition.items ? definition.items.length : TIER_CAP);
+  }
+
+  function familyActiveForState(state, id) {
+    var definition = familyDefinition(id);
+    return !!definition && currentChapterVolume(state) >= Math.max(1, Math.floor(number(definition.activeFromVolume, 1)));
+  }
+
+  function producerChain(family) {
+    return DATA.generators && DATA.generators.producerChains && DATA.generators.producerChains[family] || null;
+  }
+
+  function makeGeneratorPart(family, tier) {
+    var chain = producerChain(family);
+    if (!chain) return null;
+    tier = clamp(Math.floor(number(tier, 1)), 1, 4);
+    return {
+      kind: 'generator_part',
+      family: family,
+      tier: tier,
+      name: chain.names[tier - 1],
+      art: chain.artRoot + String(tier).padStart(2, '0') + '.webp'
+    };
   }
 
   function beastDefinition(id) {
@@ -185,7 +212,7 @@
 
   function makeItem(family, tier) {
     var definition = familyDefinition(family);
-    var safeTier = clamp(Math.floor(number(tier, 1)), 1, TIER_CAP);
+    var safeTier = clamp(Math.floor(number(tier, 1)), 1, familyTierCap(family));
     return {
       family: family,
       tier: safeTier,
@@ -202,15 +229,55 @@
     return clone(generatorLevelConfig(level).drops || [{ tier: 1, chance: 1 }]);
   }
 
-  function makeGenerator(family, level) {
+  function makeGenerator(family, level, now, charges, partPity) {
+    var config = generatorLevelConfig(level);
+    var capacity = Math.max(1, Math.floor(number(config.capacity, 16)));
+    var safeLevel = clamp(Math.floor(number(level, 1)), 1, number(DATA.generators && DATA.generators.maxLevel, 5));
+    var chain = producerChain(family);
     return {
       kind: 'generator', family: family,
-      name: GENERATOR_NAMES[family] || family + '生成器',
-      level: clamp(Math.floor(number(level, 1)), 1, number(DATA.generators && DATA.generators.maxLevel, 3))
+      name: chain && chain.generatorNames && chain.generatorNames[safeLevel - 1] || GENERATOR_NAMES[family] || family + '生成器',
+      art: chain && chain.artRoot ? chain.artRoot + '05.webp' : '',
+      level: safeLevel,
+      charges: clamp(Math.floor(number(charges, capacity)), 0, capacity),
+      capacity: capacity,
+      lastRechargeAt: number(now, Date.now()),
+      partPity: Math.max(0, Math.floor(number(partPity, 0)))
     };
   }
 
-  function findGenerator(state, family) {
+  function advanceGeneratorItem(item, now) {
+    if (!item || item.kind !== 'generator') return 0;
+    now = number(now, Date.now());
+    var config = generatorLevelConfig(item.level);
+    var capacity = Math.max(1, Math.floor(number(config.capacity, 16)));
+    var rechargeMs = Math.max(1000, number(config.rechargeMs, 15 * 60 * 1000));
+    item.charges = clamp(Math.floor(number(item.charges, capacity)), 0, capacity);
+    item.capacity = capacity;
+    item.lastRechargeAt = number(item.lastRechargeAt, now);
+    if (item.charges >= capacity) { item.charges = capacity; item.lastRechargeAt = now; return 0; }
+    var ticks = Math.floor(Math.max(0, now - item.lastRechargeAt) / rechargeMs);
+    if (!ticks) return 0;
+    var credited = Math.min(ticks, capacity - item.charges);
+    item.charges += credited;
+    item.lastRechargeAt += credited * rechargeMs;
+    if (item.charges >= capacity) item.lastRechargeAt = now;
+    return credited;
+  }
+
+  function advanceGeneratorCharges(state, now) {
+    var credited = 0;
+    [state && state.grid, state && state.pendingRewards].forEach(function (list) {
+      (list || []).forEach(function (item) { credited += advanceGeneratorItem(item, now); });
+    });
+    return { ok: true, credited: credited, at: number(now, Date.now()) };
+  }
+
+  function findGenerator(state, family, preferredIndex) {
+    preferredIndex = preferredIndex == null ? null : Math.floor(number(preferredIndex, -1));
+    if (preferredIndex != null && preferredIndex >= 0 && state && state.grid && state.grid[preferredIndex] && state.grid[preferredIndex].kind === 'generator' && state.grid[preferredIndex].family === family) {
+      return { item: state.grid[preferredIndex], list: state.grid, index: preferredIndex };
+    }
     var lists = [state && state.grid, state && state.pendingRewards];
     for (var listIndex = 0; listIndex < lists.length; listIndex++) {
       var list = lists[listIndex] || [];
@@ -223,28 +290,34 @@
     return null;
   }
 
-  function getGeneratorState(state, family) {
+  function getGeneratorState(state, family, now) {
     var known = !!GENERATOR_NAMES[family] && !GAME_SOURCE_FAMILIES[family];
     if (!known) return { ok: false, family: family, reason: 'generator-missing' };
     var unlocked = !!(state && state.unlockedGenerators && state.unlockedGenerators.indexOf(family) >= 0);
     if (!unlocked) return { ok: false, family: family, reason: 'generator-locked', level: 1 };
     var found = findGenerator(state, family);
     if (!found) return { ok: false, family: family, reason: 'generator-missing', level: 1 };
-    var maxLevel = number(DATA.generators && DATA.generators.maxLevel, 3);
+    var maxLevel = number(DATA.generators && DATA.generators.maxLevel, 5);
     var level = clamp(Math.floor(number(found.item.level, 1)), 1, maxLevel);
     found.item.level = level;
+    advanceGeneratorItem(found.item, now);
+    var current = generatorLevelConfig(level);
     var nextLevel = level < maxLevel ? level + 1 : null;
     var next = nextLevel ? generatorLevelConfig(nextLevel) : null;
+    var sameLevelCount = (state.grid || []).filter(function (item) {
+      return item && item.kind === 'generator' && item.family === family && number(item.level, 1) === level;
+    }).length;
     var reason = null;
     if (!next) reason = 'max-level';
-    else if (number(state.level, 1) < number(next.requiredPlayerLevel, 1)) reason = 'player-level';
-    else if (number(state.jade, 0) < number(next.upgradeCost, 0)) reason = 'jade';
+    else if (sameLevelCount < 2) reason = 'merge-required';
     return {
       ok: true, family: family, level: level, maxLevel: maxLevel,
+      charges: found.item.charges, capacity: number(current.capacity, 16),
+      rechargeMs: number(current.rechargeMs, 15 * 60 * 1000), lastRechargeAt: found.item.lastRechargeAt,
       dropTable: generatorDropTable(level), nextLevel: nextLevel,
-      nextCost: next ? number(next.upgradeCost, 0) : 0,
+      nextCost: 0,
       requiredPlayerLevel: next ? number(next.requiredPlayerLevel, 1) : null,
-      canUpgrade: !reason, reason: reason
+      canUpgrade: !reason, upgradeMode: 'merge', pairCount: sameLevelCount, reason: reason
     };
   }
 
@@ -252,13 +325,12 @@
     var info = getGeneratorState(state, family);
     if (!info.ok) return info;
     if (!info.canUpgrade) return Object.assign({}, info, { ok: false });
-    var found = findGenerator(state, family);
-    state.jade -= info.nextCost;
-    found.item.level = info.nextLevel;
-    return {
-      ok: true, family: family, level: found.item.level, cost: info.nextCost,
-      dropTable: generatorDropTable(found.item.level)
-    };
+    var indexes = [];
+    state.grid.forEach(function (item, index) {
+      if (item && item.kind === 'generator' && item.family === family && number(item.level, 1) === info.level) indexes.push(index);
+    });
+    if (indexes.length < 2) return Object.assign({}, info, { ok: false, reason: 'merge-required' });
+    return mergeItems(state, indexes[0], indexes[1], Date.now());
   }
 
   function makeCase(id, active) {
@@ -284,15 +356,15 @@
     };
   }
 
-  function freshBoard() {
+  function freshBoard(now) {
     var grid = new Array(TOTAL).fill(null);
     [
       [0, 'herb', 1], [1, 'herb', 1], [2, 'tool', 1], [3, 'tool', 1],
-      [4, 'herb', 2], [5, 'food', 1], [6, 'tool', 1], [7, 'herb', 1],
-      [10, 'herb', 1], [11, 'food', 1], [12, 'tool', 1], [14, 'herb', 1],
-      [15, 'food', 1], [16, 'tool', 2], [17, 'herb', 1], [19, 'herb', 1],
-      [20, 'tool', 1], [21, 'food', 1], [24, 'herb', 1], [25, 'tool', 1],
-      [27, 'food', 1], [29, 'herb', 1]
+      [4, 'herb', 2], [5, 'herb', 1], [6, 'tool', 1], [7, 'herb', 1],
+      [10, 'herb', 1], [11, 'tool', 1], [12, 'tool', 1], [14, 'herb', 1],
+      [15, 'herb', 1], [16, 'tool', 2], [17, 'herb', 1], [19, 'herb', 1],
+      [20, 'tool', 1], [21, 'herb', 1], [24, 'herb', 1], [25, 'tool', 1],
+      [27, 'tool', 1], [29, 'herb', 1]
     ].forEach(function (entry) { grid[entry[0]] = makeItem(entry[1], entry[2]); });
     [8, 9, 18, 32].forEach(function (index) {
       grid[index] = { kind: 'obstacle', tier: 1, name: '藤蔓障碍' };
@@ -300,9 +372,12 @@
     [13, 22, 34].forEach(function (index) {
       grid[index] = { kind: 'sealed', tier: 1, name: '封印格' };
     });
-    grid[23] = makeGenerator('herb');
-    grid[26] = makeGenerator('tool');
-    grid[31] = makeGenerator('food');
+    grid[23] = makeGenerator('herb', 1, now);
+    grid[26] = makeGenerator('tool', 1, now);
+    grid[30] = makeGeneratorPart('herb', 1);
+    grid[31] = makeGeneratorPart('herb', 1);
+    grid[33] = makeGeneratorPart('tool', 1);
+    grid[35] = makeGeneratorPart('tool', 1);
     return grid;
   }
 
@@ -343,6 +418,12 @@
     return { key: weekKey(timestamp), merges: 0, orders: 0, care: 0, claimed: false };
   }
 
+  function freshSect() {
+    var stages = {};
+    (DATA.sect && DATA.sect.areas || []).forEach(function (area) { stages[area.id] = 0; });
+    return { stages: stages, rewardedAreas: [] };
+  }
+
   function createFresh(now, date) {
     now = number(now, Date.now());
     date = date || isoDate(now);
@@ -353,6 +434,7 @@
       cases[beast.id] = makeCase(beast.id, index === 0);
       codex[beast.id] = { discovered: index === 0, transformed: false, seenStage: 0 };
       jobs[beast.id] = {
+        unlocked: beast.id === 'qiongqi',
         stored: beast.id === 'qiongqi' ? 1 : 0,
         progressMs: 0,
         lastClaimAt: 0
@@ -367,13 +449,15 @@
       energy: DATA.economy.startEnergy,
       maxEnergy: DATA.economy.maxEnergy,
       unlockedCells: DATA.board.startUnlockedCells,
-      grid: freshBoard(),
+      grid: freshBoard(now),
       unlockedGenerators: ['herb', 'tool'],
+      noviceSupply: 48,
       cleanTools: 1,
       completedOrders: 0,
       totalOrders: 0,
       firstStoryCompleted: false,
       activeOrders: [],
+      visitorRefreshAt: now + number(DATA.order && DATA.order.visitorRefreshMs, 3 * 60 * 60 * 1000),
       orderSerial: 0,
       facilities: {
         clinic: { level: 1 },
@@ -401,13 +485,24 @@
       seenBeastReveals: {},
       migrations: { v6FacilityRefund: true },
       weekly: freshWeekly(now),
+      products: (DATA.recipes || []).reduce(function (result, recipe) { result[recipe.id] = 0; return result; }, {}),
+      special: {
+        bubblePity: 0,
+        bubbleSerial: 0,
+        bubbleRack: [],
+        combo: { count: 0, lastMergeAt: 0, materialBonuses: 0 },
+        chests: { dailyMerges: 0, weeklyOrders: 0, dailyClaimed: null, weeklyClaimed: null }
+      },
+      journey: { day: 1, claimed: [], suggestionsSeen: [] },
       pendingRewards: [],
       lastSeenAt: now,
       lastEnergyTick: now,
       energyProgressMs: 0,
       lastAdvance: { appliedMs: 0, at: now },
       endingUnlocked: false,
-      nextChapter: '第二卷 · 白泽的来信',
+      nextChapter: '卷二 · 九尾狐篇',
+      chapter: { volume: 1 },
+      sect: freshSect(),
       tutorialSeen: false,
       /* Fresh saves show the dedicated Qiongqi welcome once. Existing saves
        * are treated as already welcomed during normalization below. */
@@ -440,13 +535,14 @@
     }
   }
 
-  function normalizeItem(raw) {
+  function normalizeItem(raw, now) {
     if (!raw || typeof raw !== 'object') return raw == null ? null : raw;
-    if (raw.kind === 'generator') return makeGenerator(raw.family, raw.level);
+    if (raw.kind === 'generator') return makeGenerator(raw.family, raw.level, raw.lastRechargeAt != null ? raw.lastRechargeAt : now, raw.charges, raw.partPity);
+    if (raw.kind === 'generator_part') return makeGeneratorPart(raw.family, raw.tier);
     if (raw.kind) return clone(raw);
     if (!raw.family) return clone(raw);
     var copied = clone(raw);
-    copied.tier = clamp(Math.floor(number(copied.tier, 1)), 1, TIER_CAP);
+    copied.tier = clamp(Math.floor(number(copied.tier, 1)), 1, familyTierCap(copied.family));
     if (familyDefinition(copied.family)) copied.name = makeItem(copied.family, copied.tier).name;
     return copied;
   }
@@ -602,6 +698,19 @@
     return state;
   }
 
+  function normalizeSect(raw) {
+    var stages = {};
+    (DATA.sect && DATA.sect.areas || []).forEach(function (area) {
+      stages[area.id] = clamp(Math.floor(number(raw && raw.stages && raw.stages[area.id], 0)), 0, 3);
+    });
+    return {
+      stages: stages,
+      rewardedAreas: Array.isArray(raw && raw.rewardedAreas) ? raw.rewardedAreas.filter(function (id, index, list) {
+        return stages[id] != null && list.indexOf(id) === index;
+      }) : []
+    };
+  }
+
   function normalize(raw, now, date) {
     now = number(now, Date.now());
     date = date || isoDate(now);
@@ -611,8 +720,9 @@
     var base = createFresh(now, date);
     var state = Object.assign({}, base, clone(raw), { version: DATA.version });
     migrateEnergyGap(raw, state);
-    state.grid = Array.isArray(raw.grid) ? raw.grid.map(normalizeItem) : base.grid;
-    state.unlockedCells = clamp(Math.floor(number(raw.unlockedCells, base.unlockedCells)), 0, TOTAL);
+    state.grid = Array.isArray(raw.grid) ? raw.grid.slice(0, TOTAL).map(function (item) { return normalizeItem(item, now); }) : base.grid;
+    while (state.grid.length < TOTAL) state.grid.push(null);
+    state.unlockedCells = clamp(Math.floor(Math.max(number(raw.unlockedCells, base.unlockedCells), number(raw.version, 0) < 7 ? DATA.board.startUnlockedCells : 0)), 0, TOTAL);
     state.unlockedGenerators = Array.isArray(raw.unlockedGenerators) ? raw.unlockedGenerators.filter(function (family, index, list) {
       return FAMILY_IDS.indexOf(family) >= 0 && list.indexOf(family) === index;
     }) : base.unlockedGenerators.slice();
@@ -627,11 +737,11 @@
     state.tutorialSeen = !!raw.tutorialSeen;
     state.welcomeSeen = raw.welcomeSeen == null ? true : !!raw.welcomeSeen;
     state.jade = Math.max(0, number(raw.jade, base.jade));
-    state.pendingRewards = Array.isArray(raw.pendingRewards) ? raw.pendingRewards.map(normalizeItem).filter(Boolean) : [];
+    state.pendingRewards = Array.isArray(raw.pendingRewards) ? raw.pendingRewards.map(function (item) { return normalizeItem(item, now); }).filter(Boolean) : [];
     removeGroomGenerator(state);
     state.storage = raw.storage && typeof raw.storage === 'object' ? clone(raw.storage) : base.storage;
     state.storage.slots = clamp(Math.floor(number(state.storage.slots, 3)), 3, 6);
-    state.storage.items = Array.isArray(state.storage.items) ? state.storage.items.slice(0, state.storage.slots).map(normalizeItem) : [];
+    state.storage.items = Array.isArray(state.storage.items) ? state.storage.items.slice(0, state.storage.slots).map(function (item) { return normalizeItem(item, now); }) : [];
     while (state.storage.items.length < state.storage.slots) state.storage.items.push(null);
     state.facilities = state.facilities && typeof state.facilities === 'object' ? state.facilities : clone(base.facilities);
     ['clinic', 'herb', 'groom', 'play'].forEach(function (id) {
@@ -646,6 +756,17 @@
     });
     state.codex = Object.assign(clone(base.codex), raw.codex || {});
     state.jobs = Object.assign(clone(base.jobs), raw.jobs || {});
+    state.sect = normalizeSect(raw.sect);
+    if (number(raw.version, 0) < 7) {
+      (DATA.sect && DATA.sect.areas || []).forEach(function (area) {
+        if (number(state.sect.stages[area.id], 0) < 3 || state.sect.rewardedAreas.indexOf(area.id) >= 0) return;
+        state.sect.rewardedAreas.push(area.id);
+        state.unlockedCells = Math.min(TOTAL, state.unlockedCells + number(DATA.board && DATA.board.areaUnlockCells, 2));
+      });
+    }
+    state.chapter = Object.assign({ volume: 1 }, raw.chapter || {});
+    state.chapter.volume = clamp(Math.floor(number(state.chapter.volume, 1)), 1, 12);
+    if (number(raw.version, 0) < 7 && state.beastCases.qiongqi && state.beastCases.qiongqi.transformed) state.chapter.volume = Math.max(2, state.chapter.volume);
     BEAST_IDS.forEach(function (id) { state.jobs[id] = Object.assign(clone(base.jobs[id]), state.jobs[id] || {}); });
     state.daily = Object.assign(freshDaily(date), raw.daily || {});
     state.daily.careRewards = Object.assign({ groom: 0, play: 0 }, state.daily.careRewards || {});
@@ -664,6 +785,7 @@
     state.signIn.daysClaimed = clamp(Math.floor(number(state.signIn.daysClaimed, 0)), 0, 7);
     state.signIn.claimedDates = Array.isArray(state.signIn.claimedDates) ? state.signIn.claimedDates.slice(0, 7) : [];
     state.signIn.completed = state.signIn.daysClaimed >= 7 || !!state.signIn.completed;
+    if (state.signIn.completed && state.jobs.jiuweihu) state.jobs.jiuweihu.unlocked = true;
     state.growthOrders = raw.growthOrders && typeof raw.growthOrders === 'object' ? clone(raw.growthOrders) : {};
     state.growthCounters = raw.growthCounters && typeof raw.growthCounters === 'object' ? clone(raw.growthCounters) : {};
     state.careTransactions = {};
@@ -674,6 +796,19 @@
     state.seenBeastReveals = raw.seenBeastReveals && typeof raw.seenBeastReveals === 'object' ? clone(raw.seenBeastReveals) : {};
     if (!Array.isArray(raw.beastRevealQueue) && !(raw.seenBeastReveals && typeof raw.seenBeastReveals === 'object')) seedHistoricalBeastReveals(state);
     state.migrations = Object.assign({}, base.migrations, raw.migrations || {});
+    state.noviceSupply = Math.max(0, Math.floor(number(raw.noviceSupply, number(raw.version, 0) < 7 ? 0 : base.noviceSupply)));
+    state.visitorRefreshAt = number(raw.visitorRefreshAt, now + number(DATA.order && DATA.order.visitorRefreshMs, 3 * 60 * 60 * 1000));
+    state.products = Object.assign({}, base.products, raw.products || {});
+    Object.keys(state.products).forEach(function (id) { state.products[id] = Math.max(0, Math.floor(number(state.products[id], 0))); });
+    state.special = Object.assign({}, base.special, raw.special || {});
+    state.special.bubblePity = clamp(Math.floor(number(state.special.bubblePity, 0)), 0, number(DATA.specials && DATA.specials.bubble && DATA.specials.bubble.pity, 25));
+    state.special.bubbleSerial = Math.max(0, Math.floor(number(state.special.bubbleSerial, 0)));
+    state.special.bubbleRack = Array.isArray(state.special.bubbleRack) ? state.special.bubbleRack.slice(0, number(DATA.specials && DATA.specials.bubble && DATA.specials.bubble.rackSlots, 3)).map(function (bubble) { return clone(bubble); }) : [];
+    state.special.combo = Object.assign({}, base.special.combo, state.special.combo || {});
+    state.special.chests = Object.assign({}, base.special.chests, state.special.chests || {});
+    state.journey = Object.assign({}, base.journey, raw.journey || {});
+    state.journey.claimed = Array.isArray(state.journey.claimed) ? state.journey.claimed.slice(0, 7) : [];
+    state.journey.suggestionsSeen = Array.isArray(state.journey.suggestionsSeen) ? state.journey.suggestionsSeen.slice(0, 7) : [];
     /* Existing saves predate the attendance ledger.  Seed one protected visit
        so installing this update never retroactively removes good will. */
     if (!(raw.daily && raw.daily.beastInteractions) && !state.migrations.affectionAttendanceV1) {
@@ -690,7 +825,7 @@
       state.migrations.v6FacilityRefund = true;
       state.migrations.v6FacilityRefundAmount = refund;
     }
-    state.activeOrders = Array.isArray(raw.activeOrders) ? raw.activeOrders.map(normalizeOrder).filter(Boolean).slice(0, 3) : [];
+    state.activeOrders = Array.isArray(raw.activeOrders) ? raw.activeOrders.map(normalizeOrder).filter(Boolean).slice(0, 5) : [];
     state.pendingTransformation = raw.pendingTransformation || null;
     ensureYardBeast(state);
     ensureBackgroundState(state);
@@ -703,11 +838,11 @@
   }
 
   function normalizeRequirement(raw) {
-    if (Array.isArray(raw)) return { family: raw[0], tier: Math.max(1, Math.floor(number(raw[1], 1))), count: Math.max(1, Math.floor(number(raw[2], 1))) };
+    if (Array.isArray(raw)) return { family: raw[0], tier: clamp(Math.floor(number(raw[1], 1)), 1, familyTierCap(raw[0])), count: Math.max(1, Math.floor(number(raw[2], 1))) };
     if (!raw || typeof raw !== 'object' || !raw.family) return null;
     return {
       family: raw.family,
-      tier: clamp(Math.floor(number(raw.tier, 1)), 1, TIER_CAP),
+      tier: clamp(Math.floor(number(raw.tier, 1)), 1, familyTierCap(raw.family)),
       count: Math.max(1, Math.floor(number(raw.count, 1)))
     };
   }
@@ -724,6 +859,9 @@
       mainline: raw.mainline != null ? !!raw.mainline : ['story', 'arrival', 'care_gate'].indexOf(raw.kind) >= 0
     });
     copied.rewards = Object.assign({}, raw.rewards || raw.reward || {});
+    if (raw.productNeed && raw.productNeed.productId) {
+      copied.productNeed = { productId: raw.productNeed.productId, count: Math.max(1, Math.floor(number(raw.productNeed.count, 1))) };
+    }
     return copied;
   }
 
@@ -799,6 +937,7 @@
         title: step.title,
         symptom: step.text,
         requirements: reqs,
+        productNeed: current.id === 'qiongqi' && stepIndex === 2 ? { productId: 'PROD_SOOTHE', count: 1 } : null,
         rewards: rewardsFor('story', reqs, state),
         permanent: true
       });
@@ -873,8 +1012,9 @@
        actually reward that game.  Treating every game family as reachable
        made orders silently ask for the wrong pavilion after a new resident
        arrived. */
-    if (GAME_SOURCE_FAMILIES[family]) return hasCareSource(state, family) ? TIER_CAP : 0;
-    if (state.unlockedGenerators.indexOf(family) >= 0) return TIER_CAP;
+    if (!familyActiveForState(state, family)) return 0;
+    if (GAME_SOURCE_FAMILIES[family]) return hasCareSource(state, family) ? familyTierCap(family) : 0;
+    if (state.unlockedGenerators.indexOf(family) >= 0) return familyTierCap(family);
     var best = 0;
     [state.grid, state.storage && state.storage.items].forEach(function (list) {
       (list || []).forEach(function (item) {
@@ -890,6 +1030,16 @@
     var reachable = candidates.filter(function (family) { return maxReachableTier(state, family) >= 1; });
     candidates = reachable.length ? reachable : candidates;
     return candidates[Math.floor((rng ? rng() : Math.random()) * candidates.length) % candidates.length];
+  }
+
+  function supplyProducerPart(state, rng, tier) {
+    var candidates = (state.unlockedGenerators || []).filter(function (family) {
+      var chain = producerChain(family);
+      return chain && currentChapterVolume(state) >= number(chain.activeFromVolume, 1);
+    });
+    if (!candidates.length) return null;
+    var family = candidates[Math.floor(randomUnit(rng) * candidates.length) % candidates.length];
+    return makeGeneratorPart(family, tier);
   }
 
   function randomUnit(rng) {
@@ -914,6 +1064,7 @@
     if (pool.length < 2) {
       FAMILY_IDS.forEach(function (family) {
         if (pool.length >= 2 || pool.indexOf(family) >= 0) return;
+        if (!familyActiveForState(state, family)) return;
         if (GAME_SOURCE_FAMILIES[family] && !(allowGameSources && hasCareSource(state, family))) return;
         pool.push(family);
       });
@@ -1090,6 +1241,57 @@
     }), rank);
   }
 
+  function makeMainOrder(state) {
+    var order = makeRecruitOrder(state);
+    order.slot = 'main';
+    order.mainline = true;
+    return order;
+  }
+
+  function makeRenovationOrder(state) {
+    var current = currentRenovation(state);
+    if (!current) return normalizeOrder({
+      id: 'renovation-volume-' + currentChapterVolume(state) + '-complete', slot: 'renovation', kind: 'renovation_complete', status: 'COMPLETE',
+      title: '本卷修缮已经完成', symptom: '宗门焕然一新，接下来去照顾新住客吧。', requirements: [], rewards: {}
+    });
+    return normalizeOrder({
+      id: 'renovation-' + current.areaId + '-' + (current.stageIndex + 1),
+      slot: 'renovation', kind: 'renovation', mainline: true,
+      areaId: current.areaId, stageIndex: current.stageIndex,
+      title: current.order.title, symptom: current.order.text,
+      requirements: current.order.requirements || [], productNeed: current.order.productNeed || null,
+      rewards: current.order.reward || {}
+    });
+  }
+
+  function makeMedicalOrder(state, rng) {
+    var order = makeGrowthOrder(state, state.yardBeastId || state.activeCaseId, rng);
+    order.slot = 'medical';
+    return order;
+  }
+
+  function makeVisitorOrder(state, rng, now) {
+    var order = makeSupplyOrder(state, rng);
+    order.slot = 'visitor';
+    order.kind = 'visitor';
+    order.boundAt = number(now, Date.now());
+    order.refreshAt = order.boundAt + number(DATA.order && DATA.order.visitorRefreshMs, 3 * 60 * 60 * 1000);
+    order.title = '山海访客 · ' + order.title.replace(/^邻里补给 · /, '');
+    order.symptom = '远道而来的小客人想带一份山中物资继续赶路。';
+    return order;
+  }
+
+  function makeJourneyOrder(state, rng) {
+    var reqs = taskRequirements(state, [], rng);
+    reqs = reqs.map(function (need) { return Object.assign({}, need, { tier: Math.min(2, need.tier), count: 1 }); });
+    return normalizeOrder({
+      id: 'journey-' + state.daily.date,
+      slot: 'journey', kind: 'journey', boundDate: state.daily.date,
+      title: '今日宗门手札', symptom: '完成一份轻量备料，让今天的修缮和陪伴都有着落。',
+      requirements: reqs, rewards: rewardsFor('journey', reqs, state)
+    });
+  }
+
   function isQualifiedMedicalOrder(order) {
     if (!order || (order.slot !== 'supply' && order.slot !== 'care')) return true;
     var requirements = order.requirements || [];
@@ -1122,27 +1324,153 @@
     var old = Array.isArray(state.activeOrders) ? state.activeOrders.filter(Boolean) : [];
     var bySlot = {};
     old.forEach(function (order, index) {
-      var declaredSlot = order.slot || (index === 0 ? 'recruit' : index === 1 ? 'growth' : 'supply');
-      var bucket = declaredSlot === 'story' ? 'recruit' : declaredSlot;
-      if (['recruit', 'growth', 'supply'].indexOf(bucket) < 0) return;
-      if (!bySlot[bucket]) bySlot[bucket] = normalizeOrder(Object.assign({}, order, { slot: declaredSlot }));
+      var declaredSlot = order.slot || (index === 0 ? 'main' : index === 1 ? 'medical' : index === 2 ? 'visitor' : index === 3 ? 'renovation' : 'journey');
+      var aliases = { story: 'main', recruit: 'main', growth: 'medical', care: 'medical', supply: 'visitor' };
+      var bucket = aliases[declaredSlot] || declaredSlot;
+      if (['main', 'renovation', 'medical', 'visitor', 'journey'].indexOf(bucket) < 0) return;
+      if (!bySlot[bucket]) bySlot[bucket] = normalizeOrder(Object.assign({}, order, { slot: bucket }));
     });
-    var selectedBeastId = state.yardBeastId || state.activeCaseId;
-    if (!bySlot.recruit || bySlot.recruit.kind === 'recruit_complete' && firstLockedBeast(state)) bySlot.recruit = makeRecruitOrder(state);
-    /* Growth is a persistent progression chain, not a daily quest. Keep an
-       unfinished node across date changes so a player never loses a partially
-       completed level just because the calendar rolled over. A new node is
-       created immediately after delivery (or if a legacy save contains a
-       completed placeholder). */
-    if (!bySlot.growth || bySlot.growth.kind === 'growth_complete') {
-      bySlot.growth = makeGrowthOrder(state, selectedBeastId, rng);
-    }
-    if (!bySlot.supply || bySlot.supply.kind === 'supply_complete' && state.daily.supplyCompleted < 3 || bySlot.supply.boundDate && bySlot.supply.boundDate !== state.daily.date) {
-      bySlot.supply = makeV6SupplyOrder(state);
-    }
-    state.activeOrders = [bySlot.recruit, bySlot.growth, bySlot.supply];
+    if (!bySlot.main || bySlot.main.kind === 'recruit_complete' && firstLockedBeast(state)) bySlot.main = makeMainOrder(state);
+    if (!bySlot.renovation || bySlot.renovation.kind === 'renovation_complete' && currentRenovation(state)) bySlot.renovation = makeRenovationOrder(state);
+    if (!bySlot.medical || bySlot.medical.kind === 'growth_complete') bySlot.medical = makeMedicalOrder(state, rng);
+    var now = number(state.lastSeenAt, Date.now());
+    if (!bySlot.visitor || number(bySlot.visitor.refreshAt, 0) <= now) bySlot.visitor = makeVisitorOrder(state, rng, now);
+    if (!bySlot.journey || bySlot.journey.boundDate !== state.daily.date) bySlot.journey = makeJourneyOrder(state, rng);
+    state.activeOrders = [bySlot.main, bySlot.renovation, bySlot.medical, bySlot.visitor, bySlot.journey];
     state.orders = state.activeOrders;
     return state.activeOrders;
+  }
+
+  /* —— P1 宗门修缮 / 卷章引擎（五幕） —— */
+  function currentChapterVolume(state) {
+    return clamp(Math.floor(number(state && state.chapter && state.chapter.volume, 1)), 1, 12);
+  }
+
+  function sectAreas(volume) {
+    var areas = (DATA.sect && DATA.sect.areas) || [];
+    if (volume == null) return areas;
+    return areas.filter(function (area) { return Math.floor(number(area.volume, 1)) === volume; });
+  }
+
+  function sectStageCount(state, areaId) {
+    return state && state.sect && state.sect.stages
+      ? clamp(Math.floor(number(state.sect.stages[areaId], 0)), 0, 3)
+      : 0;
+  }
+
+  function sectTotalDone(state, volume) {
+    volume = volume == null ? currentChapterVolume(state) : volume;
+    return sectAreas(volume).reduce(function (sum, area) { return sum + sectStageCount(state, area.id); }, 0);
+  }
+
+  function sectTotalTarget(state, volume) {
+    volume = volume == null ? currentChapterVolume(state) : volume;
+    return sectAreas(volume).reduce(function (sum, area) { return sum + (area.stages ? area.stages.length : 0); }, 0);
+  }
+
+  /* 依 区域×段 顺序返回当前未完成的修缮委托；幕一完成后返回 null。 */
+  function currentRenovation(state) {
+    var volume = currentChapterVolume(state);
+    var areas = sectAreas(volume);
+    if (sectTotalDone(state, volume) >= sectTotalTarget(state, volume)) return null;
+    for (var i = 0; i < areas.length; i++) {
+      var area = areas[i];
+      var done = sectStageCount(state, area.id);
+      var stages = area.stages || [];
+      for (var s = done; s < stages.length; s++) {
+        return {
+          areaId: area.id,
+          area: area,
+          stageIndex: s,
+          stageName: (DATA.sect.stageNames || ['荒废', '清理', '修补', '焕新'])[s + 1] || String(s + 1),
+          order: stages[s].order,
+          remaining: (s + 1) - done
+        };
+      }
+    }
+    return null;
+  }
+
+  function canDeliverRenovation(state) {
+    var current = currentRenovation(state);
+    if (!current) return false;
+    var materialReady = (current.order.requirements || []).every(function (need) {
+      return countItems(state, need.family, need.tier) >= need.count;
+    });
+    var productNeed = current.order.productNeed;
+    return materialReady && (!productNeed || number(state.products && state.products[productNeed.productId], 0) >= number(productNeed.count, 1));
+  }
+
+  /* 交付修缮委托：消耗素材 → 推进区域段位 → 发暖玉/经验（零失败：不足仅拒绝不罚）。 */
+  function deliverRenovation(state) {
+    var current = currentRenovation(state);
+    if (!current) return { ok: false, reason: 'act-complete' };
+    if (!canDeliverRenovation(state)) {
+      return { ok: false, reason: 'requirements', missing: missingRequirements(state, { requirements: current.order.requirements }) };
+    }
+    (current.order.requirements || []).forEach(function (need) { consumeRequirement(state, need); });
+    if (current.order.productNeed) {
+      state.products[current.order.productNeed.productId] -= number(current.order.productNeed.count, 1);
+    }
+    state.sect.stages[current.areaId] = clamp(sectStageCount(state, current.areaId) + 1, 0, 3);
+    var reward = current.order.reward || {};
+    state.jade += Math.max(0, number(reward.jade, 0));
+    gainXp(state, reward.xp);
+    state.totalOrders = Math.max(0, number(state.totalOrders, 0)) + 1;
+    state.sect.rewardedAreas = Array.isArray(state.sect.rewardedAreas) ? state.sect.rewardedAreas : [];
+    var cellsUnlocked = 0;
+    if (state.sect.stages[current.areaId] >= 3 && state.sect.rewardedAreas.indexOf(current.areaId) < 0) {
+      state.sect.rewardedAreas.push(current.areaId);
+      cellsUnlocked = Math.min(number(DATA.board.areaUnlockCells, 2), TOTAL - state.unlockedCells);
+      state.unlockedCells += cellsUnlocked;
+    }
+    var actOneDone = sectTotalDone(state) >= sectTotalTarget(state);
+    syncLegacyAliases(state);
+    return {
+      ok: true,
+      areaId: current.areaId,
+      areaName: current.area.name,
+      stageIndex: current.stageIndex,
+      stageName: current.stageName,
+      reward: clone(reward),
+      cellsUnlocked: cellsUnlocked,
+      actOneDone: actOneDone
+    };
+  }
+
+  function sectAreaStageArt(state, areaId) {
+    var area = sectAreas().find(function (candidate) { return candidate.id === areaId; });
+    if (!area) return null;
+    var stage = sectStageCount(state, areaId);
+    return { areaId: areaId, stage: stage, state: (DATA.sect.stageNames || [])[stage] || String(stage), art: area.art && area.art[stage] || null };
+  }
+
+  /* 卷章五幕进度（卷一·穷奇篇）：
+     幕一 修缮（9 段）→ 幕二 收容（修缮毕，待建档医案）→ 幕三 疗愈（医案推进）
+     → 幕四 焕新（蜕变）→ 幕五 上岗（领取岗位产出）。 */
+  function chapterProgress(state) {
+    var done = sectTotalDone(state);
+    var target = sectTotalTarget(state);
+    var volume = currentChapterVolume(state);
+    var volumeConfig = (DATA.sect.volumes || []).find(function (item) { return item.volume === volume; }) || { beastId: 'qiongqi' };
+    var entry = state.beastCases && state.beastCases[volumeConfig.beastId];
+    var jobClaimed = !!(state.jobs && state.jobs[volumeConfig.beastId] && state.jobs[volumeConfig.beastId].lastClaimAt);
+    var actNames = ['修缮', '收容', '疗愈', '焕新', '上岗'];
+    var act = 1;
+    if (done >= target) act = 2;
+    if (act >= 2 && entry && entry.storyProgress >= 1) act = 3;
+    if (act >= 3 && entry && entry.transformed) act = 4;
+    if (act >= 4 && jobClaimed) act = 5;
+    return {
+      act: act,
+      actName: actNames[act - 1],
+      actNames: actNames,
+      volume: volume,
+      beastId: volumeConfig.beastId,
+      renovationDone: done,
+      renovationTarget: target,
+      chapterDone: act >= 5
+    };
   }
 
   function countItems(state, family, tier) {
@@ -1155,6 +1483,40 @@
     return count;
   }
 
+  function recipeDefinition(recipeId) {
+    return (DATA.recipes || []).find(function (recipe) { return recipe.id === recipeId; }) || null;
+  }
+
+  function recipeUnlocked(state, recipeId) {
+    var recipe = recipeDefinition(recipeId);
+    if (!recipe) return false;
+    return currentChapterVolume(state) >= Math.max(1, Math.floor(number(recipe.volume, 1)));
+  }
+
+  function canCraftRecipe(state, recipeId) {
+    var recipe = recipeDefinition(recipeId);
+    if (!recipe) return { ok: false, reason: 'unknown-recipe' };
+    if (!recipeUnlocked(state, recipeId)) return { ok: false, reason: 'recipe-locked', recipe: clone(recipe) };
+    var missing = (recipe.inputs || []).map(function (need) {
+      return { family: need.family, tier: need.tier, count: need.count, have: countItems(state, need.family, need.tier) };
+    }).filter(function (need) { return need.have < need.count; });
+    return { ok: !missing.length, reason: missing.length ? 'requirements' : null, recipe: clone(recipe), missing: missing };
+  }
+
+  function craftRecipe(state, recipeId) {
+    var gate = canCraftRecipe(state, recipeId);
+    if (!gate.ok) return gate;
+    (gate.recipe.inputs || []).forEach(function (need) { consumeRequirement(state, need); });
+    state.products = state.products || {};
+    state.products[recipeId] = Math.max(0, Math.floor(number(state.products[recipeId], 0))) + 1;
+    depositPendingRewards(state);
+    return { ok: true, product: recipeId, produced: 1, count: state.products[recipeId], events: [{ type: 'recipe_crafted', recipeId: recipeId }], rewards: { product: recipeId, count: 1 } };
+  }
+
+  function craftableRecipes(state) {
+    return (DATA.recipes || []).filter(function (recipe) { return canCraftRecipe(state, recipe.id).ok; }).map(clone);
+  }
+
   function canDeliver(state, order) {
     if (!order) return false;
     if (order.status === 'COMPLETE' || /_complete$/.test(order.kind || '')) return false;
@@ -1162,9 +1524,11 @@
        material turn-in. Otherwise players could repeatedly submit it without
        advancing the treatment node. */
     if (order.kind === 'care_gate') return false;
-    return (order.requirements || []).every(function (need) {
+    var materialReady = (order.requirements || []).every(function (need) {
       return countItems(state, need.family, need.tier) >= need.count;
     });
+    var productNeed = order.productNeed;
+    return materialReady && (!productNeed || number(state.products && state.products[productNeed.productId], 0) >= number(productNeed.count, 1));
   }
 
   function isOrderReachable(state, order) {
@@ -1172,9 +1536,10 @@
       return !!(order.beastId && isYardBeastAvailable(state, order.beastId));
     }
     if (!order || !Array.isArray(order.requirements)) return false;
-    return order.requirements.every(function (need) {
+    var itemsReachable = order.requirements.every(function (need) {
       return maxReachableTier(state, need.family) >= need.tier;
     });
+    return itemsReachable && (!order.productNeed || recipeUnlocked(state, order.productNeed.productId));
   }
 
   function firstFreeGridIndex(state) {
@@ -1225,30 +1590,34 @@
       state.level = Math.max(1, Math.floor(number(state.level, 1))) + 1;
       state.xpNext = Math.round(state.xpNext * 1.32);
       state.maxEnergy = Math.min(ENERGY_CAP, Math.max(state.maxEnergy, energyCapForLevel(state.level)));
-      state.unlockedCells = Math.min(TOTAL, state.unlockedCells + 3);
       leveled++;
-      if (state.level >= 2) unlockGenerator(state, 'food');
     }
     syncEnergyCap(state);
     return leveled;
   }
 
   function unlockGenerator(state, family) {
-    if (family === 'groom') return false;
+    if (GAME_SOURCE_FAMILIES[family]) return false;
     if (!family || state.unlockedGenerators.indexOf(family) >= 0) return false;
     state.unlockedGenerators.push(family);
     var exists = state.grid.some(function (item) { return item && item.kind === 'generator' && item.family === family; });
     if (!exists) {
-      var index = firstFreeGridIndex(state);
-      if (index >= 0) state.grid[index] = makeGenerator(family);
-      else state.pendingRewards.push(makeGenerator(family));
+      var chain = producerChain(family);
+      if (chain) {
+        queueItem(state, makeGeneratorPart(family, 4));
+        queueItem(state, makeGeneratorPart(family, 4));
+      } else {
+        var index = firstFreeGridIndex(state);
+        if (index >= 0) state.grid[index] = makeGenerator(family);
+        else state.pendingRewards.push(makeGenerator(family));
+      }
     }
     return true;
   }
 
   function unlockNextGenerator(state, beastId) {
-    if (beastId === 'jiuweihu') unlockGenerator(state, 'play');
-    if (beastId === 'xiangliu') unlockGenerator(state, 'food');
+    if (beastId === 'qiongqi') unlockGenerator(state, 'build');
+    if (beastId === 'taotie') unlockGenerator(state, 'food');
   }
 
   function maybeTransform(state, beastId) {
@@ -1285,6 +1654,10 @@
     entry.status = 'active';
     state.activeCaseId = beastId;
     state.yardBeastId = beastId;
+    if (beastId === 'jiuweihu') {
+      state.chapter = Object.assign({}, state.chapter || {}, { volume: Math.max(2, currentChapterVolume(state)) });
+      unlockGenerator(state, 'build');
+    }
     state.codex[beastId].discovered = true;
     var acquisitionReveal = revealEvent(state, 'acquire', beastId, Math.max(1, number(entry.level, 1)));
     state.lastSeenAt = Math.max(number(state.lastSeenAt, 0), number(now, state.lastSeenAt));
@@ -1348,9 +1721,21 @@
     var index = state.activeOrders.findIndex(function (order) { return order && order.id === orderId; });
     if (index < 0) return { ok: false, reason: 'order-not-found' };
     var order = state.activeOrders[index];
+    if (order.kind === 'renovation') {
+      var renovationResult = deliverRenovation(state);
+      if (!renovationResult.ok) return renovationResult;
+      state.completedOrders = Math.max(0, number(state.completedOrders, 0)) + 1;
+      state.daily.orders++;
+      state.weekly.orders++;
+      state.special.chests.weeklyOrders = Math.max(0, number(state.special.chests.weeklyOrders, 0)) + 1;
+      state.activeOrders[index] = null;
+      ensureOrders(state, rng);
+      return { ok: true, order: clone(order), rewards: clone(renovationResult.reward || {}), renovation: renovationResult, events: [{ type: 'renovation_stage', areaId: renovationResult.areaId, stageIndex: renovationResult.stageIndex }], reward: clone(renovationResult.reward || {}) };
+    }
     if (order.kind === 'care_gate') return { ok: false, reason: 'care-required' };
     if (!canDeliver(state, order)) return { ok: false, reason: 'requirements', missing: missingRequirements(state, order) };
     order.requirements.forEach(function (need) { consumeRequirement(state, need); });
+    if (order.productNeed) state.products[order.productNeed.productId] -= number(order.productNeed.count, 1);
     var rewards = order.rewards || {};
     state.jade += Math.max(0, number(rewards.jade, 0));
     var previousLevel = state.level;
@@ -1361,6 +1746,7 @@
     state.totalOrders = Math.max(0, number(state.totalOrders, 0)) + 1;
     state.daily.orders++;
     state.weekly.orders++;
+    state.special.chests.weeklyOrders = Math.max(0, number(state.special.chests.weeklyOrders, 0)) + 1;
     if (order.beastId) markBeastInteraction(state, order.beastId, 'order');
     var transformed = false;
     var acquiredBeastId = null;
@@ -1394,8 +1780,11 @@
         acquiredLevel = state.beastCases[order.beastId] && state.beastCases[order.beastId].level || 1;
         var recruitedReveals = recruited.revealEvents || [];
       }
-    } else if (order.kind === 'supply') {
+    } else if (order.kind === 'supply' || order.kind === 'visitor') {
       state.daily.supplyCompleted = Math.min(3, state.daily.supplyCompleted + 1);
+    } else if (order.kind === 'journey') {
+      state.journey = state.journey || { day: 1, claimed: [], suggestionsSeen: [] };
+      if (state.journey.claimed.indexOf(state.daily.date) < 0) state.journey.claimed.push(state.daily.date);
     } else if (order.kind === 'story') {
       var entry = state.beastCases[order.beastId];
       var definition = beastDefinition(order.beastId);
@@ -1438,7 +1827,7 @@
   }
 
   function missingRequirements(state, order) {
-    return (order.requirements || []).map(function (need) {
+    var missing = (order.requirements || []).map(function (need) {
       return {
         family: need.family,
         tier: need.tier,
@@ -1446,15 +1835,25 @@
         have: countItems(state, need.family, need.tier)
       };
     }).filter(function (need) { return need.have < need.count; });
+    if (order.productNeed) {
+      var productHave = number(state.products && state.products[order.productNeed.productId], 0);
+      if (productHave < number(order.productNeed.count, 1)) missing.push({ productId: order.productNeed.productId, count: number(order.productNeed.count, 1), have: productHave });
+    }
+    return missing;
   }
 
-  function generate(state, family, rng, now) {
+  function generate(state, family, rng, now, generatorIndex) {
     rng = typeof rng === 'function' ? rng : Math.random;
     advanceTime(state, number(now, Date.now()));
     if (state.unlockedGenerators.indexOf(family) < 0) return { ok: false, reason: 'generator-locked' };
+    var found = findGenerator(state, family, generatorIndex);
+    if (!found) return { ok: false, reason: 'generator-missing' };
+    advanceGeneratorItem(found.item, now);
+    if (firstFreeGridIndex(state) < 0) return { ok: false, reason: 'board-full', energy: state.energy, charges: found.item.charges };
     if (state.energy <= 0) return { ok: false, reason: 'energy' };
-    var found = findGenerator(state, family);
-    var generatorLevel = found ? clamp(number(found.item.level, 1), 1, number(DATA.generators && DATA.generators.maxLevel, 3)) : 1;
+    var usingNoviceSupply = found.item.charges <= 0 && number(state.noviceSupply, 0) > 0 && (family === 'herb' || family === 'tool');
+    if (found.item.charges <= 0 && !usingNoviceSupply) return { ok: false, reason: 'generator-empty', charges: 0 };
+    var generatorLevel = found ? clamp(number(found.item.level, 1), 1, number(DATA.generators && DATA.generators.maxLevel, 5)) : 1;
     var dropTable = generatorDropTable(generatorLevel);
     var roll = randomUnit(rng);
     var accumulated = 0;
@@ -1465,17 +1864,26 @@
       return false;
     });
     var item = makeItem(family, rolledTier);
-    if (firstFreeGridIndex(state) < 0) {
-      state.energy--;
-      state.pendingRewards.push(item);
-      return {
-        ok: false, reason: 'board-full', pending: true, queued: true, rewardItem: clone(item),
-        generatorLevel: generatorLevel, rolledTier: rolledTier, dropTable: clone(dropTable)
-      };
-    }
     state.energy--;
+    if (usingNoviceSupply) state.noviceSupply--;
+    else found.item.charges--;
     queueItem(state, item);
     var drops = [item];
+    var partDrop = null;
+    var partChain = producerChain(family);
+    if (partChain) {
+      var partChances = DATA.generators && DATA.generators.partDropChanceByLevel || [];
+      var partChance = number(partChances[generatorLevel - 1], 0.06);
+      var partPityLimit = Math.max(1, Math.floor(number(DATA.generators && DATA.generators.partDropPity, 15)));
+      found.item.partPity = Math.min(partPityLimit, Math.max(0, Math.floor(number(found.item.partPity, 0))) + 1);
+      if (found.item.partPity >= partPityLimit || randomUnit(rng) < partChance) {
+        var partTierRoll = randomUnit(rng);
+        var partTier = generatorLevel >= 4 && partTierRoll < 0.03 ? 3 : generatorLevel >= 2 && partTierRoll < 0.12 ? 2 : 1;
+        partDrop = makeGeneratorPart(family, partTier);
+        found.item.partPity = 0;
+        queueItem(state, partDrop);
+      }
+    }
     var taotie = state.beastCases.taotie;
     if (family === 'food' && taotie && taotie.transformed && rng() < 0.2) {
       var duplicate = makeItem(family, rolledTier);
@@ -1485,23 +1893,197 @@
     syncLegacyAliases(state);
     return {
       ok: true, items: clone(drops), energy: state.energy,
-      generatorLevel: generatorLevel, rolledTier: rolledTier, dropTable: clone(dropTable)
+      charges: found.item.charges, capacity: found.item.capacity, noviceSupply: state.noviceSupply, usedNoviceSupply: usingNoviceSupply,
+      generatorLevel: generatorLevel, rolledTier: rolledTier, dropTable: clone(dropTable),
+      partDrop: clone(partDrop), events: partDrop ? [{ type: 'generator_part_drop', item: clone(partDrop) }] : [], rewards: { items: clone(drops.concat(partDrop ? [partDrop] : [])) }
     };
   }
 
-  function mergeItems(state, fromIndex, toIndex, now) {
+  function ensureSpecialState(state) {
+    state.special = state.special || {};
+    state.special.bubblePity = Math.max(0, Math.floor(number(state.special.bubblePity, 0)));
+    state.special.bubbleSerial = Math.max(0, Math.floor(number(state.special.bubbleSerial, 0)));
+    state.special.bubbleRack = Array.isArray(state.special.bubbleRack) ? state.special.bubbleRack : [];
+    state.special.combo = Object.assign({ count: 0, lastMergeAt: 0, materialBonuses: 0, chestBonusAwarded: false }, state.special.combo || {});
+    state.special.chests = Object.assign({ dailyMerges: 0, weeklyOrders: 0, dailyClaimed: null, weeklyClaimed: null }, state.special.chests || {});
+    return state.special;
+  }
+
+  function maybeCreateBubble(state, mergedItem, now, rng) {
+    var special = ensureSpecialState(state);
+    var config = DATA.specials && DATA.specials.bubble || {};
+    var rackLimit = Math.max(1, Math.floor(number(config.rackSlots, 3)));
+    var pityLimit = Math.max(1, Math.floor(number(config.pity, 25)));
+    special.bubblePity = Math.min(pityLimit, special.bubblePity + 1);
+    if (special.bubbleRack.length >= rackLimit) return null;
+    if (special.bubblePity < pityLimit && randomUnit(rng) >= number(config.chance, 0.05)) return null;
+    var tier = mergedItem.tier;
+    if (randomUnit(rng) >= number(config.sameTierChance, 0.8)) tier++;
+    tier = clamp(tier, 1, familyTierCap(mergedItem.family));
+    special.bubblePity = 0;
+    special.bubbleSerial++;
+    var bubble = {
+      id: 'bubble-' + special.bubbleSerial,
+      family: mergedItem.family,
+      tier: tier,
+      createdAt: now,
+      opensAt: now + number(config.openMs, 60 * 60 * 1000)
+    };
+    special.bubbleRack.push(bubble);
+    return bubble;
+  }
+
+  function updateMergeCombo(state, mergedItem, now) {
+    var special = ensureSpecialState(state);
+    var config = DATA.specials && DATA.specials.combo || {};
+    var combo = special.combo;
+    var continuing = combo.lastMergeAt > 0 && now - combo.lastMergeAt <= number(config.windowMs, 12000);
+    if (!continuing) {
+      combo.count = 0;
+      combo.materialBonuses = 0;
+      combo.chestBonusAwarded = false;
+    }
+    combo.count++;
+    combo.lastMergeAt = now;
+    var events = [{ type: 'combo_progress', count: combo.count }];
+    if (combo.count === number(config.feedbackAt, 3)) events.push({ type: 'combo_feedback', count: combo.count });
+    if (combo.count >= number(config.materialAt, 5) && combo.materialBonuses < number(config.maxMaterialBonuses, 1)) {
+      var bonus = makeItem(mergedItem.family, clamp(mergedItem.tier > 2 ? 2 : 1, 1, familyTierCap(mergedItem.family)));
+      queueItem(state, bonus);
+      combo.materialBonuses++;
+      events.push({ type: 'combo_material', item: clone(bonus) });
+    }
+    if (combo.count >= number(config.chestAt, 8) && !combo.chestBonusAwarded) {
+      special.chests.dailyMerges += 2;
+      combo.chestBonusAwarded = true;
+      events.push({ type: 'combo_chest_progress', amount: 2 });
+    }
+    return { count: combo.count, expiresAt: now + number(config.windowMs, 12000), events: events };
+  }
+
+  function openBubble(state, bubbleRef, now) {
+    var special = ensureSpecialState(state);
+    var index = typeof bubbleRef === 'number' ? Math.floor(bubbleRef) : special.bubbleRack.findIndex(function (bubble) { return bubble.id === bubbleRef; });
+    if (index < 0 || index >= special.bubbleRack.length) return { ok: false, reason: 'bubble-not-found', events: [], rewards: null };
+    var bubble = special.bubbleRack[index];
+    now = number(now, Date.now());
+    if (now < number(bubble.opensAt, 0)) return { ok: false, reason: 'bubble-locked', remainingMs: bubble.opensAt - now, events: [], rewards: null };
+    special.bubbleRack.splice(index, 1);
+    var item = makeItem(bubble.family, bubble.tier);
+    queueItem(state, item);
+    return { ok: true, bubbleId: bubble.id, item: clone(item), events: [{ type: 'bubble_opened', bubbleId: bubble.id }], rewards: { items: [clone(item)] } };
+  }
+
+  function claimChest(state, kind, rng, now) {
+    kind = kind === 'weekly' ? 'weekly' : 'daily';
+    rng = typeof rng === 'function' ? rng : Math.random;
+    now = number(now, Date.now());
+    var special = ensureSpecialState(state);
+    var chest = special.chests;
+    var events = [];
+    if (kind === 'daily') {
+      var date = state.daily && state.daily.date || isoDate(now);
+      var config = DATA.specials && DATA.specials.chests && DATA.specials.chests.daily || {};
+      if (chest.dailyClaimed === date) return { ok: false, reason: 'claimed', events: [], rewards: null };
+      if (chest.dailyMerges < number(config.merges, 20)) return { ok: false, reason: 'incomplete', progress: chest.dailyMerges, target: number(config.merges, 20), events: [], rewards: null };
+      chest.dailyClaimed = date;
+      var before = state.energy;
+      state.energy = Math.min(state.maxEnergy, state.energy + number(config.energy, 15));
+      var dailyTier = clamp(Math.floor(number(config.minTier, 2) + randomUnit(rng) * (number(config.maxTier, 3) - number(config.minTier, 2) + 1)), 1, TIER_CAP);
+      var dailyItem = makeItem(supplyFamily(state, rng), dailyTier);
+      queueItem(state, dailyItem);
+      var dailyPart = randomUnit(rng) < number(config.producerPartChance, 0.35) ? supplyProducerPart(state, rng, number(config.producerPartTier, 1)) : null;
+      if (dailyPart) queueItem(state, dailyPart);
+      events.push({ type: 'daily_chest_claimed' });
+      return { ok: true, kind: kind, events: events, rewards: { energy: state.energy - before, items: [clone(dailyItem)].concat(dailyPart ? [clone(dailyPart)] : []), producerPart: clone(dailyPart) } };
+    }
+    var key = weekKey(now);
+    var weeklyConfig = DATA.specials && DATA.specials.chests && DATA.specials.chests.weekly || {};
+    if (chest.weeklyClaimed === key) return { ok: false, reason: 'claimed', events: [], rewards: null };
+    if (chest.weeklyOrders < number(weeklyConfig.orders, 10)) return { ok: false, reason: 'incomplete', progress: chest.weeklyOrders, target: number(weeklyConfig.orders, 10), events: [], rewards: null };
+    chest.weeklyClaimed = key;
+    var jade = number(weeklyConfig.jade, 100);
+    state.jade += jade;
+    var weeklyItem = makeItem(supplyFamily(state, rng), clamp(number(weeklyConfig.tier, 4), 1, TIER_CAP));
+    queueItem(state, weeklyItem);
+    var weeklyPart = supplyProducerPart(state, rng, number(weeklyConfig.producerPartTier, 2));
+    if (weeklyPart) queueItem(state, weeklyPart);
+    events.push({ type: 'weekly_chest_claimed' });
+    return { ok: true, kind: kind, events: events, rewards: { jade: jade, items: [clone(weeklyItem)].concat(weeklyPart ? [clone(weeklyPart)] : []), producerPart: clone(weeklyPart) } };
+  }
+
+  function recycleItem(state, gridIndex, confirmed) {
+    gridIndex = Math.floor(number(gridIndex, -1));
+    if (gridIndex < 0 || gridIndex >= state.unlockedCells) return { ok: false, reason: 'invalid-cell', events: [], rewards: null };
+    var item = state.grid[gridIndex];
+    if (!item) return { ok: false, reason: 'empty', events: [], rewards: null };
+    if (item.kind && item.kind !== 'generator_part' || item.productId) return { ok: false, reason: 'protected-item', events: [], rewards: null };
+    if (number(item.tier, 1) >= (item.kind === 'generator_part' ? 3 : 4) && !confirmed) return { ok: false, reason: 'confirm-required', item: clone(item), events: [], rewards: null };
+    var baseValue = DATA.economy && DATA.economy.itemValues && DATA.economy.itemValues[item.tier - 1] || 5;
+    var jade = Math.max(1, Math.floor(number(baseValue, 5) * 0.2));
+    state.grid[gridIndex] = null;
+    state.jade += jade;
+    return { ok: true, index: gridIndex, item: clone(item), events: [{ type: 'item_recycled', index: gridIndex }], rewards: { jade: jade } };
+  }
+
+  function mergeItems(state, fromIndex, toIndex, now, rng) {
     var from = state.grid[fromIndex];
     var to = state.grid[toIndex];
-    if (!from || !to || from.kind || to.kind) return { ok: false, reason: 'not-items' };
+    if (!from || !to) return { ok: false, reason: 'not-items' };
+    now = number(now, Date.now());
+    var producerMerge = false;
+    var producerEvent = null;
+    if (from.kind === 'generator_part' || to.kind === 'generator_part') {
+      if (from.kind !== 'generator_part' || to.kind !== 'generator_part' || from.family !== to.family || from.tier !== to.tier) return { ok: false, reason: 'not-match' };
+      if (!producerChain(from.family)) return { ok: false, reason: 'producer-chain-missing' };
+      state.grid[fromIndex] = null;
+      if (from.tier >= 4) {
+        state.grid[toIndex] = makeGenerator(from.family, 1, now);
+        producerEvent = { type: 'generator_created', family: from.family, level: 1 };
+      } else {
+        state.grid[toIndex] = makeGeneratorPart(from.family, from.tier + 1);
+        producerEvent = { type: 'generator_part_merged', family: from.family, tier: from.tier + 1 };
+      }
+      producerMerge = true;
+    } else if (from.kind === 'generator' || to.kind === 'generator') {
+      if (from.kind !== 'generator' || to.kind !== 'generator' || from.family !== to.family || number(from.level, 1) !== number(to.level, 1)) return { ok: false, reason: 'not-match' };
+      var maxGeneratorLevel = number(DATA.generators && DATA.generators.maxLevel, 5);
+      if (from.level >= maxGeneratorLevel) return { ok: false, reason: 'tier-cap' };
+      var nextGeneratorLevel = from.level + 1;
+      var nextGeneratorConfig = generatorLevelConfig(nextGeneratorLevel);
+      var combinedCharges = Math.min(number(nextGeneratorConfig.capacity, 16), number(from.charges, 0) + number(to.charges, 0));
+      state.grid[fromIndex] = null;
+      state.grid[toIndex] = makeGenerator(from.family, nextGeneratorLevel, now, combinedCharges, Math.max(number(from.partPity, 0), number(to.partPity, 0)));
+      producerEvent = { type: 'generator_merged', family: from.family, level: nextGeneratorLevel };
+      producerMerge = true;
+    }
+    if (producerMerge) {
+      state.daily.merges++;
+      state.weekly.merges++;
+      var producerSpecial = ensureSpecialState(state);
+      producerSpecial.chests.dailyMerges++;
+      var producerCombo = updateMergeCombo(state, { family: from.family, tier: from.tier || from.level || 1 }, now);
+      var producerEvents = producerCombo.events.concat([producerEvent]);
+      depositPendingRewards(state);
+      syncLegacyAliases(state);
+      return { ok: true, index: toIndex, item: clone(state.grid[toIndex]), at: now, combo: { count: producerCombo.count, expiresAt: producerCombo.expiresAt }, events: producerEvents, rewards: null, producerUpgrade: true };
+    }
+    if (from.kind || to.kind) return { ok: false, reason: 'not-items' };
     if (from.family !== to.family || from.tier !== to.tier) return { ok: false, reason: 'not-match' };
-    if (from.tier >= TIER_CAP) return { ok: false, reason: 'tier-cap' };
+    if (from.tier >= familyTierCap(from.family)) return { ok: false, reason: 'tier-cap' };
     state.grid[fromIndex] = null;
     state.grid[toIndex] = makeItem(to.family, to.tier + 1);
     state.daily.merges++;
     state.weekly.merges++;
+    var special = ensureSpecialState(state);
+    special.chests.dailyMerges++;
+    var combo = updateMergeCombo(state, state.grid[toIndex], now);
+    var bubble = maybeCreateBubble(state, state.grid[toIndex], now, rng);
+    var events = combo.events.slice();
+    if (bubble) events.push({ type: 'bubble_spawned', bubble: clone(bubble) });
     depositPendingRewards(state);
     syncLegacyAliases(state);
-    return { ok: true, index: toIndex, item: clone(state.grid[toIndex]), at: number(now, Date.now()) };
+    return { ok: true, index: toIndex, item: clone(state.grid[toIndex]), at: now, combo: { count: combo.count, expiresAt: combo.expiresAt }, bubble: clone(bubble), events: events, rewards: null };
   }
 
   function moveBoardItem(state, fromIndex, toIndex) {
@@ -1513,7 +2095,7 @@
     if (fromIndex === toIndex) return { ok: false, reason: 'same-cell' };
     if (fromIndex >= state.unlockedCells || toIndex >= state.unlockedCells) return { ok: false, reason: 'locked-cell' };
     var item = state.grid[fromIndex];
-    if (!item || item.kind) return { ok: false, reason: 'not-item' };
+    if (!item || item.kind && item.kind !== 'generator' && item.kind !== 'generator_part') return { ok: false, reason: 'not-item' };
     if (state.grid[toIndex] != null) return { ok: false, reason: 'occupied' };
     state.grid[toIndex] = item;
     state.grid[fromIndex] = null;
@@ -1765,7 +2347,9 @@
     var level = state.facilities.herb.level;
     if (level <= 0) return null;
     var config = clone(DATA.facilities.herb.levels[level - 1]);
-    if (state.beastCases.xiangliu.transformed) {
+    /* 百草园岗位加成：帝江（卷四，def 待补）；旧档 xiangliu 兼容保留。 */
+    var herbKeeper = state.beastCases.dijiang || state.beastCases.xiangliu;
+    if (herbKeeper && herbKeeper.transformed) {
       config.intervalMs = Math.round(config.intervalMs * 0.8);
       config.cap += 1;
     }
@@ -1780,6 +2364,7 @@
     var applied = Math.min(elapsed, OFFLINE_CAP_MS);
     if (elapsed <= 0) return { ok: true, elapsedMs: 0, appliedMs: 0, creditedMs: 0, reward: { total: 0 } };
     state.lastSeenAt = now;
+    var generatorCredits = advanceGeneratorCharges(state, now).credited;
 
     state.energyProgressMs = Math.max(0, number(state.energyProgressMs, 0)) + applied;
     var energyTicks = Math.floor(state.energyProgressMs / DATA.economy.energyMs);
@@ -1818,9 +2403,9 @@
       if (facility.stored.length >= config.cap) facility.progressMs = Math.min(facility.progressMs, config.intervalMs);
     }
     var deposited = depositPendingRewards(state);
-    state.lastAdvance = { elapsedMs: elapsed, appliedMs: applied, creditedMs: applied, produced: produced, deposited: deposited, at: now };
+    state.lastAdvance = { elapsedMs: elapsed, appliedMs: applied, creditedMs: applied, generatorCredits: generatorCredits, produced: produced, deposited: deposited, at: now };
     syncLegacyAliases(state);
-    return { ok: true, elapsedMs: elapsed, appliedMs: applied, creditedMs: applied, produced: produced, deposited: deposited, reward: { total: produced } };
+    return { ok: true, elapsedMs: elapsed, appliedMs: applied, creditedMs: applied, generatorCredits: generatorCredits, produced: produced, deposited: deposited, reward: { total: produced } };
   }
 
   function targetedSupplyFamily(state) {
@@ -1915,14 +2500,12 @@
     var affectionLost = applyMissedInteractionDecay(state, date);
     state.daily = freshDaily(date);
     state.daily.affectionLost = affectionLost;
-    var recruit = Array.isArray(state.activeOrders) ? state.activeOrders.filter(function (order) {
-      return order && (order.slot === 'recruit' || order.slot === 'story');
-    })[0] : null;
-    var growth = Array.isArray(state.activeOrders) ? state.activeOrders.filter(function (order) {
-      return order && order.slot === 'growth' && order.kind !== 'growth_complete';
-    })[0] : null;
-    state.activeOrders = [recruit || makeRecruitOrder(state), growth || makeGrowthOrder(state, state.yardBeastId, rng), makeV6SupplyOrder(state)];
-    state.orders = state.activeOrders;
+    var special = ensureSpecialState(state);
+    special.chests.dailyMerges = 0;
+    state.activeOrders = Array.isArray(state.activeOrders) ? state.activeOrders.filter(function (order) {
+      return order && ['main', 'renovation', 'medical', 'visitor'].indexOf(order.slot) >= 0;
+    }) : [];
+    ensureOrders(state, rng);
     return state.daily;
   }
 
@@ -1932,7 +2515,10 @@
 
   function ensureWeekly(state, now) {
     var key = weekKey(now);
-    if (!state.weekly || state.weekly.key !== key) state.weekly = freshWeekly(now);
+    if (!state.weekly || state.weekly.key !== key) {
+      state.weekly = freshWeekly(now);
+      ensureSpecialState(state).chests.weeklyOrders = 0;
+    }
     return state.weekly;
   }
 
@@ -1990,6 +2576,12 @@
     state.signIn.lastClaimDate = date;
     state.signIn.claimedDates.push(date);
     state.signIn.completed = day >= 7;
+    if (day >= 7) {
+      state.journey = state.journey || {};
+      state.journey.welcomeJobUnlocked = true;
+      if (state.jobs && state.jobs.jiuweihu) state.jobs.jiuweihu.unlocked = true;
+      granted.job = 'jiuweihu-welcome';
+    }
     return granted;
   }
 
@@ -2009,7 +2601,7 @@
 
   function moveToStorage(state, gridIndex) {
     var item = state.grid[gridIndex];
-    if (!item || item.kind) return { ok: false, reason: 'not-item' };
+    if (!item || item.kind && item.kind !== 'generator_part') return { ok: false, reason: 'not-item' };
     var storageIndex = state.storage.items.findIndex(function (entry) { return entry == null; });
     if (storageIndex < 0) return { ok: false, reason: 'storage-full' };
     state.storage.items[storageIndex] = item;
@@ -2224,8 +2816,11 @@
     var mergeable = false;
     var seen = {};
     (state.grid || []).forEach(function (item) {
-      if (!item || item.kind || item.tier >= TIER_CAP) return;
-      var key = item.family + ':' + item.tier;
+      if (!item || item.kind && item.kind !== 'generator' && item.kind !== 'generator_part') return;
+      var rank = item.kind === 'generator' ? item.level : item.tier;
+      var cap = item.kind === 'generator' ? number(DATA.generators && DATA.generators.maxLevel, 5) : item.kind === 'generator_part' ? 5 : familyTierCap(item.family);
+      if (rank >= cap) return;
+      var key = (item.kind || 'material') + ':' + item.family + ':' + rank;
       if (seen[key]) mergeable = true;
       seen[key] = true;
     });
@@ -2251,12 +2846,16 @@
     normalize: normalize,
     ensureOrders: ensureOrders,
     generate: generate,
+    advanceGeneratorCharges: advanceGeneratorCharges,
     generatorDropTable: generatorDropTable,
     getGeneratorState: getGeneratorState,
     upgradeGenerator: upgradeGenerator,
     requirementEffort: requirementEffort,
     playerOrderRank: playerOrderRank,
     mergeItems: mergeItems,
+    openBubble: openBubble,
+    claimChest: claimChest,
+    recycleItem: recycleItem,
     moveBoardItem: moveBoardItem,
     deliverOrder: deliverOrder,
     affectionRewardForOrder: affectionRewardForOrder,
@@ -2299,6 +2898,18 @@
     getAvailableActions: getAvailableActions,
     getItemName: getItemName,
     makeItem: makeItem,
+    makeGeneratorPart: makeGeneratorPart,
+    recipeUnlocked: recipeUnlocked,
+    canCraftRecipe: canCraftRecipe,
+    craftRecipe: craftRecipe,
+    craftableRecipes: craftableRecipes,
+    sectTotalDone: sectTotalDone,
+    sectTotalTarget: sectTotalTarget,
+    currentRenovation: currentRenovation,
+    canDeliverRenovation: canDeliverRenovation,
+    deliverRenovation: deliverRenovation,
+    sectAreaStageArt: sectAreaStageArt,
+    chapterProgress: chapterProgress,
     constants: { TOTAL: TOTAL, TIER_CAP: TIER_CAP, OFFLINE_CAP_MS: OFFLINE_CAP_MS, DAY_MS: DAY_MS }
   };
 }));

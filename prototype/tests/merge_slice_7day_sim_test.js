@@ -19,7 +19,7 @@ const BASE = 1_735_689_600_000;
 const DAY = 24 * 60 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
 const OFFLINE_WINDOW = 8 * HOUR;
-const BEAST_IDS = ['qiongqi', 'jiuweihu', 'xiangliu', 'taotie'];
+const BEAST_IDS = ['qiongqi', 'jiuweihu', 'taotie'];
 const RNG = () => 0.31;
 
 function expect(condition, message) {
@@ -163,15 +163,14 @@ function run() {
 
   /* Remaining arrivals are real token orders; no story/transformation fields are written here. */
   transformBeast(state, 'jiuweihu', BASE + DAY + HOUR);
-  /* Jiuweihu's job grants a second free reroll in the same day. */
-  ok(Core.rerollOrder(state, 'supply', RNG), '九尾狐岗位首次免费刷新');
-  ok(Core.rerollOrder(state, 'supply', RNG), '九尾狐岗位额外免费刷新');
-  transformBeast(state, 'xiangliu', BASE + 2 * DAY + HOUR);
+  /* 九尾狐岗位为被动加成（每日免费委托刷新）；v6 固定三槽已停用手动 reroll。 */
+  expect(Core.claimJob(state, 'jiuweihu', BASE + 2 * DAY + HOUR).reason === 'passive-job',
+    '九尾狐岗位为被动加成（无手动刷新）');
   transformBeast(state, 'taotie', BASE + 3 * DAY + HOUR);
 
   expect(BEAST_IDS.every((id) => state.beastCases[id].transformed),
-    '七日流程结束时四兽均应蜕变');
-  expect(state.endingUnlocked === true, '四兽完成后应解锁第一卷结局');
+    '七日流程结束时三兽均应蜕变');
+  expect(state.endingUnlocked === true, '三兽完成后应解锁第一卷结局');
   expect(typeof state.nextChapter === 'string' && state.nextChapter.length > 0,
     '结局必须保留下一章目标');
   const memory = orderBy(state,
@@ -179,13 +178,13 @@ function run() {
     '结局后的永久循环委托');
   expect(memory.permanent === true, '结局后的故事槽应为永久委托');
 
-  /* Facilities and the Xiangliu modifier are exercised after enough real jade is earned. */
-  ok(Core.upgradeFacility(state, 'herb'), '草药园升级至 1 级');
+  /* Facilities (and their offline production) are exercised after enough real jade is earned. */
   ok(Core.upgradeFacility(state, 'herb'), '草药园升级至 2 级');
   ok(Core.upgradeFacility(state, 'herb'), '草药园升级至 3 级');
+  expect(Core.upgradeFacility(state, 'herb').reason === 'max-level', '草药园已满级（max-level）');
   const facilityOffline = Core.advanceTime(state, BASE + 4 * DAY + 9 * HOUR, RNG);
   expect(facilityOffline && facilityOffline.ok === true, '设施离线结算应成功');
-  expect(state.facilities.herb.stored.length > 0, '四兽岗位/设施应产生草药库存');
+  expect(state.facilities.herb.stored.length > 0, '岗位/设施应产生草药库存');
   ok(Core.claimFacility(state, 'herb'), '领取草药园离线产出');
 
   /* Keep the three slots alive through a complete seven-day calendar. */
@@ -207,7 +206,7 @@ function run() {
   ok(Core.mergeItems(state, 0, 1, BASE + 7 * DAY), '零体力合成仍可执行');
 
   console.log('== merge slice 7-day simulation ==');
-  console.log('  PASS  四兽三故事+照料、arrival 激活、岗位/设施、每日重置、八小时离线结算与结局循环');
+  console.log('  PASS  三兽三故事+照料、arrival 激活、岗位/设施、每日重置、八小时离线结算与结局循环');
   console.log('  PASS  三槽常驻、零体力合成和下一章目标均已验证');
 }
 

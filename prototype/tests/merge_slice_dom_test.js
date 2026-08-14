@@ -153,7 +153,7 @@ function cardCount(root, selectors) {
     expect(count >= 3, '订单卡片数量=' + count);
   });
 
-  check('图鉴面板渲染四只首发异兽', function () {
+  check('图鉴面板渲染三只首发异兽', function () {
     let catalog = queryFirst(['#codex-list', '#beast-catalog', '#catalog-list', '[data-catalog]', '.codex-list', '.catalog-list']);
     if (!catalog) {
       const tab = allTabs().find(function (node) { return /图鉴|异兽册|兽册|codex/i.test(node.textContent || ''); });
@@ -162,11 +162,11 @@ function cardCount(root, selectors) {
     }
     expect(catalog, '找到图鉴容器');
     const count = cardCount(catalog, ['[data-beast-id]', '.beast-card', '.codex-card', '.catalog-card', 'article', 'li']);
-    expect(count >= 4, '图鉴卡片数量=' + count);
+    expect(count >= 3, '图鉴卡片数量=' + count);
     const idNodes = Array.from(catalog.querySelectorAll('[data-beast-id], [data-id]'));
     if (idNodes.length) {
       const ids = new Set(idNodes.map(function (node) { return node.dataset.beastId || node.dataset.id; }));
-      ['qiongqi', 'jiuweihu', 'xiangliu', 'taotie'].forEach(function (id) {
+      ['qiongqi', 'jiuweihu', 'taotie'].forEach(function (id) {
         expect(ids.has(id), '图鉴 data id 包含 ' + id);
       });
     } else {

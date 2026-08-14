@@ -16,7 +16,7 @@ try {
 const NOW = 1_735_689_600_000;
 const DAY = 24 * 60 * 60 * 1000;
 const EIGHT_HOURS = 8 * 60 * 60 * 1000;
-const BEASTS = ['qiongqi', 'jiuweihu', 'xiangliu', 'taotie'];
+const BEASTS = ['qiongqi', 'jiuweihu', 'taotie'];
 let failures = 0;
 
 function pass(message) { console.log('  PASS  ' + message); }
@@ -107,7 +107,8 @@ check('v3 normalize 保留 grid/jade/energy/buildings/qiongqi 并标出待蜕变
   expect(JSON.stringify(migrated.grid[0]) === JSON.stringify(grid[0]) && JSON.stringify(migrated.grid[2]) === JSON.stringify(grid[2]),
     '迁移不丢 grid 中已有物品（空槽可由默认生成器补齐）');
   expect(migrated.jade === 777, '迁移保留 jade');
-  expect(migrated.energy === 0, '迁移保留 energy=0');
+  /* v6 迁移按旧 30 上限换算能量缺口：0/30 → 100 − (30−0) = 70/100。 */
+  expect(migrated.energy === 70, '迁移按 v6 缺口换算能量（0/30 → 70/100）');
   expect(migrated.buildings && Object.keys(buildings).every(function (key) {
     return migrated.buildings[key] === buildings[key];
   }), '迁移保留 buildings 中已有设施（可补默认设施键）');
@@ -129,15 +130,18 @@ check('advanceTime 对 24h 离线结算严格封顶 8h', function () {
     '同一离线时间重复结算不重复发放');
 });
 
-check('ensureDaily 幂等，7 日后四兽仍在且保有三个永久订单', function () {
+check('ensureDaily 幂等，7 日后三兽仍在且三个订单槽常驻', function () {
   const state = fresh();
   const firstDate = '2025-01-01';
   Core.ensureDaily(state, firstDate, NOW);
   Core.ensureOrders(state, stableRng);
   expect(Array.isArray(state.activeOrders) && state.activeOrders.length === 3, '首日生成三个订单');
-  const firstIds = state.activeOrders.map(function (order) { return order && order.id; });
-  expect(firstIds.every(Boolean), '首日订单均有稳定 id');
-  state.activeOrders.forEach(function (order) { expect(permanent(order), '订单 ' + order.id + ' 标记为永久订单'); });
+  const firstIdsBySlot = {};
+  state.activeOrders.forEach(function (order) {
+    expect(order && order.id, '首日订单均有稳定 id');
+    firstIdsBySlot[order.slot] = order.id;
+    expect(permanent(order), '订单 ' + order.id + ' 标记为永久订单');
+  });
 
   for (let day = 1; day <= 7; day++) {
     const date = '2025-01-' + String(day + 1).padStart(2, '0');
@@ -148,8 +152,11 @@ check('ensureDaily 幂等，7 日后四兽仍在且保有三个永久订单', fu
     expect(state.activeOrders.length === 3, '第 ' + (day + 1) + ' 日仍有三个订单槽');
     expect(state.activeOrders.every(Boolean), '第 ' + (day + 1) + ' 日订单不为空');
     expect(state.activeOrders.every(permanent), '第 ' + (day + 1) + ' 日订单仍为永久订单');
-    expect(state.activeOrders.map(function (order) { return order.id; }).join('|') === firstIds.join('|'),
-      '第 ' + (day + 1) + ' 日未丢失永久订单');
+    state.activeOrders.forEach(function (order) {
+      if (order.slot === 'supply') return; // v6 补给单每日重新生成（id 允许变化）
+      expect(order.id === firstIdsBySlot[order.slot],
+        '第 ' + (day + 1) + ' 日未丢失 ' + order.slot + ' 永久订单');
+    });
   }
   BEASTS.forEach(function (id) { expect(beastPresent(state, id), '7 日后仍保留异兽节点 ' + id); });
 });

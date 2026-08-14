@@ -1,0 +1,2108 @@
+{
+  "schema": "h5-v7-assets",
+  "prompt_version": "h5-v7-assets-2026-08-15",
+  "model": "doubao-seedream-5-0-260128",
+  "endpoint": "https://ark.cn-beijing.volces.com/api/v3/images/generations",
+  "generated_at": "2026-08-14T17:53:38.653083+00:00",
+  "constraints": {
+    "requested_assets": 54,
+    "building_stage_count": 16,
+    "icon_count": 22,
+    "producer_part_count": 15,
+    "background_count": 1,
+    "formal_max_bytes": 1048576,
+    "icon_dimensions": [
+      256,
+      256
+    ],
+    "building_dimensions": [
+      768,
+      768
+    ],
+    "background_dimensions": [
+      800,
+      1000
+    ],
+    "transparent_background": "#ff00ff chroma-key removed locally",
+    "building_anchor": {
+      "camera": "locked",
+      "center_x": 0.5,
+      "base_y": 0.92
+    }
+  },
+  "references": {
+    "buildings": {
+      "gate": "prototype/assets/art/buildings/clinic.webp",
+      "clinic": "prototype/assets/art/buildings/clinic.webp",
+      "forecourt": "prototype/assets/art/buildings/herb.webp",
+      "groom_pavilion": "prototype/assets/art/buildings/groom.webp"
+    },
+    "background": "prototype/assets/art/scenes/bg_fox_lantern_buildingfree.webp",
+    "icons": {
+      "build": "prototype/assets/art/match3/tool_06.png",
+      "herb": "prototype/assets/art/match3/herb_06.png",
+      "tool": "prototype/assets/art/match3/tool_06.png",
+      "groom": "prototype/assets/art/match3/groom_06.png",
+      "play": "prototype/assets/art/match3/play_06.png"
+    }
+  },
+  "execution": {
+    "status": "validation-only",
+    "api_key_available": false,
+    "blocking_reason": null
+  },
+  "assets": [
+    {
+      "id": "gate_stage0",
+      "kind": "building",
+      "family": "gate",
+      "area": "gate",
+      "level": 1,
+      "prompt": "Use case: game-building-sprite. Asset type: transparent 2D H5 courtyard renovation sprite. Match the supplied existing building reference in style: cute Chinese Shanhai Jing healing courtyard, hand-painted watercolor and gouache, warm timber, rounded forms, warm brown ink outline, soft paper texture, slightly elevated three-quarter view, upper-left key light, readable at 100px. Lock camera, perspective, footprint, bottom base anchor at 92% canvas height and center x at 50% for every stage. Keep the area identity and stage-to-stage silhouette stable; change only repair quality, scale within the same footprint, roof trim, functional props and small decorations. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: a small weathered timber sect gate, chipped blue-grey roof tiles, one leaning post, torn vine and a crooked blank wooden plaque. This is renovation stage 1 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/clinic.webp",
+      "source_path": "prototype/assets/art/v7/raw/buildings/gate_stage0.png",
+      "formal_path": "prototype/assets/art/v7/sect/gate_stage0.webp",
+      "status": "existing",
+      "source_sha256": "88a52543b355bcecaad69f3463d4058f34c5139dc83d00085f59db929061e322",
+      "formal_sha256": "aa1b13f75191af0f1e8aa3652caef97e318169575753d4d4bec9da9ffe5ef4e6",
+      "source_bytes": 6289679,
+      "formal_bytes": 108648,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.369281,
+        "file_bytes": 108648,
+        "edge_key_like_pixels": 1,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "gate_stage1",
+      "kind": "building",
+      "family": "gate",
+      "area": "gate",
+      "level": 2,
+      "prompt": "Use case: game-building-sprite. Asset type: transparent 2D H5 courtyard renovation sprite. Match the supplied existing building reference in style: cute Chinese Shanhai Jing healing courtyard, hand-painted watercolor and gouache, warm timber, rounded forms, warm brown ink outline, soft paper texture, slightly elevated three-quarter view, upper-left key light, readable at 100px. Lock camera, perspective, footprint, bottom base anchor at 92% canvas height and center x at 50% for every stage. Keep the area identity and stage-to-stage silhouette stable; change only repair quality, scale within the same footprint, roof trim, functional props and small decorations. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: the same sect gate and locked camera, roof tiles repaired, posts straightened, two polished door rings and a clean blank plaque. This is renovation stage 2 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/clinic.webp",
+      "source_path": "prototype/assets/art/v7/raw/buildings/gate_stage1.png",
+      "formal_path": "prototype/assets/art/v7/sect/gate_stage1.webp",
+      "status": "existing",
+      "source_sha256": "a27aec540d89b982f7eefcf063f6a5ee103a8e86b5480192ba173c39563b8d64",
+      "formal_sha256": "6eafc17fff978c77f54e1d8d095bd41ecbd22909d56d13e94ab509e98051e933",
+      "source_bytes": 5643362,
+      "formal_bytes": 92892,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.322389,
+        "file_bytes": 92892,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "gate_stage2",
+      "kind": "building",
+      "family": "gate",
+      "area": "gate",
+      "level": 3,
+      "prompt": "Use case: game-building-sprite. Asset type: transparent 2D H5 courtyard renovation sprite. Match the supplied existing building reference in style: cute Chinese Shanhai Jing healing courtyard, hand-painted watercolor and gouache, warm timber, rounded forms, warm brown ink outline, soft paper texture, slightly elevated three-quarter view, upper-left key light, readable at 100px. Lock camera, perspective, footprint, bottom base anchor at 92% canvas height and center x at 50% for every stage. Keep the area identity and stage-to-stage silhouette stable; change only repair quality, scale within the same footprint, roof trim, functional props and small decorations. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: the same gate and locked camera, freshly repaired roof trim, symmetrical timber posts, two warm lanterns, a blank polished plaque and neat stone steps. This is renovation stage 3 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/clinic.webp",
+      "source_path": "prototype/assets/art/v7/raw/buildings/gate_stage2.png",
+      "formal_path": "prototype/assets/art/v7/sect/gate_stage2.webp",
+      "status": "existing",
+      "source_sha256": "e9ea495c0ac27980c5c5a64f635b23e62ecbf3e5e051352ad346eb1ec40c6e7f",
+      "formal_sha256": "e2806067c7953ad9bc4775d0bc3183854d81aa3bc554398610ee51e782ef8f54",
+      "source_bytes": 5403885,
+      "formal_bytes": 82750,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.265242,
+        "file_bytes": 82750,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "gate_stage3",
+      "kind": "building",
+      "family": "gate",
+      "area": "gate",
+      "level": 4,
+      "prompt": "Use case: game-building-sprite. Asset type: transparent 2D H5 courtyard renovation sprite. Match the supplied existing building reference in style: cute Chinese Shanhai Jing healing courtyard, hand-painted watercolor and gouache, warm timber, rounded forms, warm brown ink outline, soft paper texture, slightly elevated three-quarter view, upper-left key light, readable at 100px. Lock camera, perspective, footprint, bottom base anchor at 92% canvas height and center x at 50% for every stage. Keep the area identity and stage-to-stage silhouette stable; change only repair quality, scale within the same footprint, roof trim, functional props and small decorations. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: the same gate and locked camera, grand but compact renewed mountain gate, layered roof ridges, carved beams, glowing lanterns, tidy stone base and a blank plaque. This is renovation stage 4 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/clinic.webp",
+      "source_path": "prototype/assets/art/v7/raw/buildings/gate_stage3.png",
+      "formal_path": "prototype/assets/art/v7/sect/gate_stage3.webp",
+      "status": "existing",
+      "source_sha256": "130e48990b0f6a55490fd416e39fcd552f769ce9354bc4f312b3ff148f291361",
+      "formal_sha256": "325552db6d937ef3bf5ec0a4563f2a9401fb3858d16b21e4d5bcd3e02ef5326c",
+      "source_bytes": 5601307,
+      "formal_bytes": 87192,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.266257,
+        "file_bytes": 87192,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "clinic_stage0",
+      "kind": "building",
+      "family": "clinic",
+      "area": "clinic",
+      "level": 1,
+      "prompt": "Use case: game-building-sprite. Asset type: transparent 2D H5 courtyard renovation sprite. Match the supplied existing building reference in style: cute Chinese Shanhai Jing healing courtyard, hand-painted watercolor and gouache, warm timber, rounded forms, warm brown ink outline, soft paper texture, slightly elevated three-quarter view, upper-left key light, readable at 100px. Lock camera, perspective, footprint, bottom base anchor at 92% canvas height and center x at 50% for every stage. Keep the area identity and stage-to-stage silhouette stable; change only repair quality, scale within the same footprint, roof trim, functional props and small decorations. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: a small abandoned medicine hall, faded warm timber, cracked blue-grey roof, broken porch rail, sparse herb bundles and one dim lantern. This is renovation stage 1 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/clinic.webp",
+      "source_path": "prototype/assets/art/v7/raw/buildings/clinic_stage0.png",
+      "formal_path": "prototype/assets/art/v7/sect/clinic_stage0.webp",
+      "status": "existing",
+      "source_sha256": "bcfbd1549c28ed08c879f2b2900ef261d10986357505c145971618455484a734",
+      "formal_sha256": "f900e8dafcb707598d991e40c4cbe31d18004e0734ce3c2a4f0813b057668cb5",
+      "source_bytes": 6938371,
+      "formal_bytes": 127642,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.379393,
+        "file_bytes": 127642,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "clinic_stage1",
+      "kind": "building",
+      "family": "clinic",
+      "area": "clinic",
+      "level": 2,
+      "prompt": "Use case: game-building-sprite. Asset type: transparent 2D H5 courtyard renovation sprite. Match the supplied existing building reference in style: cute Chinese Shanhai Jing healing courtyard, hand-painted watercolor and gouache, warm timber, rounded forms, warm brown ink outline, soft paper texture, slightly elevated three-quarter view, upper-left key light, readable at 100px. Lock camera, perspective, footprint, bottom base anchor at 92% canvas height and center x at 50% for every stage. Keep the area identity and stage-to-stage silhouette stable; change only repair quality, scale within the same footprint, roof trim, functional props and small decorations. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: the same medicine hall and locked camera, roof repaired, porch rail restored, shelves cleaned, two hanging herb bundles and one warm lantern. This is renovation stage 2 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/clinic.webp",
+      "source_path": "prototype/assets/art/v7/raw/buildings/clinic_stage1.png",
+      "formal_path": "prototype/assets/art/v7/sect/clinic_stage1.webp",
+      "status": "existing",
+      "source_sha256": "da0291a41017187dc129592586e4d2eecf3d53839ef4f828b514054dfbe34776",
+      "formal_sha256": "7fb56fac59b7e1849ab625bee414ff8e88403ed2e6dae3bf3259a057c1dc6299",
+      "source_bytes": 6148604,
+      "formal_bytes": 110658,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.300654,
+        "file_bytes": 110658,
+        "edge_key_like_pixels": 1,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "clinic_stage2",
+      "kind": "building",
+      "family": "clinic",
+      "area": "clinic",
+      "level": 3,
+      "prompt": "Use case: game-building-sprite. Asset type: transparent 2D H5 courtyard renovation sprite. Match the supplied existing building reference in style: cute Chinese Shanhai Jing healing courtyard, hand-painted watercolor and gouache, warm timber, rounded forms, warm brown ink outline, soft paper texture, slightly elevated three-quarter view, upper-left key light, readable at 100px. Lock camera, perspective, footprint, bottom base anchor at 92% canvas height and center x at 50% for every stage. Keep the area identity and stage-to-stage silhouette stable; change only repair quality, scale within the same footprint, roof trim, functional props and small decorations. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: the same medicine hall and locked camera, polished roof trim, open consultation window, full medicine shelves, covered porch, two lanterns and a tidy herb planter. This is renovation stage 3 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/clinic.webp",
+      "source_path": "prototype/assets/art/v7/raw/buildings/clinic_stage2.png",
+      "formal_path": "prototype/assets/art/v7/sect/clinic_stage2.webp",
+      "status": "existing",
+      "source_sha256": "ecb94c550abafa0b794f8281d342d8bf255f4b6883396a410ddac0f168f3e7d8",
+      "formal_sha256": "f1bd044bf459d4e36e50eb6fad12aa7f75accd2c4d9bb14b622ec53bf0a96f0b",
+      "source_bytes": 5672441,
+      "formal_bytes": 110832,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.289451,
+        "file_bytes": 110832,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "clinic_stage3",
+      "kind": "building",
+      "family": "clinic",
+      "area": "clinic",
+      "level": 4,
+      "prompt": "Use case: game-building-sprite. Asset type: transparent 2D H5 courtyard renovation sprite. Match the supplied existing building reference in style: cute Chinese Shanhai Jing healing courtyard, hand-painted watercolor and gouache, warm timber, rounded forms, warm brown ink outline, soft paper texture, slightly elevated three-quarter view, upper-left key light, readable at 100px. Lock camera, perspective, footprint, bottom base anchor at 92% canvas height and center x at 50% for every stage. Keep the area identity and stage-to-stage silhouette stable; change only repair quality, scale within the same footprint, roof trim, functional props and small decorations. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: the same medicine hall and locked camera, handsome renewed healing clinic, layered roof, apothecary cabinet, covered porch, three warm lanterns, medicine garden and stone steps. This is renovation stage 4 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/clinic.webp",
+      "source_path": "prototype/assets/art/v7/raw/buildings/clinic_stage3.png",
+      "formal_path": "prototype/assets/art/v7/sect/clinic_stage3.webp",
+      "status": "existing",
+      "source_sha256": "b6f1b2bda09e753596e166111a8f7c905f605e1ca14adc696ff870f83bd2e388",
+      "formal_sha256": "0c205ace79e0df9fdd8e2f86a0bc9f82586d17c00f87aa7fe9874f405f804026",
+      "source_bytes": 5868614,
+      "formal_bytes": 96260,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.225342,
+        "file_bytes": 96260,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "forecourt_stage0",
+      "kind": "building",
+      "family": "forecourt",
+      "area": "forecourt",
+      "level": 1,
+      "prompt": "Use case: game-ground-prop. Asset type: transparent 2D H5 courtyard ground prop. Match the supplied empty courtyard reference in warm watercolor and gouache style, with readable stone, wood and plant details and an elevated three-quarter view. This is a ground-level welcome forecourt composition, not a building: lock the camera, footprint and base anchor at 92% canvas height and center x at 50% for every stage. Keep the central path and low props broad and readable; never add a roof, wall, house, pavilion, gate, hut, room, signboard or tall structure. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: a broad neglected stone welcome forecourt, fallen leaves covering the path, one overturned low bench, broken edging stones and wild weeds. This is renovation stage 1 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/herb.webp",
+      "source_path": "prototype/assets/art/v7/raw/props/forecourt_stage0.png",
+      "formal_path": "prototype/assets/art/v7/sect/forecourt_stage0.webp",
+      "status": "existing",
+      "source_sha256": "f758601c97171de0ebde2695c2b795db2b5f7fe1cbbfd83562d42015a390e8d3",
+      "formal_sha256": "1ffaba92e82e27b19754cc7a38154ad88b2e6ca64c3d53f398d6674bd1bb81e6",
+      "source_bytes": 4590131,
+      "formal_bytes": 59074,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.188604,
+        "file_bytes": 59074,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "forecourt_stage1",
+      "kind": "building",
+      "family": "forecourt",
+      "area": "forecourt",
+      "level": 2,
+      "prompt": "Use case: game-ground-prop. Asset type: transparent 2D H5 courtyard ground prop. Match the supplied empty courtyard reference in warm watercolor and gouache style, with readable stone, wood and plant details and an elevated three-quarter view. This is a ground-level welcome forecourt composition, not a building: lock the camera, footprint and base anchor at 92% canvas height and center x at 50% for every stage. Keep the central path and low props broad and readable; never add a roof, wall, house, pavilion, gate, hut, room, signboard or tall structure. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: the same forecourt and locked camera, central stone path swept clear, bench upright, edging stones repaired and weeds trimmed into small patches. This is renovation stage 2 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/herb.webp",
+      "source_path": "prototype/assets/art/v7/raw/props/forecourt_stage1.png",
+      "formal_path": "prototype/assets/art/v7/sect/forecourt_stage1.webp",
+      "status": "existing",
+      "source_sha256": "2016b66c5654c2af51708337c09ff9b236129a5485bce54c4f04f5e26bba3fe6",
+      "formal_sha256": "49f5ed1caf63699d9876abc0e3a3e9a57da1c49bfffae8bed7c4ef32d9287697",
+      "source_bytes": 6683702,
+      "formal_bytes": 133790,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.345403,
+        "file_bytes": 133790,
+        "edge_key_like_pixels": 1,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "forecourt_stage2",
+      "kind": "building",
+      "family": "forecourt",
+      "area": "forecourt",
+      "level": 3,
+      "prompt": "Use case: game-ground-prop. Asset type: transparent 2D H5 courtyard ground prop. Match the supplied empty courtyard reference in warm watercolor and gouache style, with readable stone, wood and plant details and an elevated three-quarter view. This is a ground-level welcome forecourt composition, not a building: lock the camera, footprint and base anchor at 92% canvas height and center x at 50% for every stage. Keep the central path and low props broad and readable; never add a roof, wall, house, pavilion, gate, hut, room, signboard or tall structure. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: the same forecourt and locked camera, neat stone path, two low benches, flower beds, repaired lantern posts and a small guest rest area. This is renovation stage 3 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/herb.webp",
+      "source_path": "prototype/assets/art/v7/raw/props/forecourt_stage2.png",
+      "formal_path": "prototype/assets/art/v7/sect/forecourt_stage2.webp",
+      "status": "existing",
+      "source_sha256": "d1bed358fbd6c889a8a560bf5bd4067d285bcb3d7fa195201b4c96b7a5d0d2b2",
+      "formal_sha256": "ebd967cdf82ea17e11c5a77a2dc1d628fca20e5688169d5a33a7e4d7db171ffb",
+      "source_bytes": 6319641,
+      "formal_bytes": 135348,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.326001,
+        "file_bytes": 135348,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "forecourt_stage3",
+      "kind": "building",
+      "family": "forecourt",
+      "area": "forecourt",
+      "level": 4,
+      "prompt": "Use case: game-ground-prop. Asset type: transparent 2D H5 courtyard ground prop. Match the supplied empty courtyard reference in warm watercolor and gouache style, with readable stone, wood and plant details and an elevated three-quarter view. This is a ground-level welcome forecourt composition, not a building: lock the camera, footprint and base anchor at 92% canvas height and center x at 50% for every stage. Keep the central path and low props broad and readable; never add a roof, wall, house, pavilion, gate, hut, room, signboard or tall structure. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: the same forecourt and locked camera, welcoming polished courtyard plaza, patterned stone path, flower beds, glowing lantern posts, tidy benches and a clear central arrival space. This is renovation stage 4 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/herb.webp",
+      "source_path": "prototype/assets/art/v7/raw/props/forecourt_stage3.png",
+      "formal_path": "prototype/assets/art/v7/sect/forecourt_stage3.webp",
+      "status": "existing",
+      "source_sha256": "73114f33783a8ed5099f53e1354f5892c434eff061f6fd7fd05ddbc39f2bdc82",
+      "formal_sha256": "9a2ed7fb47b9f4227275aa702450bb89ab87178239402a80227bd10346591c7e",
+      "source_bytes": 5960760,
+      "formal_bytes": 115204,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.253118,
+        "file_bytes": 115204,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "groom_pavilion_stage0",
+      "kind": "building",
+      "family": "groom_pavilion",
+      "area": "groom_pavilion",
+      "level": 1,
+      "prompt": "Use case: game-building-sprite. Asset type: transparent 2D H5 courtyard renovation sprite. Match the supplied existing building reference in style: cute Chinese Shanhai Jing healing courtyard, hand-painted watercolor and gouache, warm timber, rounded forms, warm brown ink outline, soft paper texture, slightly elevated three-quarter view, upper-left key light, readable at 100px. Lock camera, perspective, footprint, bottom base anchor at 92% canvas height and center x at 50% for every stage. Keep the area identity and stage-to-stage silhouette stable; change only repair quality, scale within the same footprint, roof trim, functional props and small decorations. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: a small weathered open grooming pavilion, faded timber, patched teal roof, torn curtain, one empty bench and a crooked comb basket. This is renovation stage 1 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/groom.webp",
+      "source_path": "prototype/assets/art/v7/raw/buildings/groom_pavilion_stage0.png",
+      "formal_path": "prototype/assets/art/v7/sect/groom_pavilion_stage0.webp",
+      "status": "existing",
+      "source_sha256": "f3543b7cd07b6828d52babd469c96b71ff0cde796974629cfbd156783e792c59",
+      "formal_sha256": "82a2e90d807f2e56b03080f656f3a1b0aa8ebc5ec5a04f599be5ce008043af9f",
+      "source_bytes": 6971947,
+      "formal_bytes": 114274,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.383425,
+        "file_bytes": 114274,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "groom_pavilion_stage1",
+      "kind": "building",
+      "family": "groom_pavilion",
+      "area": "groom_pavilion",
+      "level": 2,
+      "prompt": "Use case: game-building-sprite. Asset type: transparent 2D H5 courtyard renovation sprite. Match the supplied existing building reference in style: cute Chinese Shanhai Jing healing courtyard, hand-painted watercolor and gouache, warm timber, rounded forms, warm brown ink outline, soft paper texture, slightly elevated three-quarter view, upper-left key light, readable at 100px. Lock camera, perspective, footprint, bottom base anchor at 92% canvas height and center x at 50% for every stage. Keep the area identity and stage-to-stage silhouette stable; change only repair quality, scale within the same footprint, roof trim, functional props and small decorations. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: the same grooming pavilion and locked camera, roof patched, curtain repaired, bench straightened, comb basket filled and one soft lantern. This is renovation stage 2 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/groom.webp",
+      "source_path": "prototype/assets/art/v7/raw/buildings/groom_pavilion_stage1.png",
+      "formal_path": "prototype/assets/art/v7/sect/groom_pavilion_stage1.webp",
+      "status": "existing",
+      "source_sha256": "d4a624b605f6ee6d980be8a6063b7202fa3bdc0b8445d14a8b22c78aac5523fa",
+      "formal_sha256": "5da9e99e3ad920d0797764b1d8a57896ce6b316e99e47a2061019cde1e61ec9d",
+      "source_bytes": 5767741,
+      "formal_bytes": 95550,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.324387,
+        "file_bytes": 95550,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "groom_pavilion_stage2",
+      "kind": "building",
+      "family": "groom_pavilion",
+      "area": "groom_pavilion",
+      "level": 3,
+      "prompt": "Use case: game-building-sprite. Asset type: transparent 2D H5 courtyard renovation sprite. Match the supplied existing building reference in style: cute Chinese Shanhai Jing healing courtyard, hand-painted watercolor and gouache, warm timber, rounded forms, warm brown ink outline, soft paper texture, slightly elevated three-quarter view, upper-left key light, readable at 100px. Lock camera, perspective, footprint, bottom base anchor at 92% canvas height and center x at 50% for every stage. Keep the area identity and stage-to-stage silhouette stable; change only repair quality, scale within the same footprint, roof trim, functional props and small decorations. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: the same grooming pavilion and locked camera, polished roof trim, clean curtains, mirror stand, folded towels, grooming bench and two lanterns. This is renovation stage 3 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/groom.webp",
+      "source_path": "prototype/assets/art/v7/raw/buildings/groom_pavilion_stage2.png",
+      "formal_path": "prototype/assets/art/v7/sect/groom_pavilion_stage2.webp",
+      "status": "existing",
+      "source_sha256": "da387a2d5a28cf0c4acd3e0781a26fca3429ea29b8a232e8642421b1fcdc0b16",
+      "formal_sha256": "a8547bbff98673e2dd4dda1ddc3f160dc82bf3eaaccca8ebd2d08137f621c4e8",
+      "source_bytes": 5710187,
+      "formal_bytes": 88432,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.272339,
+        "file_bytes": 88432,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "groom_pavilion_stage3",
+      "kind": "building",
+      "family": "groom_pavilion",
+      "area": "groom_pavilion",
+      "level": 4,
+      "prompt": "Use case: game-building-sprite. Asset type: transparent 2D H5 courtyard renovation sprite. Match the supplied existing building reference in style: cute Chinese Shanhai Jing healing courtyard, hand-painted watercolor and gouache, warm timber, rounded forms, warm brown ink outline, soft paper texture, slightly elevated three-quarter view, upper-left key light, readable at 100px. Lock camera, perspective, footprint, bottom base anchor at 92% canvas height and center x at 50% for every stage. Keep the area identity and stage-to-stage silhouette stable; change only repair quality, scale within the same footprint, roof trim, functional props and small decorations. No people, no animals, no text, no letters, no numbers, no logo, no UI, no cast shadow outside the object. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient or texture. Do not use #ff00ff in the object. Subject: the same grooming pavilion and locked camera, graceful renewed grooming pavilion, layered roof, decorated deck, mirror stand, towel shelves, bamboo planter and three warm lanterns. This is renovation stage 4 of 4; do not add any words or sign text.",
+      "reference": "prototype/assets/art/buildings/groom.webp",
+      "source_path": "prototype/assets/art/v7/raw/buildings/groom_pavilion_stage3.png",
+      "formal_path": "prototype/assets/art/v7/sect/groom_pavilion_stage3.webp",
+      "status": "existing",
+      "source_sha256": "d8d1ee6a0bef344eabcc1f5aea9d57e462254d909c741ca7d989ccc4c9e28dd5",
+      "formal_sha256": "8f4fc749c6c6e8c596dcd503a60897434532d2d022323ce643825264fd76248e",
+      "source_bytes": 5679880,
+      "formal_bytes": 88932,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          768,
+          768
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.224124,
+        "file_bytes": 88932,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "build_01",
+      "kind": "icon",
+      "family": "build",
+      "area": null,
+      "level": 1,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (warm ochre construction material); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one curved strand of fresh mountain vine with a few green leaves and a tiny bud, 山藤, single material item. This is tier 1; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/build_01.png",
+      "formal_path": "prototype/assets/art/v7/match3/build_01.webp",
+      "status": "existing",
+      "source_sha256": "daebbee3daab6100ddbbb27b4f35a84c6872d06450f93017f1393c5ee3405c7b",
+      "formal_sha256": "f936edc123cc2e409da19afc06beb3cae266d108afd3444e95430d40736594ad",
+      "source_bytes": 3779414,
+      "formal_bytes": 6338,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.052429,
+        "file_bytes": 6338,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "build_02",
+      "kind": "icon",
+      "family": "build",
+      "area": null,
+      "level": 2,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (warm ochre construction material); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one short bundle of bright green bamboo poles tied with a simple cord, 青竹, single material item. This is tier 2; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/build_02.png",
+      "formal_path": "prototype/assets/art/v7/match3/build_02.webp",
+      "status": "existing",
+      "source_sha256": "2436786910b423943fb20494e88c011ba337a0b8acfe8e34e0af8b4d85c23046",
+      "formal_sha256": "1ef7d529a46720214d024d90b7d8a7ab0913213d7a0ad986736615eb8087a4bf",
+      "source_bytes": 4107461,
+      "formal_bytes": 5514,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.097153,
+        "file_bytes": 5514,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "build_03",
+      "kind": "icon",
+      "family": "build",
+      "area": null,
+      "level": 3,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (warm ochre construction material); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one polished warm-brown raw timber log with visible rings and one small branch, 原木, single material item. This is tier 3; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/build_03.png",
+      "formal_path": "prototype/assets/art/v7/match3/build_03.webp",
+      "status": "existing",
+      "source_sha256": "c52cb26c7c924d000cf55fab1d7597ae4a895fbff945acb3f3b329bb188457bf",
+      "formal_sha256": "de6f0f353f0053be51dd54fbe7f3cf5c04264b1c97bc7ffac54688215777fc94",
+      "source_bytes": 4604979,
+      "formal_bytes": 7658,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.169815,
+        "file_bytes": 7658,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "build_04",
+      "kind": "icon",
+      "family": "build",
+      "area": null,
+      "level": 4,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (warm ochre construction material); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: three clean square-cut grey foundation stones stacked as one small group, 方石, single material item. This is tier 4; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/build_04.png",
+      "formal_path": "prototype/assets/art/v7/match3/build_04.webp",
+      "status": "existing",
+      "source_sha256": "542c055e44f11603f62367baa9ca39a6bf4cda0796666b0ee1a2085911ea0818",
+      "formal_sha256": "893b0a800956562bf5cc962193cb11fac8acb358a28fa072a6c8f61e246fbe0e",
+      "source_bytes": 4030587,
+      "formal_bytes": 5164,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.109222,
+        "file_bytes": 5164,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "build_05",
+      "kind": "icon",
+      "family": "build",
+      "area": null,
+      "level": 5,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (warm ochre construction material); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: a neat small stack of blue-green fired masonry bricks with crisp edges, 青砖, single material item. This is tier 5; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/build_05.png",
+      "formal_path": "prototype/assets/art/v7/match3/build_05.webp",
+      "status": "existing",
+      "source_sha256": "2e4f95ede54fd68c3413c42602db8f2bce1cd49d3f94f71a13d07fe52c971732",
+      "formal_sha256": "cda790f3f9b73d517fccd8e0eb9a2fd35b01316500485b0657825675ad5c2e28",
+      "source_bytes": 4236059,
+      "formal_bytes": 6990,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.15506,
+        "file_bytes": 6990,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "build_06",
+      "kind": "icon",
+      "family": "build",
+      "area": null,
+      "level": 6,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (warm ochre construction material); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one ornate blue-grey roof-tile end ornament with a carved circular face, 瓦当, single material item. This is tier 6; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/build_06.png",
+      "formal_path": "prototype/assets/art/v7/match3/build_06.webp",
+      "status": "existing",
+      "source_sha256": "9b0a49d8ee3f2896f9d49985b00cc23d27665d39914f028c7f10857d33d7cd3d",
+      "formal_sha256": "3fab726d64a89d0b558ba1f15ac229b71c3e4c5fa296c2f5bcd75655197e7856",
+      "source_bytes": 4358325,
+      "formal_bytes": 6432,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.107224,
+        "file_bytes": 6432,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "build_07",
+      "kind": "icon",
+      "family": "build",
+      "area": null,
+      "level": 7,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (warm ochre construction material); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one small ceramic jar of amber camphor oil with a wooden cap and lacquer brush, 桐油, single material item. This is tier 7; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/build_07.png",
+      "formal_path": "prototype/assets/art/v7/match3/build_07.webp",
+      "status": "existing",
+      "source_sha256": "79c3348f591c17b1e5a5f6c663e5ed9b314f1814b0455d77c5a61e37fdd62ff7",
+      "formal_sha256": "dbbebff3d975d2925a8390246c6b8de6e390f9ff8ab01bff6e421ac01301d780",
+      "source_bytes": 4205414,
+      "formal_bytes": 6350,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.130173,
+        "file_bytes": 6350,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "build_08",
+      "kind": "icon",
+      "family": "build",
+      "area": null,
+      "level": 8,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (warm ochre construction material); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one long premium golden-thread nanmu plank with fine gold grain and carved ends, 金丝楠, single material item. This is tier 8; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/build_08.png",
+      "formal_path": "prototype/assets/art/v7/match3/build_08.webp",
+      "status": "existing",
+      "source_sha256": "dfe8409e1214346b8dde9272925b17227719c791d8e647e8a8369f058ba1c1aa",
+      "formal_sha256": "78d9a6716cde0d9294ef0b170f63bfcc5321a6dc1491eadd16e9b2645dbfec78",
+      "source_bytes": 4761060,
+      "formal_bytes": 7566,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.12735,
+        "file_bytes": 7566,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "build_09",
+      "kind": "icon",
+      "family": "build",
+      "area": null,
+      "level": 9,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (warm ochre construction material); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: a small tied bundle of glossy teal glazed roof tiles with luminous highlights, 琉璃瓦, single material item. This is tier 9; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/build_09.png",
+      "formal_path": "prototype/assets/art/v7/match3/build_09.webp",
+      "status": "existing",
+      "source_sha256": "12cc6e597b513e19659fbcf3fd0e7467f1f2b1d71501c06b3f4601300aa4bb5e",
+      "formal_sha256": "ee2a84e6105410ff4f70dbb42169693c4c2aec77c773c3e162a84db1bc997546",
+      "source_bytes": 4569631,
+      "formal_bytes": 8978,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.144073,
+        "file_bytes": 8978,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "build_10",
+      "kind": "icon",
+      "family": "build",
+      "area": null,
+      "level": 10,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (warm ochre construction material); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one imposing but standalone master construction beam with carved cloud ends and a jade joinery mark, 天工梁, single material item. This is tier 10; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/build_10.png",
+      "formal_path": "prototype/assets/art/v7/match3/build_10.webp",
+      "status": "existing",
+      "source_sha256": "f04c0c2c86b4c4993d47cc46e20526d7eac497131945b85a74dbf1d7ef42d997",
+      "formal_sha256": "8ca6d1b4b43eb7e1f366738a557fecf3981e3635e610e72a2bc8a875f331c507",
+      "source_bytes": 3792846,
+      "formal_bytes": 5870,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.066696,
+        "file_bytes": 5870,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "herb_07",
+      "kind": "icon",
+      "family": "herb",
+      "area": null,
+      "level": 7,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (bright green medicinal herb); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one bright green calming herb sprig with rounded leaves and a tiny dew drop, 清心草, single herb. This is tier 7; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/herb_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/herb_07.png",
+      "formal_path": "prototype/assets/art/v7/match3/herb_07.webp",
+      "status": "existing",
+      "source_sha256": "aa9e4ea708c929c3aa604542488dd69aa046b60aa8b7226374ea9ead3aacac35",
+      "formal_sha256": "a8795cbfdc0a330ab581733f4f6206cf473b25c19e173045712a0a638f7f906e",
+      "source_bytes": 3759868,
+      "formal_bytes": 4784,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.052322,
+        "file_bytes": 4784,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "herb_08",
+      "kind": "icon",
+      "family": "herb",
+      "area": null,
+      "level": 8,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (bright green medicinal herb); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one segmented jade-green magical ginseng root with nine clear joints and fine roots, 九节灵参, single herb. This is tier 8; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/herb_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/herb_08.png",
+      "formal_path": "prototype/assets/art/v7/match3/herb_08.webp",
+      "status": "existing",
+      "source_sha256": "2c21d1f6250dd5284db5021e19b43f82bc613f96630838e29728fd00b1410c18",
+      "formal_sha256": "ccd8690cf806aaa57731b6d37552e74b358232ea60f9b20c55bec001f74e099e",
+      "source_bytes": 4505625,
+      "formal_bytes": 11216,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.08522,
+        "file_bytes": 11216,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "herb_09",
+      "kind": "icon",
+      "family": "herb",
+      "area": null,
+      "level": 9,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (bright green medicinal herb); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one luminous moonlit reishi mushroom with a pale silver cap and a small green stem, 月华灵芝, single herb. This is tier 9; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/herb_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/herb_09.png",
+      "formal_path": "prototype/assets/art/v7/match3/herb_09.webp",
+      "status": "existing",
+      "source_sha256": "a5bcad1ab70609ea6b37cff6e891e28cd390654dd5a7b2bb89ea53effac2bbef",
+      "formal_sha256": "3726881ea1b46f8d53d673698088559eaaf065a801fd3fd82cb98531f2d2ad80",
+      "source_bytes": 4480793,
+      "formal_bytes": 6650,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.149506,
+        "file_bytes": 6650,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "herb_10",
+      "kind": "icon",
+      "family": "herb",
+      "area": null,
+      "level": 10,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (bright green medicinal herb); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one glowing immortal-tree sprout with a jade stem, two fresh leaves and a warm golden bud, 不死树芽, single herb. This is tier 10; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/herb_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/herb_10.png",
+      "formal_path": "prototype/assets/art/v7/match3/herb_10.webp",
+      "status": "existing",
+      "source_sha256": "598ba7b88dcd1eda76b4bd11ede7a64ffba0eda46b446f9669076c2884c576b2",
+      "formal_sha256": "014ec9ada8d6fbb4b734ecd65fc3cd3ecff9b322d274f891c0f9950dd911747c",
+      "source_bytes": 3841671,
+      "formal_bytes": 5240,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.058014,
+        "file_bytes": 5240,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "tool_07",
+      "kind": "icon",
+      "family": "tool",
+      "area": null,
+      "level": 7,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (clear blue apothecary tool); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one polished celadon-blue jade medicine jar with a rounded lid and a small cloud seal, 青玉药罐, single tool. This is tier 7; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/tool_07.png",
+      "formal_path": "prototype/assets/art/v7/match3/tool_07.webp",
+      "status": "existing",
+      "source_sha256": "87c25151b21b3c6a18c4da22cd7bab86deba15c6e3c6fcebdda268ef9ba23c81",
+      "formal_sha256": "a7b757b62dc8bc68eba3bfdcc005a98989106993c8fb9db0ec6f28d05ca6037c",
+      "source_bytes": 4026306,
+      "formal_bytes": 6226,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.151672,
+        "file_bytes": 6226,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "tool_08",
+      "kind": "icon",
+      "family": "tool",
+      "area": null,
+      "level": 8,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (clear blue apothecary tool); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one bright blue-green herb pestle with carved botanical grooves and a rounded bowl end, 百草杵, single tool. This is tier 8; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/tool_08.png",
+      "formal_path": "prototype/assets/art/v7/match3/tool_08.webp",
+      "status": "existing",
+      "source_sha256": "1110e134bab32f8319a91696591dbb1a1cf14a23381ec238377fbfd3367fd5a3",
+      "formal_sha256": "34e4f6d42a66ea9722dea6643be08b18fa45d5c919d9352810ff3afb5758a504",
+      "source_bytes": 4340420,
+      "formal_bytes": 5774,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.085693,
+        "file_bytes": 5774,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "tool_09",
+      "kind": "icon",
+      "family": "tool",
+      "area": null,
+      "level": 9,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (clear blue apothecary tool); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one compact blue medicine case with a cloud pattern, brass clasp and two tiny bottle slots, 云纹药箱, single tool. This is tier 9; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/tool_09.png",
+      "formal_path": "prototype/assets/art/v7/match3/tool_09.webp",
+      "status": "existing",
+      "source_sha256": "aa9fd15817ece5630bee0655cae00aa5b5823a7a94f94888ef45cd207500de2f",
+      "formal_sha256": "cfb7c3ae1c41f76c05f638723d2b86bbce935ae18781de48f7f9356ec72d6331",
+      "source_bytes": 4603306,
+      "formal_bytes": 7300,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.153458,
+        "file_bytes": 7300,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "tool_10",
+      "kind": "icon",
+      "family": "tool",
+      "area": null,
+      "level": 10,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (clear blue apothecary tool); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one majestic but standalone blue-and-bronze medicine cauldron with three legs, cloud handles and a glowing rim, 药王鼎, single tool. This is tier 10; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/tool_10.png",
+      "formal_path": "prototype/assets/art/v7/match3/tool_10.webp",
+      "status": "existing",
+      "source_sha256": "65af4682ba758dacd276daafda792814d8348dd7783db3f65a80ac8a7b8f32e9",
+      "formal_sha256": "ac607c3ee231ebfc9c55850e9eab08338678cdf5996cd965bcf61c1e1690d22b",
+      "source_bytes": 4338394,
+      "formal_bytes": 8470,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.164017,
+        "file_bytes": 8470,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "groom_07",
+      "kind": "icon",
+      "family": "groom",
+      "area": null,
+      "level": 7,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (lively purple grooming item); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one flowing purple cloud-silk cloak with a soft scalloped edge, tiny jade clasp and embroidered cloud trim, 云缎披风, single grooming item. This is tier 7; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/groom_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/groom_07.png",
+      "formal_path": "prototype/assets/art/v7/match3/groom_07.webp",
+      "status": "existing",
+      "source_sha256": "e5c08fcabcb1886e2c3e0c7ef3955e9e1e5c0916e3ea5fff1596302f1fc037fc",
+      "formal_sha256": "f8f2cdd632838554b8ca745801b7f9bf3265fec7bd08f5811770de736ad4f2e4",
+      "source_bytes": 5121947,
+      "formal_bytes": 7254,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.200943,
+        "file_bytes": 7254,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "groom_08",
+      "kind": "icon",
+      "family": "groom",
+      "area": null,
+      "level": 8,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (lively purple grooming item); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one ornate round purple treasure mirror with nine small fox-tail motifs around its rim and a jade handle, 九尾宝镜, single grooming item. This is tier 8; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/groom_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/groom_08.png",
+      "formal_path": "prototype/assets/art/v7/match3/groom_08.webp",
+      "status": "existing",
+      "source_sha256": "5fa4b25637b094edde73138bce46f6f2e34c44be8675834e84e7dee1b27827e4",
+      "formal_sha256": "c1890d7f288ee5538cd34d523bbb751d819d6de8abe43fe75f304b1bf109454c",
+      "source_bytes": 4294014,
+      "formal_bytes": 7606,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.154083,
+        "file_bytes": 7606,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "play_07",
+      "kind": "icon",
+      "family": "play",
+      "area": null,
+      "level": 7,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (bright rose-magenta play toy); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one small warm-wood rocking horse toy with a bright bell on its neck, rounded feet and a rose-magenta ribbon, 木马摇铃, single toy. This is tier 7; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/play_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/play_07.png",
+      "formal_path": "prototype/assets/art/v7/match3/play_07.webp",
+      "status": "existing",
+      "source_sha256": "2dc14973e98cdc94fdda56464f948446416f3651b4fe1e6cb58b12b54093415a",
+      "formal_sha256": "ce031af28c2b5e05517283f374405873803312d7df10c3ebcf0ca8ca86fa059a",
+      "source_bytes": 4561552,
+      "formal_bytes": 7894,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.13678,
+        "file_bytes": 7894,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "play_08",
+      "kind": "icon",
+      "family": "play",
+      "area": null,
+      "level": 8,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (bright rose-magenta play toy); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one compact rose-magenta tabletop hundred-plays toy stage with tiny curtains, a drum and two pennants, 百戏台, single toy; it must remain a small toy prop, not a building. This is tier 8; keep it clearly distinct from adjacent tiers.",
+      "reference": "prototype/assets/art/match3/play_06.png",
+      "source_path": "prototype/assets/art/v7/raw/icons/play_08.png",
+      "formal_path": "prototype/assets/art/v7/match3/play_08.webp",
+      "status": "existing",
+      "source_sha256": "9ad72578ba402b8257a186f25937a3451008df532dccf447f0ab5b13428bd476",
+      "formal_sha256": "9bd9b341ed24633f064b89fd5fb6b2a16abbc0717ff12e1a233026d0fb7a8cf3",
+      "source_bytes": 4092492,
+      "formal_bytes": 5132,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.076782,
+        "file_bytes": 5132,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "herb_part_01",
+      "kind": "producer_part",
+      "family": "herb",
+      "area": null,
+      "level": 1,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (bright green medicinal herb); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: a small warm-brown ball of magical planting soil with a single green sprout. This is producer-part stage 1 of 5; keep the silhouette distinct from adjacent stages and keep the object centered.",
+      "reference": "prototype/assets/art/match3/herb_06.png",
+      "source_path": "prototype/assets/art/v7/raw/producer_parts/herb_part_01.png",
+      "formal_path": "prototype/assets/art/v7/producer_parts/herb_part_01.webp",
+      "status": "existing",
+      "source_sha256": "ba29dfb84028a4dc2b7828fc1617b5e5bfe7f9cc2d2d44a3309cbf93f2e254a3",
+      "formal_sha256": "cadfa1a54b5f50b050a123c7a19dbd55744bb12a35d9e4f484e895270394804d",
+      "source_bytes": 3789694,
+      "formal_bytes": 3940,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.06366,
+        "file_bytes": 3940,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "herb_part_02",
+      "kind": "producer_part",
+      "family": "herb",
+      "area": null,
+      "level": 2,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (bright green medicinal herb); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: one folded green bamboo basket panel with a bright jade binding cord. This is producer-part stage 2 of 5; keep the silhouette distinct from adjacent stages and keep the object centered.",
+      "reference": "prototype/assets/art/match3/herb_06.png",
+      "source_path": "prototype/assets/art/v7/raw/producer_parts/herb_part_02.png",
+      "formal_path": "prototype/assets/art/v7/producer_parts/herb_part_02.webp",
+      "status": "existing",
+      "source_sha256": "49f37d8783034bf382bdd5ba9442c650d54c108438e32b1dd7df909a2ac723d8",
+      "formal_sha256": "f5fe24c92082c2e14df382d4a663e03579386878dbe2e7bcc71950d0580e4d89",
+      "source_bytes": 5511945,
+      "formal_bytes": 6570,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.113281,
+        "file_bytes": 6570,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "herb_part_03",
+      "kind": "producer_part",
+      "family": "herb",
+      "area": null,
+      "level": 3,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (bright green medicinal herb); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: a compact jade-green dew collecting seedbed with rounded planting cups. This is producer-part stage 3 of 5; keep the silhouette distinct from adjacent stages and keep the object centered.",
+      "reference": "prototype/assets/art/match3/herb_06.png",
+      "source_path": "prototype/assets/art/v7/raw/producer_parts/herb_part_03.png",
+      "formal_path": "prototype/assets/art/v7/producer_parts/herb_part_03.webp",
+      "status": "existing",
+      "source_sha256": "2431eee855eb77e518e438ab5a1ba13260bffe02dc497856a14184fa5f0bfdc2",
+      "formal_sha256": "dd037c4759d0917f1cb7a32f548705b18a4689d5492a2970904741e8b8e0dbfe",
+      "source_bytes": 4492119,
+      "formal_bytes": 8088,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.148926,
+        "file_bytes": 8088,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "herb_part_04",
+      "kind": "producer_part",
+      "family": "herb",
+      "area": null,
+      "level": 4,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (bright green medicinal herb); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: a neat miniature herb nursery with rows of luminous green seedlings, bamboo edging and a tiny water channel. This is producer-part stage 4 of 5; keep the silhouette distinct from adjacent stages and keep the object centered.",
+      "reference": "prototype/assets/art/match3/herb_06.png",
+      "source_path": "prototype/assets/art/v7/raw/producer_parts/herb_part_04.png",
+      "formal_path": "prototype/assets/art/v7/producer_parts/herb_part_04.webp",
+      "status": "existing",
+      "source_sha256": "aacb676168cf22ce183a8f70c511a139c9f4add6511f55f1dedc5dea2248e17d",
+      "formal_sha256": "c220c4b5c4e3b2a73b7c5833cb1d27ae8e715b95cc2338f54afcf1a39318662a",
+      "source_bytes": 5113483,
+      "formal_bytes": 10496,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.165298,
+        "file_bytes": 10496,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "herb_part_05",
+      "kind": "producer_part",
+      "family": "herb",
+      "area": null,
+      "level": 5,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (bright green medicinal herb); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: a clearly functional five-tier magical herb nursery generator, an ornate jade-and-bamboo growing rack with glowing herb beds, dew collector, water wheel and a small warm status lantern. This is producer-part stage 5 of 5; keep the silhouette distinct from adjacent stages and keep the object centered.",
+      "reference": "prototype/assets/art/match3/herb_06.png",
+      "source_path": "prototype/assets/art/v7/raw/producer_parts/herb_part_05.png",
+      "formal_path": "prototype/assets/art/v7/producer_parts/herb_part_05.webp",
+      "status": "existing",
+      "source_sha256": "ed0a4ec252648fac4554306dfaa1f4f4204ebdd2afab675b1941c4602fc37dc9",
+      "formal_sha256": "9d21ae3e27de99174892df0f7c191da36d2bd427719a11ff81dda474d471620e",
+      "source_bytes": 5885412,
+      "formal_bytes": 16580,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.223969,
+        "file_bytes": 16580,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 7
+      },
+      "error": null
+    },
+    {
+      "id": "tool_part_01",
+      "kind": "producer_part",
+      "family": "tool",
+      "area": null,
+      "level": 1,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (clear blue apothecary tool); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: a few bright copper gear fragments and one tiny blue screw. This is producer-part stage 1 of 5; keep the silhouette distinct from adjacent stages and keep the object centered.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/producer_parts/tool_part_01.png",
+      "formal_path": "prototype/assets/art/v7/producer_parts/tool_part_01.webp",
+      "status": "existing",
+      "source_sha256": "763675af7b0d870f767ad741c2031e0fcad2482f542a854dee5e3456f7e8694f",
+      "formal_sha256": "af137bb205854d44b89fc6adcdf23de955ac99fe4cd93703994dfaa319dde911",
+      "source_bytes": 4909879,
+      "formal_bytes": 10796,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.132935,
+        "file_bytes": 10796,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "tool_part_02",
+      "kind": "producer_part",
+      "family": "tool",
+      "area": null,
+      "level": 2,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (clear blue apothecary tool); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: a compact blue-bronze medicine furnace mechanism with one gear and a short pipe. This is producer-part stage 2 of 5; keep the silhouette distinct from adjacent stages and keep the object centered.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/producer_parts/tool_part_02.png",
+      "formal_path": "prototype/assets/art/v7/producer_parts/tool_part_02.webp",
+      "status": "existing",
+      "source_sha256": "880b4fe3f38022e61483ef44f3c6b5e388da0dfa0e1a70044641510c9fa3f870",
+      "formal_sha256": "b1da5fcb63afd0ad78b7242598933157ce9fdb937448ed8981ffa2a61b396a9b",
+      "source_bytes": 4214519,
+      "formal_bytes": 5680,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.098282,
+        "file_bytes": 5680,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "tool_part_03",
+      "kind": "producer_part",
+      "family": "tool",
+      "area": null,
+      "level": 3,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (clear blue apothecary tool); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: a polished blue inner furnace core with concentric copper rings and a soft glow. This is producer-part stage 3 of 5; keep the silhouette distinct from adjacent stages and keep the object centered.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/producer_parts/tool_part_03.png",
+      "formal_path": "prototype/assets/art/v7/producer_parts/tool_part_03.webp",
+      "status": "existing",
+      "source_sha256": "706fc8dd283cba330261f2a576611eb38560919d05e319c1d38c93d231f57d06",
+      "formal_sha256": "a7961a0e39efce4626463d1cdff516e2a849d5068b82e01da7932a0d9a00adb6",
+      "source_bytes": 4021982,
+      "formal_bytes": 5906,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.125351,
+        "file_bytes": 5906,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "tool_part_04",
+      "kind": "producer_part",
+      "family": "tool",
+      "area": null,
+      "level": 4,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (clear blue apothecary tool); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: a refined blue apothecary machine with bellows, copper gears, a small heat gauge and a medicine tray. This is producer-part stage 4 of 5; keep the silhouette distinct from adjacent stages and keep the object centered.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/producer_parts/tool_part_04.png",
+      "formal_path": "prototype/assets/art/v7/producer_parts/tool_part_04.webp",
+      "status": "existing",
+      "source_sha256": "765ad65f942757e9d5a80a1348fe2bff8e42c9151f691ac457c8f06d44fbe314",
+      "formal_sha256": "aae04bfc76d0fb9cc22eab995f7ec4ff70bf00ba78bce076dd43eaae7f0ef444",
+      "source_bytes": 4508822,
+      "formal_bytes": 7982,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.140915,
+        "file_bytes": 7982,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "tool_part_05",
+      "kind": "producer_part",
+      "family": "tool",
+      "area": null,
+      "level": 5,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (clear blue apothecary tool); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: a clearly functional five-tier magical medicine-tool generator, an ornate blue-bronze alchemy furnace with moving gears, bellows, glowing core, output tray and a small warm status lantern. This is producer-part stage 5 of 5; keep the silhouette distinct from adjacent stages and keep the object centered.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/producer_parts/tool_part_05.png",
+      "formal_path": "prototype/assets/art/v7/producer_parts/tool_part_05.webp",
+      "status": "existing",
+      "source_sha256": "588676f477a7dc6a23d6ecce4acdca8937b90833780850e970df5e72e3dd8204",
+      "formal_sha256": "c767cfb3f6847a7f737d76149c480285d809e224551f9895b82b0952651b670f",
+      "source_bytes": 4897403,
+      "formal_bytes": 10014,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.136444,
+        "file_bytes": 10014,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "build_part_01",
+      "kind": "producer_part",
+      "family": "build",
+      "area": null,
+      "level": 1,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (warm ochre construction material); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: a small pile of warm cedar joinery shavings with one carved wooden peg. This is producer-part stage 1 of 5; keep the silhouette distinct from adjacent stages and keep the object centered.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/producer_parts/build_part_01.png",
+      "formal_path": "prototype/assets/art/v7/producer_parts/build_part_01.webp",
+      "status": "existing",
+      "source_sha256": "3f021e5c72d351c4b4bf42092d7c827866f93402b01110f0937d0d26eaf4def3",
+      "formal_sha256": "14e16de6f5d7225cbd0586d505c576c2a352e20f7ccdafc6a881c97a9f76524d",
+      "source_bytes": 4754384,
+      "formal_bytes": 10504,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.151505,
+        "file_bytes": 10504,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "build_part_02",
+      "kind": "producer_part",
+      "family": "build",
+      "area": null,
+      "level": 2,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (warm ochre construction material); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: two polished warm-brown mortise-and-tenon carpenter components tied with cord. This is producer-part stage 2 of 5; keep the silhouette distinct from adjacent stages and keep the object centered.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/producer_parts/build_part_02.png",
+      "formal_path": "prototype/assets/art/v7/producer_parts/build_part_02.webp",
+      "status": "existing",
+      "source_sha256": "8d82a2a7a45655093ad3e24d1fd7fca7a40a1b64e8a746a814267baf6d5e6360",
+      "formal_sha256": "f92100121bccec7541efd9825fcc16cf6c79058b175d2e7c7a6aa1d4b375e62a",
+      "source_bytes": 4256783,
+      "formal_bytes": 6476,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.10527,
+        "file_bytes": 6476,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "build_part_03",
+      "kind": "producer_part",
+      "family": "build",
+      "area": null,
+      "level": 3,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (warm ochre construction material); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: a compact handheld spirit-wood mechanical casing, palm-sized carved wooden box with exposed brass gears, hinge and jade core, 灵木机匣; absolutely no roof, wall, house, pavilion or architecture. This is producer-part stage 3 of 5; keep the silhouette distinct from adjacent stages and keep the object centered.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/producer_parts/build_part_03.png",
+      "formal_path": "prototype/assets/art/v7/producer_parts/build_part_03.webp",
+      "status": "existing",
+      "source_sha256": "41c13ad77d52bad418e9147ec53c38d54ae2c52ea341cb460f8b18b4acb28ca1",
+      "formal_sha256": "4414cd6ec8d775fc1d197c97edc244f00f464356544a9f3f28de050cd5155535",
+      "source_bytes": 4304639,
+      "formal_bytes": 6856,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.137848,
+        "file_bytes": 6856,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "build_part_04",
+      "kind": "producer_part",
+      "family": "build",
+      "area": null,
+      "level": 4,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (warm ochre construction material); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: a small tabletop woodworking workbench object with two clamps, loose beams, carved brackets and a tiny lantern, 山门工台; no roof, wall, house, pavilion, tower or architecture. This is producer-part stage 4 of 5; keep the silhouette distinct from adjacent stages and keep the object centered.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/producer_parts/build_part_04.png",
+      "formal_path": "prototype/assets/art/v7/producer_parts/build_part_04.webp",
+      "status": "existing",
+      "source_sha256": "99838bc37c502e0b68286538f3d60e37850b985cf3da2ad33aa9e6098e605d87",
+      "formal_sha256": "b4f9b84981046cb753b0a765238e6fdca3a40426206671c200c3311c613872b0",
+      "source_bytes": 4751162,
+      "formal_bytes": 8856,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.142853,
+        "file_bytes": 8856,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "build_part_05",
+      "kind": "producer_part",
+      "family": "build",
+      "area": null,
+      "level": 5,
+      "prompt": "Use case: game-match3-icon. Asset type: transparent 2D board token. Create one centered standalone object, fully inside a square frame with generous padding. Match the supplied existing H5 reference: cute hand-painted Chinese Shanhai Jing healing game, watercolor and gouache, soft rounded chibi silhouette, crisp warm-brown ink outline, readable at 42px, subtle paper grain. The family color must dominate the object (warm ochre construction material); make this high tier visibly richer than lower tiers using silhouette, material and one or two functional details. Draw only the named single item or small item group; never turn it into a building, house, roof, pavilion, gate, room, landscape or scene. No cast shadow, no floor, no reflection, no character, no animal, no text, no letters, no numbers, no watermark, no logo. Place the object on a perfectly flat solid #ff00ff chroma-key background with no gradient, texture or lighting variation. Do not use #ff00ff in the object. Subject: a compact tabletop cloud-gate maker generator machine on one stone base, with a rotating crane arm, joinery clamps, output tray and warm status lantern, 云阙造物台; a clickable production machine but not a tower, house, pavilion, gate or architecture. This is producer-part stage 5 of 5; keep the silhouette distinct from adjacent stages and keep the object centered.",
+      "reference": "prototype/assets/art/match3/tool_06.png",
+      "source_path": "prototype/assets/art/v7/raw/producer_parts/build_part_05.png",
+      "formal_path": "prototype/assets/art/v7/producer_parts/build_part_05.webp",
+      "status": "existing",
+      "source_sha256": "e2e995cbcc14acca8da10f7d5aa7785ccd36aa924407abadfae2b8ddb9c4e735",
+      "formal_sha256": "1739b384e381a5be3788ce41f768e025cbefb66facc0d9ed33f3f3d8a470e6ae",
+      "source_bytes": 4399367,
+      "formal_bytes": 8554,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          256,
+          256
+        ],
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "opaque_ratio": 0.120346,
+        "file_bytes": 8554,
+        "edge_key_like_pixels": 0,
+        "edge_white_pixels": 0,
+        "edge_black_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "id": "bg_fox_lantern_buildingfree",
+      "kind": "background",
+      "family": "scene",
+      "area": null,
+      "level": 1,
+      "prompt": "Use case: illustration-story. Asset type: vertical 2D mobile game courtyard background. Create an empty building-free Chinese Shanhai Jing healing courtyard in the same warm watercolor and gouache style as the supplied reference building sprites. 4:5 portrait composition, elevated perspective, a broad central stone path, distant blue mountains, bamboo, flowering trees, pond and four clearly empty stone-and-timber foundation zones: two near the upper sides and two near the lower sides. Keep the center path and four foundation zones readable for composited buildings. No house, roof, pavilion, hut, gate, stall, furniture, characters, animals, text, logo or UI. Use the supplied fox-lantern courtyard only as a color and atmosphere reference; remove all buildings and fox-shaped lantern props.",
+      "reference": "prototype/assets/art/scenes/bg_fox_lantern_buildingfree.webp",
+      "source_path": "prototype/assets/art/v7/raw/backgrounds/bg_fox_lantern_buildingfree.png",
+      "formal_path": "prototype/assets/art/v7/scenes/bg_fox_lantern_buildingfree.webp",
+      "status": "existing",
+      "source_sha256": "f94126aed1b40ed078c753024460641735255372851d8222ce9b66d07420c6a3",
+      "formal_sha256": "69c0e3744a5cbca75d8c01b401f020a8cb1c3ad0d0c8f1977108730551d83e62",
+      "source_bytes": 6564785,
+      "formal_bytes": 251368,
+      "validation": {
+        "ok": true,
+        "errors": [],
+        "dimensions": [
+          800,
+          1000
+        ],
+        "file_bytes": 251368
+      },
+      "error": null
+    }
+  ],
+  "contact_sheet": "prototype/assets/art/v7/contact_sheet.webp",
+  "summary": {
+    "requested": 54,
+    "ok": 0,
+    "existing": 54,
+    "dry_run": 0,
+    "blocked": 0,
+    "failed": 0,
+    "invalid": 0,
+    "pending": 0,
+    "failed_ids": []
+  }
+}

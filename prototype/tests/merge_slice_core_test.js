@@ -24,7 +24,7 @@ try {
 const NOW = 1_735_689_600_000; // 固定时间，避免测试依赖当前日期
 const DAY = 24 * 60 * 60 * 1000;
 const EIGHT_HOURS = 8 * 60 * 60 * 1000;
-const BEASTS = ['qiongqi', 'jiuweihu', 'xiangliu', 'taotie'];
+const BEASTS = ['qiongqi', 'jiuweihu', 'taotie'];
 const REQUIRED = [
   'createFresh', 'normalize', 'ensureOrders', 'generate', 'mergeItems',
   'deliverOrder', 'recordCare', 'advanceTime', 'claimJob', 'ensureDaily',

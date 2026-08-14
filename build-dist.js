@@ -7,10 +7,10 @@ const dist = path.join(root, 'dist');
 const ART_SOURCE = path.join(root, 'prototype', 'assets', 'art');
 const ART_TARGET = path.join(dist, 'assets', 'art');
 
-// The merge slice currently ships four beasts.  Keep this list in one place so
-// adding another stage asset never turns into a qiongqi-only special case.
-const BEAST_IDS = ['qiongqi', 'jiuweihu', 'xiangliu', 'taotie'];
-const STAGES = ['s0', 's1', 's2', 's3'];
+// The merge slice currently ships three beasts (相柳 removed from the cast in
+// the 2026-08 erratum).  Keep this list in one place so adding another stage
+// asset never turns into a qiongqi-only special case.
+const BEAST_IDS = ['qiongqi', 'jiuweihu', 'taotie'];
 
 function toPosix(value) {
   return value.split(path.sep).join('/');
@@ -202,22 +202,9 @@ for (const entryName of ['bootstrap.js', 'ui.js']) {
   if (sourceRelative) writeTextAsset(sourceRelative, `js/${entryName}`);
 }
 
-// Optional stage files are copied independently.  Missing s1/s2 assets are
-// expected for some beasts; runtime code is responsible for falling back.
-for (const beastId of BEAST_IDS) {
-  for (const stage of STAGES) {
-    const filename = `${beastId}_${stage}.png`;
-    const sourceRelative = `prototype/assets/art/characters/${filename}`;
-    // Some beasts intentionally reuse their final-stage illustration for an
-    // intermediate stage. Those absent aliases are expected, not build noise.
-    if (isFile(absolute(sourceRelative))) {
-      copyFileIfPresent(sourceRelative, `assets/art/characters/${filename}`);
-    }
-  }
-}
-
-// Ship reviewed five-form portraits for every beast. The fox additionally
-// owns deterministic WebP action atlases; source/generation files stay out.
+// Ship only the reviewed five-form portraits. The old s0-s3 PNG aliases are
+// no longer referenced by the v7 client and would duplicate the same art in
+// the install package. The fox additionally owns optimized WebP atlases.
 for (const beastId of BEAST_IDS) {
   for (let level = 1; level <= 5; level += 1) {
     const filename = `${beastId}_lv${level}.webp`;
@@ -252,6 +239,18 @@ const RELEASE_SCENES = new Set([
 ]);
 copyDirectoryIfPresent('prototype/assets/art/scenes', 'assets/art/scenes', (relativeFile) => RELEASE_SCENES.has(toPosix(relativeFile)));
 copyDirectoryIfPresent('prototype/assets/audio', 'assets/audio');
+// v7 keeps its reviewed restoration stages, expanded merge icons and limited
+// scene in one versioned tree. Preserve that exact relative path in dist so
+// the source manifest can also serve as the deployment contract.
+copyDirectoryIfPresent(
+  'prototype/assets/art/v7',
+  'assets/art/v7',
+  (relativeFile) => {
+    const normalized = toPosix(relativeFile);
+    if (normalized === 'contact_sheet.webp') return false;
+    return ['.webp', '.json'].includes(path.extname(relativeFile).toLowerCase());
+  }
+);
 // Four legacy, unlevelled building renders remain as generation references.
 // The live scene exclusively uses the 4 x 3 reviewed level matrix.
 copyDirectoryIfPresent(
@@ -269,8 +268,8 @@ const manifestEntries = walkFiles(dist)
     const relative = toPosix(path.relative(dist, filePath));
     const bytes = fs.readFileSync(filePath);
     let bundle = 'boot';
-    if (relative.startsWith('assets/art/scenes/') || relative.startsWith('assets/art/buildings/') || relative.startsWith('assets/art/characters/')) bundle = 'scene';
-    else if (relative.startsWith('assets/art/match3/')) bundle = 'minigame';
+    if (relative.startsWith('assets/art/scenes/') || relative.startsWith('assets/art/buildings/') || relative.startsWith('assets/art/characters/') || relative.startsWith('assets/art/v7/sect/') || relative.startsWith('assets/art/v7/scenes/')) bundle = 'scene';
+    else if (relative.startsWith('assets/art/match3/') || relative.startsWith('assets/art/v7/match3/') || relative.startsWith('assets/art/v7/producer_parts/')) bundle = 'minigame';
     else if (relative.startsWith('assets/audio/')) bundle = 'audio';
     return {
       path: relative,
