@@ -17,12 +17,16 @@
   var unlockHandler = null;
   var sounds = {};
   var lastClickAt = 0;
+  var lastPlayAt = {};
   var MAX_SFX_MS = {
     click: 95,
     merge: 220,
     order: 220,
     care: 190,
-    purchase: 240
+    purchase: 240,
+    swap: 150,
+    match: 220,
+    land: 180
   };
   var defaultAudio = {
     sfx: {
@@ -122,6 +126,10 @@
       var now = Date.now();
       if (now - lastClickAt < 55) return false;
       lastClickAt = now;
+    } else {
+      var now2 = Date.now();
+      if (now2 - (lastPlayAt[name] || 0) < 60) return false;
+      lastPlayAt[name] = now2;
     }
     var settings = config();
     var filename = settings.sfx[name] || settings.sfx.click;

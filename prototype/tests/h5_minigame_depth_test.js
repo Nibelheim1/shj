@@ -152,6 +152,13 @@ function runMatch3Depth() {
     '图标统一为简洁 groom 系列');
 
   console.log('  PASS  Match3 800 固定种子、连续稳定态、确定性重排、步数/目标/图标');
+
+  const hintGame = new Match3.Game('GROOM', { difficulty: 'easy', rng: seeded(900) });
+  const hintEvents = [];
+  hintGame.onEvent = function (name, data) { hintEvents.push({ name: name, data: data }); };
+  assert.strictEqual(hintGame.useHint(), true, 'useHint 必须找到可走交换');
+  assert.ok(hintGame.hintSwap && hintGame.hintTimer > 0, '提示应高亮两个格子并持续计时');
+  assert.strictEqual(hintEvents[0] && hintEvents[0].name, 'hint', '提示动作发出 hint 事件');
 }
 
 function replaceGrid(game, rows) {
@@ -262,6 +269,14 @@ function runLinkDepth() {
   assert.strictEqual(summary.allowOutside, true);
   assert.strictEqual(summary.layoutShift, 'left');
   assert.strictEqual(summary.autoRescues, 1);
+
+  const eventGame = new LinkGame.Game('PLAY', { difficulty: 'easy', rng: seeded(800) });
+  const linkEvents = [];
+  eventGame.onEvent = function (name) { linkEvents.push(name); };
+  const legalPair = eventGame.listLegalPairs()[0];
+  assert.ok(legalPair, '事件测试存在合法对子');
+  assert.strictEqual(eventGame._clearPair(legalPair.a, legalPair.b), true, '事件测试成功消除');
+  assert.ok(linkEvents.indexOf('swap') >= 0 && linkEvents.indexOf('match') >= 0, '连连看发出 swap/match 事件');
 
   console.log('  PASS  Link 800 固定种子、完整解、BFS 转折/外圈、锁定、动态布局、救援惩罚');
 }

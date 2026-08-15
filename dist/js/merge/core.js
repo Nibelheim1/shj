@@ -471,25 +471,52 @@
     return clamp(stageBonusForFamily(state, 'generator.doubleDrop', family, 'add'), 0, 0.95);
   }
 
-  function makeGenerator(family, level, now, charges, partPity) {
+  function isPermanentGeneratorFamily(family) {
+    var list = DATA.generators && DATA.generators.permanentFamilies || ['herb', 'tool', 'food'];
+    return list.indexOf(family) >= 0;
+  }
+
+  function consumableUsesForLevel(level) {
+    var list = DATA.generators && DATA.generators.consumableUses || [10, 20, 30];
+    return Math.max(1, Math.floor(number(list[clamp(Math.floor(number(level, 1)), 1, list.length) - 1], 10)));
+  }
+
+  function consumableDropTable(level) {
+    var tables = DATA.generators && DATA.generators.consumableDropTables || {};
+    var table = tables[clamp(Math.floor(number(level, 1)), 1, 3)] || tables[1] || [{ tier: 4, chance: 0.6 }, { tier: 5, chance: 0.4 }];
+    return clone(table);
+  }
+
+  function consumableProductDrop(family, level) {
+    var map = DATA.generators && DATA.generators.consumableProductDrops || {};
+    var familyMap = map[family] || {};
+    return familyMap[clamp(Math.floor(number(level, 1)), 1, 3)] || null;
+  }
+
+  function makeGenerator(family, level, now, charges, partPity, permanent) {
     var config = generatorLevelConfig(level);
     var capacity = Math.max(1, Math.floor(number(config.capacity, 16)));
     var safeLevel = clamp(Math.floor(number(level, 1)), 1, number(DATA.generators && DATA.generators.maxLevel, 5));
+    var isPermanent = arguments.length >= 6 ? !!permanent : isPermanentGeneratorFamily(family);
     var chain = producerChain(family);
-    return {
+    var item = {
       kind: 'generator', family: family,
       name: chain && chain.generatorNames && chain.generatorNames[safeLevel - 1] || GENERATOR_NAMES[family] || family + '生成器',
       art: chain && chain.artRoot ? chain.artRoot + '05.webp' : '',
       level: safeLevel,
-      charges: clamp(Math.floor(number(charges, capacity)), 0, capacity),
+      permanent: isPermanent,
+      charges: isPermanent ? clamp(Math.floor(charges == null ? capacity : number(charges, capacity)), 0, capacity) : 0,
       capacity: capacity,
       lastRechargeAt: number(now, Date.now()),
-      partPity: Math.max(0, Math.floor(number(partPity, 0)))
+      partPity: Math.max(0, Math.floor(number(partPity, 0))),
+      lifetime: isPermanent ? null : Math.max(1, Math.floor(charges == null ? consumableUsesForLevel(safeLevel) : number(charges, consumableUsesForLevel(safeLevel))))
     };
+    return item;
   }
 
   function advanceGeneratorItem(item, now, state) {
     if (!item || item.kind !== 'generator') return 0;
+    if (item.permanent === false) return 0;
     now = number(now, Date.now());
     var config = generatorLevelConfig(item.level);
     var baseCapacity = Math.max(1, Math.floor(number(config.capacity, 16)));
@@ -534,6 +561,27 @@
     return null;
   }
 
+  function generatorUpgradeGate(state, family, nextLevel) {
+    var gates = DATA.generators && DATA.generators.upgradeGates || {};
+    var gate = gates[family];
+    var missing = [];
+    if (nextLevel >= 4 && gate && gate.areaId) {
+      if (sectStageCount(state, gate.areaId) < Math.max(1, Math.floor(number(gate.areaStage, 2)))) {
+        var gateArea = areaDefinition(gate.areaId);
+        missing.push({ kind: 'areaStage', areaId: gate.areaId, areaName: gateArea && gateArea.name || gate.areaId, stage: Math.max(1, Math.floor(number(gate.areaStage, 2))) });
+      }
+    }
+    if (nextLevel >= 5 && gate && gate.level5Product) {
+      var need = 1;
+      var have = Math.max(0, Math.floor(number(state.products && state.products[gate.level5Product], 0)));
+      if (have < need) {
+        var recipe = recipeDefinition(gate.level5Product);
+        missing.push({ kind: 'product', productId: gate.level5Product, productName: recipe && recipe.name || gate.level5Product, need: need, have: have });
+      }
+    }
+    return { ok: missing.length === 0, missing: missing };
+  }
+
   function getGeneratorState(state, family, now) {
     var known = !!GENERATOR_NAMES[family] && !GAME_SOURCE_FAMILIES[family];
     if (!known) return { ok: false, family: family, reason: 'generator-missing' };
@@ -544,36 +592,75 @@
     var maxLevel = number(DATA.generators && DATA.generators.maxLevel, 5);
     var level = clamp(Math.floor(number(found.item.level, 1)), 1, maxLevel);
     found.item.level = level;
+    found.item.permanent = found.item.permanent !== false;
     advanceGeneratorItem(found.item, now, state);
-    var current = generatorLevelConfig(level);
     var nextLevel = level < maxLevel ? level + 1 : null;
     var next = nextLevel ? generatorLevelConfig(nextLevel) : null;
+    var isPermanent = found.item.permanent !== false;
+    var reason = null;
+    var nextCost = null;
+    var pairCount = 0;
     var sameLevelCount = (state.grid || []).filter(function (item) {
       return item && item.kind === 'generator' && item.family === family && number(item.level, 1) === level;
     }).length;
-    var reason = null;
-    if (!next) reason = 'max-level';
-    else if (sameLevelCount < 2) reason = 'merge-required';
+    if (!next) {
+      reason = 'max-level';
+    } else if (isPermanent) {
+      var energyCost = Math.max(0, Math.floor(number(DATA.generators && DATA.generators.upgradeEnergyCosts && DATA.generators.upgradeEnergyCosts[nextLevel - 1], 0)));
+      var jadeCost = Math.max(0, Math.floor(number(next.upgradeCost != null ? next.upgradeCost : next.legacyUpgradeCost, 0)));
+      var gate = generatorUpgradeGate(state, family, nextLevel);
+      var missing = [];
+      if (currentChapterVolume(state) >= 1 && state.level < Math.max(1, Math.floor(number(next.requiredPlayerLevel, 1)))) {
+        missing.push({ kind: 'playerLevel', need: Math.max(1, Math.floor(number(next.requiredPlayerLevel, 1))), have: state.level });
+      }
+      if (state.jade < jadeCost) missing.push({ kind: 'jade', need: jadeCost, have: Math.floor(number(state.jade, 0)) });
+      if (state.energy < energyCost) missing.push({ kind: 'energy', need: energyCost, have: Math.floor(number(state.energy, 0)) });
+      missing = missing.concat(gate.missing);
+      reason = missing.length ? 'upgrade-gate' : null;
+      nextCost = { jade: jadeCost, energy: energyCost, requiredPlayerLevel: next ? Math.max(1, Math.floor(number(next.requiredPlayerLevel, 1))) : null, gate: gate, missing: missing };
+    } else {
+      pairCount = sameLevelCount;
+      if (sameLevelCount < 2) reason = 'merge-required';
+    }
+    var dropTable = isPermanent ? generatorDropTable(level) : consumableDropTable(level);
     return {
-      ok: true, family: family, level: level, maxLevel: maxLevel,
-      charges: found.item.charges, capacity: effectiveGeneratorCapacity(state, family, level),
-      rechargeMs: effectiveGeneratorRechargeMs(state, family, level), lastRechargeAt: found.item.lastRechargeAt,
+      ok: true, family: family, level: level, maxLevel: maxLevel, permanent: isPermanent,
+      charges: isPermanent ? found.item.charges : 0, capacity: isPermanent ? effectiveGeneratorCapacity(state, family, level) : 0,
+      rechargeMs: isPermanent ? effectiveGeneratorRechargeMs(state, family, level) : null, lastRechargeAt: found.item.lastRechargeAt,
       partDropChance: effectiveGeneratorPartChance(state, family, level),
       partPity: found.item.partPity,
-      dropTable: generatorDropTable(level), nextLevel: nextLevel,
-      nextCost: 0,
+      dropTable: dropTable, nextLevel: nextLevel,
+      nextCost: nextCost,
       requiredPlayerLevel: next ? number(next.requiredPlayerLevel, 1) : null,
-      canUpgrade: !reason, upgradeMode: 'merge', pairCount: sameLevelCount, reason: reason
+      canUpgrade: !reason, upgradeMode: isPermanent ? 'resource' : 'merge',
+      pairCount: pairCount, sameLevelCount: sameLevelCount, reason: reason,
+      lifetime: isPermanent ? null : Math.max(0, Math.floor(number(found.item.lifetime, 0))),
+      maxLifetime: isPermanent ? null : consumableUsesForLevel(level)
     };
   }
 
   function upgradeGenerator(state, family) {
     var info = getGeneratorState(state, family);
     if (!info.ok) return info;
-    if (!info.canUpgrade) return Object.assign({}, info, { ok: false });
+    if (!info.nextLevel) return Object.assign({}, info, { ok: false, reason: 'max-level' });
+    var found = findGenerator(state, family);
+    if (info.permanent) {
+      if (info.reason === 'upgrade-gate') return Object.assign({}, info, { ok: false, reason: 'upgrade-gate' });
+      var cost = info.nextCost || {};
+      if (state.jade < number(cost.jade, 0)) return Object.assign({}, info, { ok: false, reason: 'jade' });
+      if (state.energy < number(cost.energy, 0)) return Object.assign({}, info, { ok: false, reason: 'energy' });
+      state.jade -= number(cost.jade, 0);
+      state.energy -= number(cost.energy, 0);
+      found.item.level = clamp(Math.floor(number(found.item.level, 1)) + 1, 1, number(DATA.generators && DATA.generators.maxLevel, 5));
+      found.item.charges = clamp(Math.floor(number(found.item.charges, 0)), 0, effectiveGeneratorCapacity(state, family, found.item.level));
+      return Object.assign({}, info, {
+        ok: true, level: found.item.level, resourceUpgrade: true, jadeCost: number(cost.jade, 0), energyCost: number(cost.energy, 0),
+        events: [{ type: 'generator_upgraded', family: family, level: found.item.level }]
+      });
+    }
     var indexes = [];
     state.grid.forEach(function (item, index) {
-      if (item && item.kind === 'generator' && item.family === family && number(item.level, 1) === info.level) indexes.push(index);
+      if (item && item.kind === 'generator' && item.family === family && item.permanent === false && number(item.level, 1) === info.level) indexes.push(index);
     });
     if (indexes.length < 2) return Object.assign({}, info, { ok: false, reason: 'merge-required' });
     return mergeItems(state, indexes[0], indexes[1], Date.now());
@@ -607,10 +694,7 @@
     [
       [0, 'herb', 1], [1, 'herb', 1], [2, 'tool', 1], [3, 'tool', 1],
       [4, 'herb', 2], [5, 'herb', 1], [6, 'tool', 1], [7, 'herb', 1],
-      [10, 'herb', 1], [11, 'tool', 1], [12, 'tool', 1], [14, 'herb', 1],
-      [15, 'herb', 1], [16, 'tool', 2], [17, 'herb', 1], [19, 'herb', 1],
-      [20, 'tool', 1], [21, 'herb', 1], [24, 'herb', 1], [25, 'tool', 1],
-      [27, 'tool', 1], [29, 'herb', 1]
+      [10, 'herb', 1], [11, 'tool', 1], [14, 'herb', 1], [16, 'tool', 2]
     ].forEach(function (entry) { grid[entry[0]] = makeItem(entry[1], entry[2]); });
     [8, 9, 18, 32].forEach(function (index) {
       grid[index] = { kind: 'obstacle', tier: 1, name: '藤蔓障碍' };
@@ -618,8 +702,8 @@
     [13, 22, 34].forEach(function (index) {
       grid[index] = { kind: 'sealed', tier: 1, name: '封印格' };
     });
-    grid[23] = makeGenerator('herb', 1, now);
-    grid[26] = makeGenerator('tool', 1, now);
+    grid[23] = makeGenerator('herb', 1, now, null, 0, true);
+    grid[26] = makeGenerator('tool', 1, now, null, 0, true);
     grid[30] = makeGeneratorPart('herb', 1);
     grid[31] = makeGeneratorPart('herb', 1);
     grid[33] = makeGeneratorPart('tool', 1);
@@ -788,7 +872,11 @@
 
   function normalizeItem(raw, now) {
     if (!raw || typeof raw !== 'object') return raw == null ? null : raw;
-    if (raw.kind === 'generator') return makeGenerator(raw.family, raw.level, raw.lastRechargeAt != null ? raw.lastRechargeAt : now, raw.charges, raw.partPity);
+    if (raw.kind === 'generator') {
+      var permanent = raw.permanent !== false && isPermanentGeneratorFamily(raw.family);
+      var useValue = permanent ? raw.charges : (raw.lifetime != null ? raw.lifetime : raw.charges);
+      return makeGenerator(raw.family, raw.level, raw.lastRechargeAt != null ? raw.lastRechargeAt : now, useValue, raw.partPity, permanent);
+    }
     if (raw.kind === 'generator_part') return makeGeneratorPart(raw.family, raw.tier);
     if (raw.kind) return clone(raw);
     if (!raw.family) return clone(raw);
@@ -997,6 +1085,11 @@
     var state = Object.assign({}, base, clone(raw), { version: DATA.version });
     migrateEnergyGap(raw, state);
     state.grid = Array.isArray(raw.grid) ? raw.grid.slice(0, TOTAL).map(function (item) { return normalizeItem(item, now); }) : base.grid;
+    if (Array.isArray(raw.grid) && raw.grid.length > TOTAL) {
+      /* 7×9 → 7×7 棋盘缩容：被裁掉的格子物品转入暂存队列，不丢玩家资产。 */
+      var overflowItems = raw.grid.slice(TOTAL).map(function (item) { return normalizeItem(item, now); }).filter(Boolean);
+      state.pendingRewards = (state.pendingRewards || []).concat(overflowItems);
+    }
     while (state.grid.length < TOTAL) state.grid.push(null);
     state.unlockedCells = clamp(Math.floor(Math.max(number(raw.unlockedCells, base.unlockedCells), number(raw.version, 0) < 7 ? DATA.board.startUnlockedCells : 0)), 0, TOTAL);
     state.unlockedGenerators = Array.isArray(raw.unlockedGenerators) ? raw.unlockedGenerators.filter(function (family, index, list) {
@@ -1363,37 +1456,62 @@
     return candidates[Math.floor(randomUnit(rng) * candidates.length)];
   }
 
-  function taskRequirements(state, preferred, rng) {
+  function hasConsumableGenerator(state, family) {
+    return (state.grid || []).some(function (item) {
+      return item && item.kind === 'generator' && item.permanent === false && (!family || item.family === family);
+    });
+  }
+
+  function taskRequirements(state, preferred, rng, hardMode) {
     var pool = taskFamilyPool(state, preferred);
     var firstFamily = chooseTaskFamily(pool, rng);
     var secondFamily = chooseTaskFamily(pool, rng, [firstFamily]);
     if (!secondFamily || secondFamily === firstFamily) {
       secondFamily = pool.find(function (family) { return family !== firstFamily; }) || FAMILY_IDS.find(function (family) { return family !== firstFamily; });
     }
-    var maxTier = Math.min(TIER_CAP, Math.max(3, Math.floor(number(state.level, 1) / 3) + 3));
-    var firstCount = state.level >= 18 ? 2 : 1;
-    var secondCount = state.level >= 24 ? 2 : 1;
-    var firstTier = 1 + Math.floor(randomUnit(rng) * maxTier);
-    var secondTier = 1 + Math.floor(randomUnit(rng) * Math.min(maxTier, firstTier + 2));
-    if (firstTier < 2 && secondTier < 2) secondTier = 2;
-    return [
-      normalizeRequirement({ family: firstFamily, tier: firstTier, count: firstCount }),
-      normalizeRequirement({ family: secondFamily, tier: secondTier, count: secondCount })
+    var rank = playerOrderRank(state);
+    if (!hardMode) rank = Math.min(2, rank); /* 访客/补给槽保持低阶保底，难度交给主线和成长槽。 */
+    var primaryTiers = [2, 3, 4, 5, 6, 6, 7, 8];
+    var supportTiers = [1, 2, 2, 3, 4, 5, 5, 6];
+    var primaryCount = rank >= 8 ? 3 : rank >= 7 ? 2 : rank >= 3 ? 2 : 1;
+    var supportCount = rank >= 7 ? 2 : rank >= 3 && rank <= 6 ? 1 : 1;
+    var firstTier = primaryTiers[rank - 1];
+    var secondTier = supportTiers[rank - 1];
+    var requirements = [
+      normalizeRequirement({ family: firstFamily, tier: firstTier, count: primaryCount }),
+      normalizeRequirement({ family: secondFamily, tier: secondTier, count: supportCount })
     ];
+    var productNeed = null;
+    var generatorNeed = null;
+    if (hardMode && rank >= 5) {
+      var productByRank = { 5: 'PROD_SOOTHE', 6: 'PROD_BED', 7: 'PROD_CLEAR', 8: 'PROD_GARDEN' };
+      productNeed = { productId: productByRank[rank] || 'PROD_SOOTHE', count: 1 };
+      /* 有天工/至宝档时，只要棋盘上已存在造物生成器，就额外要求
+         与其同族的产物来源；没有造物生成器时回落到普通高难度。 */
+      if (rank >= 7 && hasConsumableGenerator(state)) {
+        var generatorFamily = firstFamily === 'groom' || firstFamily === 'play' ? 'herb' : firstFamily;
+        generatorNeed = { family: generatorFamily, minLevel: 2, count: 1 };
+      }
+    }
+    return { requirements: requirements, productNeed: productNeed, generatorNeed: generatorNeed };
   }
 
   function makeSupplyOrder(state, rng) {
-    var reqs = taskRequirements(state, [], rng);
-    var first = familyDefinition(reqs[0].family);
-    var second = familyDefinition(reqs[1].family);
+    var task = taskRequirements(state, [], rng, false);
+    var first = familyDefinition(task.requirements[0].family);
+    var second = familyDefinition(task.requirements[1].family);
+    var rewards = rewardsFor('supply', task.requirements, state);
+    if (task.productNeed) rewards.productNeed = task.productNeed;
     return normalizeOrder({
       id: nextOrderId(state, 'supply'),
       slot: 'supply',
       kind: 'supply',
-      title: '邻里补给 · ' + first.items[reqs[0].tier - 1] + ' + ' + second.items[reqs[1].tier - 1],
+      title: '邻里补给 · ' + first.items[task.requirements[0].tier - 1] + ' + ' + second.items[task.requirements[1].tier - 1],
       symptom: '一份随时可推进的低阶委托，保障棋盘不会卡死。',
-      requirements: reqs,
-      rewards: rewardsFor('supply', reqs, state),
+      requirements: task.requirements,
+      productNeed: task.productNeed,
+      generatorNeed: task.generatorNeed,
+      rewards: rewards,
       permanent: true
     });
   }
@@ -1402,18 +1520,25 @@
     var current = activeCase(state) || (state.yardBeastId && state.beastCases && state.beastCases[state.yardBeastId]);
     var definition = current && beastDefinition(current.id);
     var families = definition && definition.careTypes.length ? definition.careTypes : ['groom', 'play'];
-    var reqs = taskRequirements(state, families, rng);
-    var first = familyDefinition(reqs[0].family);
-    var second = familyDefinition(reqs[1].family);
+    var task = taskRequirements(state, families, rng, true);
+    var first = familyDefinition(task.requirements[0].family);
+    var second = familyDefinition(task.requirements[1].family);
+    var rewards = rewardsFor('care', task.requirements, state);
+    var careRank = playerOrderRank(state);
+    if (careRank >= 5) rewards.energy = 20;
+    if (careRank >= 7) rewards.energy = 30;
+    if (careRank >= 6) rewards.generatorParts = [{ family: task.requirements[0].family, tier: 1 }];
     return normalizeOrder({
       id: nextOrderId(state, 'care'),
       slot: 'care',
       kind: 'care',
       beastId: current ? current.id : null,
-      title: current && definition ? definition.name + '的日常照料 · ' + first.items[reqs[0].tier - 1] + ' · ' + second.items[reqs[1].tier - 1] : '庭院日常照料 · ' + first.items[reqs[0].tier - 1] + ' · ' + second.items[reqs[1].tier - 1],
+      title: current && definition ? definition.name + '的日常照料 · ' + first.items[task.requirements[0].tier - 1] + ' · ' + second.items[task.requirements[1].tier - 1] : '庭院日常照料 · ' + first.items[task.requirements[0].tier - 1] + ' · ' + second.items[task.requirements[1].tier - 1],
       symptom: '交付素材获得暖玉；实际照料在庭院中进行且不消耗体力。',
-      requirements: reqs,
-      rewards: rewardsFor('care', reqs, state),
+      requirements: task.requirements,
+      productNeed: task.productNeed,
+      generatorNeed: task.generatorNeed,
+      rewards: rewards,
       permanent: true
     });
   }
@@ -1479,6 +1604,15 @@
       normalizeRequirement({ family: preferred, tier: primaryTiers[rank - 1], count: rank >= 7 ? 3 : rank >= 4 ? 2 : 1 }),
       normalizeRequirement({ family: support, tier: supportTiers[rank - 1], count: rank >= 6 ? 2 : 1 })
     ];
+    var productNeed = null;
+    var generatorNeed = null;
+    if (rank >= 5) {
+      var productByRank = { 5: 'PROD_SOOTHE', 6: 'PROD_BED', 7: 'PROD_CLEAR', 8: 'PROD_GARDEN' };
+      productNeed = { productId: productByRank[rank] || 'PROD_SOOTHE', count: 1 };
+      if (rank >= 7 && hasConsumableGenerator(state)) {
+        generatorNeed = { family: preferred === 'groom' || preferred === 'play' ? 'herb' : preferred, minLevel: 2, count: 1 };
+      }
+    }
     var reward = growthRewardForLevel(level);
     var effort = requirementEffort(requirements);
     var order = annotateOrderDifficulty(normalizeOrder({
@@ -1487,11 +1621,15 @@
       title: definition.name + '的成长心愿',
       symptom: '这份心意只属于' + definition.name + '，交付后经验会记在它的成长册里。',
       requirements: requirements,
+      productNeed: productNeed,
+      generatorNeed: generatorNeed,
       rewards: {
         jade: Math.max(reward.jade, 18 + effort * 4 + rank * 3),
         xp: 10 + effort * 2 + rank * 2,
         beastExp: reward.beastExp + Math.max(0, rank - level) * 5,
-        heal: reward.heal
+        heal: reward.heal,
+        energy: rank >= 5 ? (rank >= 7 ? 30 : 20) : 0,
+        generatorParts: rank >= 6 ? [{ family: preferred, tier: 1 }] : []
       }
     }), rank);
     state.growthOrders[keyName] = clone(order);
@@ -1570,8 +1708,8 @@
   }
 
   function makeJourneyOrder(state, rng) {
-    var reqs = taskRequirements(state, [], rng);
-    reqs = reqs.map(function (need) { return Object.assign({}, need, { tier: Math.min(2, need.tier), count: 1 }); });
+    var task = taskRequirements(state, [], rng, false);
+    var reqs = task.requirements.map(function (need) { return Object.assign({}, need, { tier: Math.min(2, need.tier), count: 1 }); });
     return normalizeOrder({
       id: 'journey-' + state.daily.date,
       slot: 'journey', kind: 'journey', boundDate: state.daily.date,
@@ -1840,6 +1978,16 @@
     return (DATA.recipes || []).filter(function (recipe) { return canCraftRecipe(state, recipe.id).ok; }).map(clone);
   }
 
+  function generatorNeedMet(state, order) {
+    var need = order && order.generatorNeed;
+    if (!need) return true;
+    var count = (state.grid || []).filter(function (item) {
+      return item && item.kind === 'generator' && item.permanent === false &&
+        item.family === need.family && number(item.level, 1) >= Math.max(1, Math.floor(number(need.minLevel, 1)));
+    }).length;
+    return count >= Math.max(1, Math.floor(number(need.count, 1)));
+  }
+
   function canDeliver(state, order) {
     if (!order) return false;
     if (order.status === 'COMPLETE' || /_complete$/.test(order.kind || '')) return false;
@@ -1851,7 +1999,8 @@
       return countItems(state, need.family, need.tier) >= need.count;
     });
     var productNeed = order.productNeed;
-    return materialReady && (!productNeed || number(state.products && state.products[productNeed.productId], 0) >= number(productNeed.count, 1));
+    return materialReady && generatorNeedMet(state, order) &&
+      (!productNeed || number(state.products && state.products[productNeed.productId], 0) >= number(productNeed.count, 1));
   }
 
   function isOrderReachable(state, order) {
@@ -1862,7 +2011,8 @@
     var itemsReachable = order.requirements.every(function (need) {
       return maxReachableTier(state, need.family) >= need.tier;
     });
-    return itemsReachable && (!order.productNeed || recipeUnlocked(state, order.productNeed.productId));
+    var generatorReachable = !order.generatorNeed || !!producerChain(order.generatorNeed.family);
+    return itemsReachable && generatorReachable && (!order.productNeed || recipeUnlocked(state, order.productNeed.productId));
   }
 
   function firstFreeGridIndex(state) {
@@ -1931,8 +2081,8 @@
         queueItem(state, makeGeneratorPart(family, 4));
       } else {
         var index = firstFreeGridIndex(state);
-        if (index >= 0) state.grid[index] = makeGenerator(family);
-        else state.pendingRewards.push(makeGenerator(family));
+        if (index >= 0) state.grid[index] = makeGenerator(family, 1, Date.now(), null, 0, true);
+        else state.pendingRewards.push(makeGenerator(family, 1, Date.now(), null, 0, true));
       }
     }
     return true;
@@ -2089,6 +2239,10 @@
     if (order.productNeed) state.products[order.productNeed.productId] -= number(order.productNeed.count, 1);
     var rewards = order.rewards || {};
     state.jade += Math.max(0, number(rewards.jade, 0));
+    if (rewards.energy) state.energy = Math.min(state.maxEnergy, state.energy + Math.max(0, Math.floor(number(rewards.energy, 0))));
+    (rewards.generatorParts || []).forEach(function (part) {
+      if (part && part.family && part.tier) queueItem(state, makeGeneratorPart(part.family, part.tier));
+    });
     var previousLevel = state.level;
     /* Growth rewards belong to the resident's bound XP track; only ordinary
        commissions award the player's global XP. */
@@ -2190,22 +2344,34 @@
       var productHave = number(state.products && state.products[order.productNeed.productId], 0);
       if (productHave < number(order.productNeed.count, 1)) missing.push({ productId: order.productNeed.productId, count: number(order.productNeed.count, 1), have: productHave });
     }
+    if (order.generatorNeed && !generatorNeedMet(state, order)) {
+      var generatorNeed = order.generatorNeed;
+      missing.push({ generatorNeed: generatorNeed, count: Math.max(1, Math.floor(number(generatorNeed.count, 1))), have: 0 });
+    }
     return missing;
   }
 
   function generate(state, family, rng, now, generatorIndex) {
     rng = typeof rng === 'function' ? rng : Math.random;
-    advanceTime(state, number(now, Date.now()));
+    now = number(now, Date.now());
+    advanceTime(state, now);
     if (state.unlockedGenerators.indexOf(family) < 0) return { ok: false, reason: 'generator-locked' };
     var found = findGenerator(state, family, generatorIndex);
     if (!found) return { ok: false, reason: 'generator-missing' };
-    advanceGeneratorItem(found.item, now, state);
-    if (firstFreeGridIndex(state) < 0) return { ok: false, reason: 'board-full', energy: state.energy, charges: found.item.charges };
-    if (state.energy <= 0) return { ok: false, reason: 'energy' };
-    var usingNoviceSupply = found.item.charges <= 0 && number(state.noviceSupply, 0) > 0 && (family === 'herb' || family === 'tool');
-    if (found.item.charges <= 0 && !usingNoviceSupply) return { ok: false, reason: 'generator-empty', charges: 0 };
-    var generatorLevel = found ? clamp(number(found.item.level, 1), 1, number(DATA.generators && DATA.generators.maxLevel, 5)) : 1;
-    var dropTable = generatorDropTable(generatorLevel);
+    if (found.item.permanent !== false) advanceGeneratorItem(found.item, now, state);
+    if (firstFreeGridIndex(state) < 0) return { ok: false, reason: 'board-full', energy: state.energy, charges: found.item.charges, lifetime: found.item.lifetime };
+    var generatorLevel = clamp(number(found.item.level, 1), 1, number(DATA.generators && DATA.generators.maxLevel, 5));
+    var isPermanent = found.item.permanent !== false;
+    if (isPermanent) {
+      if (state.energy <= 0) return { ok: false, reason: 'energy' };
+      var onlineIntervalMs = Math.max(0, Math.floor(number(DATA.generators && DATA.generators.onlineIntervalMs, 0)));
+      if (onlineIntervalMs > 0 && found.item.lastProducedAt != null && now - found.item.lastProducedAt < onlineIntervalMs) {
+        return { ok: false, reason: 'generator-busy', readyInMs: onlineIntervalMs - (now - found.item.lastProducedAt) };
+      }
+    } else if (found.item.lifetime <= 0) {
+      return { ok: false, reason: 'generator-expired', lifetime: 0 };
+    }
+    var dropTable = isPermanent ? generatorDropTable(generatorLevel) : consumableDropTable(generatorLevel);
     var roll = randomUnit(rng);
     var accumulated = 0;
     var rolledTier = dropTable[dropTable.length - 1].tier;
@@ -2215,41 +2381,70 @@
       return false;
     });
     var item = makeItem(family, rolledTier);
-    state.energy--;
-    if (usingNoviceSupply) state.noviceSupply--;
-    else found.item.charges--;
+    if (isPermanent) {
+      state.energy--;
+      found.item.lastProducedAt = now;
+    } else {
+      found.item.lifetime = Math.max(0, Math.floor(number(found.item.lifetime, 0)) - 1);
+    }
     queueItem(state, item);
     var drops = [item];
     var partDrop = null;
-    var partChain = producerChain(family);
-    if (partChain) {
-      var partChance = effectiveGeneratorPartChance(state, family, generatorLevel);
-      var partPityLimit = Math.max(1, Math.floor(number(DATA.generators && DATA.generators.partDropPity, 15)));
-      found.item.partPity = Math.min(partPityLimit, Math.max(0, Math.floor(number(found.item.partPity, 0))) + 1);
-      if (found.item.partPity >= partPityLimit || randomUnit(rng) < partChance) {
-        var partTierRoll = randomUnit(rng);
-        var partTier = generatorLevel >= 4 && partTierRoll < 0.03 ? 3 : generatorLevel >= 2 && partTierRoll < 0.12 ? 2 : 1;
-        partDrop = makeGeneratorPart(family, partTier);
-        found.item.partPity = 0;
-        queueItem(state, partDrop);
+    if (isPermanent) {
+      var partChain = producerChain(family);
+      if (partChain) {
+        var partChance = effectiveGeneratorPartChance(state, family, generatorLevel);
+        var partPityLimit = Math.max(1, Math.floor(number(DATA.generators && DATA.generators.partDropPity, 15)));
+        found.item.partPity = Math.min(partPityLimit, Math.max(0, Math.floor(number(found.item.partPity, 0))) + 1);
+        if (found.item.partPity >= partPityLimit || randomUnit(rng) < partChance) {
+          var partTierRoll = randomUnit(rng);
+          var partTier = generatorLevel >= 4 && partTierRoll < 0.03 ? 3 : generatorLevel >= 2 && partTierRoll < 0.12 ? 2 : 1;
+          partDrop = makeGeneratorPart(family, partTier);
+          found.item.partPity = 0;
+          queueItem(state, partDrop);
+        }
+      }
+      var taotie = state.beastCases.taotie;
+      var doubleDropChance = 0;
+      if (family === 'food' && taotie && taotie.transformed) doubleDropChance = Math.max(doubleDropChance, 0.2);
+      doubleDropChance = Math.max(doubleDropChance, effectiveGeneratorDoubleDrop(state, family));
+      if (doubleDropChance > 0 && rng() < doubleDropChance) {
+        var duplicate = makeItem(family, rolledTier);
+        queueItem(state, duplicate);
+        drops.push(duplicate);
+      }
+    } else {
+      var productDrop = consumableProductDrop(family, generatorLevel);
+      if (productDrop && rng() < number(productDrop.chance, 0)) {
+        state.products = state.products || {};
+        state.products[productDrop.productId] = Math.max(0, Math.floor(number(state.products[productDrop.productId], 0))) + 1;
       }
     }
-    var taotie = state.beastCases.taotie;
-    var doubleDropChance = 0;
-    if (family === 'food' && taotie && taotie.transformed) doubleDropChance = Math.max(doubleDropChance, 0.2);
-    doubleDropChance = Math.max(doubleDropChance, effectiveGeneratorDoubleDrop(state, family));
-    if (doubleDropChance > 0 && rng() < doubleDropChance) {
-      var duplicate = makeItem(family, rolledTier);
-      queueItem(state, duplicate);
-      drops.push(duplicate);
+    var expired = false;
+    var comfortParts = [];
+    if (!isPermanent && found.item.lifetime <= 0) {
+      expired = true;
+      found.list[found.index] = null;
+      var comfortCount = randomUnit(rng) < 0.5 ? 1 : 2;
+      for (var comfortIndex = 0; comfortIndex < comfortCount; comfortIndex++) {
+        var comfortPart = makeGeneratorPart(family, 1);
+        queueItem(state, comfortPart);
+        comfortParts.push(comfortPart);
+      }
     }
     syncLegacyAliases(state);
     return {
       ok: true, items: clone(drops), energy: state.energy,
-      charges: found.item.charges, capacity: found.item.capacity, noviceSupply: state.noviceSupply, usedNoviceSupply: usingNoviceSupply,
+      permanent: isPermanent,
+      charges: found.item.charges, capacity: found.item.capacity,
+      lifetime: isPermanent ? null : Math.max(0, Math.floor(number(found.item.lifetime, 0))),
       generatorLevel: generatorLevel, rolledTier: rolledTier, dropTable: clone(dropTable),
-      partDropChance: partChain ? effectiveGeneratorPartChance(state, family, generatorLevel) : 0,
-      partDrop: clone(partDrop), events: partDrop ? [{ type: 'generator_part_drop', item: clone(partDrop) }] : [], rewards: { items: clone(drops.concat(partDrop ? [partDrop] : [])) }
+      partDropChance: isPermanent && producerChain(family) ? effectiveGeneratorPartChance(state, family, generatorLevel) : 0,
+      partDrop: clone(partDrop),
+      expired: expired,
+      comfortParts: clone(comfortParts),
+      events: (partDrop ? [{ type: 'generator_part_drop', item: clone(partDrop) }] : []).concat(expired ? [{ type: 'generator_expired', family: family, level: generatorLevel, comfortParts: clone(comfortParts) }] : []),
+      rewards: { items: clone(drops.concat(partDrop ? [partDrop] : []).concat(comfortParts)) }
     };
   }
 
@@ -2394,8 +2589,13 @@
       if (!producerChain(from.family)) return { ok: false, reason: 'producer-chain-missing' };
       state.grid[fromIndex] = null;
       if (from.tier >= 4) {
-        state.grid[toIndex] = makeGenerator(from.family, 1, now);
-        producerEvent = { type: 'generator_created', family: from.family, level: 1 };
+        var consumableCount = (state.grid || []).filter(function (item) {
+          return item && item.kind === 'generator' && item.family === from.family && item.permanent === false;
+        }).length;
+        var consumableMax = Math.max(1, Math.floor(number(DATA.generators && DATA.generators.consumableMaxPerFamily, 2)));
+        if (consumableCount >= consumableMax) return { ok: false, reason: 'generator-cap' };
+        state.grid[toIndex] = makeGenerator(from.family, 1, now, null, 0, false);
+        producerEvent = { type: 'generator_created', family: from.family, level: 1, permanent: false };
       } else {
         state.grid[toIndex] = makeGeneratorPart(from.family, from.tier + 1);
         producerEvent = { type: 'generator_part_merged', family: from.family, tier: from.tier + 1 };
@@ -2403,14 +2603,15 @@
       producerMerge = true;
     } else if (from.kind === 'generator' || to.kind === 'generator') {
       if (from.kind !== 'generator' || to.kind !== 'generator' || from.family !== to.family || number(from.level, 1) !== number(to.level, 1)) return { ok: false, reason: 'not-match' };
+      if (from.permanent !== false || to.permanent !== false) return { ok: false, reason: 'resource-upgrade-required' };
       var maxGeneratorLevel = number(DATA.generators && DATA.generators.maxLevel, 5);
       if (from.level >= maxGeneratorLevel) return { ok: false, reason: 'tier-cap' };
       var nextGeneratorLevel = from.level + 1;
-      var nextGeneratorConfig = generatorLevelConfig(nextGeneratorLevel);
-      var combinedCharges = Math.min(number(nextGeneratorConfig.capacity, 16), number(from.charges, 0) + number(to.charges, 0));
+      var nextLifetimeCap = consumableUsesForLevel(nextGeneratorLevel);
+      var combinedLifetime = Math.min(nextLifetimeCap, Math.max(0, Math.floor(number(from.lifetime, 0))) + Math.max(0, Math.floor(number(to.lifetime, 0))));
       state.grid[fromIndex] = null;
-      state.grid[toIndex] = makeGenerator(from.family, nextGeneratorLevel, now, combinedCharges, Math.max(number(from.partPity, 0), number(to.partPity, 0)));
-      producerEvent = { type: 'generator_merged', family: from.family, level: nextGeneratorLevel };
+      state.grid[toIndex] = makeGenerator(from.family, nextGeneratorLevel, now, combinedLifetime, Math.max(number(from.partPity, 0), number(to.partPity, 0)), false);
+      producerEvent = { type: 'generator_merged', family: from.family, level: nextGeneratorLevel, permanent: false };
       producerMerge = true;
     }
     if (producerMerge) {

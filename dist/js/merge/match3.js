@@ -164,6 +164,7 @@
   function Game(kind, opts) {
     this.kind = SETS[kind] ? kind : 'FEED';
     this.opts = opts || {};
+    this.onEvent = typeof this.opts.onEvent === 'function' ? this.opts.onEvent : null;
     this.theme = THEME[this.kind];
     this.rule = RULE[this.kind];
     var requestedDifficulty = normalizeDifficulty(this.opts.difficulty);
@@ -251,12 +252,19 @@
     // 特效
     this.fx = [];              // { type, x, y, t, life, ... } 屏幕空间粒子/飘字
     this.shake = 0;
+    this.hintSwap = null;      // 可用交换提示（借鉴 rembound Match-3 的 show-moves 思路）
+    this.hintTimer = 0;
+    this.autoHints = 0;
 
     this._initBoard();
   }
 
   Game.prototype._random = function () { return normalizedRandom(this.rng); };
   Game.prototype._rnd = function (n) { return n > 0 ? Math.min(n - 1, Math.floor(this._random() * n)) : 0; };
+  Game.prototype._emit = function (name, data) {
+    if (!this.onEvent) return;
+    try { this.onEvent(name, data || {}); } catch (error) { /* 宿主音效/埋点失败不打断玩法。 */ }
+  };
 
   Game.prototype._newCell = function (t, spawnOff) {
     var cell = {
@@ -346,6 +354,17 @@
 
   Game.prototype.hasPossibleMove = function () { return this.listLegalSwaps().length > 0; };
   Game.prototype._hasPossibleMove = function () { return this.hasPossibleMove(); };
+
+  /* 借鉴高星 Match-3 项目的 show-moves 设计：给出一个可落子提示并高亮 2.2 秒。 */
+  Game.prototype.useHint = function () {
+    var swaps = this.listLegalSwaps();
+    if (!swaps.length || this.finished) return false;
+    this.hintSwap = swaps[0];
+    this.hintTimer = 2.2;
+    this.autoHints++;
+    this._emit('hint', this.hintSwap);
+    return true;
+  };
 
   Game.prototype._applyTypes = function (types) {
     var index = 0;
@@ -601,6 +620,7 @@
 
     this.combo++;
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+    this._emit('match', { combo: this.combo, cells: (result.cells || []).length });
     var self = this;
 
     // 生成特殊块的位置不参与消除
@@ -858,9 +878,11 @@
             this.movesLeft++; this.movesUsed--;
             this.invalidMoves++;
             this._pendingMoveFinish = false;
+            this._emit('swap-fail', { a: this.swapA, b: this.swapB });
           } else {
             this.validMoves++;
             this.effectiveMoves++;
+            this._emit('swap', { a: this.swapA, b: this.swapB });
             if (this.movesLeft <= 0) this._pendingMoveFinish = true;
           }
         } else {
@@ -884,6 +906,7 @@
         if (m2) this._beginClear(m2);
         else {
           this.phase = 'idle'; this.combo = 0;
+          this._emit('land', { combo: this.maxCombo });
           var legalCount = this.listLegalSwaps().length;
           if (legalCount < this.minLegalMoves) {
             this._shuffleBoard(true, legalCount === 0);
@@ -893,6 +916,10 @@
     }
 
     this._updatePerf();
+    if (this.hintTimer > 0) {
+      this.hintTimer = Math.max(0, this.hintTimer - dt);
+      if (this.hintTimer === 0) this.hintSwap = null;
+    }
 
     // 时间耗尽：等棋盘完全稳定（所有连锁跑完）后自动结算
     if (this._pendingAutoFinish && this.phase === 'idle' && !this.drag) {
@@ -1366,6 +1393,16 @@
         s = this.grid[r][c];
         if (!s || s === dragCell) continue;
         this._drawCell(ctx, s, bx + (c + s.dx) * cell, by + (r + s.off + s.dy) * cell, cell);
+        if (this.hintSwap && ((r === this.hintSwap.a.r && c === this.hintSwap.a.c) || (r === this.hintSwap.b.r && c === this.hintSwap.b.c))) {
+          ctx.save();
+          ctx.strokeStyle = '#F4C542';
+          ctx.lineWidth = 3.5;
+          ctx.shadowColor = 'rgba(244,197,66,0.9)';
+          ctx.shadowBlur = 10;
+          this._roundRect(ctx, bx + (c + s.dx) * cell - cell * 0.42, by + (r + s.off + s.dy) * cell - cell * 0.42, cell * 0.84, cell * 0.84, 10);
+          ctx.stroke();
+          ctx.restore();
+        }
       }
     }
     if (dragCell) {

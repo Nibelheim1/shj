@@ -162,7 +162,11 @@
       merge: 'sfx_merge.wav',
       order: 'sfx_order.wav',
       care: 'sfx_care.wav',
-      purchase: 'sfx_purchase.wav'
+      purchase: 'sfx_purchase.wav',
+      /* CC0 sounds from KenneyNL/Starter-Kit-Match-3 (MIT code / CC0 assets). */
+      swap: 'tile-swap.ogg',
+      match: 'tile-match.ogg',
+      land: 'tile-land.ogg'
     },
     sfxVolume: 0.34
   };
@@ -1171,17 +1175,42 @@
     nextChapter: { label: '卷二 · 九尾狐篇', hook: '九条尾巴缠成了一团——有位客人，正等着被好好看见。' }
   };
 
+  /* 修缮第三段“焕新”统一强化：必须额外交付一件对应卷的产物。
+     卷二起若没有 5 阶材料，也把一项需求抬到 5 阶，让后期修缮与合成深度同步。 */
+  (function () {
+    var finalProducts = {
+      gate: 'PROD_SOOTHE', clinic: 'PROD_SOOTHE',
+      forecourt: 'PROD_BED', groom_pavilion: 'PROD_BED', workshop: 'PROD_BED', den: 'PROD_BED',
+      canteen: 'PROD_MEAL', herb_garden: 'PROD_GARDEN', alchemy: 'PROD_FLAME',
+      library: 'PROD_CLEAR', playground: 'PROD_BED', storage: 'PROD_HEARTH',
+      charm_altar: 'PROD_ARRAY', cloud_isle: 'PROD_BOAT'
+    };
+    sect.areas.forEach(function (area) {
+      var finalStage = area.stages && area.stages[2] && area.stages[2].order;
+      if (!finalStage) return;
+      if (!finalStage.productNeed) {
+        finalStage.productNeed = { productId: finalProducts[area.id] || 'PROD_SOOTHE', count: 1 };
+      }
+      if (area.volume >= 2) {
+        var hasTier5 = finalStage.requirements.some(function (need) { return need.tier >= 5; });
+        if (!hasTier5) {
+          finalStage.requirements[0] = requirement(finalStage.requirements[0].family, 5, finalStage.requirements[0].count);
+        }
+      }
+    });
+  })();
+
   return {
     version: 7,
     sect: sect,
     board: {
       cols: 7,
-      rows: 9,
+      rows: 7,
       width: 7,
-      height: 9,
-      totalCells: 63,
+      height: 7,
+      totalCells: 49,
       tierCap: 10,
-      startUnlockedCells: 40,
+      startUnlockedCells: 35,
       areaUnlockCells: 2
     },
     families: families,
@@ -1199,9 +1228,22 @@
     },
     generators: {
       maxLevel: 5,
-      upgradeMode: 'merge',
+      upgradeMode: 'resource',
+      /* 常驻生成器在线点击只消耗体力，不再被储能硬卡；charges 仅作为
+         离线储备上限展示。合成出来的造物生成器使用有限次数，用完消散。 */
+      permanentFamilies: ['herb', 'tool', 'food'],
+      consumableMaxPerFamily: 2,
+      consumableUses: [10, 20, 30],
       partDropPity: 15,
       partDropChanceByLevel: [0.06, 0.08, 0.1, 0.13, 0.16],
+      onlineIntervalMs: 1500,
+      upgradeEnergyCosts: [0, 15, 25, 35, 50],
+      upgradeGates: {
+        herb: { level: 4, areaId: 'herb_garden', areaStage: 2, level5Product: 'PROD_GARDEN' },
+        tool: { level: 4, areaId: 'alchemy', areaStage: 2, level5Product: 'PROD_FLAME' },
+        food: { level: 4, areaId: 'canteen', areaStage: 2, level5Product: 'PROD_MEAL' },
+        build: { level: 4, areaId: 'workshop', areaStage: 2, level5Product: 'PROD_HEARTH' }
+      },
       producerChains: {
         herb: {
           activeFromVolume: 1,
@@ -1223,12 +1265,24 @@
         }
       },
       levelNames: ['初成', '精制', '灵蕴', '焕新', '宗师'],
+      /* 造物生成器：专注 4-6 阶与小概率成品，是后期高难委托的主要来源。 */
+      consumableDropTables: {
+        1: [{ tier: 4, chance: 0.6 }, { tier: 5, chance: 0.32 }, { tier: 6, chance: 0.08 }],
+        2: [{ tier: 4, chance: 0.42 }, { tier: 5, chance: 0.4 }, { tier: 6, chance: 0.18 }],
+        3: [{ tier: 4, chance: 0.25 }, { tier: 5, chance: 0.45 }, { tier: 6, chance: 0.3 }]
+      },
+      consumableProductDrops: {
+        herb: { 2: { productId: 'PROD_SOOTHE', chance: 0.1 }, 3: { productId: 'PROD_CLEAR', chance: 0.12 } },
+        tool: { 2: { productId: 'PROD_SOOTHE', chance: 0.1 }, 3: { productId: 'PROD_CLEAR', chance: 0.12 } },
+        food: { 2: { productId: 'PROD_MEAL', chance: 0.1 }, 3: { productId: 'PROD_MEAL', chance: 0.12 } },
+        build: { 2: { productId: 'PROD_BED', chance: 0.1 }, 3: { productId: 'PROD_HEARTH', chance: 0.1 } }
+      },
       levels: [
-        { level: 1, requiredPlayerLevel: 1, upgradeCost: 0, rechargeMs: 15 * 60 * 1000, capacity: 16, drops: [{ tier: 1, chance: 1 }] },
-        { level: 2, requiredPlayerLevel: 3, upgradeCost: 0, legacyUpgradeCost: 180, rechargeMs: 12 * 60 * 1000, capacity: 20, drops: [{ tier: 1, chance: 0.75 }, { tier: 2, chance: 0.25 }] },
-        { level: 3, requiredPlayerLevel: 6, upgradeCost: 0, legacyUpgradeCost: 420, rechargeMs: 10 * 60 * 1000, capacity: 24, drops: [{ tier: 1, chance: 0.55 }, { tier: 2, chance: 0.35 }, { tier: 3, chance: 0.1 }] },
-        { level: 4, requiredPlayerLevel: 9, upgradeCost: 0, legacyUpgradeCost: 900, rechargeMs: 8 * 60 * 1000, capacity: 30, drops: [{ tier: 1, chance: 0.4 }, { tier: 2, chance: 0.35 }, { tier: 3, chance: 0.2 }, { tier: 4, chance: 0.05 }] },
-        { level: 5, requiredPlayerLevel: 12, upgradeCost: 0, legacyUpgradeCost: 1800, rechargeMs: 6 * 60 * 1000, capacity: 36, drops: [{ tier: 1, chance: 0.32 }, { tier: 2, chance: 0.38 }, { tier: 3, chance: 0.23 }, { tier: 4, chance: 0.06 }, { tier: 5, chance: 0.01 }] }
+        { level: 1, requiredPlayerLevel: 1, upgradeCost: 0, legacyUpgradeCost: 0, rechargeMs: 15 * 60 * 1000, capacity: 16, drops: [{ tier: 1, chance: 1 }] },
+        { level: 2, requiredPlayerLevel: 3, upgradeCost: 180, legacyUpgradeCost: 180, rechargeMs: 12 * 60 * 1000, capacity: 20, drops: [{ tier: 1, chance: 0.75 }, { tier: 2, chance: 0.25 }] },
+        { level: 3, requiredPlayerLevel: 6, upgradeCost: 420, legacyUpgradeCost: 420, rechargeMs: 10 * 60 * 1000, capacity: 24, drops: [{ tier: 1, chance: 0.55 }, { tier: 2, chance: 0.35 }, { tier: 3, chance: 0.1 }] },
+        { level: 4, requiredPlayerLevel: 9, upgradeCost: 900, legacyUpgradeCost: 900, rechargeMs: 8 * 60 * 1000, capacity: 30, drops: [{ tier: 1, chance: 0.4 }, { tier: 2, chance: 0.35 }, { tier: 3, chance: 0.2 }, { tier: 4, chance: 0.05 }] },
+        { level: 5, requiredPlayerLevel: 12, upgradeCost: 3000, legacyUpgradeCost: 3000, rechargeMs: 6 * 60 * 1000, capacity: 36, drops: [{ tier: 1, chance: 0.32 }, { tier: 2, chance: 0.38 }, { tier: 3, chance: 0.23 }, { tier: 4, chance: 0.06 }, { tier: 5, chance: 0.01 }] }
       ]
     },
     order: order,

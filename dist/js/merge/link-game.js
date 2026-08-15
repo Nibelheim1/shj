@@ -191,6 +191,7 @@
   function Game(kind, opts) {
     this.kind = kind || 'PLAY';
     this.opts = opts || {};
+    this.onEvent = typeof this.opts.onEvent === 'function' ? this.opts.onEvent : null;
     var requestedDifficulty = normalizeDifficulty(this.opts.difficulty);
     this.difficulty = requestedDifficulty || DEFAULT_DIFFICULTY;
     var profile = DIFFICULTIES[this.difficulty];
@@ -284,6 +285,11 @@
     this._initBoard();
     this._selectGoals();
   }
+
+  Game.prototype._emit = function (name, data) {
+    if (!this.onEvent) return;
+    try { this.onEvent(name, data || {}); } catch (error) { /* 宿主音效/埋点失败不打断玩法。 */ }
+  };
 
   Game.prototype._newCell = function (type, pairId) {
     type = type == null || type < 0 || type >= this.typeCount ? 0 : type;
@@ -740,6 +746,7 @@
     this.maxCombo = Math.max(this.maxCombo, this.combo);
     this.score += baseScore + (this.combo - 1) * 25;
     this.comboTimer = this.comboWindow;
+    this._emit('match', { combo: this.combo, point: point });
     var comboBonus = COMBO_BONUS_TIME[this.combo];
     if (comboBonus) {
       this.timeLeft += comboBonus;
@@ -791,6 +798,7 @@
     this.movesAttempted++;
     this.validMoves++;
     this.effectiveMoves++;
+    this._emit('swap', { a: a, b: b });
 
     var isFrozen = first.special === 'ice' || second.special === 'ice';
     var frozenHits = Math.max(first.iceHits || 2, second.iceHits || 2);
@@ -1066,6 +1074,7 @@
       this.selected = null;
       this.sel = null;
       this.combo = 0;
+      this._emit('swap-fail', { a: first, b: cell });
       if (this.timeLeft <= 0) this.finish(true);
     }
     return true;
@@ -1231,6 +1240,7 @@
     this.finished = true;
     this.phase = done === false ? 'cancelled' : (cleared ? 'done' : 'ended');
     if (cleared) this.goalComplete = this.goalTypes.length === 0 || this.goalTargetsComplete;
+    this._emit('land', { cleared: cleared, combo: this.maxCombo });
     this._updatePerf();
     var summary = this._summary();
     var self = this;

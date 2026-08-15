@@ -198,9 +198,10 @@ check('v6 → v7 grid扩容、开放40格、原位置与迁移幂等', function 
   };
   const first = Core.normalize(clone(raw), NOW, DATE);
   expect(Number(first.version) === 7, 'normalized save schema must be v7');
-  expect(Array.isArray(first.grid) && first.grid.length === 63, 'v7 grid must contain 63 cells');
-  expect(Number(first.unlockedCells) >= 40 && Number(first.unlockedCells) <= 63, 'v7 migration must floor unlockedCells at 40');
+  expect(Array.isArray(first.grid) && first.grid.length === 49, 'v7 grid must contain 49 cells');
+  expect(Number(first.unlockedCells) >= 35 && Number(first.unlockedCells) <= 49, 'v7 migration must floor unlockedCells at 35');
   oldGrid.forEach((cell, index) => {
+    if (index >= first.grid.length) return; // 7×7 缩容后，49 格以外的旧位置转入 pending，不再逐个比较
     if (cell && cell.kind === 'generator') return; // generator receives v7 charge fields below
     assert.deepStrictEqual(first.grid[index], cell, 'legacy grid position ' + index + ' must remain unchanged');
   });
@@ -217,7 +218,7 @@ check('v6 → v7 grid扩容、开放40格、原位置与迁移幂等', function 
     completedRaw.sect = { stages: {} };
     completedAreas.forEach((areaId) => { completedRaw.sect.stages[areaId] = 3; });
     const migratedCompleted = Core.normalize(completedRaw, NOW, DATE);
-    const expectedCells = Math.min(63, 40 + completedAreas.length * Number(DATA.board.areaUnlockCells || 2));
+    const expectedCells = Math.min(49, 35 + completedAreas.length * Number(DATA.board.areaUnlockCells || 2));
     expect(Number(migratedCompleted.unlockedCells) >= expectedCells, 'completed v6 areas must receive their one-time free board expansion');
     expect(completedAreas.every((areaId) => migratedCompleted.sect && migratedCompleted.sect.rewardedAreas && migratedCompleted.sect.rewardedAreas.indexOf(areaId) >= 0), 'completed area expansion must be marked rewarded for idempotence');
     const migratedAgain = Core.normalize(clone(migratedCompleted), NOW, DATE);
@@ -225,12 +226,12 @@ check('v6 → v7 grid扩容、开放40格、原位置与迁移幂等', function 
   }
 });
 
-check('v7 data declares 7×9 board and five generator levels', function () {
+check('v7 data declares 7×7 board and five generator levels', function () {
   expect(DATA && DATA.version === 7, 'MERGE_DATA.version must be 7');
   const board = DATA.board || {};
-  expect(Number(board.cols) === 7 && Number(board.rows) === 9, 'board must be 7×9');
-  expect(Number(board.totalCells) === 63, 'board.totalCells must be 63');
-  expect(Number(board.startUnlockedCells) === 40, 'board.startUnlockedCells must be 40');
+  expect(Number(board.cols) === 7 && Number(board.rows) === 7, 'board must be 7×7');
+  expect(Number(board.totalCells) === 49, 'board.totalCells must be 49');
+  expect(Number(board.startUnlockedCells) === 35, 'board.startUnlockedCells must be 35');
   const levels = DATA.generators && DATA.generators.levels;
   expect(Array.isArray(levels) && levels.length === 5, 'generator levels must contain Lv1–Lv5');
   const cooldown = [15, 12, 10, 8, 6];
@@ -347,7 +348,7 @@ check('有空位时生成恰好消耗1体力与1储能', function () {
   mutationResult('generate', result);
   expect(result.ok === true, 'generation with an open cell must succeed');
   expect(Number(state.energy) === beforeEnergy - 1, 'successful generation must consume exactly one energy');
-  expect(Number(generator.charges) === beforeCharges - 1, 'successful generation must consume exactly one generator charge');
+  expect(Number(generator.charges) === beforeCharges, 'permanent generator must not consume online charges');
 });
 
 check('五槽固定委托键、永久任务与随机委托可达', function () {

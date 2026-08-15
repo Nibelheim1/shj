@@ -24,6 +24,13 @@ function seedRenovation(state) {
   reno.order.requirements.forEach(function (need, index) {
     state.grid[index] = Core.makeItem(need.family, need.tier);
   });
+  if (reno.order.productNeed) {
+    state.products = state.products || {};
+    state.products[reno.order.productNeed.productId] = Math.max(
+      Number(state.products[reno.order.productNeed.productId] || 0),
+      Number(reno.order.productNeed.count || 1)
+    );
+  }
   return reno;
 }
 

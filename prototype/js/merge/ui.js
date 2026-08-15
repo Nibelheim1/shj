@@ -259,21 +259,37 @@
     if (!definition) return null;
     var info = Core.getGeneratorState ? Core.getGeneratorState(state, family) : null;
     var title = family === 'groom' ? '梳洗台小游戏产出' : definition.name + '生成器';
-    var intro = family === 'groom' ? '梳子系列不再从合成棋盘生成；完成梳洗台消消乐后按得分领取数量。' : '每次消耗 1 点体力和 1 次储能。产出时会小概率掉落自己的部件；两个同级生成器可以合成更高一级。';
+    var isPermanent = info && info.permanent !== false;
+    var intro = family === 'groom'
+      ? '梳子系列不再从合成棋盘生成；完成梳洗台消消乐后按得分领取数量。'
+      : isPermanent
+        ? '常驻生成器：在线点击只消耗 1 点体力，不再受储能次数硬卡。升级直接消耗暖玉、体力与区域前置，无需合成第二台。'
+        : '造物生成器：每次产出消耗 1 次使用次数，不消耗体力；次数用尽会消散并返还少量部件。';
     var odds = info && info.dropTable ? info.dropTable.map(function (drop) {
       return drop.tier + '阶 ' + Math.round(drop.chance * 100) + '%';
     }).join(' · ') : '1阶 100%';
     var upgradeText = '';
     if (info && info.nextLevel) {
-      upgradeText = info.canUpgrade ? '合并两个 Lv' + info.level + ' · 升至 Lv' + info.nextLevel : '还需另一个 Lv' + info.level + ' 生成器';
+      if (isPermanent) {
+        var cost = info.nextCost || {};
+        var gateText = info.reason === 'upgrade-gate' ? ' · 前置未满足' : '';
+        upgradeText = '升级 Lv' + info.nextLevel + '：暖玉 ' + Number(cost.jade || 0) + ' + 体力 ' + Number(cost.energy || 0) + gateText;
+      } else {
+        upgradeText = info.canUpgrade
+          ? '合并两个 Lv' + info.level + ' 造物生成器 · 升至 Lv' + info.nextLevel
+          : '还需另一个 Lv' + info.level + ' 造物生成器';
+      }
     } else if (info) upgradeText = '生成器已满级';
-    var partInfo = info && info.partDropChance != null
+    var lifetimeInfo = info && !isPermanent
+      ? '<div class="generator-upgrade-summary"><b>剩余次数</b><small>' + Number(info.lifetime || 0) + ' / ' + Number(info.maxLifetime || 0) + '，用尽后自动消散并返还部件</small></div>'
+      : '';
+    var partInfo = info && info.partDropChance != null && isPermanent
       ? '<div class="generator-upgrade-summary"><b>部件产出</b><small>' + Math.round(info.partDropChance * 100) + '% · 保底进度 ' + Number(info.partPity || 0) + '/15</small></div>'
       : '';
-    var areaBonuses = Core.stageBonusesOfType ? Core.stageBonusesOfType(state, ['generator.rechargeRate', 'generator.capacity', 'generator.partChance', 'generator.doubleDrop'].join('|'), family) : [];
+    var areaBonuses = Core.stageBonusesOfType ? Core.stageBonusesOfType(state, ['generator.rechargeRate', 'generator.capacity', 'generator.partChance', 'generator.doubleDrop'], family) : [];
     var bonusText = areaBonuses.length ? '<div class="generator-upgrade-summary"><b>宗门区域加成</b><small>' + esc(areaBonuses.map(function (bonus) { return bonus.text; }).join(' · ')) + '</small></div>' : '';
-    var modal = modalShell('<span class="eyebrow">生成说明 · 长按查看</span><h2>' + esc(title) + (info ? ' Lv' + info.level : '') + '</h2><p>' + esc(intro) + '</p>' +
-      (info ? '<div class="generator-upgrade-summary"><b>当前产出</b><small>' + esc(odds) + '</small></div>' : '') + partInfo + bonusText +
+    var modal = modalShell('<span class="eyebrow">生成说明 · 长按查看</span><h2>' + esc(title) + (info ? ' Lv' + info.level + (isPermanent ? '' : ' · 造物') : '') + '</h2><p>' + esc(intro) + '</p>' +
+      (info ? '<div class="generator-upgrade-summary"><b>当前产出</b><small>' + esc(odds) + '</small></div>' : '') + lifetimeInfo + partInfo + bonusText +
       '<div class="generator-route-list">' + definition.items.map(function (name, index) {
         var tier = index + 1;
         var direct = info && info.dropTable && info.dropTable.find(function (drop) { return Number(drop.tier) === tier; });
@@ -283,7 +299,7 @@
       var button = modal.querySelector('[data-upgrade-generator]');
       if (button) button.addEventListener('click', function () {
         var result = Core.upgradeGenerator(state, family);
-        if (mutate(result, '两个同级生成器合成了更高阶生产设施', null, 'merge')) closeModal();
+        if (mutate(result, isPermanent ? '生成器升到 Lv' + result.level + ' · 产出更好了' : '两个造物生成器合成了更高一级', null, isPermanent ? 'purchase' : 'merge')) closeModal();
       });
     }
     return modal;
@@ -472,7 +488,7 @@
       '<div class="how-to-play-list">' +
         '<article class="how-to-play-item"><b>① 拖动合成</b><span>拖动素材到空格整理；拖到同类同阶素材上，会自动合成更高阶物品。长按素材可看完整路线。</span></article>' +
         '<article class="how-to-play-item"><b>② 完成委托</b><span>目标条固定保留主线、修缮、医案、访客与七日旅程五槽，点开卡片即可查看需求和奖励。</span></article>' +
-        '<article class="how-to-play-item"><b>③ 养成生成器</b><span>生成素材消耗 1 体力和 1 储能，也可能掉落部件。两个同阶部件继续合成，五阶变为生成器；两个同级生成器还能再合阶。</span></article>' +
+        '<article class="how-to-play-item"><b>③ 养成生成器</b><span>常驻生成器在线点击只耗体力、不限次数，消耗暖玉与体力即可升级。生成器会掉落部件：四阶部件合成造物生成器，它不耗体力、次数有限，用尽后消散并返还部件。</span></article>' +
         '<article class="how-to-play-item"><b>④ 庭院照料</b><span>点击梳洗台或嬉游亭后选择难度。达到有效操作门槛即可获得合成素材，奖励次数不限；练习与高难度挑战都会记录成绩。</span></article>' +
         '<article class="how-to-play-item"><b>⑤ 有效挑战结算</b><span>消消乐至少完成 3 次有效交换、连连看至少连成 4 对。达到门槛后即使时间到也有保底；直接跳过只保留陪伴反馈，不推进病历或奖励。</span></article>' +
         '<article class="how-to-play-item"><b>⑥ 继续成长</b><span>好感、疗愈和经验都达标后会自动解锁新形态与专属故事；高等级也能换回喜欢的旧形态。</span></article>' +
@@ -671,7 +687,15 @@
       if (rewards.xp) rewardBits.push('阅历+' + rewards.xp);
       if (rewards.beastExp) rewardBits.push('经验+' + rewards.beastExp);
       if (rewards.heal) rewardBits.push('疗愈+' + rewards.heal);
-      if (order.productNeed) needsMarkup += '<div class="care-gate-hint">配方柜：' + esc(order.productNeed.productId) + ' ×' + order.productNeed.count + '</div>';
+      if (rewards.energy) rewardBits.push('体力+' + rewards.energy);
+      if (rewards.generatorParts && rewards.generatorParts.length) rewardBits.push('部件×' + rewards.generatorParts.length);
+      if (order.productNeed) {
+        var recipe = (DATA.recipes || []).find(function (entry) { return entry.id === order.productNeed.productId; });
+        needsMarkup += '<div class="care-gate-hint">配方柜：' + esc(recipe && recipe.name || order.productNeed.productId) + ' ×' + order.productNeed.count + '</div>';
+      }
+      if (order.generatorNeed) {
+        needsMarkup += '<div class="care-gate-hint">需在场：' + esc(order.generatorNeed.family === 'herb' ? '药材' : order.generatorNeed.family === 'tool' ? '药具' : order.generatorNeed.family === 'food' ? '膳食' : '建材') + '造物生成器 Lv' + esc(order.generatorNeed.minLevel) + '+ ×' + order.generatorNeed.count + '</div>';
+      }
       var actionMarkup = '<button class="deliver-btn" data-deliver="' + esc(order.id) + '" type="button" ' + (ready && !complete ? '' : 'disabled') + '>' + (complete ? '今日已完成' : '交付 · ' + rewardBits.join(' · ')) + '</button>';
       return '<article class="order-card ' + (mainline ? 'main-order ' : '') + (ready ? 'ready ' : '') + (!reachable ? 'unreachable' : '') + '" data-order-id="' + esc(order.id) + '">' +
         '<div class="order-head">' + (mainline ? '<span class="mainline-badge">主线</span>' : '') + '<span class="order-kind">' + kindLabel(order.kind) + '</span>' + (order.difficultyLabel ? '<span class="order-kind">' + esc(order.difficultyLabel) + ' · 强度' + order.effort + '</span>' : '') + '<strong>' + esc(order.title) + '</strong></div>' +
@@ -719,7 +743,10 @@
         var family = familyDef(item.family);
         label = item.name || '生成器';
         var generatorArt = itemPath(item);
-        content = (generatorArt ? '<img src="' + esc(generatorArt) + '" alt="" />' : '<span>' + esc(family ? family.icon : '✦') + '</span>') + '<b>Lv' + Math.max(1, Number(item.level) || 1) + '</b><em>' + Math.max(0, Number(item.charges) || 0) + '/' + Math.max(1, Number(item.capacity) || 1) + '</em>';
+        var generatorMeta = item.permanent === false
+          ? '剩余 ' + Math.max(0, Number(item.lifetime) || 0) + ' 次'
+          : '体力1 · 不限次';
+        content = (generatorArt ? '<img src="' + esc(generatorArt) + '" alt="" />' : '<span>' + esc(family ? family.icon : '✦') + '</span>') + '<b>Lv' + Math.max(1, Number(item.level) || 1) + '</b><em>' + esc(generatorMeta) + '</em>';
       } else if (item && item.kind === 'generator_part') {
         classes.push('generator-part-tile');
         if (selectedIndex === index) classes.push('selected');
@@ -1560,6 +1587,11 @@
       'board-full': '棋盘已满，产出已安全暂存',
       'generator-locked': '完成上一位异兽蜕变后解锁这条产线',
       'generator-missing': '这台生成器暂时不在棋盘上',
+      'generator-busy': '生成器正在出货，稍等一下再点',
+      'generator-expired': '这台造物生成器已经用完消散了',
+      'generator-cap': '同族造物生成器最多同时存在 2 台',
+      'resource-upgrade-required': '常驻生成器请通过详情页消耗资源升级',
+      'upgrade-gate': '升级前置条件还没满足，长按生成器查看详情',
       'player-level': '庭院阅历还不够，继续完成委托后再来升级',
       'max-level': '已经升到最高等级',
       requirements: '素材还没准备齐', jade: '暖玉不足',
@@ -1702,8 +1734,12 @@
     if (!item) { playSfx('click'); selectedIndex = null; renderBoard(); return; }
     if (item.kind === 'generator') {
       var generated = Core.generate(state, item.family, Math.random, Date.now(), index);
-      if (generated.ok) mutate(generated, 'Lv' + generated.generatorLevel + ' 生成器获得 ' + itemName(generated.items[0]) + (generated.items && generated.items.length > 1 ? ' · 饕餮双倍掉落' : '') + (generated.partDrop ? ' · 还发现了' + itemName(generated.partDrop) : ''));
-      else {
+      if (generated.ok) {
+        var generatedText = generated.permanent
+          ? 'Lv' + generated.generatorLevel + ' 生成器获得 ' + itemName(generated.items[0]) + (generated.items.length > 1 ? ' · 双倍掉落' : '') + (generated.partDrop ? ' · 还发现了' + itemName(generated.partDrop) : '')
+          : '造物生成器产出 ' + itemName(generated.items[0]) + ' · 剩余 ' + generated.lifetime + ' 次' + (generated.expired ? ' · 已消散并返还部件' : '');
+        mutate(generated, generatedText);
+      } else {
         saveState(); render(); toast(failureText(generated));
       }
       return;
@@ -2077,6 +2113,11 @@
 
     var engineOptions = Object.assign({}, difficultyConfig[type], {
       difficulty: difficulty,
+      onEvent: function (name) {
+        if (name === 'swap' || name === 'swap-fail') playSfx('swap');
+        else if (name === 'match') playSfx('match');
+        else if (name === 'land') playSfx('land');
+      },
       onDone: function (perf, summary) { settle(perf, summary, false); },
       onCancel: function (summary) { settle(summary && summary.perf, summary, true); },
       onGoal: function () { playSfx('care'); },
@@ -2091,6 +2132,11 @@
       stopCareGame();
       saveState(); render(); toast('小游戏启动失败，体力已返还');
       return { ok: false, reason: 'game-start', refunded: true };
+    }
+    if (type === 'groom' && difficulty === 'easy' && session.game && typeof session.game.useHint === 'function') {
+      root.setTimeout(function () {
+        if (careSession === session && session.game && !session.game.finished) session.game.useHint();
+      }, 1400);
     }
 
     function resizeCanvas() {
