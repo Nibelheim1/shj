@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAt": "2026-08-15T10:33:21.851Z",
-  "totalBytes": 10346751,
+  "generatedAt": "2026-08-15T11:45:11.017Z",
+  "totalBytes": 10352261,
   "files": [
     {
       "path": "assets/art/buildings/clinic_lv1.webp",
@@ -1584,8 +1584,8 @@
     {
       "path": "index.html",
       "bundle": "boot",
-      "bytes": 23700,
-      "sha256": "b4be301b14c5896922f098db9af1297e165e27ecad8b9b92706119d8c8a9cf57"
+      "bytes": 23698,
+      "sha256": "60f3aea4f7f4599b7398c03dbd148bbd88240d3facce98b6e505f08b349f3ada"
     },
     {
       "path": "js/merge/audio.js",
@@ -1596,8 +1596,8 @@
     {
       "path": "js/merge/core.js",
       "bundle": "boot",
-      "bytes": 180002,
-      "sha256": "4d2e901449d37933601568c135ea626403bca5756be2e8304ec774eb117ba022"
+      "bytes": 180464,
+      "sha256": "d8af60d7917e4fe339a6f2036ed044f3e40668ffcb9c510390206c75034a79ab"
     },
     {
       "path": "js/merge/courtyard-scene.js",
@@ -1608,8 +1608,8 @@
     {
       "path": "js/merge/data.js",
       "bundle": "boot",
-      "bytes": 84782,
-      "sha256": "2e834778b1ce36f09424dab98475e4823488d2e6149a48453696960c0592dc53"
+      "bytes": 87432,
+      "sha256": "71f40e91061024595984e02bc09474f682082e88e38b220c754d156ac003c20c"
     },
     {
       "path": "js/merge/match3.js",
@@ -1618,22 +1618,22 @@
       "sha256": "86514b4465c82e3ab2b6861646d99cca6382205ae340c1163b4d5c5d88b0f968"
     },
     {
-      "path": "js/merge/memory-game.js",
-      "bundle": "boot",
-      "bytes": 20755,
-      "sha256": "4fd2563a4ae5e2ee5e11fae0480e314af34e71a7b184f94079cd714f3ad3d0cc"
-    },
-    {
       "path": "js/merge/save-store.js",
       "bundle": "boot",
       "bytes": 28668,
       "sha256": "3b25bdbc882b4703e0abe6d0951721f53515519ede82a9dc8eb7417d31da69e6"
     },
     {
+      "path": "js/merge/sheep-game.js",
+      "bundle": "boot",
+      "bytes": 22823,
+      "sha256": "11ef3445b51f49b4d2d89a6a604bbc550eeef10035d18eaab607bb62632a0304"
+    },
+    {
       "path": "js/merge/ui.js",
       "bundle": "boot",
-      "bytes": 164944,
-      "sha256": "38cc51f73c61f520c1ad9516e6cc24ac3722dbee84e266aad0de5c578d8efb1c"
+      "bytes": 165276,
+      "sha256": "46c937549250927e1d57b2d388528ca72f847ebe9189a770fc7e0517f3669981"
     },
     {
       "path": "merge-slice.css",

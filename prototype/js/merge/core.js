@@ -1167,6 +1167,11 @@
     state.sect = normalizeSect(raw.sect, chapterVolume);
     ensureStorageCapacity(state);
     autoUnlockVolumeAreas(state);
+    /* 符箓/珍宝从对应卷章起改为可解锁生成器；老档若已迎来梼杌/烛龙，
+       迁移时补发产线，保证该阶段素材可达。 */
+    [['taowu', 'charm'], ['zhulong', 'treasure']].forEach(function (entry) {
+      if (isYardBeastAvailable(state, entry[0])) unlockGenerator(state, entry[1]);
+    });
     if (number(raw.version, 0) < 7) {
       (DATA.sect && DATA.sect.areas || []).forEach(function (area) {
         if (number(state.sect.stages[area.id], 0) < 3 || state.sect.rewardedAreas.indexOf(area.id) >= 0) return;
@@ -2229,6 +2234,8 @@
     }
     if (beastId === 'jiuweihu') unlockGenerator(state, 'build');
     if (beastId === 'taotie') unlockGenerator(state, 'food');
+    if (beastId === 'taowu') unlockGenerator(state, 'charm');
+    if (beastId === 'zhulong') unlockGenerator(state, 'treasure');
     autoUnlockVolumeAreas(state);
     state.codex[beastId].discovered = true;
     var acquisitionReveal = revealEvent(state, 'acquire', beastId, Math.max(1, number(entry.level, 1)));

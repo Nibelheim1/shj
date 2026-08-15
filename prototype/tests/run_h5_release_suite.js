@@ -15,6 +15,7 @@ const TESTS = [
   'prototype/tests/merge_economy_simulation_test.js',
   'prototype/tests/h5_growth_v6_test.js',
   'prototype/tests/h5_beast_gift_loop_test.js',
+  'prototype/tests/h5_material_source_audit_test.js',
   'prototype/tests/h5_building_signin_test.js',
   'prototype/tests/h5_link_pair_integrity_test.js',
   'prototype/tests/h5_link_cross_match_regression_test.js',

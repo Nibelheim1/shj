@@ -8,7 +8,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const MemoryGame = require('../js/merge/memory-game.js');
+const SheepGame = require('../js/merge/sheep-game.js');
 
 function deterministicRng() {
   /* A stable, non-zero sequence still covers the shuffle path. */
@@ -21,55 +21,72 @@ function deterministicRng() {
   };
 }
 
-function cardPoint(card) {
-  return { x: card.c + 0.5, y: card.r + 0.5 };
+function sheepRect(game) {
+  return game._layout(390, 700);
 }
 
-function touchCard(game, card, rect) {
-  const point = cardPoint(card);
-  return game.onTouchStart(point.x, point.y, rect);
+function tilePoint(tile, rect) {
+  const box = gameTileBox(tile, rect);
+  return { x: box.x + box.w / 2, y: box.y + box.h / 2 };
 }
 
-function hiddenCards(game) {
-  return game.cards.filter(function (card) {
-    return card && !card.blocked && !card.matched && !card.flipped;
-  });
+function gameTileBox(tile, rect) {
+  return rect ? {
+    x: rect.x + tile.cx * rect.cell + tile.layer * rect.cell * 0.10,
+    y: rect.y + tile.cy * rect.cell + tile.layer * rect.cell * 0.10 * 0.65,
+    w: rect.cell * 0.86,
+    h: rect.cell * 0.86
+  } : null;
 }
 
-function findHiddenPair(game) {
-  const cards = hiddenCards(game);
-  for (let i = 0; i < cards.length; i++) {
-    for (let j = i + 1; j < cards.length; j++) {
-      if (cards[i].type === cards[j].type) return [cards[i], cards[j]];
-    }
+function touchTile(game, tile, rect) {
+  const point = tilePoint(tile, rect || sheepRect(game));
+  return game.onTouchStart(point.x, point.y, rect || sheepRect(game));
+}
+
+function clearOneTriple(game, rect) {
+  const legal = game.listLegalTiles();
+  assert.ok(legal.length > 0, '羊了个羊始终存在露头牌');
+  const tile = legal[0];
+  for (let n = 0; n < 3; n++) {
+    const top = game.listLegalTiles().find(function (candidate) {
+      return candidate.r === tile.r && candidate.c === tile.c;
+    });
+    assert.ok(top, '同一组三张牌会依次露出');
+    assert.strictEqual(touchTile(game, top, rect), true);
   }
-  return null;
+  return tile;
+}
+
+function clearTriples(game, count) {
+  const rect = sheepRect(game);
+  for (let n = 0; n < count && !game.finished; n++) clearOneTriple(game, rect);
 }
 
 const DIFFICULTY_DIMENSIONS = {
-  easy: { match3: [6, 6, 5], memory: [4, 3, 6, 6] },
-  normal: { match3: [6, 6, 6], memory: [4, 4, 8, 8] },
-  hard: { match3: [6, 7, 6], memory: [5, 4, 10, 10] },
-  master: { match3: [7, 8, 6], memory: [6, 4, 12, 10] }
+  easy: { match3: [6, 6, 5], sheep: [4, 4, 1, 4, 4] },
+  normal: { match3: [6, 6, 6], sheep: [5, 5, 2, 6, 12] },
+  hard: { match3: [6, 7, 6], sheep: [6, 6, 3, 8, 16] },
+  master: { match3: [7, 8, 6], sheep: [7, 7, 4, 10, 20] }
 };
 
 function runDifficultyProfileChecks(Match3) {
   Object.keys(DIFFICULTY_DIMENSIONS).forEach(function (difficulty) {
     const expected = DIFFICULTY_DIMENSIONS[difficulty];
-    const memory = new MemoryGame.Game('PLAY', { difficulty: difficulty, rng: deterministicRng() });
-    assert.strictEqual(memory.cols, expected.memory[0], difficulty + ' 翻牌配对列数');
-    assert.strictEqual(memory.rows, expected.memory[1], difficulty + ' 翻牌配对行数');
-    assert.strictEqual(memory.totalPairs, expected.memory[2], difficulty + ' 翻牌配对数');
-    assert.strictEqual(memory.typeCount, expected.memory[3], difficulty + ' 翻牌配对图案种类');
-    const liveCards = memory.cards.filter(function (card) { return card && !card.blocked; });
-    assert.strictEqual(liveCards.length, memory.totalPairs * 2, '牌阵应恰好放满全部对子');
-    const counts = liveCards.reduce(function (result, card) {
-      result[card.type] = (result[card.type] || 0) + 1;
+    const sheep = new SheepGame.Game('PLAY', { difficulty: difficulty, rng: deterministicRng() });
+    assert.strictEqual(sheep.cols, expected.sheep[0], difficulty + ' 羊了个羊列数');
+    assert.strictEqual(sheep.rows, expected.sheep[1], difficulty + ' 羊了个羊行数');
+    assert.strictEqual(sheep.layers, expected.sheep[2], difficulty + ' 羊了个羊层数');
+    assert.strictEqual(sheep.typeCount, expected.sheep[3], difficulty + ' 羊了个羊玩具种类');
+    assert.strictEqual(sheep.totalTriples, expected.sheep[4], difficulty + ' 羊了个羊三连组数');
+    const counts = sheep.tiles.filter(function (tile) { return !tile.removed; }).reduce(function (result, tile) {
+      result[tile.type] = (result[tile.type] || 0) + 1;
       return result;
     }, {});
     Object.keys(counts).forEach(function (type) {
-      assert.strictEqual(counts[type] % 2, 0, difficulty + ' 每种图案成对出现');
+      assert.strictEqual(counts[type] % 3, 0, difficulty + ' 每种玩具数量都是 3 的倍数');
     });
+    assert.ok(sheep.hasLegalMove(), difficulty + ' 初盘必有露头牌');
 
     const match3 = new Match3.Game('GROOM', { difficulty: difficulty });
     assert.strictEqual(match3.cols, expected.match3[0], difficulty + ' 消消乐列数');
@@ -80,16 +97,14 @@ function runDifficultyProfileChecks(Match3) {
   });
 
   /* Explicit constructor overrides are independent from a selected profile. */
-  const customMemory = new MemoryGame.Game('PLAY', {
-    difficulty: 'easy', cols: 6, rows: 4, typeCount: 4, timeLimit: 9, rng: deterministicRng()
+  const customSheep = new SheepGame.Game('PLAY', {
+    difficulty: 'easy', cols: 6, rows: 4, layers: 2, typeCount: 4, timeLimit: 9, rng: deterministicRng()
   });
-  assert.deepStrictEqual([customMemory.cols, customMemory.rows, customMemory.typeCount], [6, 4, 4]);
-  assert.strictEqual(customMemory.timeLimit, 9);
-  assert.strictEqual(customMemory.totalPairs, 12, '自定义 6×4 牌阵自动配满 12 对');
-  customMemory.update(customMemory.previewMs / 1000 + 0.01);
-  assert.ok(customMemory.useHint(), '翻牌配对提示可用');
-  assert.ok(customMemory.hint && customMemory.hint.length === 2, '提示高亮两张同图案卡片');
-  assert.strictEqual(customMemory.hint[0].type, customMemory.hint[1].type, '提示卡片图案相同');
+  assert.deepStrictEqual([customSheep.cols, customSheep.rows, customSheep.typeCount, customSheep.layers], [6, 4, 4, 2]);
+  assert.strictEqual(customSheep.timeLimit, 9);
+  assert.strictEqual(customSheep.totalTriples, 4, '自定义 6×4 塔自动配 4 组三连');
+  assert.ok(customSheep.useHint(), '羊了个羊提示可用');
+  assert.ok(customSheep.hint && !customSheep.hint.removed, '提示指向一张露头牌');
 
   const customMatch3 = new Match3.Game('GROOM', {
     difficulty: 'master', cols: 6, rows: 6, typeCount: 4, timeLimit: 7,
@@ -106,78 +121,79 @@ function runDifficultyProfileChecks(Match3) {
   assert.strictEqual(customMatch3.itemRemaining.shuffle, 1);
 }
 
-function runMemoryGameChecks() {
+function runSheepGameChecks() {
   let doneCount = 0;
   let doneSummary = null;
-  const game = new MemoryGame.Game('PLAY', {
+  const game = new SheepGame.Game('PLAY', {
     rng: deterministicRng(),
     onDone: function (perf, summary) {
       doneCount++;
       doneSummary = { perf: perf, summary: summary };
     }
   });
-  assert.strictEqual(game.cols, 5, '翻牌配对宽度为 5');
-  assert.strictEqual(game.rows, 4, '翻牌配对高度为 4');
-  assert.strictEqual(game.totalPairs, 10, '翻牌配对共 10 对');
-  const cards = game.cards.filter(function (card) { return card && !card.blocked; });
-  assert.strictEqual(cards.length, 20, '翻牌配对共 20 张卡片');
-  const counts = cards.reduce(function (result, card) {
-    result[card.type] = (result[card.type] || 0) + 1;
-    return result;
-  }, {});
-  Object.keys(counts).forEach(function (type) {
-    assert.strictEqual(counts[type] % 2, 0, '每种图案成对出现');
-  });
+  assert.strictEqual(game.cols, 6, '羊了个羊塔基宽 6');
+  assert.strictEqual(game.rows, 6, '羊了个羊塔基高 6');
+  assert.strictEqual(game.layers, 3, '羊了个羊共 3 层');
+  assert.strictEqual(game.totalTriples, 16, '羊了个羊共 16 组三连');
+  assert.strictEqual(game.tiles.filter(function (tile) { return !tile.removed; }).length, 48, '塔内共 48 张牌');
+  assert.ok(game.hasLegalMove(), '初盘有露头牌');
 
-  const rect = { x: 0, y: 0, cell: 1 };
-  assert.strictEqual(game.previewActive, true, '标准以上开局有记忆预览');
-  game.update(game.previewMs / 1000 + 0.01);
-  assert.strictEqual(game.previewActive, false, '预览结束后关闭');
-  assert.strictEqual(hiddenCards(game).length, game.totalPairs * 2, '预览结束后全部卡片盖回');
+  const rect = sheepRect(game);
+  clearTriples(game, 4);
+  assert.strictEqual(game.triplesCleared, 4, '消除 4 组三连');
+  assert.strictEqual(game.slot.length, 0, '三张相同立即清空槽位');
 
-  /* 配对成功与失败路径都走公开触摸入口。 */
-  const matchPair = findHiddenPair(game);
-  assert.ok(matchPair, '存在可配对的两张卡');
-  assert.strictEqual(touchCard(game, matchPair[0], rect), true);
-  assert.strictEqual(touchCard(game, matchPair[1], rect), true);
-  assert.strictEqual(game.matchedPairs, 1, '配对成功计 1 对');
-  assert.strictEqual(game.validActions, undefined, '有效操作通过 summary 暴露');
-
-  const mismatchA = hiddenCards(game)[0];
-  const mismatchB = hiddenCards(game).find(function (card) { return card.type !== mismatchA.type; });
-  assert.ok(mismatchB, '存在不同图案的两张卡');
-  assert.strictEqual(touchCard(game, mismatchA, rect), true);
-  assert.strictEqual(touchCard(game, mismatchB, rect), true);
-  assert.strictEqual(game.pendingBack != null, true, '错配进入短暂展示');
-  game.update(game.flipBackMs / 1000 + 0.01);
-  assert.strictEqual(game.pendingBack, null, '错配展示后自动盖回');
-  assert.strictEqual(mismatchA.flipped, false, '错配卡片已盖回');
-  assert.strictEqual(mismatchB.flipped, false, '错配卡片已盖回');
-  assert.strictEqual(game.misses, 1, '错配计 1 次失误');
-
-  let steps = 0;
-  while (!game.finished) {
-    const pair = findHiddenPair(game);
-    assert.ok(pair, '清盘循环中始终存在可配对卡片 #' + steps);
-    assert.strictEqual(touchCard(game, pair[0], rect), true);
-    assert.strictEqual(touchCard(game, pair[1], rect), true);
-    steps++;
-    assert.ok(steps <= game.totalPairs, '清盘循环不应超过剩余对子数');
+  /* 故意连续放入不同图案，直到槽满失败。 */
+  const failGame = new SheepGame.Game('PLAY', { difficulty: 'hard', rng: deterministicRng(), onDone: function () {} });
+  const failRect = sheepRect(failGame);
+  let guard = 0;
+  while (!failGame.finished && guard++ < 50) {
+    const legal = failGame.listLegalTiles();
+    assert.ok(legal.length > 0, '失败测试中存在露头牌');
+    let pick = null;
+    for (const tile of legal) {
+      if (failGame.slot.every(function (held) { return held.type !== tile.type; })) { pick = tile; break; }
+    }
+    if (!pick) pick = legal[0];
+    assert.strictEqual(touchTile(failGame, pick, failRect), true);
   }
+  assert.strictEqual(failGame.failed, true, '槽满且无三连时判定失败');
+  assert.strictEqual(failGame.finished, true, '失败后结束并结算');
+  assert.ok(failGame.perf < 0.4, '低分失败只给低档表现');
+
+  /* 高分失败：先消 8 组，再故意失败；困难档也应拿到 B 档及以上表现。 */
+  const scored = new SheepGame.Game('PLAY', { difficulty: 'hard', rng: deterministicRng() });
+  const scoredRect = sheepRect(scored);
+  clearTriples(scored, 8);
+  guard = 0;
+  while (!scored.finished && guard++ < 50) {
+    const legal = scored.listLegalTiles();
+    let pick = null;
+    for (const tile of legal) {
+      if (scored.slot.every(function (held) { return held.type !== tile.type; })) { pick = tile; break; }
+    }
+    if (!pick) break;
+    assert.strictEqual(touchTile(scored, pick, scoredRect), true);
+  }
+  if (!scored.finished) scored.finish(true);
+  assert.ok(scored.score > 1000, '高分失败仍有可观得分');
+  assert.ok(scored.perf >= 0.4, '困难档高分失败按得分匹配 B 档以上表现');
+
+  /* 清盘走公开触摸入口。 */
+  while (!game.finished) clearOneTriple(game, rect);
   assert.strictEqual(doneCount, 1, '清盘只触发一次 onDone');
   assert.ok(doneSummary, '清盘回调收到结果');
   assert.ok(doneSummary.perf >= 0.85, '清盘表现分达到 mastery 门槛');
-  assert.strictEqual(doneSummary.summary.pairsCleared, 10, '清盘摘要为 10 对');
-  assert.strictEqual(doneSummary.summary.validActions, 10, '清盘摘要含有效配对次数');
-  assert.strictEqual(doneSummary.summary.difficulty, 'hard', '翻牌配对摘要包含 difficulty');
-  assert.ok(doneSummary.summary.score > 0, '翻牌配对产生分数');
+  assert.strictEqual(doneSummary.summary.triplesCleared, 16, '清盘摘要为 16 组');
+  assert.strictEqual(doneSummary.summary.validActions, 16, '清盘摘要含有效消除组数');
+  assert.strictEqual(doneSummary.summary.difficulty, 'hard', '羊了个羊摘要包含 difficulty');
+  assert.ok(doneSummary.summary.score > 0, '羊了个羊产生分数');
 
   let timeoutDone = 0;
   let timeoutSummary = null;
-  const timeoutGame = new MemoryGame.Game('PLAY', {
+  const timeoutGame = new SheepGame.Game('PLAY', {
     rng: deterministicRng(),
     timeLimit: 1,
-    previewMs: 0,
     onDone: function (perf, summary) {
       timeoutDone++;
       timeoutSummary = { perf: perf, summary: summary };
@@ -185,24 +201,23 @@ function runMemoryGameChecks() {
   });
   timeoutGame.update(1.01);
   assert.strictEqual(timeoutDone, 1, '超时走 onDone');
-  assert.strictEqual(timeoutSummary.perf, 0, '超时基础表现为 0');
-  assert.strictEqual(timeoutSummary.summary.pairsCleared, 0, '超时没有虚构配对');
+  assert.ok(timeoutSummary.perf < 0.4, '空手超时只给低档表现');
+  assert.strictEqual(timeoutSummary.summary.triplesCleared, 0, '超时没有虚构消除');
 
   let cancelCount = 0;
-  const cancelGame = new MemoryGame.Game('PLAY', {
+  const cancelGame = new SheepGame.Game('PLAY', {
     rng: deterministicRng(),
-    previewMs: 0,
     onCancel: function () { cancelCount++; }
   });
   assert.strictEqual(cancelGame.cancel().finished, true, '主动取消返回摘要并结束');
   assert.strictEqual(cancelCount, 1, '取消走 onCancel');
 
-  const challenge = new MemoryGame.Game('PLAY', { difficulty: 'challenge', rng: deterministicRng() });
-  assert.deepStrictEqual([challenge.cols, challenge.rows, challenge.totalPairs, challenge.timeLimit], [6, 5, 15, 150], '挑战模式独立牌阵与时长');
-  assert.strictEqual(challenge.previewMs, 0, '挑战模式无开局预览');
-  assert.strictEqual(challenge.mismatchPenalty, 1, '挑战模式失误扣时');
+  const challenge = new SheepGame.Game('PLAY', { difficulty: 'challenge', rng: deterministicRng() });
+  assert.deepStrictEqual([challenge.cols, challenge.rows, challenge.layers, challenge.totalTriples, challenge.timeLimit],
+    [8, 8, 5, 20, 150], '挑战模式独立塔基、层数与时长');
+  assert.ok(challenge.failPerfCap >= 0.84, '挑战模式高分失败也可匹配高表现');
 
-  console.log('  PASS  MemoryGame 5×4 10 对、预览、配对/错配、清盘、超时、取消、挑战');
+  console.log('  PASS  SheepGame 6×6 3 层 16 组、三消/槽满/高分失败/清盘/超时/取消/挑战');
 }
 
 function loadMatch3(constantRandom) {
@@ -297,12 +312,12 @@ function runChallengeProfileChecks() {
   const Match3 = loadMatch3();
   assert.ok(Match3 && Match3.DIFFICULTIES && Match3.DIFFICULTIES.challenge,
     'Match3.DIFFICULTIES.challenge must be public');
-  assert.ok(MemoryGame && MemoryGame.DIFFICULTIES && MemoryGame.DIFFICULTIES.challenge,
-    'MemoryGame.DIFFICULTIES.challenge must be public');
+  assert.ok(SheepGame && SheepGame.DIFFICULTIES && SheepGame.DIFFICULTIES.challenge,
+    'SheepGame.DIFFICULTIES.challenge must be public');
   assert.ok(Number(Match3.DIFFICULTIES.challenge.timeLimit) > Number(Match3.DIFFICULTIES.master.timeLimit),
     'challenge Match3 time must exceed master');
-  assert.ok(Number(MemoryGame.DIFFICULTIES.challenge.timeLimit) > Number(MemoryGame.DIFFICULTIES.master.timeLimit),
-    'challenge MemoryGame time must exceed master');
+  assert.ok(Number(SheepGame.DIFFICULTIES.challenge.timeLimit) > Number(SheepGame.DIFFICULTIES.master.timeLimit),
+    'challenge SheepGame time must exceed master');
 
   const match3 = new Match3.Game('GROOM', { difficulty: 'challenge' });
   assert.strictEqual(match3.difficulty, 'challenge');
@@ -313,18 +328,18 @@ function runChallengeProfileChecks() {
   assert.ok(matchSummary.operations && Number(matchSummary.operations.valid) === 0,
     'an untouched challenge Match3 must have no valid operations');
 
-  const memory = new MemoryGame.Game('PLAY', { difficulty: 'challenge', rng: deterministicRng() });
-  assert.strictEqual(memory.difficulty, 'challenge');
-  assert.ok(Number(memory.timeLimit) > Number(MemoryGame.DIFFICULTIES.master.timeLimit));
-  const memorySummary = memory.finish(false);
-  assert.strictEqual(memorySummary.difficulty, 'challenge', 'MemoryGame challenge summary must expose difficulty');
-  assert.strictEqual(Number(memorySummary.score), 0, 'an untouched challenge MemoryGame must have zero score');
-  assert.strictEqual(Number(memorySummary.validActions), 0,
-    'an untouched challenge MemoryGame must have no valid operations');
+  const sheep = new SheepGame.Game('PLAY', { difficulty: 'challenge', rng: deterministicRng() });
+  assert.strictEqual(sheep.difficulty, 'challenge');
+  assert.ok(Number(sheep.timeLimit) > Number(SheepGame.DIFFICULTIES.master.timeLimit));
+  const sheepSummary = sheep.finish(false);
+  assert.strictEqual(sheepSummary.difficulty, 'challenge', 'SheepGame challenge summary must expose difficulty');
+  assert.strictEqual(Number(sheepSummary.score), 0, 'an untouched challenge SheepGame must have zero score');
+  assert.strictEqual(Number(sheepSummary.validActions), 0,
+    'an untouched challenge SheepGame must have no valid operations');
   console.log('  PASS  challenge 双小游戏独立时长、构造器与 summary');
 }
 
-runMemoryGameChecks();
+runSheepGameChecks();
 runMatch3Checks();
 runChallengeProfileChecks();
 console.log('ALL PASS');

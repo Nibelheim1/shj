@@ -101,7 +101,7 @@ function cardCount(root, selectors) {
     W.document.dispatchEvent(new W.Event('DOMContentLoaded'));
   });
 
-  check('庭院入口只保留梳洗台/亭子小游戏并按 match3→memory-game→ui 加载', function () {
+  check('庭院入口只保留梳洗台/亭子小游戏并按 match3→sheep-game→ui 加载', function () {
     expect(!W.document.querySelector('#care-groom, #care-play'), '不应残留旧的独立照料按钮 id');
     expect(!W.document.querySelector('.care-beat, #care-beats, [data-rhythm], [data-beat]'), '不应残留节奏点击按钮');
     const careButtons = Array.from(W.document.querySelectorAll('[data-care]'));
@@ -112,9 +112,9 @@ function cardCount(root, selectors) {
     expect(careButtons.some(function (button) { return button.dataset.care === 'play'; }), '亭子入口存在');
     const sourceNames = scriptSources.map(function (source) { return source.split('?')[0].replace(/^\.\//, ''); });
     const match3Index = sourceNames.findIndex(function (source) { return /(?:^|\/)match3\.js$/.test(source); });
-    const memoryIndex = sourceNames.findIndex(function (source) { return /(?:^|\/)memory-game\.js$/.test(source); });
+    const sheepIndex = sourceNames.findIndex(function (source) { return /(?:^|\/)sheep-game\.js$/.test(source); });
     const uiIndex = sourceNames.findIndex(function (source) { return /(?:^|\/)ui\.js$/.test(source); });
-    expect(match3Index >= 0 && memoryIndex > match3Index && uiIndex > memoryIndex, '小游戏脚本顺序正确');
+    expect(match3Index >= 0 && sheepIndex > match3Index && uiIndex > sheepIndex, '小游戏脚本顺序正确');
     expect(W.document.getElementById('care-game-root'), '全屏照料游戏根节点存在');
     expect(W.document.getElementById('storage-open'), '药房/暂存区入口存在');
     expect(W.document.querySelector('.yard-quickbar'), '庭院快捷入口存在');
@@ -243,7 +243,7 @@ function cardCount(root, selectors) {
     if (continueButton) continueButton.click();
   });
 
-  check('穷奇支持时点击亭子打开翻牌配对', function () {
+  check('穷奇支持时点击亭子打开羊了个羊', function () {
     const definition = W.MERGE_DATA && W.MERGE_DATA.beasts && W.MERGE_DATA.beasts.find(function (beast) { return beast.id === 'qiongqi'; });
     if (!definition || definition.careTypes.indexOf('play') < 0) return;
     const playButton = W.document.querySelector('[data-care="play"]');
@@ -255,7 +255,7 @@ function cardCount(root, selectors) {
     easy.click();
     expect(gameRoot.classList.contains('is-open') || gameRoot.getAttribute('aria-hidden') === 'false', '点击亭子后游戏层打开');
     expect(gameRoot.querySelector('canvas#care-game-canvas'), '亭子打开 canvas');
-    expect(gameRoot.querySelector('.memory-shell'), '亭子进入翻牌配对');
+    expect(gameRoot.querySelector('.sheep-shell'), '亭子进入羊了个羊');
     /* End the session so the test does not retain a live care loop. */
     if (W.MergeUI && W.MergeUI.finishCare) W.MergeUI.finishCare('skip');
   });

@@ -1,7 +1,7 @@
 # 陪玩小游戏替换：翻牌配对（Memory Card）
 
-> 状态：已实施（prototype v7+）
-> 验证：`merge_slice_care_games_test.js` + `h5_minigame_depth_test.js`（随 `npm run test:h5` 执行）
+> 状态：**已被 `design/gdd/gdd-sheep-tile.md` 的“羊了个羊”取代**；本文件仅保留调研与授权记录。
+> `memory-game.js` 源码仍保留为遗留引擎，不再加载到客户端主流程。
 
 ## 1. GitHub 调研与选型
 

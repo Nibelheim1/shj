@@ -111,12 +111,12 @@
     },
     charm: {
       id: 'charm', name: '符箓', icon: '🧿', path: 'charm', color: '#d7b45d',
-      activeFromVolume: 7, generatorLocked: true,
+      activeFromVolume: 7,
       items: ['黄纸符', '朱砂', '桃木牌', '铜铃', '八卦镜', '避水符', '聚灵符', '镇山印']
     },
     treasure: {
       id: 'treasure', name: '珍宝', icon: '🪸', path: 'treasure', color: '#70b8ba',
-      activeFromVolume: 8, generatorLocked: true,
+      activeFromVolume: 8,
       items: ['海螺', '珍珠', '夜明珠', '珊瑚枝', '暖玉坠', '避尘珠', '归墟贝壳', '归墟明珠']
     }
   };
@@ -785,20 +785,49 @@
       };
     });
   });
-  /* 陪伴闭环：从卷四起，每只神兽的主线三步也围绕“自己玩/梳出来的礼物”展开，
-     与成长委托、下一位住客的来信共用同一来源。 */
-  beasts.slice(3).forEach(function (beast) {
-    if (!beast.gift || !Array.isArray(beast.storySteps)) return;
-    beast.storySteps.forEach(function (step, index) {
-      var primaryTier = Math.min(5, 3 + index);
+  /* 陪伴奖励统一按设施产出：梳洗台永远掉梳妆系列，嬉游亭永远掉玩具系列。
+     神兽之间的“专属来源”由礼物来源标记（giftSource）保证：同源合成保留来源，
+     混入其他来源后不能再用于某只神兽的专属成长/来信订单。 */
+  var giftNotes = {
+    qiongqi: '穷奇把最心爱的玩具一样样擦亮收进包袱。陪它玩一场，九尾狐要的玩具礼物就准备好了。',
+    jiuweihu: '九尾狐把尾巴卷成球、把笑声编成新游戏。玩出来的心意，正是它成长与邀请饕餮的信物。',
+    taotie: '饕餮把游戏玩成“一人一口”的分享会，赢来的玩具也要先排好队。帝江的玩具来信和它自己的成长心意，都在这一箱里。',
+    dijiang: '帝江滚来滚去，把每件玩具都滚得亮晶晶。陪它玩一圈，毕方的玩具来信就有了着落。',
+    bifang: '毕方梳羽时把最软的小梳子收进妆匣。白泽的梳妆来信和它自己的成长心意，都从梳洗台来。',
+    baize: '白泽把讲不完的故事编成发绳和小梳子。梼杌的梳妆来信，就藏在它顺好的毛毛里。',
+    taowu: '梼杌把晨操练成新游戏，赢来的玩具排成一队。烛龙的玩具来信，它一份都不肯少。',
+    zhulong: '烛龙把光调得刚刚好，梳鳞时掉下的亮片做成小梳子。貔貅的梳妆来信，就这样一点点攒起来。',
+    pixiu: '貔貅把玩具分享给每个伙伴，越玩越亮堂。麒麟的玩具来信，就藏在它递出去的那一份里。',
+    qilin: '麒麟打滚时蹭出的莲香，被它编成软软的发绳。凤凰的梳妆来信，就系在这一次次四脚朝天里。',
+    fenghuang: '凤凰换羽时把最漂亮的羽毛收成发饰。鲲鹏的梳妆来信，就藏在这些不再躲闪的羽毛里。',
+    kunpeng: '鲲鹏迷路时总带回云海的新玩具。陪它再飞一圈，它自己的成长心意就装满一箱。'
+  };
+  beasts.forEach(function (beast) {
+    if (!beast.gift) return;
+    var giftFamily = beast.gift.care === 'play' ? 'play' : 'groom';
+    beast.gift.family = giftFamily;
+    beast.gift.item = families[giftFamily].items[Math.min(5, families[giftFamily].items.length - 1)];
+    beast.gift.note = giftNotes[beast.id] || beast.gift.note;
+    beast.careRoutes = {
+      groom: { family: 'groom', label: '梳洗台消消乐奖励 · 梳妆系列素材' },
+      play: { family: 'play', label: '嬉游亭羊了个羊奖励 · 玩具系列素材' }
+    };
+    if (!Array.isArray(beast.storySteps)) return;
+    beast.storySteps.forEach(function (step) {
+      var primaryTier = Math.max(1, Math.min(families[giftFamily].items.length, Number(step.requirements[0].tier) || 2));
       var support = step.requirements && step.requirements[1] ? step.requirements[1] : { family: 'herb', tier: 2, count: 1 };
-      var supportFamily = support.family === beast.gift.family ? 'herb' : support.family;
+      var supportFamily = support.family === giftFamily ? 'herb' : support.family;
       var supportTier = Math.max(1, Math.min(4, Number(support.tier) || 2));
-      var reqs = [sourcedRequirement(beast.gift.family, primaryTier, 1, beast.id), requirement(supportFamily, supportTier, 1)];
+      var reqs = [sourcedRequirement(giftFamily, primaryTier, 1, beast.id), requirement(supportFamily, supportTier, 1)];
       step.requirements = reqs;
       step.needs = copyRequirements(reqs);
       step.need = copyRequirements(reqs);
     });
+  });
+  /* 下一只神兽的来信 = 上一只神兽的陪伴游戏系列。 */
+  beasts.slice(1).forEach(function (beast, index) {
+    var previousGift = beasts[index].gift;
+    beast.unlockFamily = previousGift ? previousGift.family : 'play';
   });
   var revealLines = {
     qiongqi: [
@@ -982,7 +1011,7 @@
     challengeRewards: {
       maxItems: 6,
       groom: { countThresholds: [600, 1200, 2200, 3600], tier2Score: 1200, tier3Score: 3000 },
-      play: { countThresholds: [600, 1200, 2200, 3400], tier2Score: 1500, tier3Score: 3000 }
+      play: { countThresholds: [700, 1500, 2600, 4000], tier2Score: 2000, tier3Score: 3800 }
     },
     historyLimit: 5,
     effectiveActions: { groom: 3, play: 4 },
@@ -991,32 +1020,32 @@
       easy: {
         id: 'easy', name: '轻松', unlock: 'default',
         groom: { cols: 6, rows: 6, typeCount: 5, timeLimit: 60, moveLimit: 26, minLegalMoves: 5, objective: { mode: 'score', targetMultiplier: 0.72, label: '解开单层毛结并制造特殊块' }, knotMode: 'single', timePickupBudget: 4, itemCounts: { hammer: 3, shuffle: 2, theme: 2 } },
-        play: { cols: 4, rows: 3, typeCount: 6, pairs: 6, timeLimit: 70, previewMs: 2400, flipBackMs: 950, mismatchPenalty: 0, comboWindow: 2.4 },
+        play: { cols: 4, rows: 4, layers: 1, typeCount: 4, tilesPerType: 3, slots: 7, timeLimit: 70, scoreTarget: 700, failPerfCap: 0.58, comboWindow: 2.2 },
         rewards: { floor: [1], B: [1, 1], A: [2], S: [2, 1] }
       },
       normal: {
         id: 'normal', name: '标准', unlock: 'firstStory',
         groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 60, moveLimit: 23, minLegalMoves: 4, objective: { mode: 'score', targetMultiplier: 0.90, label: '收集目标图案并解开混合毛结' }, knotMode: 'mixed', timePickupBudget: 3, itemCounts: { hammer: 2, shuffle: 2, theme: 1 } },
-        play: { cols: 4, rows: 4, typeCount: 8, pairs: 8, timeLimit: 80, previewMs: 1600, flipBackMs: 800, mismatchPenalty: 0, comboWindow: 1.9 },
+        play: { cols: 5, rows: 5, layers: 2, typeCount: 6, tilesPerType: 6, slots: 7, timeLimit: 80, scoreTarget: 1600, failPerfCap: 0.72, comboWindow: 1.9 },
         rewards: { floor: [1], B: [2], A: [2, 1], S: [3] }
       },
       hard: {
         id: 'hard', name: '困难', unlock: 'groomLevel2',
         groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 60, moveLimit: 20, minLegalMoves: 3, objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '清除扩散毛结并完成两次连锁' }, knotMode: 'double-spread', timePickupBudget: 2, itemCounts: { hammer: 2, shuffle: 1, theme: 1 } },
-        play: { cols: 5, rows: 4, typeCount: 10, pairs: 10, timeLimit: 90, previewMs: 900, flipBackMs: 700, mismatchPenalty: 1, comboWindow: 1.4 },
+        play: { cols: 6, rows: 6, layers: 3, typeCount: 8, tilesPerType: 6, slots: 7, timeLimit: 90, scoreTarget: 2800, failPerfCap: 0.84, comboWindow: 1.4 },
         rewards: { floor: [2], B: [2, 1], A: [3], S: [3, 2] }
       },
       master: {
         id: 'master', name: '大师', unlock: 'groomLevel3',
         groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 60, moveLimit: 18, minLegalMoves: 2, objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '破除三层毛结并组合两枚特殊块' }, knotMode: 'double-triple', timePickupBudget: 1, itemCounts: { hammer: 1, shuffle: 1, theme: 1 } },
-        play: { cols: 6, rows: 4, typeCount: 10, pairs: 12, timeLimit: 100, previewMs: 600, flipBackMs: 600, mismatchPenalty: 1, comboWindow: 1.0 },
+        play: { cols: 7, rows: 7, layers: 4, typeCount: 10, tilesPerType: 6, slots: 7, timeLimit: 100, scoreTarget: 4400, failPerfCap: 0.84, comboWindow: 1.0 },
         rewards: { floor: [2], B: [3], A: [3, 2], S: [4], repeatS: [3, 2] }
       },
       challenge: {
         id: 'challenge', name: '挑战模式', unlock: 'default', challenge: true,
         rewardCap: 6, maxRewardItems: 6,
         groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 120, moveLimit: 50, minLegalMoves: 3, objective: { mode: 'score', targetMultiplier: 1.7, label: '在长局中尽量刷新高分' }, knotMode: 'mixed', timePickupBudget: 4, itemCounts: { hammer: 2, shuffle: 2, theme: 2 } },
-        play: { cols: 6, rows: 5, typeCount: 10, pairs: 15, timeLimit: 150, previewMs: 0, flipBackMs: 500, mismatchPenalty: 1, comboWindow: 1.2 },
+        play: { cols: 8, rows: 8, layers: 5, typeCount: 10, tilesPerType: 6, slots: 7, timeLimit: 150, scoreTarget: 6200, failPerfCap: 0.84, comboWindow: 1.2 },
         rewards: { scoreBased: true, minItems: 2, maxItems: 6, maxTier: 3 }
       }
     }
@@ -1392,7 +1421,7 @@
       upgradeMode: 'resource',
       /* 常驻生成器在线点击只消耗体力，不再被储能硬卡；charges 仅作为
          离线储备上限展示。合成出来的造物生成器使用有限次数，用完消散。 */
-      permanentFamilies: ['herb', 'tool', 'food'],
+      permanentFamilies: ['herb', 'tool', 'food', 'charm', 'treasure'],
       consumableMaxPerFamily: 2,
       consumableUses: [10, 20, 30],
       partDropPity: 15,

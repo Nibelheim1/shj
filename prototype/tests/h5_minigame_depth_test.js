@@ -4,7 +4,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const MemoryGame = require('../js/merge/memory-game.js');
+const SheepGame = require('../js/merge/sheep-game.js');
 
 function seeded(seed) {
   let state = seed >>> 0;
@@ -161,136 +161,156 @@ function runMatch3Depth() {
   assert.strictEqual(hintEvents[0] && hintEvents[0].name, 'hint', '提示动作发出 hint 事件');
 }
 
-/* —— 翻牌配对（Memory Game）深度契约 —— */
+/* —— 羊了个羊（Sheep Tile Tower）深度契约 —— */
 
-function liveCards(game) {
-  return game.cards.filter(function (card) { return card && !card.blocked; });
+function liveTiles(game) {
+  return game.tiles.filter(function (tile) { return !tile.removed; });
 }
 
-function hiddenCards(game) {
-  return game.cards.filter(function (card) {
-    return card && !card.blocked && !card.matched && !card.flipped;
-  });
+function sheepRect(game) {
+  return game._layout(390, 700);
 }
 
-function findHiddenPair(game) {
-  const cards = hiddenCards(game);
-  for (let i = 0; i < cards.length; i++) {
-    for (let j = i + 1; j < cards.length; j++) {
-      if (cards[i].type === cards[j].type) return [cards[i], cards[j]];
-    }
+function touchTile(game, tile) {
+  const rect = sheepRect(game);
+  const box = {
+    x: rect.x + tile.cx * rect.cell + tile.layer * rect.cell * 0.10,
+    y: rect.y + tile.cy * rect.cell + tile.layer * rect.cell * 0.10 * 0.65,
+    w: rect.cell * 0.86,
+    h: rect.cell * 0.86
+  };
+  return game.onTouchStart(box.x + box.w / 2, box.y + box.h / 2, rect);
+}
+
+function clearSheepTriple(game, label) {
+  const legal = game.listLegalTiles();
+  assert.ok(legal.length > 0, label + ' 清塔过程中始终有露头牌');
+  const first = legal[0];
+  for (let n = 0; n < 3; n++) {
+    const top = game.listLegalTiles().find(function (tile) { return tile.r === first.r && tile.c === first.c; });
+    assert.ok(top, label + ' 同一塔的三张牌会依次露出');
+    assert.strictEqual(touchTile(game, top), true);
   }
-  return null;
 }
 
-function touchCard(game, card) {
-  return game.onTouchStart(card.c + 0.5, card.r + 0.5, { x: 0, y: 0, cell: 1 });
-}
-
-function skipPreview(game) {
-  if (game.previewActive) game.update(game.previewT + 0.01);
-  assert.strictEqual(game.previewActive, false);
-}
-
-function clearMemoryBoard(game, label) {
+function clearSheepTower(game, label) {
   let guard = 0;
   while (!game.finished) {
-    const pair = findHiddenPair(game);
-    assert.ok(pair, label + ' 清盘过程中始终有可配对卡片 #' + guard);
-    assert.strictEqual(touchCard(game, pair[0]), true);
-    assert.strictEqual(touchCard(game, pair[1]), true);
+    clearSheepTriple(game, label);
     guard++;
-    assert.ok(guard <= game.totalPairs, label + ' 清盘步数不应超过对子数');
+    assert.ok(guard <= game.totalTriples, label + ' 清塔步数不应超过三连组数');
   }
 }
 
-function runMemoryDepth() {
-  assertStandardPlusChallenge(MemoryGame.DIFFICULTIES, 'Memory');
+function runSheepDepth() {
+  assertStandardPlusChallenge(SheepGame.DIFFICULTIES, 'Sheep');
   const levels = STANDARD_LEVELS.slice();
   const signatures = new Set();
 
   levels.forEach(function (difficulty, levelIndex) {
-    const profile = MemoryGame.DIFFICULTIES[difficulty];
+    const profile = SheepGame.DIFFICULTIES[difficulty];
     signatures.add(JSON.stringify({
-      previewMs: profile.previewMs,
-      flipBackMs: profile.flipBackMs,
-      mismatchPenalty: profile.mismatchPenalty,
+      layers: profile.layers,
+      typeCount: profile.typeCount,
+      tilesPerType: profile.tilesPerType,
+      scoreTarget: profile.scoreTarget,
+      failPerfCap: profile.failPerfCap,
       comboWindow: profile.comboWindow
     }));
     for (let seed = 1; seed <= 200; seed++) {
-      const game = new MemoryGame.Game('PLAY', { difficulty: difficulty, rng: seeded(seed + levelIndex * 10000) });
-      assert.strictEqual(game.totalPairs, profile.pairs, difficulty + ' 使用档位对子数 #' + seed);
-      assert.strictEqual(liveCards(game).length, game.totalPairs * 2, difficulty + ' 牌阵应完整 #' + seed);
-      const counts = histogram(liveCards(game));
+      const game = new SheepGame.Game('PLAY', { difficulty: difficulty, rng: seeded(seed + levelIndex * 10000) });
+      assert.strictEqual(game.totalTriples, profile.typeCount * profile.tilesPerType / 3,
+        difficulty + ' 使用档位三连组数 #' + seed);
+      assert.strictEqual(liveTiles(game).length, game.totalTiles, difficulty + ' 塔内牌数完整 #' + seed);
+      const counts = histogram(liveTiles(game));
       Object.keys(counts).forEach(function (type) {
-        assert.strictEqual(counts[type] % 2, 0, difficulty + ' 每种图案成对出现 #' + seed);
+        assert.strictEqual(counts[type] % 3, 0, difficulty + ' 每种玩具数量为 3 的倍数 #' + seed);
       });
-      if (profile.previewMs > 0) {
-        assert.strictEqual(game.previewActive, true, difficulty + ' 开局有记忆预览');
-        skipPreview(game);
-      } else {
-        assert.strictEqual(game.previewActive, false, difficulty + ' 无预览档位');
-      }
-      assert.strictEqual(hiddenCards(game).length, game.totalPairs * 2, difficulty + ' 预览结束后全部盖回');
+      assert.ok(game.hasLegalMove(), difficulty + ' 初盘必有露头牌 #' + seed);
       assert.strictEqual(game.useHint(), true, difficulty + ' 存在可用提示 #' + seed);
-      assert.strictEqual(game.hint[0].type, game.hint[1].type, difficulty + ' 提示卡片图案相同');
-      assert.strictEqual(game.hint[0].flipped, false, difficulty + ' 提示不会提前翻开卡片');
+      assert.ok(game.hint && !game.hint.removed, difficulty + ' 提示指向未消除露头牌');
     }
   });
-  assert.strictEqual(signatures.size, STANDARD_LEVELS.length, 'Memory 四个标准档规则不能只改变棋盘尺寸');
+  assert.strictEqual(signatures.size, STANDARD_LEVELS.length, 'Sheep 四个标准档规则不能只改变棋盘尺寸');
 
   levels.forEach(function (difficulty, index) {
-    const game = new MemoryGame.Game('PLAY', { difficulty: difficulty, rng: seeded(900 + index), timeLimit: 999 });
-    skipPreview(game);
-    clearMemoryBoard(game, difficulty);
-    assert.strictEqual(game.finished, true, difficulty + ' 真实触摸可清盘');
-    assert.strictEqual(game.matchedPairs, game.totalPairs, difficulty + ' 清除全部对子');
-    assert.ok(game.perf >= 0.85, difficulty + ' 清盘表现达到 mastery');
-    assert.strictEqual(game.misses, 0, difficulty + ' 按内部配对顺序清盘无误配');
+    const game = new SheepGame.Game('PLAY', { difficulty: difficulty, rng: seeded(900 + index), timeLimit: 999 });
+    clearSheepTower(game, difficulty);
+    assert.strictEqual(game.finished, true, difficulty + ' 真实触摸可清塔');
+    assert.strictEqual(game.triplesCleared, game.totalTriples, difficulty + ' 清除全部三连组');
+    assert.strictEqual(game.slot.length, 0, difficulty + ' 清塔后槽位为空');
+    assert.ok(game.perf >= 0.85, difficulty + ' 清塔表现达到 mastery');
   });
 
-  const mismatch = new MemoryGame.Game('PLAY', { difficulty: 'hard', rng: seeded(55), timeLimit: 999 });
-  skipPreview(mismatch);
-  const a = hiddenCards(mismatch)[0];
-  const b = hiddenCards(mismatch).find(function (card) { return card.type !== a.type; });
-  assert.strictEqual(touchCard(mismatch, a), true);
-  assert.strictEqual(touchCard(mismatch, b), true);
-  assert.ok(mismatch.pendingBack, '错配进入短暂展示');
-  mismatch.update(mismatch.flipBackMs / 1000 + 0.01);
-  assert.strictEqual(a.flipped, false, '错配后第一张盖回');
-  assert.strictEqual(b.flipped, false, '错配后第二张盖回');
-  assert.strictEqual(mismatch.misses, 1, '错配计数');
-  assert.ok(mismatch.timeDebt >= mismatch.mismatchPenalty, '困难档错配扣除时间');
+  const fail = new SheepGame.Game('PLAY', { difficulty: 'hard', rng: seeded(55), timeLimit: 999 });
+  let failGuard = 0;
+  while (!fail.finished && failGuard++ < 60) {
+    const legal = fail.listLegalTiles();
+    let pick = null;
+    for (const tile of legal) {
+      if (fail.slot.every(function (held) { return held.type !== tile.type; })) { pick = tile; break; }
+    }
+    if (!pick) pick = legal[0];
+    assert.strictEqual(touchTile(fail, pick), true);
+  }
+  assert.strictEqual(fail.failed, true, '七格槽满且无三连时失败');
+  assert.ok(fail.perf < 0.4, '低分失败只给低档表现');
 
-  const constant = new MemoryGame.Game('PLAY', { difficulty: 'master', rng: function () { return 0; } });
-  assert.strictEqual(liveCards(constant).length, constant.totalPairs * 2, '极端 RNG 仍生成完整牌阵');
-  skipPreview(constant);
-  clearMemoryBoard(constant, '极端 RNG');
-  assert.strictEqual(constant.matchedPairs, constant.totalPairs, '极端 RNG 仍可清盘');
+  const scored = new SheepGame.Game('PLAY', { difficulty: 'hard', rng: seeded(66), timeLimit: 999 });
+  const scoreRect = sheepRect(scored);
+  for (let group = 0; group < 8; group++) {
+    const legal = scored.listLegalTiles()[0];
+    for (let n = 0; n < 3; n++) {
+      const top = scored.listLegalTiles().find(function (tile) { return tile.r === legal.r && tile.c === legal.c; });
+      assert.strictEqual(touchTile(scored, top), true);
+    }
+  }
+  let scoredGuard = 0;
+  while (!scored.finished && scoredGuard++ < 30) {
+    const legal = scored.listLegalTiles();
+    let pick = null;
+    for (const tile of legal) {
+      if (scored.slot.every(function (held) { return held.type !== tile.type; })) { pick = tile; break; }
+    }
+    if (!pick) break;
+    assert.strictEqual(touchTile(scored, pick), true);
+  }
+  if (!scored.finished) scored.finish(true);
+  assert.ok(scored.score > 1000, '困难档高分失败仍有可观得分');
+  assert.ok(scored.perf >= 0.4, '困难档高分失败按得分匹配 B 档以上表现');
 
-  const timeout = new MemoryGame.Game('PLAY', { difficulty: 'easy', rng: seeded(77), timeLimit: 3, previewMs: 0 });
-  const firstPair = findHiddenPair(timeout);
-  assert.strictEqual(touchCard(timeout, firstPair[0]), true);
-  assert.strictEqual(touchCard(timeout, firstPair[1]), true);
+  const constant = new SheepGame.Game('PLAY', { difficulty: 'master', rng: function () { return 0; } });
+  assert.strictEqual(liveTiles(constant).length, constant.totalTiles, '极端 RNG 仍生成完整塔');
+  clearSheepTower(constant, '极端 RNG');
+  assert.strictEqual(constant.triplesCleared, constant.totalTriples, '极端 RNG 仍可清塔');
+
+  const timeout = new SheepGame.Game('PLAY', { difficulty: 'easy', rng: seeded(77), timeLimit: 3 });
+  const firstGroup = timeout.listLegalTiles()[0];
+  for (let n = 0; n < 3; n++) {
+    const top = timeout.listLegalTiles().find(function (tile) { return tile.r === firstGroup.r && tile.c === firstGroup.c; });
+    assert.strictEqual(touchTile(timeout, top), true);
+  }
   timeout.update(3.01);
   assert.strictEqual(timeout.finished, true, '倒计时结束自动结算');
-  assert.strictEqual(timeout.matchedPairs, 1, '超时保留真实配对进度');
-  assert.ok(timeout.perf < 0.85, '未清盘不能拿 mastery 表现');
+  assert.strictEqual(timeout.triplesCleared, 1, '超时保留真实三消进度');
+  assert.ok(timeout.perf < 0.85, '未清塔不能拿 mastery 表现');
 
-  const eventGame = new MemoryGame.Game('PLAY', { difficulty: 'easy', rng: seeded(800), previewMs: 0 });
-  const memoryEvents = [];
-  eventGame.onEvent = function (name) { memoryEvents.push(name); };
-  const pair = findHiddenPair(eventGame);
-  assert.strictEqual(touchCard(eventGame, pair[0]), true);
-  assert.strictEqual(touchCard(eventGame, pair[1]), true);
-  assert.ok(memoryEvents.indexOf('swap') >= 0 && memoryEvents.indexOf('match') >= 0, '翻牌配对发出 swap/match 事件');
+  const eventGame = new SheepGame.Game('PLAY', { difficulty: 'easy', rng: seeded(800) });
+  const sheepEvents = [];
+  eventGame.onEvent = function (name) { sheepEvents.push(name); };
+  const eventGroup = eventGame.listLegalTiles()[0];
+  for (let n = 0; n < 3; n++) {
+    const top = eventGame.listLegalTiles().find(function (tile) { return tile.r === eventGroup.r && tile.c === eventGroup.c; });
+    assert.strictEqual(touchTile(eventGame, top), true);
+  }
+  assert.ok(sheepEvents.indexOf('swap') >= 0 && sheepEvents.indexOf('match') >= 0, '羊了个羊发出 swap/match 事件');
   const eventSummary = eventGame._summary();
-  assert.deepStrictEqual(Array.from(eventSummary.icons), MemoryGame.NAMES.slice(0, eventGame.typeCount),
+  assert.deepStrictEqual(Array.from(eventSummary.icons), SheepGame.NAMES.slice(0, eventGame.typeCount),
     '图标统一为已有 play_0X 系列素材');
 
-  console.log('  PASS  Memory 800 固定种子、预览/盖回、错配扣时、清盘、超时结算、事件与已有素材');
+  console.log('  PASS  Sheep 800 固定种子、露头判定、槽满失败、高分失败奖励、清塔、超时与已有素材');
 }
 
 runMatch3Depth();
-runMemoryDepth();
+runSheepDepth();
 console.log('ALL PASS');
