@@ -2,10 +2,10 @@
 
 /*
  * Link/PLAY v6 release contract.  Every fixed seed is exercised from board
- * generation through solve() and real _clearPair() execution.  Pair IDs are
- * intentionally part of the assertion: a board that only happens to contain
- * an even number of icons can still hide an orphaned icon or a padded/fake
- * total-pair counter.
+ * generation through solve() and real _clearPair() execution.  Ordinary tiles
+ * may cross-match with any identical icon (classic 连连看), so pair IDs are
+ * re-paired after such moves; the assertions here pin that every live pairId
+ * still has exactly two live cells and that special pairs keep their identity.
  */
 const assert = require('assert');
 const LinkGame = require('../js/merge/link-game.js');
@@ -121,8 +121,14 @@ function clearSolved(game, plan, profile, seed) {
     const first = pointCell(game, step.a);
     const second = pointCell(game, step.b);
     expect(first && second, profile.id + ' seed ' + seed + ' solve step points at an empty cell #' + index);
-    expect(pairId(first) === pairId(second),
-      profile.id + ' seed ' + seed + ' solve step joins different pairIds #' + index);
+    expect(Number(first.type) === Number(second.type),
+      profile.id + ' seed ' + seed + ' solve step joins different icon types #' + index);
+    expect(!first.locked && !second.locked,
+      profile.id + ' seed ' + seed + ' solve step joins a locked cell #' + index);
+    if (first.special || second.special) {
+      expect(pairId(first) === pairId(second),
+        profile.id + ' seed ' + seed + ' special solve step joins different pairIds #' + index);
+    }
     const hadBomb = first.special === 'bomb' || second.special === 'bomb';
     const hadIce = first.special === 'ice' || second.special === 'ice';
     const frozen = hadIce && Math.max(Number(first.iceHits || 0), Number(second.iceHits || 0)) > 1;

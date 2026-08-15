@@ -327,6 +327,39 @@
     return DATA.beasts.find(function (beast) { return beast.id === id; }) || null;
   }
 
+  /* 陪伴闭环：神兽 + 游戏类型 → 实际掉落的素材族。
+     gift.care 是它“能送出成长礼物”的那款游戏；另一款游戏只会掉落普通小礼。 */
+  function careRouteForBeast(beastId, careType) {
+    var definition = beastDefinition(beastId);
+    if (!definition) return { family: careType, label: null };
+    var routes = definition.careRoutes && typeof definition.careRoutes === 'object' ? definition.careRoutes : {};
+    var route = routes[careType];
+    if (route && route.family) return { family: route.family, label: route.label || null };
+    var gift = definition.gift || {};
+    /* 未显式配置时，避免与礼物族撞车：玩另一款游戏不产出自己的成长礼物。 */
+    if (gift.family && careType === gift.family) return { family: gift.care === 'play' ? 'groom' : 'play', label: null };
+    return { family: careType, label: null };
+  }
+
+  function careGiftInfo(definitionOrId) {
+    var definition = typeof definitionOrId === 'string' ? beastDefinition(definitionOrId) : definitionOrId;
+    if (!definition) return null;
+    var gift = definition.gift || {};
+    var care = gift.care || definition.careTypes && definition.careTypes[0] || 'play';
+    return {
+      care: care,
+      careLabel: care === 'play' ? '陪玩' : '梳洗',
+      family: gift.family || care,
+      item: gift.item || null,
+      note: gift.note || null
+    };
+  }
+
+  function previousBeastDefinition(beastId) {
+    var index = BEAST_IDS.indexOf(beastId);
+    return index > 0 ? beastDefinition(BEAST_IDS[index - 1]) : null;
+  }
+
   function ensureBeastRevealState(state) {
     if (!state) return null;
     state.beastRevealQueue = Array.isArray(state.beastRevealQueue) ? state.beastRevealQueue : [];
@@ -427,14 +460,16 @@
     return state.yardBeastId;
   }
 
-  function makeItem(family, tier) {
+  function makeItem(family, tier, sourceBeast) {
     var definition = familyDefinition(family);
     var safeTier = clamp(Math.floor(number(tier, 1)), 1, familyTierCap(family));
-    return {
+    var item = {
       family: family,
       tier: safeTier,
       name: definition && definition.items[safeTier - 1] ? definition.items[safeTier - 1] : family + ' ' + safeTier
     };
+    if (sourceBeast) item.giftSource = sourceBeast;
+    return item;
   }
 
   function generatorLevelConfig(level) {
@@ -1212,11 +1247,13 @@
   function normalizeRequirement(raw) {
     if (Array.isArray(raw)) return { family: raw[0], tier: clamp(Math.floor(number(raw[1], 1)), 1, familyTierCap(raw[0])), count: Math.max(1, Math.floor(number(raw[2], 1))) };
     if (!raw || typeof raw !== 'object' || !raw.family) return null;
-    return {
+    var normalized = {
       family: raw.family,
       tier: clamp(Math.floor(number(raw.tier, 1)), 1, familyTierCap(raw.family)),
       count: Math.max(1, Math.floor(number(raw.count, 1)))
     };
+    if (raw.sourceBeast) normalized.sourceBeast = raw.sourceBeast;
+    return normalized;
   }
 
   function normalizeOrder(raw) {
@@ -1321,7 +1358,7 @@
       });
     }
     if (current && definition && !current.careDone) {
-      var careFamily = definition.careTypes[0] || 'groom';
+      var currentGift = careGiftInfo(definition);
       return normalizeOrder({
         id: current.id + '-care-gate',
         slot: 'story',
@@ -1329,21 +1366,26 @@
         mainline: true,
         beastId: current.id,
         prerequisite: { type: 'story', beastId: current.id, completedStep: definition.storySteps.length },
-        title: '陪伴 ' + definition.name + ' 完成一次照料',
-        symptom: '故事已经准备好了，只差一次不消耗体力的陪伴。',
-        requirements: [{ family: careFamily, tier: 1, count: 1 }],
+        title: '陪' + definition.name + '玩出第一份礼物',
+        symptom: '故事已经准备好了，和' + definition.name + '一起' + currentGift.careLabel + '一次，它会把成长礼物悄悄收进药匣。',
+        requirements: [{ family: currentGift.care, tier: 1, count: 1 }],
         rewards: { jade: 20, xp: 20 },
         permanent: true
       });
     }
     var next = firstLockedBeast(state);
     if (next) {
-      var supportFamily = (state.unlockedGenerators || []).find(function (family) { return family !== next.unlockFamily && familyDefinition(family); });
-      if (!supportFamily) supportFamily = FAMILY_IDS.find(function (family) { return family !== next.unlockFamily; }) || 'herb';
+      var previous = previousBeastDefinition(next.id);
+      if (!previous) previous = beastDefinition(state.transformedOrder && state.transformedOrder.length ? state.transformedOrder[state.transformedOrder.length - 1] : 'qiongqi');
+      var gift = careGiftInfo(previous);
+      var primaryTier = clamp(Math.floor(number(next.unlockTier, 6)), 1, familyTierCap(gift.family));
+      var supportTier = clamp(Math.max(2, Math.ceil(primaryTier / 3)), 1, familyTierCap(gift.family));
       var arrivalReq = [
-        { family: next.unlockFamily, tier: next.unlockTier, count: 1 },
-        { family: supportFamily, tier: 2, count: 1 }
+        { family: gift.family, tier: primaryTier, count: 1, sourceBeast: previous.id },
+        { family: gift.family, tier: supportTier, count: 1, sourceBeast: previous.id }
       ];
+      var primaryName = getItemName(gift.family, primaryTier);
+      var supportName = getItemName(gift.family, supportTier);
       return normalizeOrder({
         id: next.id + '-arrival',
         slot: 'story',
@@ -1351,10 +1393,11 @@
         mainline: true,
         beastId: next.id,
         prerequisite: { type: 'transformation', beastId: state.transformedOrder && state.transformedOrder.length ? state.transformedOrder[state.transformedOrder.length - 1] : null },
-        title: next.name + '的来信',
-        symptom: '合成信物，邀请下一位住客来到疗愈所。',
+        title: next.name + '循着' + previous.name + '的礼物来了',
+        symptom: '和' + previous.name + '一起' + gift.careLabel + '，把「' + primaryName + '」与「' + supportName + '」收进药匣——这是' + next.name + '收到的第一份邀请。',
         requirements: arrivalReq,
         rewards: rewardsFor('story', arrivalReq, state),
+        giftChain: { from: previous.id, to: next.id, care: gift.care, family: gift.family, note: gift.note },
         permanent: true
       });
     }
@@ -1377,22 +1420,41 @@
     });
   }
 
-  function hasCareSource(state, family) {
-    if (!GAME_SOURCE_FAMILIES[family]) return false;
+  function hasGiftFamilySource(state, family) {
     return DATA.beasts.some(function (beast) {
-      var entry = state && state.beastCases && state.beastCases[beast.id];
-      return isYardBeastAvailable(state, beast.id) && entry && beast.careTypes.indexOf(family) >= 0;
+      if (!isYardBeastAvailable(state, beast.id)) return false;
+      return ['groom', 'play'].some(function (careType) {
+        return careRouteForBeast(beast.id, careType).family === family;
+      });
     });
   }
 
-  function maxReachableTier(state, family) {
+  function hasCareSource(state, family) {
+    if (!GAME_SOURCE_FAMILIES[family]) return hasGiftFamilySource(state, family);
+    return DATA.beasts.some(function (beast) {
+      var entry = state && state.beastCases && state.beastCases[beast.id];
+      if (!isYardBeastAvailable(state, beast.id) || !entry) return false;
+      return (beast.careTypes || []).indexOf(family) >= 0 ||
+        ['groom', 'play'].some(function (careType) { return careRouteForBeast(beast.id, careType).family === family; });
+    });
+  }
+
+  function maxReachableTier(state, family, sourceBeast) {
     /* Mini-game materials are only reachable when an available resident can
-       actually reward that game.  Treating every game family as reachable
-       made orders silently ask for the wrong pavilion after a new resident
-       arrived. */
+       actually reward that game.  A sourceBeast requirement additionally pins
+       the gift to that one resident's play/groom session. */
     if (!familyActiveForState(state, family)) return 0;
+    if (sourceBeast) {
+      var sourceDefinition = beastDefinition(sourceBeast);
+      if (!sourceDefinition || !isYardBeastAvailable(state, sourceBeast)) return 0;
+      var canGift = ['groom', 'play'].some(function (careType) {
+        return careRouteForBeast(sourceBeast, careType).family === family;
+      });
+      return canGift ? familyTierCap(family) : 0;
+    }
     if (GAME_SOURCE_FAMILIES[family]) return hasCareSource(state, family) ? familyTierCap(family) : 0;
     if (state.unlockedGenerators.indexOf(family) >= 0) return familyTierCap(family);
+    if (hasGiftFamilySource(state, family)) return familyTierCap(family);
     var best = 0;
     [state.grid, state.storage && state.storage.items].forEach(function (list) {
       (list || []).forEach(function (item) {
@@ -1556,21 +1618,24 @@
         requirements: [], rewards: {}, mainline: true
       });
     }
-    var family = next.unlockFamily || 'herb';
-    var tier = clamp(Math.floor(number(next.unlockTier, 2)), 1, TIER_CAP);
-    var support = family === 'herb' ? 'tool' : 'herb';
+    var previous = previousBeastDefinition(next.id);
+    if (!previous) previous = beastDefinition(state.transformedOrder && state.transformedOrder.length ? state.transformedOrder[state.transformedOrder.length - 1] : 'qiongqi');
+    var gift = careGiftInfo(previous);
+    var tier = clamp(Math.floor(number(next.unlockTier, 6)), 1, familyTierCap(gift.family));
+    var supportTier = clamp(Math.max(2, Math.ceil(tier / 3)), 1, familyTierCap(gift.family));
     var requirements = [
-      normalizeRequirement({ family: family, tier: tier, count: 1 }),
-      normalizeRequirement({ family: support, tier: Math.min(3, Math.max(1, Math.ceil(tier / 3))), count: 1 })
+      normalizeRequirement({ family: gift.family, tier: tier, count: 1, sourceBeast: previous.id }),
+      normalizeRequirement({ family: gift.family, tier: supportTier, count: 1, sourceBeast: previous.id })
     ];
     return normalizeOrder({
       id: 'recruit-' + next.id,
       // Keep the historical `arrival` kind for migrated saves and tooling;
       // the stable v6 contract is expressed by the fixed `recruit` slot.
       slot: 'recruit', kind: 'arrival', v6Type: 'recruit', beastId: next.id, mainline: true,
-      title: next.name + '循着信物来了',
-      symptom: '备好信物和一份草药，让新伙伴安心踏进庭院。',
+      title: next.name + '循着' + previous.name + '的礼物来了',
+      symptom: '和' + previous.name + '一起' + gift.careLabel + '，备好' + getItemName(gift.family, tier) + '与' + getItemName(gift.family, supportTier) + '，让新伙伴安心踏进庭院。',
       requirements: requirements,
+      giftChain: { from: previous.id, to: next.id, care: gift.care, family: gift.family, note: gift.note },
       rewards: { jade: Math.max(30, Math.round(requirementValue(requirements) * 0.55)) }
     });
   }
@@ -1596,21 +1661,23 @@
     if (state.growthOrders[keyName]) return normalizeOrder(state.growthOrders[keyName]);
     var level = clamp(Math.floor(number(entry.level, 1)), 1, 5);
     var rank = Math.max(playerOrderRank(state), level);
-    var preferred = definition.preferredCare || definition.careTypes[0] || 'herb';
-    var support = preferred === 'herb' ? 'tool' : 'herb';
+    var gift = careGiftInfo(definition);
     var primaryTiers = [1, 2, 3, 4, 5, 6, 7, 8];
     var supportTiers = [1, 1, 2, 2, 3, 4, 5, 6];
+    var primaryTier = clamp(Math.floor(number(primaryTiers[rank - 1], 1)), 1, familyTierCap(gift.family));
+    var supportTier = clamp(Math.floor(number(supportTiers[rank - 1], 1)), 1, familyTierCap(gift.family));
     var requirements = [
-      normalizeRequirement({ family: preferred, tier: primaryTiers[rank - 1], count: rank >= 7 ? 3 : rank >= 4 ? 2 : 1 }),
-      normalizeRequirement({ family: support, tier: supportTiers[rank - 1], count: rank >= 6 ? 2 : 1 })
+      normalizeRequirement({ family: gift.family, tier: primaryTier, count: rank >= 7 ? 3 : rank >= 4 ? 2 : 1, sourceBeast: beastId }),
+      normalizeRequirement({ family: gift.family, tier: supportTier, count: rank >= 6 ? 2 : 1, sourceBeast: beastId })
     ];
     var productNeed = null;
     var generatorNeed = null;
+    var generatorFamily = producerChain(gift.family) ? gift.family : 'herb';
     if (rank >= 5) {
       var productByRank = { 5: 'PROD_SOOTHE', 6: 'PROD_BED', 7: 'PROD_CLEAR', 8: 'PROD_GARDEN' };
       productNeed = { productId: productByRank[rank] || 'PROD_SOOTHE', count: 1 };
       if (rank >= 7 && hasConsumableGenerator(state)) {
-        generatorNeed = { family: preferred === 'groom' || preferred === 'play' ? 'herb' : preferred, minLevel: 2, count: 1 };
+        generatorNeed = { family: generatorFamily, minLevel: 2, count: 1 };
       }
     }
     var reward = growthRewardForLevel(level);
@@ -1619,17 +1686,18 @@
       id: 'growth-' + keyName,
       slot: 'growth', kind: 'growth', beastId: beastId, boundDate: date, growthSequence: sequence, beastLevel: level,
       title: definition.name + '的成长心愿',
-      symptom: '这份心意只属于' + definition.name + '，交付后经验会记在它的成长册里。',
+      symptom: '这份心意只属于' + definition.name + '：和它一起' + gift.careLabel + '，才能把' + gift.item + '系列素材带回来。',
       requirements: requirements,
       productNeed: productNeed,
       generatorNeed: generatorNeed,
+      giftChain: { from: beastId, family: gift.family, care: gift.care, note: gift.note },
       rewards: {
         jade: Math.max(reward.jade, 18 + effort * 4 + rank * 3),
         xp: 10 + effort * 2 + rank * 2,
         beastExp: reward.beastExp + Math.max(0, rank - level) * 5,
         heal: reward.heal,
         energy: rank >= 5 ? (rank >= 7 ? 30 : 20) : 0,
-        generatorParts: rank >= 6 ? [{ family: preferred, tier: 1 }] : []
+        generatorParts: rank >= 6 ? [{ family: generatorFamily, tier: 1 }] : []
       }
     }), rank);
     state.growthOrders[keyName] = clone(order);
@@ -1934,11 +2002,13 @@
     };
   }
 
-  function countItems(state, family, tier) {
+  function countItems(state, family, tier, sourceBeast) {
     var count = 0;
     [state.grid, state.storage && state.storage.items].forEach(function (list) {
       (list || []).forEach(function (item) {
-        if (item && !item.kind && item.family === family && number(item.tier, 0) === tier) count++;
+        if (!item || item.kind || item.family !== family || number(item.tier, 0) !== tier) return;
+        if (sourceBeast != null && item.giftSource !== sourceBeast) return;
+        count++;
       });
     });
     return count;
@@ -1996,7 +2066,7 @@
        advancing the treatment node. */
     if (order.kind === 'care_gate') return false;
     var materialReady = (order.requirements || []).every(function (need) {
-      return countItems(state, need.family, need.tier) >= need.count;
+      return countItems(state, need.family, need.tier, need.sourceBeast) >= need.count;
     });
     var productNeed = order.productNeed;
     return materialReady && generatorNeedMet(state, order) &&
@@ -2009,7 +2079,7 @@
     }
     if (!order || !Array.isArray(order.requirements)) return false;
     var itemsReachable = order.requirements.every(function (need) {
-      return maxReachableTier(state, need.family) >= need.tier;
+      return maxReachableTier(state, need.family, need.sourceBeast) >= need.tier;
     });
     var generatorReachable = !order.generatorNeed || !!producerChain(order.generatorNeed.family);
     return itemsReachable && generatorReachable && (!order.productNeed || recipeUnlocked(state, order.productNeed.productId));
@@ -2045,7 +2115,8 @@
       if (!list || left <= 0) return;
       for (var index = 0; index < list.length && left > 0; index++) {
         var item = list[index];
-        if (item && !item.kind && item.family === need.family && number(item.tier, 0) === need.tier) {
+        if (item && !item.kind && item.family === need.family && number(item.tier, 0) === need.tier &&
+            (need.sourceBeast == null || item.giftSource === need.sourceBeast)) {
           list[index] = null;
           left--;
         }
@@ -2337,7 +2408,7 @@
         family: need.family,
         tier: need.tier,
         count: need.count,
-        have: countItems(state, need.family, need.tier)
+        have: countItems(state, need.family, need.tier, need.sourceBeast)
       };
     }).filter(function (need) { return need.have < need.count; });
     if (order.productNeed) {
@@ -2628,8 +2699,9 @@
     if (from.kind || to.kind) return { ok: false, reason: 'not-items' };
     if (from.family !== to.family || from.tier !== to.tier) return { ok: false, reason: 'not-match' };
     if (from.tier >= familyTierCap(from.family)) return { ok: false, reason: 'tier-cap' };
+    var mergedSource = from.giftSource && from.giftSource === to.giftSource ? from.giftSource : null;
     state.grid[fromIndex] = null;
-    state.grid[toIndex] = makeItem(to.family, to.tier + 1);
+    state.grid[toIndex] = mergedSource ? makeItem(to.family, to.tier + 1, mergedSource) : makeItem(to.family, to.tier + 1);
     state.daily.merges++;
     state.weekly.merges++;
     var special = ensureSpecialState(state);
@@ -2776,6 +2848,7 @@
       var scoreConfig = challengeRewardConfig[careType] || {};
       var maxItems = Math.max(2, Math.floor(number(challengeRewardConfig.maxItems, 6)));
       var challengeItems = [];
+      var challengeGiftFamily = careRouteForBeast(beastId, careType).family;
       if (qualified && score > 0) {
         state.challengeBest = Object.assign({ groom: 0, play: 0 }, state.challengeBest || {});
         state.challengeBest[careType] = Math.max(number(state.challengeBest[careType], 0), score);
@@ -2789,7 +2862,7 @@
           if (challengeIndex === 0 && score >= number(scoreConfig.tier3Score, Infinity)) challengeTier = 3;
           else if (challengeIndex === 0 && score >= number(scoreConfig.tier2Score, Infinity)) challengeTier = 2;
           else if (challengeIndex === 1 && score >= number(scoreConfig.tier3Score, Infinity)) challengeTier = 2;
-          var challengeItem = makeItem(careType, challengeTier);
+          var challengeItem = makeItem(challengeGiftFamily, challengeTier, beastId);
           queueItem(state, challengeItem);
           challengeItems.push(challengeItem);
         }
@@ -2801,6 +2874,7 @@
         noProgress: true, effectiveActions: effectiveActions, requiredActions: requiredActions,
         rewardItem: clone(challengeItems[0]), rewardItems: clone(challengeItems), rewardCount: challengeItems.length,
         rewardCap: maxItems, score: score, affectionGained: 0, healGained: 0, beastExpGained: 0,
+        giftFamily: challengeGiftFamily, giftSourceBeast: beastId,
         revealEvents: [], autoLevels: [], remainingRewardRuns: null,
         recommendedDifficulty: recommendCareDifficulty(state, careType), energy: state.energy, at: number(now, Date.now())
       };
@@ -2838,11 +2912,13 @@
         noReward: true, noProgress: true, practice: !unlimited && qualified && used >= cap,
         rewardLimited: !unlimited && qualified && used >= cap, effectiveActions: effectiveActions,
         requiredActions: requiredActions, rewardItems: [], rewardCount: 0,
+        giftFamily: careRouteForBeast(beastId, careType).family, giftSourceBeast: beastId,
         remainingRewardRuns: unlimited ? null : Math.max(0, cap - used), recommendedDifficulty: recommendCareDifficulty(state, careType),
         affectionGained: affectionGained, healGained: healGained,
         energy: state.energy, at: number(now, Date.now())
       };
     }
+    var giftRoute = careRouteForBeast(beastId, careType);
     var difficultyConfig = DATA.careGames.difficulties[difficulty];
     var tiers = (difficultyConfig.rewards[grade] || difficultyConfig.rewards.floor || [1]).slice();
     if (difficulty === 'master' && grade === 'S') {
@@ -2855,7 +2931,7 @@
     }
     var rewardItems = [];
     tiers.forEach(function (tier) {
-      var rewardItem = makeItem(careType, clamp(Math.floor(number(tier, 1)), 1, TIER_CAP));
+      var rewardItem = makeItem(giftRoute.family, clamp(Math.floor(number(tier, 1)), 1, TIER_CAP), beastId);
       queueItem(state, rewardItem);
       rewardItems.push(rewardItem);
     });
@@ -2896,6 +2972,9 @@
       affectionGained: affectionGained,
       healGained: healGained,
       beastExpGained: 0,
+      giftFamily: giftRoute.family,
+      giftSourceBeast: beastId,
+      giftCare: careType,
       revealEvents: clone(autoLevelResult.events || []),
       autoLevels: clone(autoLevelResult.events || []),
       remainingRewardRuns: unlimited ? null : Math.max(0, cap - state.daily.careRewards[careType]),
@@ -3478,6 +3557,12 @@
     getAvailableActions: getAvailableActions,
     getItemName: getItemName,
     makeItem: makeItem,
+    careGiftInfo: careGiftInfo,
+    careRouteForBeast: careRouteForBeast,
+    giftChain: function (state, beastId) {
+      var previous = beastId ? previousBeastDefinition(beastId) : null;
+      return previous ? careGiftInfo(previous) : null;
+    },
     makeGeneratorPart: makeGeneratorPart,
     recipeUnlocked: recipeUnlocked,
     canCraftRecipe: canCraftRecipe,

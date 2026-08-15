@@ -487,6 +487,23 @@
     return !this.grid[r][c];
   };
 
+  /* Two cells may be joined when they show the same icon and are unlocked.
+   * Special and locked blocks keep their permanent pair identity, but ordinary
+   * blocks are classic 连连看: any two identical ordinary icons may connect,
+   * even when they were born in different pairs.  The board is re-paired after
+   * such a cross-match (see _rebuildSolutionPairs), so no singleton is stranded. */
+  Game.prototype._matchCompatible = function (a, b) {
+    if (!a || !b || a.locked || b.locked || a.type !== b.type) return false;
+    if (a.special || b.special) {
+      return a.pairId != null && a.pairId === b.pairId;
+    }
+    /* Small path-finding fixtures call _newCell() without a pairId; two
+     * undefined values still match, while mixing null/undefined with a live
+     * production pairId is never a valid connection. */
+    if (a.pairId == null || b.pairId == null) return a.pairId === b.pairId;
+    return true;
+  };
+
   Game.prototype._parsePoints = function (a, b, c, d) {
     if (typeof a === 'number') return { a: { r: a, c: b }, b: { r: c, c: d } };
     if (a && a.r != null && a.c != null && b && b.r != null && b.c != null) {
@@ -514,13 +531,7 @@
     var start = points.a, end = points.b;
     if (!this._inside(start.r, start.c) || !this._inside(end.r, end.c) || samePoint(start, end)) return null;
     var first = this._cellAt(start.r, start.c), second = this._cellAt(end.r, end.c);
-    /* pairId is permanent for the lifetime of a run.  Restricting a connection
-     * to the two cells born as one pair prevents a visually valid cross-match
-     * from stranding two unrelated singletons after a bomb or layout shift.
-     * Cells without a pairId are still supported by small path-finding fixtures
-     * (both values are undefined), but production boards always provide one. */
-    if (!first || !second || first.type !== second.type || first.pairId !== second.pairId ||
-        first.locked || second.locked) return null;
+    if (!this._matchCompatible(first, second)) return null;
 
     var directions = [[-1, 0], [0, 1], [1, 0], [0, -1]];
     var queue = [], head = 0, best = {};
@@ -566,33 +577,57 @@
   };
 
   Game.prototype.listLegalPairs = function () {
-    var result = [], byPair = {}, order = [], r, c, cell, path;
+    var result = [], groups = {}, order = [], r, c, cell, keyName, i, j, k;
     for (r = 0; r < this.rows; r++) {
       for (c = 0; c < this.cols; c++) {
         cell = this._cellAt(r, c);
-        if (!cell || cell.pairId == null) continue;
-        if (!byPair[cell.pairId]) {
-          byPair[cell.pairId] = [];
-          order.push(cell.pairId);
+        if (!cell || cell.locked) continue;
+        /* Ordinary blocks group by icon type (any two may connect); special
+         * blocks keep the pairId group that preserves their special behaviour.
+         * Locked blocks stay out of the legal-pair scan until they unlock. */
+        keyName = cell.special ? ('s:' + cell.pairId) : ('n:' + cell.type);
+        if (!groups[keyName]) {
+          groups[keyName] = [];
+          order.push(keyName);
         }
-        byPair[cell.pairId].push({ r: r, c: c });
+        groups[keyName].push({ r: r, c: c });
       }
     }
-    for (var i = 0; i < order.length; i++) {
-      var list = byPair[order[i]];
-      if (list.length !== 2) continue;
-      path = this.findPath(list[0], list[1]);
-      if (path) {
-        result.push({
-          a: copyPoint(list[0]),
-          b: copyPoint(list[1]),
-          first: copyPoint(list[0]),
-          second: copyPoint(list[1]),
-          pairId: order[i],
-          path: path
-        });
+    var candidates = [];
+    for (i = 0; i < order.length; i++) {
+      var list = groups[order[i]];
+      if (list.length < 2) continue;
+      for (j = 0; j < list.length - 1; j++) {
+        for (k = j + 1; k < list.length; k++) {
+          candidates.push({
+            a: copyPoint(list[j]),
+            b: copyPoint(list[k]),
+            distance: Math.abs(list[j].r - list[k].r) + Math.abs(list[j].c - list[k].c)
+          });
+        }
       }
     }
+    /* Prefer short geometric pairs first (adjacent pairs win), then BFS. */
+    candidates.sort(function (left, right) { return left.distance - right.distance; });
+    for (i = 0; i < candidates.length; i++) {
+      var path = this.findPath(candidates[i].a, candidates[i].b);
+      if (!path) continue;
+      var firstCell = this._cellAt(candidates[i].a.r, candidates[i].a.c);
+      var secondCell = this._cellAt(candidates[i].b.r, candidates[i].b.c);
+      result.push({
+        a: copyPoint(candidates[i].a),
+        b: copyPoint(candidates[i].b),
+        first: copyPoint(candidates[i].a),
+        second: copyPoint(candidates[i].b),
+        pairId: firstCell && secondCell && firstCell.pairId === secondCell.pairId ? firstCell.pairId : null,
+        path: path
+      });
+    }
+    result.sort(function (left, right) {
+      return (left.path.length - right.path.length) ||
+        (Math.abs(left.a.r - left.b.r) + Math.abs(left.a.c - left.b.c)) -
+        (Math.abs(right.a.r - right.b.r) + Math.abs(right.a.c - right.b.c));
+    });
     return result;
   };
 
@@ -704,24 +739,46 @@
     return { count: Math.floor(cellCount / 2), types: types };
   };
 
-  /* Re-index live pairs without changing their permanent identity.  This is
-   * intentionally conservative: an incomplete pair is never repaired by
-   * borrowing a same-looking cell from another pair. */
+  /* Re-index the live solution queue after every removal.
+   * Special and locked blocks keep their permanent pair identity so ice/bomb
+   * and progressive locks still behave as designed.  Free ordinary blocks are
+   * re-paired by icon type with a fresh pairId, because the player may legally
+   * connect any two identical ordinary blocks; without this repair a cross-pair
+   * match would leave two unrelated singleton pairIds on the board. */
   Game.prototype._rebuildSolutionPairs = function () {
-    var byPair = {}, order = [], queue = [], r, c, cell;
+    var queue = [], fixed = {}, fixedOrder = [], free = {}, freeOrder = [], r, c, cell;
     for (r = 0; r < this.rows; r++) for (c = 0; c < this.cols; c++) {
       cell = this.grid[r][c];
       if (!cell || cell.pairId == null) continue;
-      if (!byPair[cell.pairId]) {
-        byPair[cell.pairId] = [];
-        order.push(cell.pairId);
+      if (cell.special || cell.locked) {
+        if (!fixed[cell.pairId]) {
+          fixed[cell.pairId] = [];
+          fixedOrder.push(cell.pairId);
+        }
+        fixed[cell.pairId].push(cell);
+      } else {
+        if (!free[cell.type]) {
+          free[cell.type] = [];
+          freeOrder.push(cell.type);
+        }
+        free[cell.type].push(cell);
       }
-      byPair[cell.pairId].push(cell);
     }
-    for (var i = 0; i < order.length; i++) {
-      var pairId = order[i], list = byPair[pairId];
-      if (list.length !== 2 || list[0].type !== list[1].type) continue;
-      queue.push({ pairId: pairId, aId: list[0].uid, bId: list[1].uid, type: list[0].type });
+    for (var i = 0; i < fixedOrder.length; i++) {
+      var fixedPairId = fixedOrder[i], fixedList = fixed[fixedPairId];
+      if (fixedList.length !== 2 || fixedList[0].type !== fixedList[1].type) continue;
+      queue.push({ pairId: fixedPairId, aId: fixedList[0].uid, bId: fixedList[1].uid, type: fixedList[0].type });
+    }
+    for (i = 0; i < freeOrder.length; i++) {
+      var type = freeOrder[i], freeList = free[freeOrder[i]].slice();
+      freeList.sort(function (left, right) { return left.uid - right.uid; });
+      for (var fi = 0; fi + 1 < freeList.length; fi += 2) {
+        var firstCell = freeList[fi], secondCell = freeList[fi + 1];
+        var repairedPairId = 'repair-' + firstCell.uid + '-' + secondCell.uid;
+        firstCell.pairId = repairedPairId;
+        secondCell.pairId = repairedPairId;
+        queue.push({ pairId: repairedPairId, aId: firstCell.uid, bId: secondCell.uid, type: type });
+      }
     }
     this.solutionQueue = queue;
     return queue;
@@ -791,8 +848,7 @@
   Game.prototype._clearPair = function (a, b, path) {
     if (!a || !b) return false;
     var first = this._cellAt(a.r, a.c), second = this._cellAt(b.r, b.c);
-    if (!first || !second || first.locked || second.locked || first.type !== second.type ||
-        first.pairId == null || first.pairId !== second.pairId) return false;
+    if (!this._matchCompatible(first, second)) return false;
     path = path || this.findPath(a, b);
     if (!path) return false;
     this.movesAttempted++;
@@ -821,6 +877,7 @@
       var removedPoint = this._pointForUid(Number(uid));
       if (removedPoint) this.grid[removedPoint.r][removedPoint.c] = null;
     }
+    this._rebuildSolutionPairs();
     this.pairsCleared += removedStats.count;
     this.effectiveMoves += Math.max(0, removedStats.count - 1);
     var goalFinished = false;
@@ -977,6 +1034,7 @@
           var simPoint = this._pointForUid(Number(simUid));
           if (simPoint) this.grid[simPoint.r][simPoint.c] = null;
         }
+        this._rebuildSolutionPairs();
         this.pairsCleared += simStats.count;
         this._applyLayoutShift(false);
         this._refreshLocks();
@@ -1016,7 +1074,19 @@
       return true;
     }
     if (id === 'bell') {
-      var pairHint = this.findHint();
+      /* The bell is a "clear one pair" rescue item: prefer an ordinary pair
+       * so a bomb/ice special cannot inflate the clear count or get consumed
+       * by an ice hit instead of a removal. */
+      var pairs = this.listLegalPairs(), pairHint = null;
+      for (var pi = 0; pi < pairs.length; pi++) {
+        var bellFirst = this._cellAt(pairs[pi].a.r, pairs[pi].a.c);
+        var bellSecond = this._cellAt(pairs[pi].b.r, pairs[pi].b.c);
+        if (bellFirst && bellSecond && !bellFirst.special && !bellSecond.special) {
+          pairHint = pairs[pi];
+          break;
+        }
+      }
+      if (!pairHint) pairHint = this.findHint();
       if (!pairHint) return false;
       if (this.itemRemaining.bell != null) this.itemRemaining.bell--;
       this.itemUses.bell++;

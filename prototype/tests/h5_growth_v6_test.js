@@ -114,12 +114,13 @@ function fillOrder(state, order) {
     expect(need && need.family && Number(need.tier) >= 1 && Number(need.count) >= 1,
       'requirements must contain family/tier/count');
     const have = [state.grid, state.storage && state.storage.items].reduce((total, list) =>
-      total + (list || []).filter((item) => item && !item.kind && item.family === need.family && Number(item.tier) === Number(need.tier)).length, 0);
+      total + (list || []).filter((item) => item && !item.kind && item.family === need.family && Number(item.tier) === Number(need.tier) &&
+        (need.sourceBeast == null || item.giftSource === need.sourceBeast)).length, 0);
     const missing = Math.max(0, Number(need.count) - have);
     for (let count = 0; count < missing; count += 1) {
       while (cursor < limit && state.grid[cursor] != null) cursor += 1;
       expect(cursor < limit, 'fixture cannot place all order material on unlocked board');
-      state.grid[cursor] = Core.makeItem(need.family, need.tier);
+      state.grid[cursor] = Core.makeItem(need.family, need.tier, need.sourceBeast);
       cursor += 1;
     }
   });

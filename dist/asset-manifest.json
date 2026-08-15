@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAt": "2026-08-15T08:35:21.319Z",
-  "totalBytes": 10375289,
+  "generatedAt": "2026-08-15T09:50:04.065Z",
+  "totalBytes": 10396246,
   "files": [
     {
       "path": "assets/art/buildings/clinic_lv1.webp",
@@ -1596,8 +1596,8 @@
     {
       "path": "js/merge/core.js",
       "bundle": "boot",
-      "bytes": 174635,
-      "sha256": "52a1661e7a4902ac773a3041a7b53c9ecf69fc03f08d0b0cabe56e6c5d617e03"
+      "bytes": 179978,
+      "sha256": "c1feb949df7738324babb5fed954a489386d0caaafbac0254f81b0f6f232c562"
     },
     {
       "path": "js/merge/courtyard-scene.js",
@@ -1608,14 +1608,14 @@
     {
       "path": "js/merge/data.js",
       "bundle": "boot",
-      "bytes": 77302,
-      "sha256": "a0d312934c004d3dd29d25a3d8ab49ea9f07be146f2938b473503c0a75a93d6a"
+      "bytes": 85415,
+      "sha256": "9447078a4c46f74df3fd69653238d6c31f45fffdf47bc71b48db04b5985f1ba7"
     },
     {
       "path": "js/merge/link-game.js",
       "bundle": "boot",
-      "bytes": 65722,
-      "sha256": "4f0d9aecec4f533a7ed4fe22607aa66f034c9c881c9185b6a6913deab4049408"
+      "bytes": 69347,
+      "sha256": "32680bb038f5fd02d678e840f704e5dc4d74b0d11166d1c2f831a486b542c3da"
     },
     {
       "path": "js/merge/match3.js",
@@ -1632,14 +1632,14 @@
     {
       "path": "js/merge/ui.js",
       "bundle": "boot",
-      "bytes": 161947,
-      "sha256": "b2740dd7cf1949bd2eebfae3ab7137ed89beb89b72e789bcfa3309eaf7794582"
+      "bytes": 165285,
+      "sha256": "63c0cb837026ba6d606516392f73be8ad63595879951986e2d9a52e8b1cf80eb"
     },
     {
       "path": "merge-slice.css",
       "bundle": "boot",
-      "bytes": 107177,
-      "sha256": "51ac18cb18e963ded650cec90dfb0472517f4cfd946acd89fe66b0689101cf31"
+      "bytes": 107715,
+      "sha256": "f98d9a23ada72bbba884e97c4015a63f8efae9e14a15e5fc9c928994925f3edc"
     },
     {
       "path": "merge-slice.js",

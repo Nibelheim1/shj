@@ -181,8 +181,9 @@ check('challenge 只按分数给合成素材：分数单调、奖励封顶且不
       heal: runResult.state.beastCases.qiongqi.heal,
       exp: runResult.state.beastCases.qiongqi.exp
     }, runResult.before, 'challenge must leave beast progression counters unchanged');
-    assert.ok((result.rewardItems || []).every(function (item) { return item.family === 'groom'; }),
-      'challenge rewards must be consumable grooming synthesis materials');
+    const giftFamily = Core.careRouteForBeast('qiongqi', 'groom').family;
+    assert.ok((result.rewardItems || []).every(function (item) { return item.family === giftFamily; }),
+      'challenge rewards must follow the resident gift route (qiongqi groom -> ' + giftFamily + ')');
     assert.ok((result.rewardItems || []).length <= cap, 'challenge reward count must respect explicit cap');
     return challengeRewardValue(result);
   });

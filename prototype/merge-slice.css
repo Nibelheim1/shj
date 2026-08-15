@@ -52,6 +52,7 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 .order-need.ready { background:#dcefd9; }
 .order-need img { width:100%; height:100%; object-fit:contain; }
 .order-need b { position:absolute; right:-2px; bottom:-2px; min-width:11px; padding:1px 2px; border-radius:4px; background:#b8563c; color:#fff; font-size:7px; line-height:1; }
+.order-need .gift-source { position:absolute; left:-2px; top:-2px; padding:1px 2px; border-radius:4px; background:#b596d0; color:#fff; font-size:7px; line-height:1; font-style:normal; white-space:nowrap; }
 .order-open-note { position:absolute; right:6px; bottom:5px; color:#a57936; font-size:7px; font-weight:900; }
 .deliver-btn { width:100%; margin-top:5px; padding:5px; border:0; border-radius:99px; background:var(--coral); color:#fff; font-size:9px; font-weight:900; cursor:pointer; box-shadow:0 2px 0 var(--coral-dark); }
 .deliver-btn:disabled { background:#c6b8aa; box-shadow:none; cursor:default; }
@@ -75,6 +76,7 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 @keyframes target-pulse { 50%{box-shadow:0 0 0 5px #e4b65f4d;} }
 .merge-cell img { width:88%; height:88%; object-fit:contain; pointer-events:none; }
 .merge-cell b { position:absolute; right:1px; bottom:1px; min-width:13px; padding:1px 2px; border-radius:4px; background:var(--coral-dark); color:#fff; font-size:8px; line-height:1; }
+.merge-cell .gift-source { position:absolute; left:1px; top:1px; bottom:auto; padding:1px 2px; border-radius:4px; background:#b596d0; color:#fff; font-size:7px; line-height:1; font-style:normal; white-space:nowrap; }
 .merge-cell.obstacle,.merge-cell.sealed { color:#9c806b; background:#ead7c4; }
 .merge-cell.obstacle span,.merge-cell.sealed span { font-size:19px; }
 .merge-cell em { position:absolute; bottom:1px; font-size:6px; font-style:normal; }
@@ -425,6 +427,7 @@ h1,h2,p { margin:0; } h1{margin-top:2px;font-size:20px;line-height:1.16;} h2{fon
 }
 
 .care-gate-hint { display:flex; align-items:center; min-height:26px; padding:4px 6px; border:1px dashed #e4b65f99; border-radius:7px; background:#fff4d9; color:#8d6949; font-size:8px; font-weight:900; line-height:1.2; }
+.care-gate-hint.gift-chain-note { border-color:#b596d088; background:#f3eafa; color:#6f5590; font-weight:700; }
 .care-gate-btn { background:#d88955; }
 .care-gate-panel { display:grid; gap:6px; margin-top:10px; padding:10px; border:1px solid #e4b65f88; border-radius:11px; background:#fff4d9; color:#805a3b; font-size:10px; line-height:1.4; }
 .care-gate-panel strong { color:#9b612c; font-size:11px; }

@@ -64,7 +64,10 @@ function requirements(order) {
   expect(Array.isArray(req), '订单含 requirements 数组');
   return req;
 }
-function item(family, tier) { return { family: family, tier: tier }; }
+function item(family, tier, sourceBeast) {
+  const created = Core.makeItem(family, tier, sourceBeast);
+  return created;
+}
 function dataRoot() { return DATA.MERGE_DATA || DATA.GAME_DATA || DATA.default || DATA; }
 function beastDefinition(id) {
   const root = dataRoot();
@@ -85,7 +88,7 @@ function seedRequirements(state, reqs) {
   state.grid = Array.isArray(state.grid) ? state.grid.map(function () { return null; }) : new Array(56).fill(null);
   let index = 0;
   reqs.forEach(function (need) {
-    for (let n = 0; n < need.count; n++) state.grid[index++] = item(need.family, need.tier);
+    for (let n = 0; n < need.count; n++) state.grid[index++] = item(need.family, need.tier, need.sourceBeast);
   });
 }
 function storyOrder(state, id, step) {

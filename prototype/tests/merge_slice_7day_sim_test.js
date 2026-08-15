@@ -58,7 +58,7 @@ function seedOrder(state, order) {
     for (let count = 0; count < need.count; count += 1) {
       expect(cursor < state.unlockedCells, '订单需求超过当前已解锁棋盘格');
       state.grid[cursor] = Core.makeItem
-        ? Core.makeItem(need.family, need.tier)
+        ? Core.makeItem(need.family, need.tier, need.sourceBeast)
         : { family: need.family, tier: need.tier };
       cursor += 1;
     }

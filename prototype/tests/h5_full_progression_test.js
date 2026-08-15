@@ -102,7 +102,7 @@ function seedRequirements(state, requirements) {
       while (cursor < limit && state.grid[cursor] != null) cursor += 1;
       expect(cursor < limit, '订单需求超过已解锁棋盘格');
       /* Public item factory is the only source used for test material. */
-      state.grid[cursor] = Core.makeItem(need.family, need.tier);
+      state.grid[cursor] = Core.makeItem(need.family, need.tier, need.sourceBeast);
       cursor += 1;
     }
   });

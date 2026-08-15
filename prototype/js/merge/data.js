@@ -20,9 +20,15 @@
     return { family: family, tier: tier, count: count };
   }
 
+  function sourcedRequirement(family, tier, count, sourceBeast) {
+    return { family: family, tier: tier, count: count, sourceBeast: sourceBeast };
+  }
+
   function copyRequirements(list) {
     return list.map(function (item) {
-      return requirement(item.family, item.tier, item.count);
+      var copied = requirement(item.family, item.tier, item.count);
+      if (item.sourceBeast) copied.sourceBeast = item.sourceBeast;
+      return copied;
     });
   }
 
@@ -105,12 +111,12 @@
     },
     charm: {
       id: 'charm', name: '符箓', icon: '🧿', path: 'charm', color: '#d7b45d',
-      activeFromVolume: 10, generatorLocked: true,
+      activeFromVolume: 7, generatorLocked: true,
       items: ['黄纸符', '朱砂', '桃木牌', '铜铃', '八卦镜', '避水符', '聚灵符', '镇山印']
     },
     treasure: {
       id: 'treasure', name: '珍宝', icon: '🪸', path: 'treasure', color: '#70b8ba',
-      activeFromVolume: 12, generatorLocked: true,
+      activeFromVolume: 8, generatorLocked: true,
       items: ['海螺', '珍珠', '夜明珠', '珊瑚枝', '暖玉坠', '避尘珠', '归墟贝壳', '归墟明珠']
     }
   };
@@ -179,6 +185,18 @@
       unlockFamily: null,
       unlockTier: 0,
       careTypes: ['groom', 'play'],
+      /* 陪伴闭环：不同神兽玩同一款游戏会带回不同素材。
+         穷奇陪玩 → 梳妆素材，用于九尾狐的来信与它自己的成长心意。 */
+      careRoutes: {
+        groom: { family: 'play', label: '梳洗时藏好的玩伴小礼' },
+        play: { family: 'groom', label: '陪玩时收进包袱的梳妆小礼' }
+      },
+      gift: {
+        care: 'play',
+        family: 'groom',
+        item: '九尾手镜',
+        note: '穷奇把最心爱的玩具和小镜子一样样收进包袱。玩着玩着，九尾狐需要的梳妆礼物就准备好了。'
+      },
       art: [
         'assets/art/characters/qiongqi_lv1.webp',
         'assets/art/characters/qiongqi_lv2.webp',
@@ -207,14 +225,14 @@
       },
       jobTitle: '门卫 / 安保',
       storySteps: [
-        storyStep(1, '先把夜灯点亮', '穷奇把爪子缩在门后，一整晚没有合眼。', [
-          requirement('herb', 2, 1), requirement('tool', 1, 1)
+        storyStep(1, '先把夜灯点亮', '穷奇把爪子缩在门后，一整晚没有合眼。陪它玩一小会儿，它才肯把藏起来的梳妆小礼放进灯下。', [
+          sourcedRequirement('groom', 2, 1, 'qiongqi'), requirement('herb', 1, 1)
         ]),
-        storyStep(2, '替它包好旧伤', '后腿的旧伤发热了。药布落下时，它没有咬住你的手。', [
-          requirement('tool', 2, 1), requirement('herb', 1, 1)
+        storyStep(2, '替它包好旧伤', '后腿的旧伤发热了。药布落下时，它没有咬住你的手，只把新赢来的小梳子往你掌心推。', [
+          sourcedRequirement('groom', 3, 1, 'qiongqi'), requirement('herb', 2, 1)
         ]),
-        storyStep(3, '门口有人等你', '穷奇闻到熟悉的气味，第一次走出门后，把一把小伞递给了晚归的朋友。', [
-          requirement('herb', 3, 1), requirement('tool', 2, 1)
+        storyStep(3, '门口有人等你', '穷奇把玩熟的小镜子收进包袱，第一次走出门后，把伞递给了晚归的朋友。', [
+          sourcedRequirement('groom', 4, 1, 'qiongqi'), requirement('tool', 2, 1)
         ])
       ]
     },
@@ -223,7 +241,17 @@
       name: '九尾狐',
       unlockFamily: 'groom',
       unlockTier: 6,
-      careTypes: ['groom'],
+      careTypes: ['groom', 'play'],
+      careRoutes: {
+        groom: { family: 'groom', label: '梳洗台顺好的蓬松小礼' },
+        play: { family: 'play', label: '陪玩时编出的新游戏' }
+      },
+      gift: {
+        care: 'play',
+        family: 'play',
+        item: '嬉云糖塔',
+        note: '九尾狐把尾巴卷成球、把笑声编成新游戏。玩出来的心意，正是它成长与邀请饕餮的信物。'
+      },
       art: [
         'assets/art/characters/jiuweihu_lv1.webp',
         'assets/art/characters/jiuweihu_lv2.webp',
@@ -250,14 +278,14 @@
       },
       jobTitle: '迎宾 / 形象大使',
       storySteps: [
-        storyStep(1, '把尾巴梳开', '九尾狐对着水坑发愁：九条尾巴各想各的，越想漂亮越乱。', [
-          requirement('groom', 2, 1), requirement('herb', 1, 1)
+        storyStep(1, '把尾巴卷成球', '九尾狐对着水坑发愁：九条尾巴各想各的，越想漂亮越乱。陪它玩一会儿，尾巴才肯合作。', [
+          sourcedRequirement('play', 2, 1, 'jiuweihu'), requirement('herb', 1, 1)
         ]),
-        storyStep(2, '给新朋友留一把扇子', '它愿意把最蓬的一条尾巴借给害羞的新客，自己也没有躲起来。', [
-          requirement('groom', 3, 1), requirement('tool', 2, 1)
+        storyStep(2, '编一个新游戏', '它愿意把最蓬的一条尾巴借给害羞的新客，还把笑声编成大家都想玩的新游戏。', [
+          sourcedRequirement('play', 3, 1, 'jiuweihu'), requirement('herb', 2, 1)
         ]),
-        storyStep(3, '今天也喜欢自己', '九条尾巴整齐摇摆，九尾狐主动带大家熟悉收容所。', [
-          requirement('groom', 4, 1), requirement('herb', 3, 1)
+        storyStep(3, '今天也喜欢自己', '九条尾巴整齐摇摆，它把玩出来的糖塔摆上窗台，主动带大家熟悉收容所。', [
+          sourcedRequirement('play', 4, 1, 'jiuweihu'), requirement('groom', 3, 1)
         ])
       ]
     },
@@ -266,9 +294,19 @@
     {
       id: 'taotie',
       name: '饕餮',
-      unlockFamily: 'food',
+      unlockFamily: 'play',
       unlockTier: 6,
-      careTypes: ['play'],
+      careTypes: ['groom', 'play'],
+      careRoutes: {
+        groom: { family: 'groom', label: '梳洗时掉下的暖烘烘饭香' },
+        play: { family: 'food', label: '陪玩时开出的分享菜单' }
+      },
+      gift: {
+        care: 'play',
+        family: 'food',
+        item: '饕餮橡果',
+        note: '饕餮把每场游戏都当成试菜会：一口留给你，一口留给帝江。玩出的菜单，就是它成长的膳食心意。'
+      },
       art: [
         'assets/art/characters/taotie_lv1.webp',
         'assets/art/characters/taotie_lv2.webp',
@@ -296,23 +334,33 @@
       },
       jobTitle: '厨房 / 食材管理',
       storySteps: [
-        storyStep(1, '先做一碗热饭', '饕餮看见什么都想吃，其实只是担心这一口不够大家分。', [
-          requirement('food', 2, 1), requirement('herb', 1, 1)
+        storyStep(1, '先做一碗热饭', '饕餮看见什么都想吃，其实只是担心这一口不够大家分。陪它玩一次“分享菜单”，它才肯慢慢尝。', [
+          sourcedRequirement('food', 2, 1, 'taotie'), requirement('herb', 1, 1)
         ]),
-        storyStep(2, '尝一口就知道', '它开始学着慢慢尝味道，把多出来的食材分成每个人都喜欢的小份。', [
-          requirement('food', 3, 1), requirement('tool', 2, 1)
+        storyStep(2, '尝一口就知道', '它开始学着把多出来的食材分成每个人都喜欢的小份，玩出来的菜谱越写越长。', [
+          sourcedRequirement('food', 3, 1, 'taotie'), requirement('herb', 2, 1)
         ]),
-        storyStep(3, '把第一口留给朋友', '今天的灶火亮着。饕餮端出宴席盒，第一口没有塞进自己的肚子。', [
-          requirement('food', 4, 1), requirement('herb', 3, 1)
+        storyStep(3, '把第一口留给朋友', '今天的灶火亮着。饕餮端出宴席盒，第一口没有塞进自己的肚子，而是递给了帝江。', [
+          sourcedRequirement('food', 4, 1, 'taotie'), requirement('tool', 2, 1)
         ])
       ]
     },
     {
       id: 'dijiang',
       name: '帝江',
-      unlockFamily: 'herb',
+      unlockFamily: 'food',
       unlockTier: 6,
-      careTypes: ['play'],
+      careTypes: ['groom', 'play'],
+      careRoutes: {
+        groom: { family: 'groom', label: '梳洗时滚出来的绒团暖香' },
+        play: { family: 'herb', label: '陪玩时撞落的鲜草花叶' }
+      },
+      gift: {
+        care: 'play',
+        family: 'herb',
+        item: '舒神叶',
+        note: '帝江滚来滚去，把最鲜的草叶和花粉都沾在身上。陪它玩一圈，毕方需要的药材心意就齐了。'
+      },
       art: [
         'assets/art/characters/dijiang_lv1.webp',
         'assets/art/characters/dijiang_lv2.webp',
@@ -347,9 +395,19 @@
     {
       id: 'bifang',
       name: '毕方',
-      unlockFamily: 'tool',
+      unlockFamily: 'herb',
       unlockTier: 6,
-      careTypes: ['groom'],
+      careTypes: ['groom', 'play'],
+      careRoutes: {
+        groom: { family: 'tool', label: '梳羽时掉落的暖羽小零件' },
+        play: { family: 'play', label: '陪玩时蹦出的火星小把戏' }
+      },
+      gift: {
+        care: 'groom',
+        family: 'tool',
+        item: '医馆印记',
+        note: '毕方梳羽时掉下的暖羽和修理小零件，正好能做成新药具。它把“不怕火”的练习，梳成了白泽需要的礼物。'
+      },
       art: [
         'assets/art/characters/bifang_lv1.webp',
         'assets/art/characters/bifang_lv2.webp',
@@ -383,9 +441,19 @@
     {
       id: 'baize',
       name: '白泽',
-      unlockFamily: 'herb',
-      unlockTier: 7,
-      careTypes: ['groom'],
+      unlockFamily: 'tool',
+      unlockTier: 6,
+      careTypes: ['groom', 'play'],
+      careRoutes: {
+        groom: { family: 'build', label: '梳洗时叠好的故事积木' },
+        play: { family: 'play', label: '陪玩时搭出来的小书楼' }
+      },
+      gift: {
+        care: 'groom',
+        family: 'build',
+        item: '瓦当',
+        note: '白泽把讲不完的故事叠成积木，再一块块搭回原样。梳顺毛毛的时候，梼杌要用的建材就悄悄成型了。'
+      },
       art: [
         'assets/art/characters/baize_lv1.webp',
         'assets/art/characters/baize_lv2.webp',
@@ -419,9 +487,19 @@
     {
       id: 'taowu',
       name: '梼杌',
-      unlockFamily: 'play',
+      unlockFamily: 'build',
       unlockTier: 6,
-      careTypes: ['play'],
+      careTypes: ['groom', 'play'],
+      careRoutes: {
+        groom: { family: 'groom', label: '梳洗时也不肯躺平的倔强小礼' },
+        play: { family: 'charm', label: '陪玩时画下的晨操符文' }
+      },
+      gift: {
+        care: 'play',
+        family: 'charm',
+        item: '铜铃',
+        note: '梼杌把晨操队形画成一道道会发光的纹样。陪它再练一次，烛龙需要的符箓心意就练成了。'
+      },
       art: [
         'assets/art/characters/taowu_lv1.webp',
         'assets/art/characters/taowu_lv2.webp',
@@ -455,9 +533,19 @@
     {
       id: 'zhulong',
       name: '烛龙',
-      unlockFamily: 'build',
-      unlockTier: 7,
-      careTypes: ['groom'],
+      unlockFamily: 'charm',
+      unlockTier: 6,
+      careTypes: ['groom', 'play'],
+      careRoutes: {
+        groom: { family: 'treasure', label: '梳洗时凝出的暖光鳞片' },
+        play: { family: 'play', label: '陪玩时晃亮的光影游戏' }
+      },
+      gift: {
+        care: 'groom',
+        family: 'treasure',
+        item: '夜明珠',
+        note: '烛龙把昼夜调成刚刚好的光，梳鳞时凝出的光屑会变成小珍宝。貔貅的见面礼，就这样一点一点攒起来了。'
+      },
       art: [
         'assets/art/characters/zhulong_lv1.webp',
         'assets/art/characters/zhulong_lv2.webp',
@@ -491,9 +579,19 @@
     {
       id: 'pixiu',
       name: '貔貅',
-      unlockFamily: 'tool',
-      unlockTier: 7,
-      careTypes: ['play'],
+      unlockFamily: 'treasure',
+      unlockTier: 6,
+      careTypes: ['groom', 'play'],
+      careRoutes: {
+        groom: { family: 'play', label: '梳洗时掉出来的玩具交换清单' },
+        play: { family: 'groom', label: '陪玩时分享出的亮晶晶小礼' }
+      },
+      gift: {
+        care: 'play',
+        family: 'groom',
+        item: '九尾宝镜',
+        note: '貔貅把玩具和小镜子分享给每个伙伴，越玩越亮堂。麒麟需要的梳妆心意，就藏在它递出去的那一份里。'
+      },
       art: [
         'assets/art/characters/pixiu_lv1.webp',
         'assets/art/characters/pixiu_lv2.webp',
@@ -529,7 +627,17 @@
       name: '麒麟',
       unlockFamily: 'groom',
       unlockTier: 6,
-      careTypes: ['groom'],
+      careTypes: ['groom', 'play'],
+      careRoutes: {
+        groom: { family: 'play', label: '梳洗时滚出来的莲香软球' },
+        play: { family: 'groom', label: '陪玩时踏出的莲印小舞台' }
+      },
+      gift: {
+        care: 'groom',
+        family: 'play',
+        item: '百戏台',
+        note: '麒麟打滚时蹭出的莲香和软泥，被它捏成新游戏。凤凰需要的陪玩心意，就在这一次次四脚朝天里。'
+      },
       art: [
         'assets/art/characters/qilin_lv1.webp',
         'assets/art/characters/qilin_lv2.webp',
@@ -565,7 +673,17 @@
       name: '凤凰',
       unlockFamily: 'play',
       unlockTier: 7,
-      careTypes: ['groom'],
+      careTypes: ['groom', 'play'],
+      careRoutes: {
+        groom: { family: 'herb', label: '梳羽时捡起的疗愈香羽' },
+        play: { family: 'play', label: '陪玩时排演的换羽小合唱' }
+      },
+      gift: {
+        care: 'groom',
+        family: 'herb',
+        item: '月华灵芝',
+        note: '凤凰把换羽派对上捡起的羽毛做成香囊。梳顺每一根软羽，鲲鹏需要的药材心意就有了着落。'
+      },
       art: [
         'assets/art/characters/fenghuang_lv1.webp',
         'assets/art/characters/fenghuang_lv2.webp',
@@ -601,7 +719,17 @@
       name: '鲲鹏',
       unlockFamily: 'herb',
       unlockTier: 9,
-      careTypes: ['play'],
+      careTypes: ['groom', 'play'],
+      careRoutes: {
+        groom: { family: 'groom', label: '梳洗时蹭落的云海水汽' },
+        play: { family: 'tool', label: '陪玩时带回的云海小工具' }
+      },
+      gift: {
+        care: 'play',
+        family: 'tool',
+        item: '云纹药箱',
+        note: '鲲鹏迷路时总带回云海的小贝壳和小工具。陪它再飞一圈，成长要用的药具心意就装满一箱。'
+      },
       art: [
         'assets/art/characters/kunpeng_lv1.webp',
         'assets/art/characters/kunpeng_lv2.webp',
@@ -657,6 +785,21 @@
       };
     });
   });
+  /* 陪伴闭环：从卷四起，每只神兽的主线三步也围绕“自己玩/梳出来的礼物”展开，
+     与成长委托、下一位住客的来信共用同一来源。 */
+  beasts.slice(3).forEach(function (beast) {
+    if (!beast.gift || !Array.isArray(beast.storySteps)) return;
+    beast.storySteps.forEach(function (step, index) {
+      var primaryTier = Math.min(5, 3 + index);
+      var support = step.requirements && step.requirements[1] ? step.requirements[1] : { family: 'herb', tier: 2, count: 1 };
+      var supportFamily = support.family === beast.gift.family ? 'herb' : support.family;
+      var supportTier = Math.max(1, Math.min(4, Number(support.tier) || 2));
+      var reqs = [sourcedRequirement(beast.gift.family, primaryTier, 1, beast.id), requirement(supportFamily, supportTier, 1)];
+      step.requirements = reqs;
+      step.needs = copyRequirements(reqs);
+      step.need = copyRequirements(reqs);
+    });
+  });
   var revealLines = {
     qiongqi: [
       '门后那只小怂虎探出耳朵：我可以陪你看门吗？',
@@ -685,7 +828,7 @@
   });
   var fox = beasts.filter(function (beast) { return beast.id === 'jiuweihu'; })[0];
   if (fox) {
-    fox.preferredCare = 'groom';
+    fox.preferredCare = 'play';
     fox.growthStories = [
       { level: 1, title: '藏在尾巴里的来信', text: '那封没敢寄出的信，一直被它仔细藏在最暖的一条尾巴里。' },
       { level: 2, title: '三条尾巴各有主意', text: '一条想迎风，一条想追球，还有一条只想悄悄挨着你。' },
@@ -1172,7 +1315,7 @@
       { volume: 11, beastId: 'fenghuang', title: '卷十一 · 凤凰篇', areaIds: [], storyTaskCount: 9 },
       { volume: 12, beastId: 'kunpeng', title: '卷十二 · 鲲鹏篇', areaIds: ['cloud_isle'], storyTaskCount: 9 }
     ],
-    nextChapter: { label: '卷二 · 九尾狐篇', hook: '九条尾巴缠成了一团——有位客人，正等着被好好看见。' }
+    nextChapter: { label: '卷二 · 九尾狐篇', hook: '穷奇玩熟了的小镜子在包袱里发亮——有位九条尾巴的客人，正等着这份梳妆礼物。' }
   };
 
   /* 修缮第三段“焕新”统一强化：必须额外交付一件对应卷的产物。
@@ -1199,6 +1342,24 @@
       }
     });
   })();
+
+  /* 陪伴闭环总表：上一只神兽“玩/梳出来的礼物”就是下一只神兽的来信信物，
+     同时也是它自己成长委托的主素材。 */
+  var giftChain = beasts.slice(0, -1).map(function (beast, index) {
+    var next = beasts[index + 1];
+    var gift = beast.gift || {};
+    return {
+      from: beast.id,
+      fromName: beast.name,
+      to: next.id,
+      toName: next.name,
+      care: gift.care || 'play',
+      family: gift.family,
+      tier: Math.max(1, Math.floor(Number(next.unlockTier) || 6)),
+      item: gift.item || (families[gift.family] && families[gift.family].items[Math.min(5, families[gift.family].items.length - 1)]),
+      note: gift.note || (beast.name + '把陪伴时攒下的心意，收进' + next.name + '的信物里。')
+    };
+  });
 
   return {
     version: 7,
@@ -1309,6 +1470,7 @@
       ]
     },
     careGames: careGames,
+    giftChain: giftChain,
     dailyObjectives: dailyObjectives,
     featureFlags: { rewardedAds: false }
   };

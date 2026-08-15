@@ -94,6 +94,33 @@
     return '照料小游戏';
   }
 
+  function careTypeShortLabel(type) {
+    if (type === 'groom') return '梳洗';
+    if (type === 'play') return '陪玩';
+    return '照料';
+  }
+
+  function careRouteForDisplay(beastId, type) {
+    var definition = beastDef(beastId);
+    var route = definition.careRoutes && definition.careRoutes[type];
+    if (route && route.family) return route;
+    var gift = definition.gift || {};
+    var family = gift.family && type === gift.family ? (gift.care === 'play' ? 'groom' : 'play') : type;
+    return { family: family, label: '日常' + careTypeShortLabel(type) + '小礼' };
+  }
+
+  function careGiftForDisplay(beastId) {
+    var definition = beastDef(beastId);
+    var gift = definition.gift || {};
+    return {
+      care: gift.care || definition.careTypes[0] || 'play',
+      careLabel: (gift.care || definition.careTypes[0] || 'play') === 'play' ? '陪玩' : '梳洗',
+      family: gift.family || definition.careTypes[0] || 'play',
+      item: gift.item || '',
+      note: gift.note || ''
+    };
+  }
+
   function backgroundDef(id) {
     return (DATA.backgrounds || []).find(function (background) { return background.id === id; }) || null;
   }
@@ -616,7 +643,8 @@
     var count = 0;
     [state.grid, state.storage.items].forEach(function (items) {
       (items || []).forEach(function (item) {
-        if (item && !item.kind && item.family === need.family && item.tier === need.tier) count++;
+        if (item && !item.kind && item.family === need.family && item.tier === need.tier &&
+            (need.sourceBeast == null || item.giftSource === need.sourceBeast)) count++;
       });
     });
     return count;
@@ -624,9 +652,12 @@
 
   function needMarkup(need) {
     var have = countNeed(need);
-    var item = Core.makeItem(need.family, need.tier);
-    return '<span class="order-need ' + (have >= need.count ? 'ready' : '') + '" data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托需求" title="长按查看 ' + esc(item.name) + ' 合成路线">' +
-      '<img src="' + esc(itemPath(item)) + '" alt="' + esc(item.name) + '" /><b>' + have + '/' + need.count + '</b></span>';
+    var item = Core.makeItem(need.family, need.tier, need.sourceBeast);
+    var sourceBeast = need.sourceBeast ? beastDef(need.sourceBeast) : null;
+    var sourceTitle = sourceBeast ? '需由' + sourceBeast.name + '的陪伴礼物获得；长按查看 ' + esc(item.name) + ' 合成路线' : '长按查看 ' + esc(item.name) + ' 合成路线';
+    var sourceBadge = sourceBeast ? '<em class="gift-source">' + esc(sourceBeast.name) + '礼</em>' : '';
+    return '<span class="order-need ' + (have >= need.count ? 'ready' : '') + '" data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托需求" title="' + sourceTitle + '">' +
+      '<img src="' + esc(itemPath(item)) + '" alt="' + esc(item.name) + '" />' + sourceBadge + '<b>' + have + '/' + need.count + '</b></span>';
   }
 
   function kindLabel(kind) {
@@ -651,18 +682,27 @@
     return '前置：完成上一阶段目标';
   }
 
-  function sourceLabelForFamily(family) {
-    if (family === 'groom') return '梳洗台消消乐';
-    if (family === 'play') return '亭子连连看';
-    var definition = familyDef(family);
+  function sourceLabelForNeed(need) {
+    if (need.sourceBeast) {
+      var sourceBeast = beastDef(need.sourceBeast);
+      var gift = careGiftForDisplay(need.sourceBeast);
+      return '与' + sourceBeast.name + '一起' + gift.careLabel;
+    }
+    if (need.family === 'groom') return '梳洗台消消乐';
+    if (need.family === 'play') return '亭子连连看';
+    var definition = familyDef(need.family);
     return definition ? definition.name + '生成器/合成' : '合成棋盘';
+  }
+
+  function sourceLabelForFamily(family) {
+    return sourceLabelForNeed({ family: family });
   }
 
   function orderSourceText(order, reachable) {
     if (order && order.kind === 'care_gate') return '去庭院完成一次有效照料，自动推进主线';
     var labels = [];
     (order && order.requirements || []).forEach(function (need) {
-      var label = sourceLabelForFamily(need.family);
+      var label = sourceLabelForNeed(need);
       if (labels.indexOf(label) < 0) labels.push(label);
     });
     var text = labels.length ? labels.join('、') : '合成棋盘';
@@ -695,6 +735,9 @@
       }
       if (order.generatorNeed) {
         needsMarkup += '<div class="care-gate-hint">需在场：' + esc(order.generatorNeed.family === 'herb' ? '药材' : order.generatorNeed.family === 'tool' ? '药具' : order.generatorNeed.family === 'food' ? '膳食' : '建材') + '造物生成器 Lv' + esc(order.generatorNeed.minLevel) + '+ ×' + order.generatorNeed.count + '</div>';
+      }
+      if (order.giftChain && order.giftChain.note) {
+        needsMarkup += '<div class="care-gate-hint gift-chain-note">' + esc(order.giftChain.note) + '</div>';
       }
       var actionMarkup = '<button class="deliver-btn" data-deliver="' + esc(order.id) + '" type="button" ' + (ready && !complete ? '' : 'disabled') + '>' + (complete ? '今日已完成' : '交付 · ' + rewardBits.join(' · ')) + '</button>';
       return '<article class="order-card ' + (mainline ? 'main-order ' : '') + (ready ? 'ready ' : '') + (!reachable ? 'unreachable' : '') + '" data-order-id="' + esc(order.id) + '">' +
@@ -758,8 +801,8 @@
         classes.push('sealed'); label = item.name; content = '<span>🔒</span><em>◆25</em>';
       } else if (item) {
         if (selectedIndex === index) classes.push('selected');
-        label = itemName(item) + ' ' + item.tier + '阶';
-        content = '<img src="' + esc(itemPath(item)) + '" alt="" /><b>' + item.tier + '</b>';
+        label = itemName(item) + ' ' + item.tier + '阶' + (item.giftSource ? '，' + beastDef(item.giftSource).name + '的陪伴礼物' : '');
+        content = '<img src="' + esc(itemPath(item)) + '" alt="" /><b>' + item.tier + '</b>' + (item.giftSource ? '<em class="gift-source">' + esc(beastDef(item.giftSource).name) + '礼</em>' : '');
       }
       var longPress = item && item.kind === 'generator' ? ' data-longpress-generator="' + esc(item.family) + '"' : item && (!item.kind || item.kind === 'generator_part') ? ' data-longpress-family="' + esc(item.family) + '" data-longpress-tier="' + item.tier + '" data-longpress-source="' + (item.kind === 'generator_part' ? '生产器部件' : '合成棋盘') + '"' : '';
       cells.push('<button class="' + classes.join(' ') + '" data-grid-index="' + index + '"' + longPress + ' role="gridcell" type="button" aria-label="' + esc(label) + '">' + content + '</button>');
@@ -1060,18 +1103,24 @@
     ['groom', 'play'].forEach(function (type) {
       var button = document.querySelector('[data-care="' + type + '"]');
       if (!button) return;
-      /* Both facilities are valid bonding activities for every resident.
-         Their listed preferences still guide story-material requirements. */
+      var route = careRouteForDisplay(display.id, type);
+      var routeFamily = familyDef(route.family);
+      var gift = careGiftForDisplay(display.id);
+      var isGiftRoute = type === gift.care;
       var available = !!display.entry;
-      button.classList.toggle('care-recommended', available);
+      button.classList.toggle('care-recommended', available && isGiftRoute);
       button.classList.remove('care-unneeded');
       button.setAttribute('aria-disabled', 'false');
       var rewardBudget = careRewardBudget();
       var rewardUsed = Number(state.daily.careRewards && state.daily.careRewards[type]) || 0;
       var rewardLeft = rewardBudget.unlimited ? Infinity : Math.max(0, rewardBudget.cap - rewardUsed);
-      button.title = available ? (rewardBudget.unlimited ? '选择' + careTypeLabel(type) + '难度；完成有效互动可增加好感，今日上限 100' : '选择' + careTypeLabel(type) + '难度；完成有效互动可增加好感') : '当前没有可互动的神兽';
+      button.title = available
+        ? '与' + display.definition.name + '一起' + careTypeShortLabel(type) + '，会带回「' + (routeFamily ? routeFamily.name : route.family) + '」素材' + (isGiftRoute ? '——这正是' + display.definition.name + '成长和下一位伙伴来信需要的礼物。' : '；好感与疗愈照常增长。')
+        : '当前没有可互动的神兽';
       var caption = button.querySelector('small');
-      if (caption) caption.textContent = available ? (rewardBudget.unlimited ? '素材奖励不限 · 两种互动均加好感' : (rewardLeft ? '今日奖励 ' + rewardLeft + '/' + rewardBudget.cap + ' · 可增加好感' : '素材已领 · 互动仍加好感')) : '暂无可互动的神兽';
+      if (caption) caption.textContent = available
+        ? (isGiftRoute ? '送出成长礼物 · ' + (routeFamily ? routeFamily.name : '') + (rewardBudget.unlimited ? ' · 素材奖励不限' : ' · 今日 ' + rewardLeft + '/' + rewardBudget.cap) : '日常小礼 · ' + (routeFamily ? routeFamily.name : '') + (rewardBudget.unlimited ? ' · 素材奖励不限' : ' · 今日 ' + rewardLeft + '/' + rewardBudget.cap))
+        : '暂无可互动的神兽';
     });
     renderDaily();
     renderFacilities();
@@ -1978,15 +2027,22 @@
   }
 
   function careOrderRelevance(type) {
+    var display = caseForDisplay();
+    var route = careRouteForDisplay(display.id, type);
+    var gift = careGiftForDisplay(display.id);
     var found = null;
     (state.activeOrders || []).some(function (order) {
       return (order.requirements || []).some(function (need) {
-        if (need.family !== type) return false;
-        found = Core.makeItem(type, need.tier || 1);
+        var matchesFamily = need.family === route.family;
+        var matchesSource = need.sourceBeast == null || need.sourceBeast === display.id;
+        if (!matchesFamily || !matchesSource) return false;
+        found = Core.makeItem(route.family, need.tier || 1, need.sourceBeast);
         return true;
       });
     });
-    return found ? '眼前委托需要“' + found.name + '”，本设施奖励可直接推进合成。' : '眼前委托暂不缺此系列；奖励会进入棋盘/暂存，供后续委托合成。';
+    if (found) return '眼前委托需要“' + found.name + '”，与' + display.definition.name + '一起' + careTypeShortLabel(type) + '就能直接带回。';
+    if (type === gift.care) return '这是' + display.definition.name + '送出成长礼物的游戏：会带回「' + (familyDef(route.family) || {}).name + '」素材。';
+    return '这款游戏带回「' + (familyDef(route.family) || {}).name + '」日常小礼，可推进其他委托。';
   }
 
   function careUnlockText(id, type) {
@@ -2236,7 +2292,9 @@
     var perf = Math.round(Math.max(0, Math.min(1, Number(summary && summary.perf) || 0)) * 100);
     var label = result.challenge ? '挑战结算' : result.rewardLimited ? '练习完成' : result.noReward ? (result.qualified ? '体验完成' : '尚未达到有效门槛') : '评级 ' + (result.grade || 'B');
     var rewardNote = result.challenge ? (result.noReward ? '需要实际完成有效操作并取得分数，挑战局不会增加好感、疗愈或经验。' : '奖励随分数增加，最多六份；挑战局不会增加好感、疗愈或经验。') : result.rewardLimited ? '今日该设施的素材奖励已领取；成绩仍会记录，明天再来。' : result.noReward ? (outcome === 'skip' ? '这次先休息，体力不会返还；准备好后再挑战。' : !result.qualified ? '还差一些有效操作；达到门槛后即使超时也有保底。' : '本局未达到奖励条件，但仍会记录成绩。') : '评级 ' + result.grade + ' · 好感 +' + (result.affectionGained || 0) + ' · 疗愈 +' + (result.healGained || 0) + ' · ' + (result.remainingRewardRuns == null ? '今日素材奖励不限。' : '今日还可领取 ' + result.remainingRewardRuns + ' 局素材。');
-    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · 本局回顾</span><h2>' + esc(beastDef(session.beastId).name) + (result.noReward ? '陪你玩了一局' : '把奖励收进了药匣') + '</h2><img src="' + esc(characterAssetPath(beastArt(beastDef(session.beastId), state.beastCases[session.beastId]))) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div><div class="task-reward">' + (result.noReward ? '' : '获得 ') + rewardText + '<br /><small>' + rewardNote + '</small></div><button class="modal-action" data-care-continue type="button">继续</button></div>', 'task-modal');
+    var giftFamily = familyDef(result.giftFamily);
+    var giftLine = !result.noReward && result.giftFamily ? ' · 带回' + (giftFamily ? giftFamily.name : result.giftFamily) + '素材' : '';
+    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · 本局回顾</span><h2>' + esc(beastDef(session.beastId).name) + (result.noReward ? '陪你玩了一局' : '把礼物收进了药匣') + '</h2><img src="' + esc(characterAssetPath(beastArt(beastDef(session.beastId), state.beastCases[session.beastId]))) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div><div class="task-reward">' + (result.noReward ? '' : '获得 ') + rewardText + '<br /><small>' + rewardNote + giftLine + '</small></div><button class="modal-action" data-care-continue type="button">继续</button></div>', 'task-modal');
     if (modal) modal.querySelector('[data-care-continue]').addEventListener('click', function () {
       closeModal();
       if (Core.peekBeastReveal && Core.peekBeastReveal(state)) showPendingBeastReveal();

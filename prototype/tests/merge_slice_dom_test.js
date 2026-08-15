@@ -237,7 +237,8 @@ function cardCount(root, selectors) {
     const rewardVisible = stateAfter.pendingRewards.concat(stateAfter.grid).some(function (item) {
       return item && item.family === reward.family && item.tier === reward.tier;
     });
-    expect(reward && reward.family === 'groom' && rewardVisible, '照料奖励已进入棋盘或暂存区');
+    expect(reward && result.giftFamily && reward.family === result.giftFamily && rewardVisible,
+      '照料奖励按神兽陪伴路线进入棋盘或暂存区（穷奇·梳洗 → ' + (result.giftFamily || '') + '）');
     const continueButton = W.document.querySelector('#modal-root [data-care-continue]');
     if (continueButton) continueButton.click();
   });
