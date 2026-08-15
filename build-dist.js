@@ -237,6 +237,11 @@ copyDirectoryIfPresent(
   'assets/art/match3',
   (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp'
 );
+copyDirectoryIfPresent(
+  'prototype/assets/art/recipes',
+  'assets/art/recipes',
+  (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp'
+);
 const RELEASE_SCENES = new Set([
   'bg_courtyard_buildingfree.webp',
   'bg_courtyard_buildingfree_sunset.webp',
@@ -275,7 +280,7 @@ const manifestEntries = walkFiles(dist)
     const bytes = fs.readFileSync(filePath);
     let bundle = 'boot';
     if (relative.startsWith('assets/art/scenes/') || relative.startsWith('assets/art/buildings/') || relative.startsWith('assets/art/characters/') || relative.startsWith('assets/art/v7/sect/') || relative.startsWith('assets/art/v7/scenes/')) bundle = 'scene';
-    else if (relative.startsWith('assets/art/match3/') || relative.startsWith('assets/art/v7/match3/') || relative.startsWith('assets/art/v7/producer_parts/')) bundle = 'minigame';
+    else if (relative.startsWith('assets/art/match3/') || relative.startsWith('assets/art/recipes/') || relative.startsWith('assets/art/v7/match3/') || relative.startsWith('assets/art/v7/producer_parts/')) bundle = 'minigame';
     else if (relative.startsWith('assets/audio/')) bundle = 'audio';
     return {
       path: relative,

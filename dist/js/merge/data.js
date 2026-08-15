@@ -930,27 +930,20 @@
   };
 
   var recipes = [
-    { id: 'PROD_SOOTHE', name: '安神药包', volume: 1, inputs: [requirement('herb', 3, 1), requirement('tool', 3, 1)], use: '穷奇疗愈与卷一医案' },
-    { id: 'PROD_BED', name: '灵木床', volume: 2, inputs: [requirement('build', 4, 1), requirement('groom', 3, 1)], use: '九尾狐静室与卷二修缮' },
-    { id: 'PROD_MEAL', name: '疗愈餐', volume: 3, inputs: [requirement('food', 6, 1), requirement('herb', 4, 1)], use: '饕餮卷医案' },
-    { id: 'PROD_CLEAR', name: '清心丹', volume: 3, inputs: [requirement('tool', 6, 1), requirement('herb', 6, 1)], use: '焦虑类医案' },
-    { id: 'PROD_GARDEN', name: '药圃阵盘', volume: 4, inputs: [requirement('herb', 5, 1), requirement('build', 3, 1)], use: '百草园区域信物' },
-    { id: 'PROD_FLAME', name: '丹火令', volume: 5, inputs: [requirement('tool', 5, 1), requirement('build', 3, 1)], use: '丹房区域信物' },
-    { id: 'PROD_HEARTH', name: '百草暖炉', volume: 8, inputs: [requirement('build', 7, 1), requirement('herb', 5, 1)], use: '暖房修缮' },
-    { id: 'PROD_ARRAY', name: '聚灵阵图', volume: 10, inputs: [requirement('build', 8, 1), requirement('charm', 3, 1)], use: '后期区域焕新' },
-    { id: 'PROD_REVIVE', name: '九转还魂露', volume: 11, inputs: [requirement('herb', 8, 1), requirement('tool', 7, 1)], use: '重症医案' },
-    { id: 'PROD_BOAT', name: '云海渡舟', volume: 12, inputs: [requirement('treasure', 6, 1), requirement('build', 7, 1)], use: '云海修缮' }
+    { id: 'PROD_SOOTHE', name: '安神药包', volume: 1, inputs: [requirement('herb', 3, 1), requirement('tool', 3, 1)], use: '穷奇疗愈与卷一医案', art: 'assets/art/recipes/prod_soothe.webp', brief: '把宁神草与小药炉收进软布包，让不安的心在药香里慢慢安顿下来。' },
+    { id: 'PROD_BED', name: '灵木床', volume: 2, inputs: [requirement('build', 4, 1), requirement('groom', 3, 1)], use: '九尾狐静室与卷二修缮', art: 'assets/art/recipes/prod_bed.webp', brief: '用方石做床脚、软梳作铺面，搭一张能让尾巴都舒展开的灵木小床。' },
+    { id: 'PROD_MEAL', name: '疗愈餐', volume: 3, inputs: [requirement('food', 6, 1), requirement('herb', 4, 1)], use: '饕餮卷医案', art: 'assets/art/recipes/prod_meal.webp', brief: '把最受欢迎的山海小食与暖阳花一起装盘，吃饱了才有力气继续疗愈。' },
+    { id: 'PROD_CLEAR', name: '清心丹', volume: 3, inputs: [requirement('tool', 6, 1), requirement('herb', 6, 1)], use: '焦虑类医案', art: 'assets/art/recipes/prod_clear.webp', brief: '医馆印记配上舒神叶，在青玉药罐里炼成一粒让呼吸慢下来的清心丹。' },
+    { id: 'PROD_GARDEN', name: '药圃阵盘', volume: 4, inputs: [requirement('herb', 5, 1), requirement('build', 3, 1)], use: '百草园区域信物', art: 'assets/art/recipes/prod_garden.webp', brief: '把花蜜露和原木摆成聚灵阵，百草园的新区域会顺着阵盘自己生长。' },
+    { id: 'PROD_FLAME', name: '丹火令', volume: 5, inputs: [requirement('tool', 5, 1), requirement('build', 3, 1)], use: '丹房区域信物', art: 'assets/art/recipes/prod_flame.webp', brief: '银针刻令、原木作柄，点起丹房久违的炉火。' },
+    { id: 'PROD_HEARTH', name: '百草暖炉', volume: 8, inputs: [requirement('build', 7, 1), requirement('herb', 5, 1)], use: '暖房修缮', art: 'assets/art/recipes/prod_hearth.webp', brief: '桐油木架托着花蜜露，让暖房里四季都像春天。' },
+    { id: 'PROD_ARRAY', name: '聚灵阵图', volume: 10, inputs: [requirement('build', 8, 1), requirement('charm', 3, 1)], use: '后期区域焕新', art: 'assets/art/recipes/prod_array.webp', brief: '金丝楠上铺开桃木牌阵，薄薄的灵气重新聚回宗门。' },
+    { id: 'PROD_REVIVE', name: '九转还魂露', volume: 11, inputs: [requirement('herb', 8, 1), requirement('tool', 7, 1)], use: '重症医案', art: 'assets/art/recipes/prod_revive.webp', brief: '九节灵参浸入青玉药罐，九转之后凝出能唤回生机的露水。' },
+    { id: 'PROD_BOAT', name: '云海渡舟', volume: 12, inputs: [requirement('treasure', 6, 1), requirement('build', 7, 1)], use: '云海修缮', art: 'assets/art/recipes/prod_boat.webp', brief: '避尘珠嵌在桐油小舟上，渡云海也渡晚归的旅人。' }
   ];
 
   var specials = {
-    bubble: { chance: 0.05, pity: 25, rackSlots: 3, openMs: 60 * 60 * 1000, sameTierChance: 0.8 },
-    combo: { windowMs: 12 * 1000, feedbackAt: 3, materialAt: 5, chestAt: 8, maxMaterialBonuses: 1 },
-    chests: {
-      dailyMerges: 20,
-      weeklyOrders: 10,
-      daily: { merges: 20, energy: 15, minTier: 2, maxTier: 3, producerPartChance: 0.35, producerPartTier: 1 },
-      weekly: { orders: 10, jade: 100, tier: 4, producerPartTier: 2 }
-    }
+    combo: { windowMs: 12 * 1000, feedbackAt: 3, materialAt: 5, maxMaterialBonuses: 1 }
   };
 
   /* Keep both one-based level lookup and an explicit levels array. */
@@ -1019,32 +1012,32 @@
     difficulties: {
       easy: {
         id: 'easy', name: '轻松', unlock: 'default',
-        groom: { cols: 6, rows: 6, typeCount: 5, timeLimit: 60, moveLimit: 26, minLegalMoves: 5, objective: { mode: 'score', targetMultiplier: 0.72, label: '解开单层毛结并制造特殊块' }, knotMode: 'single', timePickupBudget: 4, itemCounts: { hammer: 3, shuffle: 2, theme: 2 } },
+        groom: { cols: 6, rows: 6, typeCount: 5, timeLimit: 60, moveLimit: 26, minLegalMoves: 5, objective: { mode: 'score', targetMultiplier: 0.72, label: '解开单层毛结并制造特殊块' }, knotMode: 'single', timePickupBudget: 4, itemCounts: { hammer: 3, shuffle: 2, theme: 2 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01'] },
         play: { cols: 3, rows: 3, layers: 1, typeCount: 6, tilesPerType: 3, slots: 6, timeLimit: 70, scoreTarget: 900, failPerfCap: 0.58, comboWindow: 2.2, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
         rewards: { floor: [1], B: [1, 1], A: [2], S: [2, 1] }
       },
       normal: {
         id: 'normal', name: '标准', unlock: 'firstStory',
-        groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 60, moveLimit: 23, minLegalMoves: 4, objective: { mode: 'score', targetMultiplier: 0.90, label: '收集目标图案并解开混合毛结' }, knotMode: 'mixed', timePickupBudget: 3, itemCounts: { hammer: 2, shuffle: 2, theme: 1 } },
+        groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 60, moveLimit: 23, minLegalMoves: 4, objective: { mode: 'score', targetMultiplier: 0.90, label: '收集目标图案并解开混合毛结' }, knotMode: 'mixed', timePickupBudget: 3, itemCounts: { hammer: 2, shuffle: 2, theme: 1 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
         play: { cols: 4, rows: 4, layers: 2, typeCount: 7, tilesPerType: 6, slots: 6, timeLimit: 80, scoreTarget: 1900, failPerfCap: 0.72, comboWindow: 1.9, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01'] },
         rewards: { floor: [1], B: [2], A: [2, 1], S: [3] }
       },
       hard: {
         id: 'hard', name: '困难', unlock: 'groomLevel2',
-        groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 60, moveLimit: 20, minLegalMoves: 3, objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '清除扩散毛结并完成两次连锁' }, knotMode: 'double-spread', timePickupBudget: 2, itemCounts: { hammer: 2, shuffle: 1, theme: 1 } },
+        groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 60, moveLimit: 20, minLegalMoves: 3, objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '清除扩散毛结并完成两次连锁' }, knotMode: 'double-spread', timePickupBudget: 2, itemCounts: { hammer: 2, shuffle: 1, theme: 1 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
         play: { cols: 5, rows: 5, layers: 3, typeCount: 8, tilesPerType: 6, slots: 6, timeLimit: 90, scoreTarget: 3100, failPerfCap: 0.84, comboWindow: 1.4, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01'] },
         rewards: { floor: [2], B: [2, 1], A: [3], S: [3, 2] }
       },
       master: {
         id: 'master', name: '大师', unlock: 'groomLevel3',
-        groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 60, moveLimit: 18, minLegalMoves: 2, objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '破除三层毛结并组合两枚特殊块' }, knotMode: 'double-triple', timePickupBudget: 1, itemCounts: { hammer: 1, shuffle: 1, theme: 1 } },
+        groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 60, moveLimit: 18, minLegalMoves: 2, objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '破除三层毛结并组合两枚特殊块' }, knotMode: 'double-triple', timePickupBudget: 1, itemCounts: { hammer: 1, shuffle: 1, theme: 1 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
         play: { cols: 6, rows: 6, layers: 4, typeCount: 9, tilesPerType: 6, slots: 6, timeLimit: 100, scoreTarget: 4600, failPerfCap: 0.84, comboWindow: 1.0, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08'] },
         rewards: { floor: [2], B: [3], A: [3, 2], S: [4], repeatS: [3, 2] }
       },
       challenge: {
         id: 'challenge', name: '挑战模式', unlock: 'default', challenge: true,
         rewardCap: 6, maxRewardItems: 6,
-        groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 120, moveLimit: 50, minLegalMoves: 3, objective: { mode: 'score', targetMultiplier: 1.7, label: '在长局中尽量刷新高分' }, knotMode: 'mixed', timePickupBudget: 4, itemCounts: { hammer: 2, shuffle: 2, theme: 2 } },
+        groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 120, moveLimit: 50, minLegalMoves: 3, objective: { mode: 'score', targetMultiplier: 1.7, label: '在长局中尽量刷新高分' }, knotMode: 'mixed', timePickupBudget: 4, itemCounts: { hammer: 2, shuffle: 2, theme: 2 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
         play: { cols: 7, rows: 7, layers: 5, typeCount: 10, tilesPerType: 6, slots: 6, timeLimit: 150, scoreTarget: 6400, failPerfCap: 0.84, comboWindow: 1.2, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08'] },
         rewards: { scoreBased: true, minItems: 2, maxItems: 6, maxTier: 3 }
       }

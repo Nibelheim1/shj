@@ -323,6 +323,16 @@ function collectMergeData(report, data, roots) {
     if (record) report.dataResources.push(record);
   }
 
+  for (const recipe of Array.isArray(data.recipes) ? data.recipes : []) {
+    const id = recipe && recipe.id;
+    const key = `recipe:${id == null ? '(missing-id)' : id}`;
+    addKey(report, key, 'MERGE_DATA.recipes');
+    if (recipe && recipe.art) {
+      const record = addResource(report, `${key}:art`, recipe.art, report.entryFile, 'MERGE_DATA recipe');
+      if (record) report.dataResources.push(record);
+    }
+  }
+
   for (const [familyId, family] of Object.entries(data.families || {})) {
     const key = `family:${familyId}`;
     addKey(report, key, 'MERGE_DATA.families');

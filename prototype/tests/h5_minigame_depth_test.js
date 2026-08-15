@@ -148,8 +148,10 @@ function runMatch3Depth() {
   assert.strictEqual(summary.moveLimit, 1);
   assert.ok(summary.objective && summary.objective.mode, '摘要暴露目标');
   assert.ok(Object.prototype.hasOwnProperty.call(summary, 'autoReshuffles'), '摘要暴露死盘/重排');
-  assert.deepStrictEqual(Array.from(summary.icons), ['groom_01', 'groom_02', 'groom_03', 'groom_04', 'groom_05'],
-    '图标统一为简洁 groom 系列');
+  assert.deepStrictEqual(Array.from(summary.icons), ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01'],
+    '图标改为跨系列素材池，避免同色系混淆');
+  assert.strictEqual(new Set(summary.icons.map(function (name) { return name.replace(/_\d+$/, ''); })).size, 5,
+    '五个图标分别来自五个不同系列');
 
   console.log('  PASS  Match3 800 固定种子、连续稳定态、确定性重排、步数/目标/图标');
 
@@ -173,9 +175,10 @@ function sheepRect(game) {
 
 function touchTile(game, tile) {
   const rect = sheepRect(game);
+  const overlap = Number(game.overlap) || 0;
   const box = {
-    x: rect.x + tile.cx * rect.cell + tile.layer * rect.cell * 0.08,
-    y: rect.y + tile.cy * rect.cell + tile.layer * rect.cell * 0.08 * 0.65,
+    x: rect.x + tile.cx * rect.cell + tile.layer * rect.cell * overlap,
+    y: rect.y + tile.cy * rect.cell + tile.layer * rect.cell * overlap * 0.65,
     w: rect.cell,
     h: rect.cell
   };
@@ -234,7 +237,7 @@ function runSheepDepth() {
   assert.strictEqual(signatures.size, STANDARD_LEVELS.length, 'Sheep 四个标准档规则不能只改变棋盘尺寸');
 
   levels.forEach(function (difficulty, index) {
-    const game = new SheepGame.Game('PLAY', { difficulty: difficulty, rng: seeded(900 + index), timeLimit: 999 });
+    const game = new SheepGame.Game('PLAY', { difficulty: difficulty, rng: seeded(900 + index), timeLimit: 999, overlap: 0 });
     clearSheepTower(game, difficulty);
     assert.strictEqual(game.finished, true, difficulty + ' 真实触摸可清塔');
     assert.strictEqual(game.triplesCleared, game.totalTriples, difficulty + ' 清除全部三连组');
@@ -256,7 +259,7 @@ function runSheepDepth() {
   assert.strictEqual(fail.failed, true, '七格槽满且无三连时失败');
   assert.ok(fail.perf < 0.4, '低分失败只给低档表现');
 
-  const scored = new SheepGame.Game('PLAY', { difficulty: 'hard', rng: seeded(66), timeLimit: 999 });
+  const scored = new SheepGame.Game('PLAY', { difficulty: 'hard', rng: seeded(66), timeLimit: 999, overlap: 0 });
   const scoreRect = sheepRect(scored);
   for (let group = 0; group < 8; group++) {
     const legal = scored.listLegalTiles()[0];
@@ -279,7 +282,7 @@ function runSheepDepth() {
   assert.ok(scored.score > 1000, '困难档高分失败仍有可观得分');
   assert.ok(scored.perf >= 0.4, '困难档高分失败按得分匹配 B 档以上表现');
 
-  const constant = new SheepGame.Game('PLAY', { difficulty: 'master', rng: function () { return 0; } });
+  const constant = new SheepGame.Game('PLAY', { difficulty: 'master', rng: function () { return 0; }, overlap: 0 });
   assert.strictEqual(liveTiles(constant).length, constant.totalTiles, '极端 RNG 仍生成完整塔');
   clearSheepTower(constant, '极端 RNG');
   assert.strictEqual(constant.triplesCleared, constant.totalTriples, '极端 RNG 仍可清塔');

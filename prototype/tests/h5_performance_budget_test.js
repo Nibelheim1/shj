@@ -435,12 +435,13 @@ async function run() {
     check('first-screen transfer <= 5 MiB', initialTransferBytes <= INITIAL_TRANSFER_LIMIT,
       `${formatBytes(initialTransferBytes)} (${initialTransferBytes} bytes)`);
 
-    // The first-run help sheet can cover the bottom navigation in a fresh
-    // browser context.  Closing it is part of the real first-screen flow.
-    const closeButton = page.locator('[data-close-modal]').first();
-    if (await closeButton.isVisible().catch(() => false)) {
+    // The first-run flow shows a welcome card followed by the paginated
+    // gameplay guide.  Closing both is part of the real first-screen flow.
+    for (let sheet = 0; sheet < 3; sheet += 1) {
+      const closeButton = page.locator('#modal-root [data-close-modal]').first();
+      if (!(await closeButton.isVisible().catch(() => false))) break;
       await closeButton.click();
-      await page.waitForTimeout(60);
+      await page.waitForTimeout(140);
     }
 
     const yardNav = page.locator('.nav-button[data-view="yard-view"]').first();

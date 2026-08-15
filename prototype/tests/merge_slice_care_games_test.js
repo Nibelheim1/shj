@@ -25,22 +25,23 @@ function sheepRect(game) {
   return game._layout(390, 700);
 }
 
-function tilePoint(tile, rect) {
-  const box = gameTileBox(tile, rect);
+function tilePoint(game, tile, rect) {
+  const box = gameTileBox(game, tile, rect);
   return { x: box.x + box.w / 2, y: box.y + box.h / 2 };
 }
 
-function gameTileBox(tile, rect) {
+function gameTileBox(game, tile, rect) {
+  var overlap = Number(game.overlap) || 0;
   return rect ? {
-    x: rect.x + tile.cx * rect.cell + tile.layer * rect.cell * 0.08,
-    y: rect.y + tile.cy * rect.cell + tile.layer * rect.cell * 0.08 * 0.65,
+    x: rect.x + tile.cx * rect.cell + tile.layer * rect.cell * overlap,
+    y: rect.y + tile.cy * rect.cell + tile.layer * rect.cell * overlap * 0.65,
     w: rect.cell,
     h: rect.cell
   } : null;
 }
 
 function touchTile(game, tile, rect) {
-  const point = tilePoint(tile, rect || sheepRect(game));
+  const point = tilePoint(game, tile, rect || sheepRect(game));
   return game.onTouchStart(point.x, point.y, rect || sheepRect(game));
 }
 
@@ -126,6 +127,7 @@ function runSheepGameChecks() {
   let doneSummary = null;
   const game = new SheepGame.Game('PLAY', {
     rng: deterministicRng(),
+    overlap: 0,
     onDone: function (perf, summary) {
       doneCount++;
       doneSummary = { perf: perf, summary: summary };
@@ -163,7 +165,7 @@ function runSheepGameChecks() {
   assert.ok(failGame.perf < 0.4, '低分失败只给低档表现');
 
   /* 高分失败：先消 8 组，再故意失败；困难档也应拿到 B 档及以上表现。 */
-  const scored = new SheepGame.Game('PLAY', { difficulty: 'hard', rng: deterministicRng() });
+  const scored = new SheepGame.Game('PLAY', { difficulty: 'hard', rng: deterministicRng(), overlap: 0 });
   const scoredRect = sheepRect(scored);
   clearTriples(scored, 8);
   guard = 0;
@@ -212,6 +214,24 @@ function runSheepGameChecks() {
   });
   assert.strictEqual(cancelGame.cancel().finished, true, '主动取消返回摘要并结束');
   assert.strictEqual(cancelCount, 1, '取消走 onCancel');
+
+  /* 卡片重叠：下层只有在上层被收走后才能点击。 */
+  const overlapGame = new SheepGame.Game('PLAY', { difficulty: 'hard', rng: deterministicRng(), overlap: 0.3 });
+  const overlapRect = sheepRect(overlapGame);
+  const lower = overlapGame.tiles.find(function (tile) {
+    return !tile.removed && overlapGame.tiles.some(function (other) {
+      return other.r === tile.r && other.c === tile.c && other.layer === tile.layer + 1 && !other.removed;
+    });
+  });
+  const upper = overlapGame.tiles.find(function (tile) {
+    return tile.r === lower.r && tile.c === lower.c && tile.layer === lower.layer + 1 && !tile.removed;
+  });
+  assert.ok(lower && upper, '重叠牌阵中存在上下层卡片');
+  assert.strictEqual(overlapGame._isCovered(lower), true, '下层卡片被上层覆盖');
+  const lowerBox = gameTileBox(overlapGame, lower, overlapRect);
+  const hit = overlapGame._tileAt(lowerBox.x + lowerBox.w / 2, lowerBox.y + lowerBox.h / 2, overlapRect);
+  assert.ok(!hit || hit.uid !== lower.uid, '点击被覆盖的下层卡片不会收集下层');
+  assert.strictEqual(overlapGame._tapTile(lower), false, '上层未收走时下层不可收集');
 
   const challenge = new SheepGame.Game('PLAY', { difficulty: 'challenge', rng: deterministicRng() });
   assert.deepStrictEqual([challenge.cols, challenge.rows, challenge.layers, challenge.totalTriples, challenge.timeLimit],

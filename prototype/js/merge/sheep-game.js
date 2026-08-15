@@ -31,23 +31,23 @@
   var DIFFICULTIES = {
     easy: {
       cols: 3, rows: 3, layers: 1, typeCount: 6, tilesPerType: 3, slots: 6,
-      timeLimit: 70, scoreTarget: 900, failPerfCap: 0.58, comboWindow: 2.2
+      overlap: 0.10, timeLimit: 70, scoreTarget: 900, failPerfCap: 0.58, comboWindow: 2.2
     },
     normal: {
       cols: 4, rows: 4, layers: 2, typeCount: 7, tilesPerType: 6, slots: 6,
-      timeLimit: 80, scoreTarget: 1900, failPerfCap: 0.72, comboWindow: 1.9
+      overlap: 0.16, timeLimit: 80, scoreTarget: 1900, failPerfCap: 0.72, comboWindow: 1.9
     },
     hard: {
       cols: 5, rows: 5, layers: 3, typeCount: 8, tilesPerType: 6, slots: 6,
-      timeLimit: 90, scoreTarget: 3100, failPerfCap: 0.84, comboWindow: 1.4
+      overlap: 0.22, timeLimit: 90, scoreTarget: 3100, failPerfCap: 0.84, comboWindow: 1.4
     },
     master: {
       cols: 6, rows: 6, layers: 4, typeCount: 9, tilesPerType: 6, slots: 6,
-      timeLimit: 100, scoreTarget: 4600, failPerfCap: 0.84, comboWindow: 1.0
+      overlap: 0.28, timeLimit: 100, scoreTarget: 4600, failPerfCap: 0.84, comboWindow: 1.0
     },
     challenge: {
       cols: 7, rows: 7, layers: 5, typeCount: 10, tilesPerType: 6, slots: 6,
-      timeLimit: 150, scoreTarget: 6400, failPerfCap: 0.84, comboWindow: 1.2
+      overlap: 0.32, timeLimit: 150, scoreTarget: 6400, failPerfCap: 0.84, comboWindow: 1.2
     }
   };
   var DEFAULT_DIFFICULTY = 'hard';
@@ -138,6 +138,7 @@
     this.tilesPerType = integerOption(this.opts.tilesPerType, profile.tilesPerType, 3);
     this.tilesPerType = Math.max(3, Math.ceil(this.tilesPerType / 3) * 3);
     this.maxSlots = integerOption(this.opts.slots, profile.slots, 7);
+    this.overlap = clamp(finite(this.opts.overlap, profile.overlap), 0, 0.45);
     this.totalTiles = this.typeCount * this.tilesPerType;
     this.totalTriples = this.totalTiles / 3;
     this.names = Array.isArray(this.opts.icons) && this.opts.icons.length
@@ -233,9 +234,9 @@
   };
 
   Game.prototype._tileRect = function (tile, rect) {
-    /* 缩小基座后，图标按整格绘制：显示面积约为早期版本的两倍。 */
+    /* 缩小基座后，图标按整格绘制；上层卡片整体偏移，制造真实重叠。 */
     var size = rect.cell;
-    var layerShift = tile.layer * rect.cell * 0.08;
+    var layerShift = tile.layer * rect.cell * this.overlap;
     return {
       x: rect.x + tile.cx * rect.cell + layerShift,
       y: rect.y + tile.cy * rect.cell + layerShift * 0.65,
@@ -244,12 +245,28 @@
     };
   };
 
+  /* 使用格子归一化坐标计算两张牌的重叠比例（与真实像素渲染一致）。 */
+  Game.prototype._normalizedRect = function (tile) {
+    var shift = tile.layer * this.overlap;
+    return { x: tile.cx + shift, y: tile.cy + shift * 0.65, w: 1, h: 1 };
+  };
+
+  Game.prototype._overlapRatio = function (a, b) {
+    var ax = a.x, ay = a.y, bx = b.x, by = b.y;
+    var width = Math.min(ax + a.w, bx + b.w) - Math.max(ax, bx);
+    var height = Math.min(ay + a.h, by + b.h) - Math.max(ay, by);
+    if (width <= 0 || height <= 0) return 0;
+    return Math.min(1, (width * height) / (a.w * a.h));
+  };
+
   Game.prototype._isCovered = function (tile) {
+    var self = this;
+    var rect = this._normalizedRect(tile);
     for (var i = 0; i < this.tiles.length; i++) {
       var other = this.tiles[i];
       if (other.removed || other.layer <= tile.layer || other.uid === tile.uid) continue;
-      /* Tiles stack by tower: only a higher tile in the same cell blocks this one. */
-      if (other.r === tile.r && other.c === tile.c) return true;
+      /* 同层绝不互相遮挡；只要上层牌压住当前牌超过 10%，就不能点击下层。 */
+      if (this._overlapRatio(rect, this._normalizedRect(other)) > 0.10) return true;
     }
     return false;
   };
@@ -480,8 +497,8 @@
     var slotH = Math.max(54, Math.min(76, height * 0.13));
     var availableW = Math.max(10, width - 14);
     var availableH = Math.max(10, height - top - slotH - 8);
-    var extraX = (this.layers - 1) * 0.12;
-    var extraY = (this.layers - 1) * 0.12;
+    var extraX = (this.layers - 1) * this.overlap;
+    var extraY = (this.layers - 1) * this.overlap * 0.65;
     var cell = Math.min((availableW - 6) / (this.cols + extraX), availableH / (this.rows + extraY));
     cell = Math.max(16, cell);
     var boardW = cell * (this.cols + extraX);

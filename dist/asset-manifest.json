@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAt": "2026-08-15T12:18:31.922Z",
-  "totalBytes": 10353282,
+  "generatedAt": "2026-08-15T14:21:49.916Z",
+  "totalBytes": 10411687,
   "files": [
     {
       "path": "assets/art/buildings/clinic_lv1.webp",
@@ -934,6 +934,66 @@
       "sha256": "ab9b623fd117ed851e6f59b09bf98cafb954afd2b4b5707beab16a821d9ab917"
     },
     {
+      "path": "assets/art/recipes/prod_array.webp",
+      "bundle": "minigame",
+      "bytes": 2974,
+      "sha256": "6b39101fc482b871552357c8481297806536e63760c6b711ac04dcd0bc0b574e"
+    },
+    {
+      "path": "assets/art/recipes/prod_bed.webp",
+      "bundle": "minigame",
+      "bytes": 3050,
+      "sha256": "97dd7c8b20fca217e5866739b4a452e328ac5e29f8464fac5b569ce8b69ef3e6"
+    },
+    {
+      "path": "assets/art/recipes/prod_boat.webp",
+      "bundle": "minigame",
+      "bytes": 2382,
+      "sha256": "9992dfa1258f854434d545c8f9211f460d4abd292deceb544481b181c01f2c5e"
+    },
+    {
+      "path": "assets/art/recipes/prod_clear.webp",
+      "bundle": "minigame",
+      "bytes": 2366,
+      "sha256": "55e64bcb5907978077d07ab2c899fd811f56c110425da68b58a10d6131073b3c"
+    },
+    {
+      "path": "assets/art/recipes/prod_flame.webp",
+      "bundle": "minigame",
+      "bytes": 3074,
+      "sha256": "5b0ca25b1d61a6f7e85647ffba31e1906b9f6309baa7849e7e3d21a68ee2cc17"
+    },
+    {
+      "path": "assets/art/recipes/prod_garden.webp",
+      "bundle": "minigame",
+      "bytes": 4068,
+      "sha256": "01e7243cf3d76a746bc22dd0d95e1253eeb48081d1a12155fa348428693a6ac7"
+    },
+    {
+      "path": "assets/art/recipes/prod_hearth.webp",
+      "bundle": "minigame",
+      "bytes": 3102,
+      "sha256": "b690552d4b58bb62260ea9cad2460080742dd17a16ea8d73788b6baca5b04ad4"
+    },
+    {
+      "path": "assets/art/recipes/prod_meal.webp",
+      "bundle": "minigame",
+      "bytes": 3456,
+      "sha256": "d4065d99cac81767a54ac93d9d4f8df2718f463f8ded5d0c463bf1bc81a39678"
+    },
+    {
+      "path": "assets/art/recipes/prod_revive.webp",
+      "bundle": "minigame",
+      "bytes": 3222,
+      "sha256": "f9d34780ed41d387636254d7e8f41f66239094dc801e62c8736fc07c1387f931"
+    },
+    {
+      "path": "assets/art/recipes/prod_soothe.webp",
+      "bundle": "minigame",
+      "bytes": 2764,
+      "sha256": "7b068ca6f8f31276b4f9fe747bf2af07eb79630ec24d80ad09876cf1e5a9d7ca"
+    },
+    {
       "path": "assets/art/scenes/bg_courtyard_buildingfree_moonlit.webp",
       "bundle": "scene",
       "bytes": 213218,
@@ -1584,8 +1644,8 @@
     {
       "path": "index.html",
       "bundle": "boot",
-      "bytes": 23698,
-      "sha256": "60f3aea4f7f4599b7398c03dbd148bbd88240d3facce98b6e505f08b349f3ada"
+      "bytes": 23417,
+      "sha256": "42c9611f4a7415e20ee93c9790458bbd5b60d324eb19386676f4d1b843857d47"
     },
     {
       "path": "js/merge/audio.js",
@@ -1596,8 +1656,8 @@
     {
       "path": "js/merge/core.js",
       "bundle": "boot",
-      "bytes": 180464,
-      "sha256": "d8af60d7917e4fe339a6f2036ed044f3e40668ffcb9c510390206c75034a79ab"
+      "bytes": 174042,
+      "sha256": "28926a8dd17dafd3a6844b7465bfe0333afed4caaa8b5134afab66e5ada513d9"
     },
     {
       "path": "js/merge/courtyard-scene.js",
@@ -1608,14 +1668,14 @@
     {
       "path": "js/merge/data.js",
       "bundle": "boot",
-      "bytes": 87942,
-      "sha256": "3b9c7e5d4992d30b69b1f0783917f3d6d4552ff39cfec0deac79c6ce2489fa6b"
+      "bytes": 89279,
+      "sha256": "e85d6d23e84a01019ea6283057f4c256ac34fc28cf01283112c7468dd16500ea"
     },
     {
       "path": "js/merge/match3.js",
       "bundle": "boot",
-      "bytes": 68796,
-      "sha256": "86514b4465c82e3ab2b6861646d99cca6382205ae340c1163b4d5c5d88b0f968"
+      "bytes": 69156,
+      "sha256": "f9e934ac097a862bcf4dbf6c20993eec78e0991132ecc39799d928d0d4d7863e"
     },
     {
       "path": "js/merge/save-store.js",
@@ -1626,20 +1686,20 @@
     {
       "path": "js/merge/sheep-game.js",
       "bundle": "boot",
-      "bytes": 23334,
-      "sha256": "fab15bed0f26e57de7dd52121090aa8b0f86b4f2d3936d7fa8a191ec24a75960"
+      "bytes": 24244,
+      "sha256": "38ab9cea5637cb5c2804d47cc25fed4946ce4211115590efeeedb822f27099c2"
     },
     {
       "path": "js/merge/ui.js",
       "bundle": "boot",
-      "bytes": 165276,
-      "sha256": "46c937549250927e1d57b2d388528ca72f847ebe9189a770fc7e0517f3669981"
+      "bytes": 194615,
+      "sha256": "a8e40e7fe8329746ffe5e2f86e7923854aa946ac2828e7c3cf0e3133f76d6fec"
     },
     {
       "path": "merge-slice.css",
       "bundle": "boot",
-      "bytes": 107715,
-      "sha256": "f98d9a23ada72bbba884e97c4015a63f8efae9e14a15e5fc9c928994925f3edc"
+      "bytes": 110419,
+      "sha256": "c0d69bc980722f737d8410632ea66f6963906075ebf242f945797b6ff5053102"
     },
     {
       "path": "merge-slice.js",

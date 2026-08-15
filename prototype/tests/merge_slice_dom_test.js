@@ -104,12 +104,14 @@ function cardCount(root, selectors) {
   check('庭院入口只保留梳洗台/亭子小游戏并按 match3→sheep-game→ui 加载', function () {
     expect(!W.document.querySelector('#care-groom, #care-play'), '不应残留旧的独立照料按钮 id');
     expect(!W.document.querySelector('.care-beat, #care-beats, [data-rhythm], [data-beat]'), '不应残留节奏点击按钮');
+    expect(!W.document.querySelector('#spirit-bubble-rack, #chest-dock'), '灵泡与宝箱模块应已移除');
     const careButtons = Array.from(W.document.querySelectorAll('[data-care]'));
     expect(careButtons.length === 2, '庭院照料入口恰有两个');
     expect(new Set(careButtons.map(function (button) { return button.dataset.care; })).size === 2,
       '照料入口类型不重复');
     expect(careButtons.some(function (button) { return button.dataset.care === 'groom'; }), '梳洗台入口存在');
     expect(careButtons.some(function (button) { return button.dataset.care === 'play'; }), '亭子入口存在');
+    expect(W.document.querySelectorAll('[data-help]').length >= 12, '主要模块都带有长按说明入口');
     const sourceNames = scriptSources.map(function (source) { return source.split('?')[0].replace(/^\.\//, ''); });
     const match3Index = sourceNames.findIndex(function (source) { return /(?:^|\/)match3\.js$/.test(source); });
     const sheepIndex = sourceNames.findIndex(function (source) { return /(?:^|\/)sheep-game\.js$/.test(source); });
@@ -180,6 +182,32 @@ function cardCount(root, selectors) {
         'tab 目标存在: ' + target);
     });
     tabs.slice(0, 3).forEach(function (tab) { tab.click(); });
+  });
+
+  check('玩法说明可翻页，模块与配方长按说明可打开', function () {
+    expect(W.MergeUI && W.MergeUI.openHowToPlay, '玩法说明 API 存在');
+    W.MergeUI.openHowToPlay();
+    const howToModal = W.document.querySelector('#modal-root .how-to-play-modal');
+    expect(howToModal, '点击帮助按钮打开玩法说明');
+    const pageLabel = howToModal && howToModal.querySelector('[data-how-to-page-label]');
+    expect(pageLabel && /1 \/ 4/.test(pageLabel.textContent || ''), '玩法说明分为四页');
+    const next = howToModal && howToModal.querySelector('[data-how-to-next]');
+    if (next) next.click();
+    expect(pageLabel && /2 \/ 4/.test(pageLabel.textContent || ''), '玩法说明可以翻到下一页');
+    const howToClose = howToModal && howToModal.querySelector('[data-how-to-play-close]');
+    if (howToClose) howToClose.click();
+    W.MergeUI.openModuleHelp('recipes');
+    expect(W.document.querySelector('#modal-root .module-help-modal'), '配方柜模块长按说明可打开');
+    expect(/干什么/.test(W.document.querySelector('#modal-root .module-help-modal').textContent || ''), '模块说明包含“干什么”');
+    expect(/需要什么/.test(W.document.querySelector('#modal-root .module-help-modal').textContent || ''), '模块说明包含“需要什么”');
+    expect(/有什么用/.test(W.document.querySelector('#modal-root .module-help-modal').textContent || ''), '模块说明包含“有什么用”');
+    W.document.querySelector('#modal-root [data-close-modal]').click();
+    W.MergeUI.openRecipeDetails('PROD_SOOTHE');
+    const recipeModal = W.document.querySelector('#modal-root .recipe-detail-modal');
+    expect(recipeModal, '安神药包配方说明可打开');
+    expect(recipeModal && /安神药包/.test(recipeModal.textContent || ''), '配方说明显示配方名');
+    expect(recipeModal && recipeModal.querySelector('.recipe-detail-head img'), '配方说明展示图片素材');
+    W.document.querySelector('#modal-root [data-close-modal]').click();
   });
 
   check('订单面板渲染三个订单槽', function () {

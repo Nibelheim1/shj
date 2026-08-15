@@ -418,23 +418,28 @@ check('配方公开接口基本契约', function () {
   });
 });
 
-check('灵泡与宝箱配置及公开接口基本契约', function () {
-  expect(typeof Core.openBubble === 'function', 'openBubble must be public');
-  expect(typeof Core.claimChest === 'function', 'claimChest must be public');
+check('灵泡与宝箱模块已下线且旧档字段被丢弃', function () {
+  expect(typeof Core.openBubble !== 'function', 'openBubble must no longer be public');
+  expect(typeof Core.claimChest !== 'function', 'claimChest must no longer be public');
   const state = Core.createFresh(NOW, DATE);
-  expect(state.special && state.special.combo, 'fresh save must initialize special.combo');
+  expect(state.special && state.special.combo, 'fresh save must keep special.combo');
   expect(Number.isFinite(Number(state.special.combo.count)) && Number.isFinite(Number(state.special.combo.lastMergeAt)), 'combo state must expose count and lastMergeAt');
-  expect(state.special && state.special.chests, 'fresh save must initialize special.chests');
-  const specialData = DATA.special || DATA.specials || {};
-  const bubble = specialData.bubble || (specialData.bubbles && specialData.bubbles.default) || {};
-  expect(Number(bubble.chance || bubble.dropChance) === 0.05, 'bubble chance must be 5%');
-  expect(Number(bubble.pity || bubble.pityCount || bubble.guaranteeEvery) === 25, 'bubble pity must be 25 merges');
-  expect(Number(bubble.openMs || bubble.openAfterMs || bubble.openMinutes * MINUTE) === 60 * MINUTE, 'bubble opening must be 60 minutes');
-  const chestData = specialData.chests || specialData.chest || {};
-  expect(Number(chestData.dailyMerges || chestData.daily || chestData.dailyTarget) === 20, 'daily chest target must be 20 merges');
-  expect(Number(chestData.weeklyOrders || chestData.weekly || chestData.weeklyTarget) === 10, 'weekly chest target must be 10 orders');
-  mutationResult('openBubble(empty rack)', Core.openBubble(state, 'missing', NOW));
-  mutationResult('claimChest(incomplete)', Core.claimChest(state, 'daily', seeded(21), NOW));
+  expect(!state.special.bubbleRack && !state.special.chests, 'fresh save must not initialize bubble rack or chests');
+  const specialData = DATA.specials || {};
+  expect(!specialData.bubble && !specialData.chests, 'specials must not ship bubble/chest configuration');
+  const legacy = Core.normalize(Object.assign({}, state, { special: { bubblePity: 24, bubbleSerial: 3, bubbleRack: [{ id: 'bubble-3' }], chests: { dailyMerges: 99 }, combo: state.special.combo } }), NOW, DATE);
+  expect(!legacy.special.bubblePity && !legacy.special.bubbleSerial && !legacy.special.bubbleRack && !legacy.special.chests, 'legacy bubble/chest fields must be dropped during normalize');
+});
+
+check('配方补充图片素材与用途说明', function () {
+  const state = Core.createFresh(NOW, DATE);
+  const entries = recipeEntries();
+  expect(entries.length >= 10, '至少十份配方');
+  const missingArt = entries.filter((entry) => !(entry.recipe && (entry.recipe.art || entry.recipe.image)));
+  expect(missingArt.length === 0, '每份配方都应有图片素材: ' + missingArt.map((entry) => entry.id).join(','));
+  const calm = entries.find((entry) => /安神/.test(String(entry.recipe.name || '')));
+  expect(calm && /soothe/i.test(String(calm.recipe.art || '')), '安神药包应有专用图片素材');
+  expect(calm && String(calm.recipe.use || '').length > 0, '安神药包应写明用途');
 });
 
 check('连击状态在合并后递增并返回事件摘要', function () {

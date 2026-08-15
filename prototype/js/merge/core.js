@@ -856,11 +856,7 @@
       weekly: freshWeekly(now),
       products: (DATA.recipes || []).reduce(function (result, recipe) { result[recipe.id] = 0; return result; }, {}),
       special: {
-        bubblePity: 0,
-        bubbleSerial: 0,
-        bubbleRack: [],
-        combo: { count: 0, lastMergeAt: 0, materialBonuses: 0 },
-        chests: { dailyMerges: 0, weeklyOrders: 0, dailyClaimed: null, weeklyClaimed: null }
+        combo: { count: 0, lastMergeAt: 0, materialBonuses: 0 }
       },
       journey: { day: 1, claimed: [], suggestionsSeen: [] },
       pendingRewards: [],
@@ -1213,11 +1209,12 @@
     state.products = Object.assign({}, base.products, raw.products || {});
     Object.keys(state.products).forEach(function (id) { state.products[id] = Math.max(0, Math.floor(number(state.products[id], 0))); });
     state.special = Object.assign({}, base.special, raw.special || {});
-    state.special.bubblePity = clamp(Math.floor(number(state.special.bubblePity, 0)), 0, number(DATA.specials && DATA.specials.bubble && DATA.specials.bubble.pity, 25));
-    state.special.bubbleSerial = Math.max(0, Math.floor(number(state.special.bubbleSerial, 0)));
-    state.special.bubbleRack = Array.isArray(state.special.bubbleRack) ? state.special.bubbleRack.slice(0, number(DATA.specials && DATA.specials.bubble && DATA.specials.bubble.rackSlots, 3)).map(function (bubble) { return clone(bubble); }) : [];
     state.special.combo = Object.assign({}, base.special.combo, state.special.combo || {});
-    state.special.chests = Object.assign({}, base.special.chests, state.special.chests || {});
+    /* 灵泡与宝箱模块已下线：旧档字段不再参与游戏，直接丢弃。 */
+    delete state.special.bubblePity;
+    delete state.special.bubbleSerial;
+    delete state.special.bubbleRack;
+    delete state.special.chests;
     state.journey = Object.assign({}, base.journey, raw.journey || {});
     state.journey.claimed = Array.isArray(state.journey.claimed) ? state.journey.claimed.slice(0, 7) : [];
     state.journey.suggestionsSeen = Array.isArray(state.journey.suggestionsSeen) ? state.journey.suggestionsSeen.slice(0, 7) : [];
@@ -1538,10 +1535,10 @@
     }
     var rank = playerOrderRank(state);
     if (!hardMode) rank = Math.min(2, rank); /* 访客/补给槽保持低阶保底，难度交给主线和成长槽。 */
-    var primaryTiers = [2, 3, 4, 5, 6, 6, 7, 8];
-    var supportTiers = [1, 2, 2, 3, 4, 5, 5, 6];
-    var primaryCount = rank >= 8 ? 3 : rank >= 7 ? 2 : rank >= 3 ? 2 : 1;
-    var supportCount = rank >= 7 ? 2 : rank >= 3 && rank <= 6 ? 1 : 1;
+    var primaryTiers = [2, 3, 4, 5, 6, 7, 8, 8];
+    var supportTiers = [1, 2, 2, 3, 4, 5, 6, 7];
+    var primaryCount = rank >= 8 ? 3 : rank >= 6 ? 2 : rank >= 3 ? 2 : 1;
+    var supportCount = rank >= 7 ? 2 : rank >= 4 ? 2 : 1;
     var firstTier = primaryTiers[rank - 1];
     var secondTier = supportTiers[rank - 1];
     var requirements = [
@@ -1550,8 +1547,8 @@
     ];
     var productNeed = null;
     var generatorNeed = null;
-    if (hardMode && rank >= 5) {
-      var productByRank = { 5: 'PROD_SOOTHE', 6: 'PROD_BED', 7: 'PROD_CLEAR', 8: 'PROD_GARDEN' };
+    if (hardMode && rank >= 4) {
+      var productByRank = { 4: 'PROD_SOOTHE', 5: 'PROD_SOOTHE', 6: 'PROD_BED', 7: 'PROD_CLEAR', 8: 'PROD_GARDEN' };
       productNeed = { productId: productByRank[rank] || 'PROD_SOOTHE', count: 1 };
       /* 有天工/至宝档时，只要棋盘上已存在造物生成器，就额外要求
          与其同族的产物来源；没有造物生成器时回落到普通高难度。 */
@@ -1667,19 +1664,19 @@
     var level = clamp(Math.floor(number(entry.level, 1)), 1, 5);
     var rank = Math.max(playerOrderRank(state), level);
     var gift = careGiftInfo(definition);
-    var primaryTiers = [1, 2, 3, 4, 5, 6, 7, 8];
-    var supportTiers = [1, 1, 2, 2, 3, 4, 5, 6];
+    var primaryTiers = [2, 3, 4, 5, 6, 7, 8, 8];
+    var supportTiers = [1, 2, 2, 3, 4, 5, 6, 7];
     var primaryTier = clamp(Math.floor(number(primaryTiers[rank - 1], 1)), 1, familyTierCap(gift.family));
     var supportTier = clamp(Math.floor(number(supportTiers[rank - 1], 1)), 1, familyTierCap(gift.family));
     var requirements = [
-      normalizeRequirement({ family: gift.family, tier: primaryTier, count: rank >= 7 ? 3 : rank >= 4 ? 2 : 1, sourceBeast: beastId }),
+      normalizeRequirement({ family: gift.family, tier: primaryTier, count: rank >= 8 ? 3 : rank >= 4 ? 2 : 1, sourceBeast: beastId }),
       normalizeRequirement({ family: gift.family, tier: supportTier, count: rank >= 6 ? 2 : 1, sourceBeast: beastId })
     ];
     var productNeed = null;
     var generatorNeed = null;
     var generatorFamily = producerChain(gift.family) ? gift.family : 'herb';
-    if (rank >= 5) {
-      var productByRank = { 5: 'PROD_SOOTHE', 6: 'PROD_BED', 7: 'PROD_CLEAR', 8: 'PROD_GARDEN' };
+    if (rank >= 4) {
+      var productByRank = { 4: 'PROD_SOOTHE', 5: 'PROD_SOOTHE', 6: 'PROD_BED', 7: 'PROD_CLEAR', 8: 'PROD_GARDEN' };
       productNeed = { productId: productByRank[rank] || 'PROD_SOOTHE', count: 1 };
       if (rank >= 7 && hasConsumableGenerator(state)) {
         generatorNeed = { family: generatorFamily, minLevel: 2, count: 1 };
@@ -2306,7 +2303,6 @@
       state.completedOrders = Math.max(0, number(state.completedOrders, 0)) + 1;
       state.daily.orders++;
       state.weekly.orders++;
-      state.special.chests.weeklyOrders = Math.max(0, number(state.special.chests.weeklyOrders, 0)) + 1;
       state.activeOrders[index] = null;
       ensureOrders(state, rng);
       return { ok: true, order: clone(order), rewards: clone(renovationResult.reward || {}), renovation: renovationResult, events: [{ type: 'renovation_stage', areaId: renovationResult.areaId, stageIndex: renovationResult.stageIndex }], reward: clone(renovationResult.reward || {}) };
@@ -2329,7 +2325,6 @@
     state.totalOrders = Math.max(0, number(state.totalOrders, 0)) + 1;
     state.daily.orders++;
     state.weekly.orders++;
-    state.special.chests.weeklyOrders = Math.max(0, number(state.special.chests.weeklyOrders, 0)) + 1;
     if (order.beastId) markBeastInteraction(state, order.beastId, 'order');
     var transformed = false;
     var acquiredBeastId = null;
@@ -2528,36 +2523,13 @@
 
   function ensureSpecialState(state) {
     state.special = state.special || {};
-    state.special.bubblePity = Math.max(0, Math.floor(number(state.special.bubblePity, 0)));
-    state.special.bubbleSerial = Math.max(0, Math.floor(number(state.special.bubbleSerial, 0)));
-    state.special.bubbleRack = Array.isArray(state.special.bubbleRack) ? state.special.bubbleRack : [];
-    state.special.combo = Object.assign({ count: 0, lastMergeAt: 0, materialBonuses: 0, chestBonusAwarded: false }, state.special.combo || {});
-    state.special.chests = Object.assign({ dailyMerges: 0, weeklyOrders: 0, dailyClaimed: null, weeklyClaimed: null }, state.special.chests || {});
+    state.special.combo = Object.assign({ count: 0, lastMergeAt: 0, materialBonuses: 0 }, state.special.combo || {});
+    /* 灵泡与宝箱已从竖切片移除，旧档的槽位与进度不再保留。 */
+    delete state.special.bubblePity;
+    delete state.special.bubbleSerial;
+    delete state.special.bubbleRack;
+    delete state.special.chests;
     return state.special;
-  }
-
-  function maybeCreateBubble(state, mergedItem, now, rng) {
-    var special = ensureSpecialState(state);
-    var config = DATA.specials && DATA.specials.bubble || {};
-    var rackLimit = Math.max(1, Math.floor(number(config.rackSlots, 3)));
-    var pityLimit = Math.max(1, Math.floor(number(config.pity, 25)));
-    special.bubblePity = Math.min(pityLimit, special.bubblePity + 1);
-    if (special.bubbleRack.length >= rackLimit) return null;
-    if (special.bubblePity < pityLimit && randomUnit(rng) >= number(config.chance, 0.05)) return null;
-    var tier = mergedItem.tier;
-    if (randomUnit(rng) >= number(config.sameTierChance, 0.8)) tier++;
-    tier = clamp(tier, 1, familyTierCap(mergedItem.family));
-    special.bubblePity = 0;
-    special.bubbleSerial++;
-    var bubble = {
-      id: 'bubble-' + special.bubbleSerial,
-      family: mergedItem.family,
-      tier: tier,
-      createdAt: now,
-      opensAt: now + number(config.openMs, 60 * 60 * 1000)
-    };
-    special.bubbleRack.push(bubble);
-    return bubble;
   }
 
   function updateMergeCombo(state, mergedItem, now) {
@@ -2569,7 +2541,6 @@
     if (!continuing) {
       combo.count = 0;
       combo.materialBonuses = 0;
-      combo.chestBonusAwarded = false;
     }
     combo.count++;
     combo.lastMergeAt = now;
@@ -2581,63 +2552,7 @@
       combo.materialBonuses++;
       events.push({ type: 'combo_material', item: clone(bonus) });
     }
-    if (combo.count >= number(config.chestAt, 8) && !combo.chestBonusAwarded) {
-      special.chests.dailyMerges += 2;
-      combo.chestBonusAwarded = true;
-      events.push({ type: 'combo_chest_progress', amount: 2 });
-    }
     return { count: combo.count, expiresAt: now + number(config.windowMs, 12000), events: events };
-  }
-
-  function openBubble(state, bubbleRef, now) {
-    var special = ensureSpecialState(state);
-    var index = typeof bubbleRef === 'number' ? Math.floor(bubbleRef) : special.bubbleRack.findIndex(function (bubble) { return bubble.id === bubbleRef; });
-    if (index < 0 || index >= special.bubbleRack.length) return { ok: false, reason: 'bubble-not-found', events: [], rewards: null };
-    var bubble = special.bubbleRack[index];
-    now = number(now, Date.now());
-    if (now < number(bubble.opensAt, 0)) return { ok: false, reason: 'bubble-locked', remainingMs: bubble.opensAt - now, events: [], rewards: null };
-    special.bubbleRack.splice(index, 1);
-    var item = makeItem(bubble.family, bubble.tier);
-    queueItem(state, item);
-    return { ok: true, bubbleId: bubble.id, item: clone(item), events: [{ type: 'bubble_opened', bubbleId: bubble.id }], rewards: { items: [clone(item)] } };
-  }
-
-  function claimChest(state, kind, rng, now) {
-    kind = kind === 'weekly' ? 'weekly' : 'daily';
-    rng = typeof rng === 'function' ? rng : Math.random;
-    now = number(now, Date.now());
-    var special = ensureSpecialState(state);
-    var chest = special.chests;
-    var events = [];
-    if (kind === 'daily') {
-      var date = state.daily && state.daily.date || isoDate(now);
-      var config = DATA.specials && DATA.specials.chests && DATA.specials.chests.daily || {};
-      if (chest.dailyClaimed === date) return { ok: false, reason: 'claimed', events: [], rewards: null };
-      if (chest.dailyMerges < number(config.merges, 20)) return { ok: false, reason: 'incomplete', progress: chest.dailyMerges, target: number(config.merges, 20), events: [], rewards: null };
-      chest.dailyClaimed = date;
-      var before = state.energy;
-      state.energy = Math.min(state.maxEnergy, state.energy + number(config.energy, 15));
-      var dailyTier = clamp(Math.floor(number(config.minTier, 2) + randomUnit(rng) * (number(config.maxTier, 3) - number(config.minTier, 2) + 1)), 1, TIER_CAP);
-      var dailyItem = makeItem(supplyFamily(state, rng), dailyTier);
-      queueItem(state, dailyItem);
-      var dailyPart = randomUnit(rng) < number(config.producerPartChance, 0.35) ? supplyProducerPart(state, rng, number(config.producerPartTier, 1)) : null;
-      if (dailyPart) queueItem(state, dailyPart);
-      events.push({ type: 'daily_chest_claimed' });
-      return { ok: true, kind: kind, events: events, rewards: { energy: state.energy - before, items: [clone(dailyItem)].concat(dailyPart ? [clone(dailyPart)] : []), producerPart: clone(dailyPart) } };
-    }
-    var key = weekKey(now);
-    var weeklyConfig = DATA.specials && DATA.specials.chests && DATA.specials.chests.weekly || {};
-    if (chest.weeklyClaimed === key) return { ok: false, reason: 'claimed', events: [], rewards: null };
-    if (chest.weeklyOrders < number(weeklyConfig.orders, 10)) return { ok: false, reason: 'incomplete', progress: chest.weeklyOrders, target: number(weeklyConfig.orders, 10), events: [], rewards: null };
-    chest.weeklyClaimed = key;
-    var jade = number(weeklyConfig.jade, 100);
-    state.jade += jade;
-    var weeklyItem = makeItem(supplyFamily(state, rng), clamp(number(weeklyConfig.tier, 4), 1, TIER_CAP));
-    queueItem(state, weeklyItem);
-    var weeklyPart = supplyProducerPart(state, rng, number(weeklyConfig.producerPartTier, 2));
-    if (weeklyPart) queueItem(state, weeklyPart);
-    events.push({ type: 'weekly_chest_claimed' });
-    return { ok: true, kind: kind, events: events, rewards: { jade: jade, items: [clone(weeklyItem)].concat(weeklyPart ? [clone(weeklyPart)] : []), producerPart: clone(weeklyPart) } };
   }
 
   function recycleItem(state, gridIndex, confirmed) {
@@ -2695,8 +2610,6 @@
     if (producerMerge) {
       state.daily.merges++;
       state.weekly.merges++;
-      var producerSpecial = ensureSpecialState(state);
-      producerSpecial.chests.dailyMerges++;
       var producerCombo = updateMergeCombo(state, { family: from.family, tier: from.tier || from.level || 1 }, now);
       var producerEvents = producerCombo.events.concat([producerEvent]);
       depositPendingRewards(state);
@@ -2711,15 +2624,11 @@
     state.grid[toIndex] = mergedSource ? makeItem(to.family, to.tier + 1, mergedSource) : makeItem(to.family, to.tier + 1);
     state.daily.merges++;
     state.weekly.merges++;
-    var special = ensureSpecialState(state);
-    special.chests.dailyMerges++;
     var combo = updateMergeCombo(state, state.grid[toIndex], now);
-    var bubble = maybeCreateBubble(state, state.grid[toIndex], now, rng);
     var events = combo.events.slice();
-    if (bubble) events.push({ type: 'bubble_spawned', bubble: clone(bubble) });
     depositPendingRewards(state);
     syncLegacyAliases(state);
-    return { ok: true, index: toIndex, item: clone(state.grid[toIndex]), at: now, combo: { count: combo.count, expiresAt: combo.expiresAt }, bubble: clone(bubble), events: events, rewards: null };
+    return { ok: true, index: toIndex, item: clone(state.grid[toIndex]), at: now, combo: { count: combo.count, expiresAt: combo.expiresAt }, events: events, rewards: null };
   }
 
   function moveBoardItem(state, fromIndex, toIndex) {
@@ -3148,8 +3057,6 @@
     var affectionLost = applyMissedInteractionDecay(state, date);
     state.daily = freshDaily(date);
     state.daily.affectionLost = affectionLost;
-    var special = ensureSpecialState(state);
-    special.chests.dailyMerges = 0;
     state.activeOrders = Array.isArray(state.activeOrders) ? state.activeOrders.filter(function (order) {
       return order && ['main', 'renovation', 'medical', 'visitor'].indexOf(order.slot) >= 0;
     }) : [];
@@ -3165,7 +3072,6 @@
     var key = weekKey(now);
     if (!state.weekly || state.weekly.key !== key) {
       state.weekly = freshWeekly(now);
-      ensureSpecialState(state).chests.weeklyOrders = 0;
     }
     return state.weekly;
   }
@@ -3519,8 +3425,6 @@
     requirementEffort: requirementEffort,
     playerOrderRank: playerOrderRank,
     mergeItems: mergeItems,
-    openBubble: openBubble,
-    claimChest: claimChest,
     recycleItem: recycleItem,
     moveBoardItem: moveBoardItem,
     deliverOrder: deliverOrder,

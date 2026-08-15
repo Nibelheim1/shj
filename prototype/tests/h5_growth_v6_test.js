@@ -138,6 +138,13 @@ function clearFixtureMaterials(state) {
 
 function deliver(state, order, now) {
   fillOrder(state, order);
+  if (order.productNeed && order.productNeed.productId) {
+    state.products = state.products || {};
+    state.products[order.productNeed.productId] = Math.max(
+      Number(state.products[order.productNeed.productId] || 0),
+      Number(order.productNeed.count || 1)
+    );
+  }
   expect(typeof Core.canDeliver === 'function', 'Core.canDeliver must be public');
   expect(Core.canDeliver(state, order) === true, 'filled order must be deliverable');
   expect(typeof Core.deliverOrder === 'function', 'Core.deliverOrder must be public');

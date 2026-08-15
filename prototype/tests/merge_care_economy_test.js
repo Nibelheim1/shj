@@ -74,6 +74,10 @@ check('配置含四档难度、双游戏尺寸、玩法规则和统一奖励表'
   assert.ok(Array.isArray(DATA.careGames.difficulties.challenge.play.icons) &&
     DATA.careGames.difficulties.challenge.play.icons.length === 10,
     '挑战模式配置 10 种跨系列图标');
+  assert.ok(Array.isArray(DATA.careGames.difficulties.master.groom.icons) &&
+    DATA.careGames.difficulties.master.groom.icons.length === 6 &&
+    new Set(DATA.careGames.difficulties.master.groom.icons.map(function (name) { return name.replace(/_\d+$/, ''); })).size === 6,
+    '消消乐大师档配置 6 张跨系列图标');
   assert.strictEqual(DATA.careGames.rewardRunsPerFacility, 3);
 });
 

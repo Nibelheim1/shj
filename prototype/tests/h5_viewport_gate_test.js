@@ -536,12 +536,13 @@ async function run() {
           checkLayout(report, scenario, 'initial', initialLayout, orientation);
           checkButtons(report, scenario, 'initial', await evaluateVisibleButtons(page));
 
-          // The formal entry opens a first-run help sheet. Close it in the
-          // isolated browser context before visiting each persistent view.
-          const closeButton = page.locator('[data-close-modal]').first();
-          if (await closeButton.isVisible().catch(() => false)) {
+          // The formal entry opens a welcome card followed by the paginated
+          // gameplay guide. Close both before visiting each persistent view.
+          for (let sheet = 0; sheet < 3; sheet += 1) {
+            const closeButton = page.locator('#modal-root [data-close-modal]').first();
+            if (!(await closeButton.isVisible().catch(() => false))) break;
             await closeButton.click();
-            await page.waitForTimeout(80);
+            await page.waitForTimeout(140);
           }
 
           for (const viewId of ['merge-view', 'yard-view', 'codex-view']) {

@@ -28,9 +28,9 @@
   // 特殊块类型
   var SP = { NONE: 0, LINE_H: 1, LINE_V: 2, BOMB: 3, RAINBOW: 4 };
 
-  // Keep the board readable at phone size: one coherent grooming icon family,
-  // identical silhouette complexity and colour treatment across all tiles.
-  var TIER1_ICONS = ['groom_01', 'groom_02', 'groom_03', 'groom_04', 'groom_05', 'groom_06'];
+  // 跨系列图标池：与羊了个羊/连连看共用。每个系列只取一张基础图标，
+  // 颜色与造型差异明显，避免同色系混淆；需要更多图标时再补高等级图。
+  var TIER1_ICONS = ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08'];
   var SETS = {
     FEED: TIER1_ICONS.slice(),
     CLEAN: TIER1_ICONS.slice(),
@@ -176,7 +176,11 @@
     this.rows = integerOption(this.opts.rows, profile.rows, 3);
     this.typeCount = integerOption(this.opts.typeCount, profile.typeCount, 3);
     this.typeCount = Math.min(this.typeCount, TIER1_ICONS.length);
-    this.names = TIER1_ICONS.slice(0, this.typeCount);
+    this.names = Array.isArray(this.opts.icons) && this.opts.icons.length
+      ? this.opts.icons.slice(0, this.typeCount)
+      : TIER1_ICONS.slice(0, this.typeCount);
+    while (this.names.length < this.typeCount) this.names.push(TIER1_ICONS[this.names.length % TIER1_ICONS.length]);
+    this.icons = this.names.slice();
 
     // CLEAN uses dirt as its obstacle; GROOM uses layered knots.  Aliases are
     // accepted to keep host adapters simple and to make custom scenarios
