@@ -131,6 +131,42 @@ function cardCount(root, selectors) {
     expect(/图鉴|异兽册|兽册|codex/i.test(text), '存在图鉴视图');
   });
 
+  check('宗门舆图渲染 14 个区域节点并保留世界变化入口', function () {
+    const map = W.document.getElementById('sect-map');
+    expect(map, '宗门舆图容器存在');
+    const nodes = Array.from(map.querySelectorAll('[data-area-node]'));
+    expect(nodes.length === 14, '宗门舆图节点数=' + nodes.length);
+    expect(nodes.some(function (node) { return node.classList.contains('locked'); }), '存在雾锁区域节点');
+    expect(nodes.some(function (node) { return !node.classList.contains('locked'); }), '存在已解锁区域节点');
+    expect(W.document.getElementById('world-change-root'), '世界变化卡入口存在');
+  });
+
+  check('宗门舆图点击雾锁节点弹出解锁条件，点击已解锁节点进入区域', function () {
+    const map = W.document.getElementById('sect-map');
+    const lockedNode = map.querySelector('[data-area-node].locked');
+    expect(lockedNode, '存在可点击的雾锁节点');
+    lockedNode.click();
+    expect(W.document.querySelector('#modal-root .area-unlock-modal'), '雾锁节点打开解锁条件弹层');
+    const close = W.document.querySelector('#modal-root [data-close-modal]');
+    if (close) close.click();
+    const gateNode = map.querySelector('[data-area-node="gate"]');
+    gateNode.click();
+    const sceneTitle = W.document.getElementById('sect-scene-title');
+    expect(sceneTitle && /山门/.test(sceneTitle.textContent || ''), '点击已解锁区域后区域近景更新');
+  });
+
+  check('宗门地图包含可自行散步的NPC，图鉴分两页展示十二兽', function () {
+    const npcs = W.document.querySelectorAll('[data-map-npc]');
+    expect(npcs.length >= 6, '地图上存在至少6个散步NPC');
+    const next = W.document.getElementById('codex-next');
+    expect(next, '图鉴翻页按钮存在');
+    next.click();
+    expect(W.document.getElementById('codex-page').textContent.indexOf('2 / 2') >= 0, '图鉴可翻到第2页');
+    expect(W.document.querySelector('[data-beast-id="qilin"]'), '第2页包含麒麟');
+    const prev = W.document.getElementById('codex-prev');
+    if (prev) prev.click();
+  });
+
   check('底部导航包含三个可切换 tab 且目标存在', function () {
     const tabs = allTabs();
     expect(tabs.length >= 3, 'tab 数量=' + tabs.length);

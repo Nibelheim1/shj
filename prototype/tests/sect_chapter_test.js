@@ -29,21 +29,23 @@ function seedRenovation(state) {
 
 console.log('== P1 sect chapter contract ==');
 
-check('data.sect 含栖霞宗、3 区域 × 3 段、共 9 个修缮委托', function () {
+check('data.sect 含栖霞宗、14 区域 × 3 段、每区域带地图与解锁契约', function () {
   expect(DATA.sect && DATA.sect.name === '栖霞宗', '宗门名应为栖霞宗');
   expect(DATA.sect.era === '末法时代 · 灵气稀薄', '世界观标注应为末法时代');
-  expect(Array.isArray(DATA.sect.areas) && DATA.sect.areas.length === 3, '应有 3 块区域');
+  expect(Array.isArray(DATA.sect.areas) && DATA.sect.areas.length === 14, '应有 14 块区域');
   expect(DATA.sect.areas.every(function (area) { return area.stages && area.stages.length === 3; }), '每区域 3 段');
-  expect(Core.sectTotalTarget() === 9, '修缮目标共 9 段');
+  expect(DATA.sect.areas.every(function (area) { return area.map && area.unlock && Array.isArray(area.stageBonuses); }), '每区域具备 map/unlock/stageBonuses');
+  expect(Core.sectTotalTarget() === 6, '卷一初始可修缮 2 区域 × 3 段 = 6 段');
 });
 
-check('新档 sect 初始为 0，currentRenovation 返回山门·残破段', function () {
+check('新档 sect 初始为 0，currentRenovation 返回山门·清理段', function () {
   const state = Core.createFresh(Date.now(), '2025-01-01');
   expect(state.sect && state.sect.stages, '新档含 sect 状态');
+  expect(state.sect.map && state.sect.map.unlockedAreas.length >= 2, '新档含宗门舆图并解锁默认区域');
   expect(Core.sectTotalDone(state) === 0, '初始修缮度 0');
   const reno = Core.currentRenovation(state);
-  expect(reno && reno.areaId === 'gate' && reno.stageIndex === 0, '首个修缮 = 山门·残破段');
-  expect(reno.stageName === '残破', '段名 = 残破');
+  expect(reno && reno.areaId === 'gate' && reno.stageIndex === 0, '首个修缮 = 山门·第 0 段');
+  expect(reno.stageName === '清理' && reno.fromStageName === '荒废', '段名 = 清理，前置状态 = 荒废');
   expect(Core.chapterProgress(state).act === 1, '新档处于幕一·修缮');
 });
 
@@ -63,17 +65,18 @@ check('deliverRenovation：素材不足拒绝且不消耗，足量交付推进�
   expect(result.actOneDone === false, '未满 9 段不触发幕一完成');
 });
 
-check('连续 9 次修缮后幕一完成，currentRenovation 为空', function () {
+check('连续 6 次修缮后卷一区域焕新，currentRenovation 为空', function () {
   const state = Core.createFresh(Date.now(), '2025-01-01');
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 6; i++) {
     seedRenovation(state);
     const result = Core.deliverRenovation(state);
     expect(result.ok === true, '第 ' + (i + 1) + ' 段修缮成功（' + result.areaName + '·' + result.stageName + '）');
+    expect(result.worldEvent && result.worldEvent.type === 'stage', '每次交付都产生世界变化事件');
   }
-  expect(Core.sectTotalDone(state) === 9, '修缮度 9/9');
-  expect(Core.currentRenovation(state) === null, '幕一完成后无剩余修缮');
-  expect(Core.chapterProgress(state).act >= 2, '幕一完成后进入幕二·收容');
-  expect(Core.deliverRenovation(state).reason === 'act-complete', '幕一完成后交付应返回 act-complete');
+  expect(Core.sectTotalDone(state) === 6, '修缮度 6/6');
+  expect(Core.currentRenovation(state) === null, '卷一区域焕新后无剩余修缮');
+  expect(Core.chapterProgress(state).act >= 2, '焕新完成后进入幕二·收容');
+  expect(Core.deliverRenovation(state).reason === 'act-complete', '焕新完成后交付应返回 act-complete');
 });
 
 check('normalize 迁移旧档：缺 sect 补全为 0，非法值 clamp 到 3', function () {
@@ -97,9 +100,9 @@ check('chapterProgress 五幕推进：收容→疗愈→焕新→上岗', functi
   expect(Core.chapterProgress(state).chapterDone === true, '卷章完成');
 });
 
-check('新档 nextChapter 指向卷二·前院迎客坪', function () {
+check('新档 nextChapter 指向卷二·九尾狐篇', function () {
   const state = Core.createFresh(Date.now(), '2025-01-01');
-  expect(state.nextChapter === '卷二 · 前院迎客坪', '下一卷目标已按 12 卷版图更新');
+  expect(state.nextChapter === '卷二 · 九尾狐篇', '下一卷目标已按 12 卷版图更新');
 });
 
 console.log('\n== sect chapter result ==');

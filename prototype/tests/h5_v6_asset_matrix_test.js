@@ -228,8 +228,8 @@ function assertMatrixFiles(entries, label) {
 console.log('\n== H5 v6 asset matrix/release contract ==');
 const matrix = expectedMatrix();
 
-check('资产矩阵数量固定：30图标 + 12建筑 + 5狐立绘 + 5图集 + 1限定背景', function () {
-  expect(matrix.icons.length === 30, 'icon matrix must contain 30 entries');
+check('资产矩阵数量固定：48图标 + 12建筑 + 5狐立绘 + 5图集 + 1限定背景', function () {
+  expect(matrix.icons.length === 48, 'icon matrix must contain 48 entries');
   expect(matrix.buildings.length === 12, 'building matrix must contain 12 entries');
   expect(matrix.fox.length === 5, 'fox portrait matrix must contain 5 entries');
   expect(matrix.atlases.length === 5, 'fox atlas matrix must contain 5 entries');
@@ -240,7 +240,7 @@ check('资产矩阵数量固定：30图标 + 12建筑 + 5狐立绘 + 5图集 + 1
 
 check('源文件/ dist 文件均存在、WebP、<=1MiB、透明资源 alpha 有效', function () {
   const issues = [];
-  [[matrix.icons, '30 icons'], [matrix.buildings, '12 buildings'],
+  [[matrix.icons, '48 icons'], [matrix.buildings, '12 buildings'],
     [matrix.fox, '5 fox portraits'], [matrix.atlases, '5 fox atlases'],
     [matrix.limited, 'limited background']].forEach(([entries, label]) => {
     try { assertMatrixFiles(entries, label); } catch (error) { issues.push(error.message); }

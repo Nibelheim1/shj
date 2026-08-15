@@ -86,7 +86,224 @@
 
   function familyActiveForState(state, id) {
     var definition = familyDefinition(id);
-    return !!definition && currentChapterVolume(state) >= Math.max(1, Math.floor(number(definition.activeFromVolume, 1)));
+    if (!definition) return false;
+    var volumeActive = currentChapterVolume(state) >= Math.max(1, Math.floor(number(definition.activeFromVolume, 1)));
+    /* 后山符台/云海浮岛等区域焕新后，可由 stageBonus 直接开启对应族。 */
+    var forcedActive = stageBonusesOfType(state, 'family.active', id).length > 0;
+    return volumeActive || forcedActive;
+  }
+
+  /* —— 宗门舆图：地图节点、区域解锁与段位加成 —— */
+  function areaDefinition(areaId) {
+    return (DATA.sect && DATA.sect.areas || []).find(function (area) { return area && area.id === areaId; }) || null;
+  }
+
+  function defaultUnlockedAreaIds() {
+    return (DATA.sect && DATA.sect.areas || []).filter(function (area) {
+      return area && area.unlock && area.unlock.kind === 'default';
+    }).map(function (area) { return area.id; });
+  }
+
+  function isAreaUnlocked(state, areaId) {
+    var map = state && state.sect && state.sect.map;
+    var list = map && Array.isArray(map.unlockedAreas) ? map.unlockedAreas : [];
+    var area = areaDefinition(areaId);
+    if (!area) return false;
+    if (area.unlock && area.unlock.kind === 'default') return true;
+    return list.indexOf(areaId) >= 0;
+  }
+
+  function ensureSectMap(state) {
+    if (!state || !state.sect) return null;
+    if (!state.sect.map || typeof state.sect.map !== 'object') state.sect.map = {};
+    state.sect.map.unlockedAreas = Array.isArray(state.sect.map.unlockedAreas) ? state.sect.map.unlockedAreas.filter(function (id, index, list) {
+      return !!areaDefinition(id) && list.indexOf(id) === index;
+    }) : [];
+    defaultUnlockedAreaIds().forEach(function (id) {
+      if (state.sect.map.unlockedAreas.indexOf(id) < 0) state.sect.map.unlockedAreas.push(id);
+    });
+    state.sect.map.seenCeremonies = Array.isArray(state.sect.map.seenCeremonies) ? state.sect.map.seenCeremonies : [];
+    state.sect.map.worldChanges = Array.isArray(state.sect.map.worldChanges) ? state.sect.map.worldChanges.slice(-20) : [];
+    return state.sect.map;
+  }
+
+  function recordWorldChange(state, entry) {
+    var map = ensureSectMap(state);
+    if (!map || !entry) return null;
+    var change = Object.assign({ at: number(entry.at, Date.now()) }, entry);
+    map.worldChanges.push(change);
+    map.worldChanges = map.worldChanges.slice(-20);
+    return clone(change);
+  }
+
+  function worldChanges(state, limit) {
+    var map = ensureSectMap(state);
+    var list = map ? map.worldChanges : [];
+    return list.slice(-Math.max(1, Math.floor(number(limit, 5)))).slice().reverse().map(clone);
+  }
+
+  function areaUnlockGate(state, area) {
+    if (!area) return { ok: false, reason: 'unknown-area', missing: [] };
+    if (isAreaUnlocked(state, area.id)) return { ok: true, unlocked: true, missing: [] };
+    var missing = [];
+    var unlock = area.unlock || {};
+    var volume = Math.max(1, Math.floor(number(unlock.volume, 1)));
+    if (currentChapterVolume(state) < volume) {
+      missing.push({ kind: 'volume', volume: volume, current: currentChapterVolume(state) });
+    }
+    if (unlock.requireAreaId && sectStageCount(state, unlock.requireAreaId) < Math.max(1, Math.floor(number(unlock.requireStage, 3)))) {
+      var gateArea = areaDefinition(unlock.requireAreaId);
+      missing.push({ kind: 'areaStage', areaId: unlock.requireAreaId, areaName: gateArea && gateArea.name || unlock.requireAreaId, stage: Math.max(1, Math.floor(number(unlock.requireStage, 3))) });
+    }
+    if (unlock.requireAreaId2 && sectStageCount(state, unlock.requireAreaId2) < Math.max(1, Math.floor(number(unlock.requireStage2, 3)))) {
+      var gateArea2 = areaDefinition(unlock.requireAreaId2);
+      missing.push({ kind: 'areaStage', areaId: unlock.requireAreaId2, areaName: gateArea2 && gateArea2.name || unlock.requireAreaId2, stage: Math.max(1, Math.floor(number(unlock.requireStage2, 3))) });
+    }
+    if (unlock.productId) {
+      var need = Math.max(1, Math.floor(number(unlock.productCount, 1)));
+      var have = Math.max(0, Math.floor(number(state.products && state.products[unlock.productId], 0)));
+      if (have < need) missing.push({ kind: 'product', productId: unlock.productId, need: need, have: have });
+    }
+    if (unlock.jade) {
+      var jadeNeed = Math.max(0, Math.floor(number(unlock.jade, 0)));
+      if (state.jade < jadeNeed) missing.push({ kind: 'jade', need: jadeNeed, have: Math.floor(number(state.jade, 0)) });
+    }
+    return { ok: missing.length === 0, missing: missing, areaId: area.id, areaName: area.name };
+  }
+
+  function areaLockHint(state, area) {
+    var gate = areaUnlockGate(state, area);
+    if (gate.ok) return '条件已齐备，可以拨开灵雾。';
+    var parts = gate.missing.map(function (need) {
+      if (need.kind === 'volume') return '完成第' + need.volume + '卷剧情';
+      if (need.kind === 'areaStage') return need.areaName + '修至' + need.stage + '段';
+      if (need.kind === 'product') {
+        var recipe = recipeDefinition(need.productId);
+        return '还差信物' + (recipe && recipe.name || need.productId) + ' ×' + (need.need - need.have) + '（去配方台）';
+      }
+      if (need.kind === 'jade') return '还差暖玉 ' + (need.need - need.have);
+      return '条件未满足';
+    });
+    return '需：' + parts.join('、');
+  }
+
+  function areaStatus(state, areaId) {
+    var area = areaDefinition(areaId);
+    if (!area) return { ok: false, reason: 'unknown-area', areaId: areaId };
+    var stage = sectStageCount(state, areaId);
+    var locked = !isAreaUnlocked(state, areaId);
+    var gate = areaUnlockGate(state, area);
+    var status = {
+      ok: true, areaId: area.id, name: area.name, icon: area.icon || '🏯', volume: Math.max(1, Math.floor(number(area.volume, 1))),
+      focus: area.focus || 'visitor', facilities: (area.facilities || []).slice(),
+      generatorFamily: area.generatorFamily || null,
+      map: area.map || { row: 0, column: 0 },
+      stage: stage, stageName: (DATA.sect.stageNames || ['荒废', '清理', '修补', '焕新'])[stage] || String(stage),
+      stageLines: (area.stageLines || []).slice(),
+      art: Array.isArray(area.art) ? area.art.slice() : [],
+      locked: locked,
+      canUnlock: locked && gate.ok,
+      lockHint: locked ? areaLockHint(state, area) : '',
+      lockMissing: gate.missing || [],
+      bonuses: (area.stageBonuses || []).filter(function (bonus) { return bonus && Math.floor(number(bonus.stage, 0)) <= stage; }),
+      done: stage, target: area.stages ? area.stages.length : 3
+    };
+    return status;
+  }
+
+  function mapView(state) {
+    ensureSectMap(state);
+    var nodes = (DATA.sect && DATA.sect.areas || []).map(function (area) { return areaStatus(state, area.id); });
+    var unlocked = nodes.filter(function (node) { return node && !node.locked; });
+    var renewed = unlocked.filter(function (node) { return node && node.stage >= 3; });
+    return {
+      ok: true,
+      title: DATA.sect && DATA.sect.map && DATA.sect.map.title || '宗门舆图',
+      progressLabel: DATA.sect && DATA.sect.map && DATA.sect.map.progressLabel || '宗门焕新度',
+      totalAreas: nodes.length,
+      unlockedCount: unlocked.length,
+      renewedCount: renewed.length,
+      nodes: nodes
+    };
+  }
+
+  function canUnlockArea(state, areaId) {
+    var area = areaDefinition(areaId);
+    if (!area) return false;
+    if (isAreaUnlocked(state, areaId)) return false;
+    return areaUnlockGate(state, area).ok;
+  }
+
+  function unlockArea(state, areaId, now) {
+    var area = areaDefinition(areaId);
+    if (!area) return { ok: false, reason: 'unknown-area' };
+    if (isAreaUnlocked(state, areaId)) return { ok: false, reason: 'already-unlocked' };
+    var gate = areaUnlockGate(state, area);
+    if (!gate.ok) return { ok: false, reason: 'locked', missing: gate.missing };
+    var unlock = area.unlock || {};
+    if (unlock.productId) {
+      state.products[unlock.productId] = Math.max(0, Math.floor(number(state.products[unlock.productId], 0)) - Math.max(1, Math.floor(number(unlock.productCount, 1))));
+    }
+    if (unlock.jade) state.jade = Math.max(0, state.jade - Math.max(0, Math.floor(number(unlock.jade, 0))));
+    var map = ensureSectMap(state);
+    map.unlockedAreas.push(area.id);
+    var event = {
+      at: number(now, Date.now()), type: 'unlock', areaId: area.id, stage: 0,
+      text: area.name + '拨开灵雾，第一次完整地出现在宗舆图上。'
+    };
+    var change = recordWorldChange(state, event);
+    return { ok: true, areaId: area.id, areaName: area.name, event: change, events: [clone(change)] };
+  }
+
+  function activeStageBonuses(state, types) {
+    var allowed = Array.isArray(types) ? types : null;
+    var result = [];
+    (DATA.sect && DATA.sect.areas || []).forEach(function (area) {
+      var stage = sectStageCount(state, area.id);
+      (area.stageBonuses || []).forEach(function (bonus) {
+        if (!bonus || Math.floor(number(bonus.stage, 0)) > stage) return;
+        if (!bonus.effect) return;
+        if (allowed && allowed.indexOf(bonus.effect.type) < 0) return;
+        result.push(Object.assign({ areaId: area.id, areaName: area.name, stage: bonus.stage, text: bonus.text }, clone(bonus.effect)));
+      });
+    });
+    return result;
+  }
+
+  function stageBonusesOfType(state, type, family) {
+    var allowed = Array.isArray(type) ? type : [type];
+    var result = [];
+    (DATA.sect && DATA.sect.areas || []).forEach(function (area) {
+      var stage = sectStageCount(state, area.id);
+      (area.stageBonuses || []).forEach(function (bonus) {
+        if (!bonus || Math.floor(number(bonus.stage, 0)) > stage) return;
+        if (!bonus.effect || allowed.indexOf(bonus.effect.type) < 0) return;
+        if (family != null && bonus.effect.family != null && bonus.effect.family !== family) return;
+        result.push(Object.assign({ areaId: area.id, areaName: area.name, stage: bonus.stage, text: bonus.text }, bonus.effect));
+      });
+    });
+    return result;
+  }
+
+  function stageBonusSum(state, type, key) {
+    return stageBonusesOfType(state, type).reduce(function (sum, effect) {
+      return sum + Math.max(-1e12, Math.min(1e12, number(effect[key], 0)));
+    }, 0);
+  }
+
+  function stageBonusProduct(state, type, key) {
+    return stageBonusesOfType(state, type).reduce(function (product, effect) {
+      if (effect[key] != null) return product * Math.max(0, Math.min(100, number(effect[key], 1)));
+      return product;
+    }, 1);
+  }
+
+  function stageBonusForFamily(state, type, family, key) {
+    var effects = stageBonusesOfType(state, type, family);
+    if (!effects.length) return key === 'mult' ? 1 : 0;
+    return key === 'mult'
+      ? effects.reduce(function (product, effect) { return product * Math.max(0, Math.min(100, number(effect[key], 1))); }, 1)
+      : effects.reduce(function (sum, effect) { return sum + Math.max(-1e12, Math.min(1e12, number(effect[key], 0))); }, 0);
   }
 
   function producerChain(family) {
@@ -229,6 +446,31 @@
     return clone(generatorLevelConfig(level).drops || [{ tier: 1, chance: 1 }]);
   }
 
+  function effectiveGeneratorCapacity(state, family, level) {
+    var config = generatorLevelConfig(level);
+    var base = Math.max(1, Math.floor(number(config.capacity, 16)));
+    var bonus = Math.floor(stageBonusForFamily(state, 'generator.capacity', family, 'add'));
+    if (family === 'herb' && state.beastCases.dijiang && state.beastCases.dijiang.transformed) bonus += 1;
+    return clamp(base + bonus, 1, 99);
+  }
+
+  function effectiveGeneratorRechargeMs(state, family, level) {
+    var config = generatorLevelConfig(level);
+    var mult = stageBonusForFamily(state, 'generator.rechargeRate', family, 'mult');
+    if (state.beastCases.bifang && state.beastCases.bifang.transformed) mult *= 0.9;
+    return Math.max(30 * 1000, Math.round(Math.max(1000, number(config.rechargeMs, 15 * 60 * 1000)) * mult));
+  }
+
+  function effectiveGeneratorPartChance(state, family, level) {
+    var chances = DATA.generators && DATA.generators.partDropChanceByLevel || [0.06, 0.08, 0.1, 0.13, 0.16];
+    var base = number(chances[clamp(Math.floor(number(level, 1)), 1, chances.length) - 1], 0.06);
+    return clamp(base + stageBonusForFamily(state, 'generator.partChance', family, 'add'), 0, 1);
+  }
+
+  function effectiveGeneratorDoubleDrop(state, family) {
+    return clamp(stageBonusForFamily(state, 'generator.doubleDrop', family, 'add'), 0, 0.95);
+  }
+
   function makeGenerator(family, level, now, charges, partPity) {
     var config = generatorLevelConfig(level);
     var capacity = Math.max(1, Math.floor(number(config.capacity, 16)));
@@ -246,12 +488,14 @@
     };
   }
 
-  function advanceGeneratorItem(item, now) {
+  function advanceGeneratorItem(item, now, state) {
     if (!item || item.kind !== 'generator') return 0;
     now = number(now, Date.now());
     var config = generatorLevelConfig(item.level);
-    var capacity = Math.max(1, Math.floor(number(config.capacity, 16)));
-    var rechargeMs = Math.max(1000, number(config.rechargeMs, 15 * 60 * 1000));
+    var baseCapacity = Math.max(1, Math.floor(number(config.capacity, 16)));
+    var capacity = state ? effectiveGeneratorCapacity(state, item.family, item.level) : baseCapacity;
+    var baseRecharge = Math.max(1000, number(config.rechargeMs, 15 * 60 * 1000));
+    var rechargeMs = state ? effectiveGeneratorRechargeMs(state, item.family, item.level) : baseRecharge;
     item.charges = clamp(Math.floor(number(item.charges, capacity)), 0, capacity);
     item.capacity = capacity;
     item.lastRechargeAt = number(item.lastRechargeAt, now);
@@ -268,7 +512,7 @@
   function advanceGeneratorCharges(state, now) {
     var credited = 0;
     [state && state.grid, state && state.pendingRewards].forEach(function (list) {
-      (list || []).forEach(function (item) { credited += advanceGeneratorItem(item, now); });
+      (list || []).forEach(function (item) { credited += advanceGeneratorItem(item, now, state); });
     });
     return { ok: true, credited: credited, at: number(now, Date.now()) };
   }
@@ -300,7 +544,7 @@
     var maxLevel = number(DATA.generators && DATA.generators.maxLevel, 5);
     var level = clamp(Math.floor(number(found.item.level, 1)), 1, maxLevel);
     found.item.level = level;
-    advanceGeneratorItem(found.item, now);
+    advanceGeneratorItem(found.item, now, state);
     var current = generatorLevelConfig(level);
     var nextLevel = level < maxLevel ? level + 1 : null;
     var next = nextLevel ? generatorLevelConfig(nextLevel) : null;
@@ -312,8 +556,10 @@
     else if (sameLevelCount < 2) reason = 'merge-required';
     return {
       ok: true, family: family, level: level, maxLevel: maxLevel,
-      charges: found.item.charges, capacity: number(current.capacity, 16),
-      rechargeMs: number(current.rechargeMs, 15 * 60 * 1000), lastRechargeAt: found.item.lastRechargeAt,
+      charges: found.item.charges, capacity: effectiveGeneratorCapacity(state, family, level),
+      rechargeMs: effectiveGeneratorRechargeMs(state, family, level), lastRechargeAt: found.item.lastRechargeAt,
+      partDropChance: effectiveGeneratorPartChance(state, family, level),
+      partPity: found.item.partPity,
       dropTable: generatorDropTable(level), nextLevel: nextLevel,
       nextCost: 0,
       requiredPlayerLevel: next ? number(next.requiredPlayerLevel, 1) : null,
@@ -421,7 +667,11 @@
   function freshSect() {
     var stages = {};
     (DATA.sect && DATA.sect.areas || []).forEach(function (area) { stages[area.id] = 0; });
-    return { stages: stages, rewardedAreas: [] };
+    return {
+      stages: stages,
+      rewardedAreas: [],
+      map: { unlockedAreas: defaultUnlockedAreaIds(), seenCeremonies: [], worldChanges: [] }
+    };
   }
 
   function createFresh(now, date) {
@@ -500,6 +750,7 @@
       energyProgressMs: 0,
       lastAdvance: { appliedMs: 0, at: now },
       endingUnlocked: false,
+      sagaComplete: false,
       nextChapter: '卷二 · 九尾狐篇',
       chapter: { volume: 1 },
       sect: freshSect(),
@@ -698,16 +949,41 @@
     return state;
   }
 
-  function normalizeSect(raw) {
+  function normalizeSect(raw, chapterVolume) {
     var stages = {};
     (DATA.sect && DATA.sect.areas || []).forEach(function (area) {
       stages[area.id] = clamp(Math.floor(number(raw && raw.stages && raw.stages[area.id], 0)), 0, 3);
     });
+    var map = raw && raw.map && typeof raw.map === 'object' ? clone(raw.map) : {};
+    var unlocked = Array.isArray(map.unlockedAreas) ? map.unlockedAreas.filter(function (id, index, list) {
+      return stages[id] != null && list.indexOf(id) === index;
+    }) : [];
+    defaultUnlockedAreaIds().forEach(function (id) {
+      if (unlocked.indexOf(id) < 0) unlocked.push(id);
+    });
+    /* 老档迁移：没有 map 的存档把“当前卷及更早卷”的区域视为已解锁，
+       避免更新后老玩家突然失去本来可修缮的区域。 */
+    if (!(raw && raw.map && Array.isArray(raw.map.unlockedAreas))) {
+      var legacyVolume = clamp(Math.floor(number(chapterVolume, 1)), 1, 12);
+      (DATA.sect && DATA.sect.areas || []).forEach(function (area) {
+        if (Math.max(1, Math.floor(number(area.volume, 1))) <= legacyVolume && unlocked.indexOf(area.id) < 0) {
+          unlocked.push(area.id);
+        }
+      });
+    }
+    /* 已经修过任意一段的区域必然属于玩家版图。 */
+    Object.keys(stages).forEach(function (areaId) {
+      if (stages[areaId] > 0 && unlocked.indexOf(areaId) < 0) unlocked.push(areaId);
+    });
+    map.unlockedAreas = unlocked;
+    map.seenCeremonies = Array.isArray(map.seenCeremonies) ? map.seenCeremonies.slice(-40) : [];
+    map.worldChanges = Array.isArray(map.worldChanges) ? map.worldChanges.slice(-20) : [];
     return {
       stages: stages,
       rewardedAreas: Array.isArray(raw && raw.rewardedAreas) ? raw.rewardedAreas.filter(function (id, index, list) {
         return stages[id] != null && list.indexOf(id) === index;
-      }) : []
+      }) : [],
+      map: map
     };
   }
 
@@ -756,7 +1032,13 @@
     });
     state.codex = Object.assign(clone(base.codex), raw.codex || {});
     state.jobs = Object.assign(clone(base.jobs), raw.jobs || {});
-    state.sect = normalizeSect(raw.sect);
+    var chapterVolume = clamp(Math.floor(number(raw.chapter && raw.chapter.volume, 1)), 1, 12);
+    if (number(raw.version, 0) < 7 && state.beastCases.qiongqi && state.beastCases.qiongqi.transformed) chapterVolume = Math.max(2, chapterVolume);
+    state.chapter = Object.assign({ volume: 1 }, raw.chapter || {});
+    state.chapter.volume = chapterVolume;
+    state.sect = normalizeSect(raw.sect, chapterVolume);
+    ensureStorageCapacity(state);
+    autoUnlockVolumeAreas(state);
     if (number(raw.version, 0) < 7) {
       (DATA.sect && DATA.sect.areas || []).forEach(function (area) {
         if (number(state.sect.stages[area.id], 0) < 3 || state.sect.rewardedAreas.indexOf(area.id) >= 0) return;
@@ -764,9 +1046,6 @@
         state.unlockedCells = Math.min(TOTAL, state.unlockedCells + number(DATA.board && DATA.board.areaUnlockCells, 2));
       });
     }
-    state.chapter = Object.assign({ volume: 1 }, raw.chapter || {});
-    state.chapter.volume = clamp(Math.floor(number(state.chapter.volume, 1)), 1, 12);
-    if (number(raw.version, 0) < 7 && state.beastCases.qiongqi && state.beastCases.qiongqi.transformed) state.chapter.volume = Math.max(2, state.chapter.volume);
     BEAST_IDS.forEach(function (id) { state.jobs[id] = Object.assign(clone(base.jobs[id]), state.jobs[id] || {}); });
     state.daily = Object.assign(freshDaily(date), raw.daily || {});
     state.daily.careRewards = Object.assign({ groom: 0, play: 0 }, state.daily.careRewards || {});
@@ -879,26 +1158,32 @@
   }
 
   function playerOrderRank(state) {
-    return clamp(Math.floor((Math.max(1, Math.floor(number(state && state.level, 1))) + 1) / 2), 1, 5);
+    /* 8 档订单难度：低等级保持教学节奏，高等级逐步要 5~8 阶材料。 */
+    return clamp(Math.floor((Math.max(1, Math.floor(number(state && state.level, 1))) + 2) / 3), 1, 8);
   }
 
   function orderDifficultyLabel(rank) {
-    return ['初诊', '进阶', '繁复', '珍稀', '灵契'][clamp(rank, 1, 5) - 1];
+    return ['初诊', '进阶', '繁复', '珍稀', '灵契', '地材', '天工', '至宝'][clamp(rank, 1, 8) - 1];
   }
 
   function annotateOrderDifficulty(order, rank) {
-    rank = clamp(Math.floor(number(rank, 1)), 1, 5);
+    rank = clamp(Math.floor(number(rank, 1)), 1, 8);
     order.difficultyRank = rank;
     order.difficultyLabel = orderDifficultyLabel(rank);
     order.effort = requirementEffort(order.requirements);
-    order.recommendedGeneratorLevel = rank >= 3 ? 3 : rank >= 2 ? 2 : 1;
+    order.recommendedGeneratorLevel = rank >= 7 ? 5 : rank >= 5 ? 4 : rank >= 3 ? 3 : rank >= 2 ? 2 : 1;
     return order;
   }
 
   function rewardsFor(kind, requirements, state) {
     var multiplier = DATA.order.slotMultipliers[kind] || 1;
-    var jade = Math.max(12, Math.round(requirementValue(requirements) * multiplier));
-    var xp = Math.max(8, Math.round(jade * DATA.order.xpRatio));
+    var rewardMult = stageBonusProduct(state, 'order.rewardJade', 'mult');
+    var familyMult = (requirements || []).reduce(function (product, need) {
+      return product * stageBonusForFamily(state, 'order.familyReward', need.family, 'mult');
+    }, 1);
+    var jade = Math.max(12, Math.round(requirementValue(requirements) * multiplier * rewardMult * familyMult));
+    var xpMult = stageBonusProduct(state, 'order.xpMult', 'mult') * (state.beastCases.baize && state.beastCases.baize.transformed ? 1.1 : 1);
+    var xp = Math.max(8, Math.round(jade * DATA.order.xpRatio * xpMult));
     if (kind === 'story' && !state.firstStoryCompleted) xp += DATA.order.firstStoryXpBonus;
     return { jade: jade, xp: xp };
   }
@@ -1085,13 +1370,15 @@
     if (!secondFamily || secondFamily === firstFamily) {
       secondFamily = pool.find(function (family) { return family !== firstFamily; }) || FAMILY_IDS.find(function (family) { return family !== firstFamily; });
     }
-    var maxTier = Math.min(3, TIER_CAP, Math.max(2, Math.floor(number(state.level, 1) / 2) + 1));
+    var maxTier = Math.min(TIER_CAP, Math.max(3, Math.floor(number(state.level, 1) / 3) + 3));
+    var firstCount = state.level >= 18 ? 2 : 1;
+    var secondCount = state.level >= 24 ? 2 : 1;
     var firstTier = 1 + Math.floor(randomUnit(rng) * maxTier);
-    var secondTier = 1 + Math.floor(randomUnit(rng) * maxTier);
+    var secondTier = 1 + Math.floor(randomUnit(rng) * Math.min(maxTier, firstTier + 2));
     if (firstTier < 2 && secondTier < 2) secondTier = 2;
     return [
-      normalizeRequirement({ family: firstFamily, tier: firstTier, count: 1 }),
-      normalizeRequirement({ family: secondFamily, tier: secondTier, count: 1 })
+      normalizeRequirement({ family: firstFamily, tier: firstTier, count: firstCount }),
+      normalizeRequirement({ family: secondFamily, tier: secondTier, count: secondCount })
     ];
   }
 
@@ -1186,11 +1473,11 @@
     var rank = Math.max(playerOrderRank(state), level);
     var preferred = definition.preferredCare || definition.careTypes[0] || 'herb';
     var support = preferred === 'herb' ? 'tool' : 'herb';
-    var primaryTiers = [1, 2, 3, 4, 4];
-    var supportTiers = [1, 1, 2, 2, 3];
+    var primaryTiers = [1, 2, 3, 4, 5, 6, 7, 8];
+    var supportTiers = [1, 1, 2, 2, 3, 4, 5, 6];
     var requirements = [
-      normalizeRequirement({ family: preferred, tier: primaryTiers[rank - 1], count: rank >= 4 ? 2 : 1 }),
-      normalizeRequirement({ family: support, tier: supportTiers[rank - 1], count: rank >= 5 ? 2 : 1 })
+      normalizeRequirement({ family: preferred, tier: primaryTiers[rank - 1], count: rank >= 7 ? 3 : rank >= 4 ? 2 : 1 }),
+      normalizeRequirement({ family: support, tier: supportTiers[rank - 1], count: rank >= 6 ? 2 : 1 })
     ];
     var reward = growthRewardForLevel(level);
     var effort = requirementEffort(requirements);
@@ -1224,11 +1511,11 @@
     if (GAME_SOURCE_FAMILIES[second] || state.unlockedGenerators.indexOf(second) < 0) second = 'tool';
     var rank = playerOrderRank(state);
     var sequence = state.daily.supplyCompleted + 1;
-    var primaryTiers = [1, 2, 3, 4, 4];
-    var supportTiers = [1, 1, 2, 2, 3];
+    var primaryTiers = [1, 2, 3, 4, 5, 6, 7, 8];
+    var supportTiers = [1, 1, 2, 2, 3, 4, 5, 6];
     var requirements = [
-      normalizeRequirement({ family: 'herb', tier: primaryTiers[rank - 1], count: rank >= 3 && sequence >= 2 ? 2 : 1 }),
-      normalizeRequirement({ family: second, tier: supportTiers[rank - 1], count: rank >= 4 && sequence >= 3 ? 2 : 1 })
+      normalizeRequirement({ family: 'herb', tier: primaryTiers[rank - 1], count: rank >= 7 ? 3 : rank >= 3 && sequence >= 2 ? 2 : 1 }),
+      normalizeRequirement({ family: second, tier: supportTiers[rank - 1], count: rank >= 6 && sequence >= 3 ? 2 : 1 })
     ];
     var effort = requirementEffort(requirements);
     return annotateOrderDifficulty(normalizeOrder({
@@ -1275,7 +1562,8 @@
     order.slot = 'visitor';
     order.kind = 'visitor';
     order.boundAt = number(now, Date.now());
-    order.refreshAt = order.boundAt + number(DATA.order && DATA.order.visitorRefreshMs, 3 * 60 * 60 * 1000);
+    var refreshMs = Math.max(60 * 1000, number(DATA.order && DATA.order.visitorRefreshMs, 3 * 60 * 60 * 1000) + stageBonusSum(state, 'order.refreshMs', 'add'));
+    order.refreshAt = order.boundAt + refreshMs;
     order.title = '山海访客 · ' + order.title.replace(/^邻里补给 · /, '');
     order.symptom = '远道而来的小客人想带一份山中物资继续赶路。';
     return order;
@@ -1360,31 +1648,42 @@
 
   function sectTotalDone(state, volume) {
     volume = volume == null ? currentChapterVolume(state) : volume;
-    return sectAreas(volume).reduce(function (sum, area) { return sum + sectStageCount(state, area.id); }, 0);
+    return sectAreas(volume).reduce(function (sum, area) {
+      return isAreaUnlocked(state, area.id) ? sum + sectStageCount(state, area.id) : sum;
+    }, 0);
   }
 
   function sectTotalTarget(state, volume) {
     volume = volume == null ? currentChapterVolume(state) : volume;
-    return sectAreas(volume).reduce(function (sum, area) { return sum + (area.stages ? area.stages.length : 0); }, 0);
+    return sectAreas(volume).reduce(function (sum, area) {
+      return isAreaUnlocked(state, area.id) ? sum + (area.stages ? area.stages.length : 0) : sum;
+    }, 0);
   }
 
   /* 依 区域×段 顺序返回当前未完成的修缮委托；幕一完成后返回 null。 */
   function currentRenovation(state) {
     var volume = currentChapterVolume(state);
     var areas = sectAreas(volume);
-    if (sectTotalDone(state, volume) >= sectTotalTarget(state, volume)) return null;
+    var target = areas.reduce(function (sum, area) {
+      return isAreaUnlocked(state, area.id) ? sum + (area.stages ? area.stages.length : 0) : sum;
+    }, 0);
+    var done = areas.reduce(function (sum, area) {
+      return isAreaUnlocked(state, area.id) ? sum + sectStageCount(state, area.id) : sum;
+    }, 0);
+    if (done >= target) return null;
     for (var i = 0; i < areas.length; i++) {
       var area = areas[i];
-      var done = sectStageCount(state, area.id);
+      if (!isAreaUnlocked(state, area.id)) continue;
       var stages = area.stages || [];
-      for (var s = done; s < stages.length; s++) {
+      for (var s = sectStageCount(state, area.id); s < stages.length; s++) {
         return {
           areaId: area.id,
           area: area,
           stageIndex: s,
+          fromStageName: (DATA.sect.stageNames || ['荒废', '清理', '修补', '焕新'])[s] || String(s),
           stageName: (DATA.sect.stageNames || ['荒废', '清理', '修补', '焕新'])[s + 1] || String(s + 1),
           order: stages[s].order,
-          remaining: (s + 1) - done
+          remaining: (s + 1) - sectStageCount(state, area.id)
         };
       }
     }
@@ -1401,7 +1700,8 @@
     return materialReady && (!productNeed || number(state.products && state.products[productNeed.productId], 0) >= number(productNeed.count, 1));
   }
 
-  /* 交付修缮委托：消耗素材 → 推进区域段位 → 发暖玉/经验（零失败：不足仅拒绝不罚）。 */
+  /* 交付修缮委托：消耗素材 → 推进区域段位 → 发暖玉/经验 + 世界变化事件。
+     零失败：不足仅拒绝不罚。段位完成后 stageBonuses 自动进入 activeStageBonuses。 */
   function deliverRenovation(state) {
     var current = currentRenovation(state);
     if (!current) return { ok: false, reason: 'act-complete' };
@@ -1412,18 +1712,36 @@
     if (current.order.productNeed) {
       state.products[current.order.productNeed.productId] -= number(current.order.productNeed.count, 1);
     }
-    state.sect.stages[current.areaId] = clamp(sectStageCount(state, current.areaId) + 1, 0, 3);
+    var fromStage = sectStageCount(state, current.areaId);
+    var toStage = clamp(fromStage + 1, 0, 3);
+    state.sect.stages[current.areaId] = toStage;
     var reward = current.order.reward || {};
     state.jade += Math.max(0, number(reward.jade, 0));
     gainXp(state, reward.xp);
     state.totalOrders = Math.max(0, number(state.totalOrders, 0)) + 1;
     state.sect.rewardedAreas = Array.isArray(state.sect.rewardedAreas) ? state.sect.rewardedAreas : [];
     var cellsUnlocked = 0;
-    if (state.sect.stages[current.areaId] >= 3 && state.sect.rewardedAreas.indexOf(current.areaId) < 0) {
+    if (toStage >= 3 && state.sect.rewardedAreas.indexOf(current.areaId) < 0) {
       state.sect.rewardedAreas.push(current.areaId);
       cellsUnlocked = Math.min(number(DATA.board.areaUnlockCells, 2), TOTAL - state.unlockedCells);
       state.unlockedCells += cellsUnlocked;
     }
+    var stageLine = (current.area.stageLines || [])[toStage] || '';
+    var stageBonus = (current.area.stageBonuses || []).find(function (bonus) {
+      return bonus && Math.floor(number(bonus.stage, 0)) === toStage;
+    }) || null;
+    var worldEvent = {
+      at: number(Date.now(), Date.now()),
+      type: 'stage',
+      areaId: current.areaId,
+      areaName: current.area.name,
+      fromStage: fromStage,
+      toStage: toStage,
+      stageName: current.stageName,
+      text: stageLine,
+      bonusText: stageBonus ? stageBonus.text : null
+    };
+    var change = recordWorldChange(state, worldEvent);
     var actOneDone = sectTotalDone(state) >= sectTotalTarget(state);
     syncLegacyAliases(state);
     return {
@@ -1432,9 +1750,14 @@
       areaName: current.area.name,
       stageIndex: current.stageIndex,
       stageName: current.stageName,
+      fromStage: fromStage,
+      areaStage: toStage,
       reward: clone(reward),
       cellsUnlocked: cellsUnlocked,
-      actOneDone: actOneDone
+      actOneDone: actOneDone,
+      worldEvent: clone(change),
+      worldChange: clone(change),
+      stageBonus: clone(stageBonus)
     };
   }
 
@@ -1615,9 +1938,26 @@
     return true;
   }
 
+  function autoUnlockVolumeAreas(state) {
+    ensureSectMap(state);
+    (DATA.sect && DATA.sect.areas || []).forEach(function (area) {
+      var unlock = area.unlock || {};
+      if (unlock.kind !== 'volume') return;
+      if (currentChapterVolume(state) >= Math.max(1, Math.floor(number(unlock.volume, 1))) && !isAreaUnlocked(state, area.id)) {
+        unlockArea(state, area.id, Date.now());
+      }
+    });
+  }
+
   function unlockNextGenerator(state, beastId) {
-    if (beastId === 'qiongqi') unlockGenerator(state, 'build');
-    if (beastId === 'taotie') unlockGenerator(state, 'food');
+    if (beastId === 'qiongqi') {
+      unlockGenerator(state, 'build');
+      if (canUnlockArea(state, 'workshop')) unlockArea(state, 'workshop', Date.now());
+    }
+    if (beastId === 'taotie') {
+      unlockGenerator(state, 'food');
+      if (canUnlockArea(state, 'canteen')) unlockArea(state, 'canteen', Date.now());
+    }
   }
 
   function maybeTransform(state, beastId) {
@@ -1637,8 +1977,16 @@
       state.codex[beastId].seenStage = 3;
     }
     if (state.activeCaseId === beastId) state.activeCaseId = null;
+    var beastVolume = (DATA.sect && DATA.sect.volumes || []).find(function (entry) { return entry.beastId === beastId; });
+    if (beastVolume) {
+      state.chapter = Object.assign({}, state.chapter || {}, { volume: Math.max(beastVolume.volume + 1, currentChapterVolume(state)) });
+      autoUnlockVolumeAreas(state);
+    }
     unlockNextGenerator(state, beastId);
-    if (state.transformedOrder.length >= BEAST_IDS.length) state.endingUnlocked = true;
+    /* 前三兽（穷奇/九尾狐/饕餮）完成即解锁现有卷一~卷三结局；
+       十二兽全部蜕变后额外标记山海长卷完成。 */
+    if (state.transformedOrder.length >= 3) state.endingUnlocked = true;
+    if (state.transformedOrder.length >= BEAST_IDS.length) state.sagaComplete = true;
     return true;
   }
 
@@ -1654,10 +2002,13 @@
     entry.status = 'active';
     state.activeCaseId = beastId;
     state.yardBeastId = beastId;
-    if (beastId === 'jiuweihu') {
-      state.chapter = Object.assign({}, state.chapter || {}, { volume: Math.max(2, currentChapterVolume(state)) });
-      unlockGenerator(state, 'build');
+    var volumeConfig = (DATA.sect && DATA.sect.volumes || []).find(function (entry) { return entry.beastId === beastId; });
+    if (volumeConfig) {
+      state.chapter = Object.assign({}, state.chapter || {}, { volume: Math.max(volumeConfig.volume, currentChapterVolume(state)) });
     }
+    if (beastId === 'jiuweihu') unlockGenerator(state, 'build');
+    if (beastId === 'taotie') unlockGenerator(state, 'food');
+    autoUnlockVolumeAreas(state);
     state.codex[beastId].discovered = true;
     var acquisitionReveal = revealEvent(state, 'acquire', beastId, Math.max(1, number(entry.level, 1)));
     state.lastSeenAt = Math.max(number(state.lastSeenAt, 0), number(now, state.lastSeenAt));
@@ -1848,7 +2199,7 @@
     if (state.unlockedGenerators.indexOf(family) < 0) return { ok: false, reason: 'generator-locked' };
     var found = findGenerator(state, family, generatorIndex);
     if (!found) return { ok: false, reason: 'generator-missing' };
-    advanceGeneratorItem(found.item, now);
+    advanceGeneratorItem(found.item, now, state);
     if (firstFreeGridIndex(state) < 0) return { ok: false, reason: 'board-full', energy: state.energy, charges: found.item.charges };
     if (state.energy <= 0) return { ok: false, reason: 'energy' };
     var usingNoviceSupply = found.item.charges <= 0 && number(state.noviceSupply, 0) > 0 && (family === 'herb' || family === 'tool');
@@ -1872,8 +2223,7 @@
     var partDrop = null;
     var partChain = producerChain(family);
     if (partChain) {
-      var partChances = DATA.generators && DATA.generators.partDropChanceByLevel || [];
-      var partChance = number(partChances[generatorLevel - 1], 0.06);
+      var partChance = effectiveGeneratorPartChance(state, family, generatorLevel);
       var partPityLimit = Math.max(1, Math.floor(number(DATA.generators && DATA.generators.partDropPity, 15)));
       found.item.partPity = Math.min(partPityLimit, Math.max(0, Math.floor(number(found.item.partPity, 0))) + 1);
       if (found.item.partPity >= partPityLimit || randomUnit(rng) < partChance) {
@@ -1885,7 +2235,10 @@
       }
     }
     var taotie = state.beastCases.taotie;
-    if (family === 'food' && taotie && taotie.transformed && rng() < 0.2) {
+    var doubleDropChance = 0;
+    if (family === 'food' && taotie && taotie.transformed) doubleDropChance = Math.max(doubleDropChance, 0.2);
+    doubleDropChance = Math.max(doubleDropChance, effectiveGeneratorDoubleDrop(state, family));
+    if (doubleDropChance > 0 && rng() < doubleDropChance) {
       var duplicate = makeItem(family, rolledTier);
       queueItem(state, duplicate);
       drops.push(duplicate);
@@ -1895,6 +2248,7 @@
       ok: true, items: clone(drops), energy: state.energy,
       charges: found.item.charges, capacity: found.item.capacity, noviceSupply: state.noviceSupply, usedNoviceSupply: usingNoviceSupply,
       generatorLevel: generatorLevel, rolledTier: rolledTier, dropTable: clone(dropTable),
+      partDropChance: partChain ? effectiveGeneratorPartChance(state, family, generatorLevel) : 0,
       partDrop: clone(partDrop), events: partDrop ? [{ type: 'generator_part_drop', item: clone(partDrop) }] : [], rewards: { items: clone(drops.concat(partDrop ? [partDrop] : [])) }
     };
   }
@@ -1937,7 +2291,8 @@
     var special = ensureSpecialState(state);
     var config = DATA.specials && DATA.specials.combo || {};
     var combo = special.combo;
-    var continuing = combo.lastMergeAt > 0 && now - combo.lastMergeAt <= number(config.windowMs, 12000);
+    var windowMs = Math.max(3000, number(config.windowMs, 12000) + stageBonusSum(state, 'combo.windowMs', 'add') + (state.beastCases.taowu && state.beastCases.taowu.transformed ? 5000 : 0));
+    var continuing = combo.lastMergeAt > 0 && now - combo.lastMergeAt <= windowMs;
     if (!continuing) {
       combo.count = 0;
       combo.materialBonuses = 0;
@@ -2020,7 +2375,8 @@
     if (item.kind && item.kind !== 'generator_part' || item.productId) return { ok: false, reason: 'protected-item', events: [], rewards: null };
     if (number(item.tier, 1) >= (item.kind === 'generator_part' ? 3 : 4) && !confirmed) return { ok: false, reason: 'confirm-required', item: clone(item), events: [], rewards: null };
     var baseValue = DATA.economy && DATA.economy.itemValues && DATA.economy.itemValues[item.tier - 1] || 5;
-    var jade = Math.max(1, Math.floor(number(baseValue, 5) * 0.2));
+    var recycleMult = stageBonusProduct(state, 'recycle.mult', 'mult') * (state.beastCases.pixiu && state.beastCases.pixiu.transformed ? 1.1 : 1);
+    var jade = Math.max(1, Math.floor(number(baseValue, 5) * 0.2 * recycleMult));
     state.grid[gridIndex] = null;
     state.jade += jade;
     return { ok: true, index: gridIndex, item: clone(item), events: [{ type: 'item_recycled', index: gridIndex }], rewards: { jade: jade } };
@@ -2254,7 +2610,7 @@
     var used = Math.max(0, number(state.daily.careRewards[careType], 0));
     var rawCap = Number(DATA.careGames && DATA.careGames.rewardRunsPerFacility);
     var unlimited = !!(DATA.careGames && DATA.careGames.rewardRunsUnlimited) || !isFinite(rawCap) || rawCap <= 0;
-    var cap = unlimited ? Infinity : Math.max(1, rawCap);
+    var cap = unlimited ? Infinity : Math.max(1, rawCap + Math.floor(stageBonusForFamily(state, 'minigame.extraRuns', careType, 'add')));
     var rewarded = qualified && (unlimited || used < cap);
     var affectionGained = 0;
     var healGained = 0;
@@ -2263,10 +2619,11 @@
          useful for story requirements and material routing, not as a hard
          good-will gate. */
       var gradeAffection = { S: 4, A: 3, B: 2, floor: 1 };
-      affectionGained = grantAffection(state, beastId, gradeAffection[grade] || 1);
+      var affectionMult = stageBonusProduct(state, 'care.affectionMult', 'mult');
+      affectionGained = grantAffection(state, beastId, Math.max(1, Math.round((gradeAffection[grade] || 1) * affectionMult)));
       var clinicLevel = state.facilities && state.facilities.clinic ? clamp(number(state.facilities.clinic.level, 1), 1, 3) : 1;
       var clinicConfig = DATA.facilities.clinic.levels[clinicLevel - 1];
-      healGained = Math.max(0, number(clinicConfig.healReward, 8));
+      healGained = Math.max(0, number(clinicConfig.healReward, 8)) + Math.max(0, Math.floor(stageBonusSum(state, 'beast.dailyHeal', 'add'))) + (state.beastCases.qilin && state.beastCases.qilin.transformed ? 2 : 0);
       entry.heal = Math.max(0, number(entry.heal, 0)) + healGained;
     }
     if (!rewarded) {
@@ -2290,6 +2647,10 @@
     if (difficulty === 'master' && grade === 'S') {
       if (state.daily.masteryFirst[careType]) tiers = (difficultyConfig.rewards.repeatS || [3, 2]).slice();
       state.daily.masteryFirst[careType] = true;
+    }
+    var gradeBonusChance = clamp(stageBonusForFamily(state, 'minigame.bonusChance', careType, 'add'), 0, 0.5);
+    if ((grade === 'A' || grade === 'S') && gradeBonusChance > 0 && Math.random() < gradeBonusChance) {
+      tiers.push(1);
     }
     var rewardItems = [];
     tiers.forEach(function (tier) {
@@ -2366,7 +2727,7 @@
     state.lastSeenAt = now;
     var generatorCredits = advanceGeneratorCharges(state, now).credited;
 
-    state.energyProgressMs = Math.max(0, number(state.energyProgressMs, 0)) + applied;
+    state.energyProgressMs = Math.max(0, number(state.energyProgressMs, 0)) + applied * (state.beastCases.zhulong && state.beastCases.zhulong.transformed ? 1.2 : 1);
     var energyTicks = Math.floor(state.energyProgressMs / DATA.economy.energyMs);
     if (energyTicks > 0) {
       var missingEnergy = Math.max(0, state.maxEnergy - state.energy);
@@ -2599,9 +2960,26 @@
     return { ok: true, level: nextLevel, cost: config.cost };
   }
 
+  function effectiveStorageSlots(state) {
+    if (!state || !state.storage) return 3;
+    var base = clamp(Math.floor(number(state.storage.slots, 3)), 3, 6);
+    var bonus = Math.floor(stageBonusSum(state, 'storage.slots', 'add'));
+    return clamp(base + bonus, 3, 6);
+  }
+
+  function ensureStorageCapacity(state) {
+    if (!state || !state.storage) return 3;
+    var slots = effectiveStorageSlots(state);
+    state.storage.effectiveSlots = slots;
+    if (!Array.isArray(state.storage.items)) state.storage.items = [];
+    while (state.storage.items.length < slots) state.storage.items.push(null);
+    return slots;
+  }
+
   function moveToStorage(state, gridIndex) {
     var item = state.grid[gridIndex];
     if (!item || item.kind && item.kind !== 'generator_part') return { ok: false, reason: 'not-item' };
+    ensureStorageCapacity(state);
     var storageIndex = state.storage.items.findIndex(function (entry) { return entry == null; });
     if (storageIndex < 0) return { ok: false, reason: 'storage-full' };
     state.storage.items[storageIndex] = item;
@@ -2628,7 +3006,8 @@
     state.jade -= cost;
     state.storage.slots++;
     state.storage.items.push(null);
-    return { ok: true, slots: state.storage.slots, cost: cost };
+    ensureStorageCapacity(state);
+    return { ok: true, slots: state.storage.slots, effectiveSlots: effectiveStorageSlots(state), cost: cost };
   }
 
   function rerollOrder(state, slot, rng) {
@@ -2910,6 +3289,17 @@
     deliverRenovation: deliverRenovation,
     sectAreaStageArt: sectAreaStageArt,
     chapterProgress: chapterProgress,
+    mapView: mapView,
+    areaStatus: areaStatus,
+    canUnlockArea: canUnlockArea,
+    unlockArea: unlockArea,
+    activeStageBonuses: activeStageBonuses,
+    stageBonusesOfType: stageBonusesOfType,
+    autoUnlockVolumeAreas: autoUnlockVolumeAreas,
+    ensureStorageCapacity: ensureStorageCapacity,
+    worldChanges: worldChanges,
+    effectiveStorageSlots: effectiveStorageSlots,
+    areaDefinition: areaDefinition,
     constants: { TOTAL: TOTAL, TIER_CAP: TIER_CAP, OFFLINE_CAP_MS: OFFLINE_CAP_MS, DAY_MS: DAY_MS }
   };
 }));

@@ -185,7 +185,7 @@ function activateForSwitch(state, beastId) {
 
 console.log('\n== H5 v6 growth/migration contract ==');
 
-check('schema v5/旧状态 energy 22/30 -> v6 92/100', function () {
+check('schema v5/旧状态 energy 22/30 -> v6+ 92/100', function () {
   expect(typeof Core.normalize === 'function', 'Core.normalize must be public');
   const migrated = Core.normalize({
     version: 5,
@@ -196,7 +196,7 @@ check('schema v5/旧状态 energy 22/30 -> v6 92/100', function () {
       qiongqi: { level: 1, affection: 0, heal: 0, exp: 0, storyProgress: 0 }
     }
   }, NOW, DATE);
-  expect(Number(migrated.version) === 6, 'normalized save schema must be v6');
+  expect(Number(migrated.version) >= 6, 'normalized save schema must be v6+');
   expect(Number(migrated.energy) === 92 && Number(migrated.maxEnergy) === 100,
     'legacy 22/30 energy must preserve deficit as 92/100');
   expect(Number(migrated.jade) === 321, 'migration must preserve currency');

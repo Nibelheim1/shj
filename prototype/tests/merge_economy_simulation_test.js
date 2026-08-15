@@ -245,18 +245,18 @@ function run() {
         const now = BASE + (day - 1) * DAY;
         Core.ensureDaily(state, dateForDay(day), now, RNG);
         Core.ensureOrders(state, RNG);
-        expect(state.activeOrders.length === 3 && state.activeOrders.every(Boolean),
-          'day ' + day + ' must retain three order slots');
+        expect(state.activeOrders.length === 5 && state.activeOrders.every(Boolean),
+          'day ' + day + ' must retain five order slots');
         state.activeOrders.forEach((order) => {
           expect(Core.isOrderReachable(state, order),
             'day ' + day + ' order ' + order.id + ' must be reachable');
         });
 
-        const supply = state.activeOrders.find((order) => order.slot === 'supply');
-        expect(supply, 'day ' + day + ' supply slot');
+        const supply = state.activeOrders.find((order) => order.slot === 'visitor' || order.slot === 'supply');
+        expect(supply, 'day ' + day + ' visitor supply slot');
         seedOrder(state, supply);
         const result = Core.deliverOrder(state, supply.id, RNG, now + 1000);
-        assert.strictEqual(result.ok, true, 'day ' + day + ' supply order should deliver');
+        assert.strictEqual(result.ok, true, 'day ' + day + ' visitor order should deliver');
         delivered += 1;
         assert.strictEqual(state.completedOrders, delivered,
           'completed order counter should advance once per day');

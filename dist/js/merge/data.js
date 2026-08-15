@@ -302,6 +302,332 @@
           requirement('food', 4, 1), requirement('herb', 3, 1)
         ])
       ]
+    },
+    {
+      id: 'dijiang',
+      name: '帝江',
+      unlockFamily: 'herb',
+      unlockTier: 6,
+      careTypes: ['play'],
+      art: [
+        'assets/art/characters/dijiang_lv1.webp',
+        'assets/art/characters/dijiang_lv2.webp',
+        'assets/art/characters/dijiang_lv3.webp',
+        'assets/art/characters/dijiang_lv4.webp',
+        'assets/art/characters/dijiang_lv5.webp'
+      ],
+      stageNames: ['绒团·暖黄小滚球', '松土·六足小园丁', '传信·元气摆摆团', '守园·花间开心果', '团宠·中央灵光团'],
+      dialogue: [
+        '咕噜……今天滚进哪片花田呀？',
+        '我没有脸，可是我很会挥手！',
+        '你等等我，我认得……大概认得路。',
+        '大家都看见我啦，好开心！'
+      ],
+      lore: '中央之帝，状如黄囊、六足四翼而无面目；灵气稀薄后，它成了花园里一颗想被看见的小滚球。用全身摆动作替说话，把百草园滚得松软。',
+      job: {
+        id: 'herbHelper',
+        name: '百草园助手',
+        title: '百草园助手',
+        type: 'herb',
+        effect: { type: 'herb', intervalMult: 0.8, capacityAdd: 1, bubbleHalf: true },
+        intervalMult: 0.8,
+        capacityAdd: 1
+      },
+      jobTitle: '百草园助手',
+      storySteps: [
+        storyStep(1, '别再撞墙啦', '帝江想被看见，又总滚错方向，在花墙前急得直打转。', [requirement('herb', 3, 1), requirement('tool', 2, 1)]),
+        storyStep(2, '教它挥手', '它学会用六只小短腿比划，写出一封歪歪扭扭的信。', [requirement('herb', 4, 1), requirement('play', 2, 1)]),
+        storyStep(3, '花园里最亮的团子', '大家围过来读懂了它，它把百草园滚得又松又软。', [requirement('herb', 5, 1), requirement('tool', 3, 1)])
+      ]
+    },
+    {
+      id: 'bifang',
+      name: '毕方',
+      unlockFamily: 'tool',
+      unlockTier: 6,
+      careTypes: ['groom'],
+      art: [
+        'assets/art/characters/bifang_lv1.webp',
+        'assets/art/characters/bifang_lv2.webp',
+        'assets/art/characters/bifang_lv3.webp',
+        'assets/art/characters/bifang_lv4.webp',
+        'assets/art/characters/bifang_lv5.webp'
+      ],
+      stageNames: ['绒羽·熄火小雏鸟', '笃笃·独脚小学徒', '稳站·暖羽修理匠', '控火·赤羽巧木匠', '长明·青羽百工师'],
+      dialogue: [
+        '我、我没有点火！真的！',
+        '深呼吸，火苗就会像个小灯笼。',
+        '这扇门我来修，笃笃笃。',
+        '烤红薯好香，分你一个！'
+      ],
+      lore: '独足火羽之鸟，赤文青质而白喙；灵气稀薄后翅膀尖的火苗熄了，它最怕火星，却成了最认真的修理匠。',
+      job: {
+        id: 'repair',
+        name: '木工 / 修理匠',
+        title: '木工 / 修理匠',
+        type: 'generatorAll',
+        effect: { type: 'generatorAll', rechargeMult: 0.9 },
+        rechargeMult: 0.9
+      },
+      jobTitle: '木工 / 修理匠',
+      storySteps: [
+        storyStep(1, '先别怕小火苗', '毕方一紧张就冒火星，其实那些火花伤不到谁。', [requirement('tool', 3, 1), requirement('build', 2, 1)]),
+        storyStep(2, '单脚也能站稳', '它慢慢学会深呼吸，独脚站在工作台前不再摔倒。', [requirement('tool', 4, 1), requirement('herb', 3, 1)]),
+        storyStep(3, '修好第一扇门', '笃笃笃的敲击声稳稳落下，宗门又多了一位巧手。', [requirement('tool', 5, 1), requirement('build', 4, 1)])
+      ]
+    },
+    {
+      id: 'baize',
+      name: '白泽',
+      unlockFamily: 'herb',
+      unlockTier: 7,
+      careTypes: ['groom'],
+      art: [
+        'assets/art/characters/baize_lv1.webp',
+        'assets/art/characters/baize_lv2.webp',
+        'assets/art/characters/baize_lv3.webp',
+        'assets/art/characters/baize_lv4.webp',
+        'assets/art/characters/baize_lv5.webp'
+      ],
+      stageNames: ['絮语·藏书小独角', '夜读·圆镜小学问', '润字·温柔讲书人', '通幽·百闻故事匠', '全知·山海讲卷君'],
+      dialogue: [
+        '我、我背给你听，一定不会错……',
+        '这个故事有个温柔的版本。',
+        '别怕，万物都有自己的名字。',
+        '今晚想听哪座山的月亮？'
+      ],
+      lore: '通晓万物的独角瑞兽，能言人语；灵气稀薄后记性变差，它把知识重新整理成温柔的小故事，专治听故事听怕了的孩子。',
+      job: {
+        id: 'scholar',
+        name: '图鉴 / 解说员',
+        title: '图鉴 / 解说员',
+        type: 'xp',
+        effect: { type: 'orderXp', mult: 1.1 },
+        xpMult: 1.1
+      },
+      jobTitle: '图鉴 / 解说员',
+      storySteps: [
+        storyStep(1, '背不完也没关系', '白泽越急越絮叨，把大家都讲困了。', [requirement('herb', 4, 1), requirement('tool', 3, 1)]),
+        storyStep(2, '给传说换个讲法', '它把凶巴巴的古事，讲成了会发光的睡前小故事。', [requirement('groom', 3, 1), requirement('herb', 3, 1)]),
+        storyStep(3, '山海册的新序章', '藏书阁里多了一位温柔的讲卷君。', [requirement('tool', 5, 1), requirement('herb', 4, 1)])
+      ]
+    },
+    {
+      id: 'taowu',
+      name: '梼杌',
+      unlockFamily: 'play',
+      unlockTier: 6,
+      careTypes: ['play'],
+      art: [
+        'assets/art/characters/taowu_lv1.webp',
+        'assets/art/characters/taowu_lv2.webp',
+        'assets/art/characters/taowu_lv3.webp',
+        'assets/art/characters/taowu_lv4.webp',
+        'assets/art/characters/taowu_lv5.webp'
+      ],
+      stageNames: ['炸毛·倔头小狮崽', '晨操·数拍小队长', '陪练·不服输教练', '守时·嬉游大领操', '演武·百戏总教头'],
+      dialogue: [
+        '我才没有故意站反！',
+        '再练一次，这次一定能行！',
+        '累了就歇，歇完我陪你继续。',
+        '早操时间到，一个都不许赖床！'
+      ],
+      lore: '古籍所载的“顽”兽，倔头倔脑；灵气稀薄后练功总差一口气。它把倔劲用在了“陪你练到会为止”，成了最守时的游乐教练。',
+      job: {
+        id: 'coach',
+        name: '体能 / 游乐教练',
+        title: '体能 / 游乐教练',
+        type: 'combo',
+        effect: { type: 'comboWindow', addMs: 5000, scoreFloorMult: 0.8 },
+        comboAddMs: 5000
+      },
+      jobTitle: '体能 / 游乐教练',
+      storySteps: [
+        storyStep(1, '站反了也没关系', '梼杌用不服气盖住害羞，其实它怕做不好被嫌弃。', [requirement('play', 3, 1), requirement('build', 2, 1)]),
+        storyStep(2, '陪你练到会为止', '它把倔劲变成耐心，一遍遍示范，不嘲笑谁。', [requirement('play', 4, 1), requirement('herb', 3, 1)]),
+        storyStep(3, '宗门早操开课', '百戏台前，最守时的教练上线了。', [requirement('play', 5, 1), requirement('build', 4, 1)])
+      ]
+    },
+    {
+      id: 'zhulong',
+      name: '烛龙',
+      unlockFamily: 'build',
+      unlockTier: 7,
+      careTypes: ['groom'],
+      art: [
+        'assets/art/characters/zhulong_lv1.webp',
+        'assets/art/characters/zhulong_lv2.webp',
+        'assets/art/characters/zhulong_lv3.webp',
+        'assets/art/characters/zhulong_lv4.webp',
+        'assets/art/characters/zhulong_lv5.webp'
+      ],
+      stageNames: ['微光·打盹小蛇龙', '暖鳞·恒温小抱枕', '夜灯·守更照明使', '时令·昼夜调光师', '长明·钟山掌灯君'],
+      dialogue: [
+        '呼……我好像又睡过头了。',
+        '我的光会一直暖着你。',
+        '把夜调暗一点，大家睡个好觉。',
+        '天亮啦，该起床看云了。'
+      ],
+      lore: '钟山之神，视为昼、瞑为夜；灵气稀薄后昼夜颠倒。它学会按需发光，白天是小太阳，夜里是大家的暖灯。',
+      job: {
+        id: 'lamp',
+        name: '照明 / 暖房',
+        title: '照明 / 暖房',
+        type: 'energy',
+        effect: { type: 'energyRegen', mult: 1.2 },
+        energyMult: 1.2
+      },
+      jobTitle: '照明 / 暖房',
+      storySteps: [
+        storyStep(1, '白天别打呼啦', '烛龙白天睡、夜里亮，作息全乱了。', [requirement('build', 4, 1), requirement('herb', 3, 1)]),
+        storyStep(2, '把光调得刚刚好', '它学会控制亮度，不再亮得吓到自己。', [requirement('build', 5, 1), requirement('tool', 3, 1)]),
+        storyStep(3, '做大家的小夜灯', '夜里，静室有一盏会呼吸的暖光。', [requirement('build', 6, 1), requirement('herb', 4, 1)])
+      ]
+    },
+    {
+      id: 'pixiu',
+      name: '貔貅',
+      unlockFamily: 'tool',
+      unlockTier: 7,
+      careTypes: ['play'],
+      art: [
+        'assets/art/characters/pixiu_lv1.webp',
+        'assets/art/characters/pixiu_lv2.webp',
+        'assets/art/characters/pixiu_lv3.webp',
+        'assets/art/characters/pixiu_lv4.webp',
+        'assets/art/characters/pixiu_lv5.webp'
+      ],
+      stageNames: ['铜纹·藏宝小圆狮', '清点·库房小账房', '理财·透明肚管家', '分福·慷慨大掌柜', '招财·百宝纳祥君'],
+      dialogue: [
+        '这个先放我肚子里保管……',
+        '数清楚啦，谁都不吃亏。',
+        '分享会让大家都富起来！',
+        '红包拿去，新年一起旺。'
+      ],
+      lore: '龙子之一，司库招财；灵气稀薄后总怕不够分，看见什么都想囤。它学会了分享，透明肚皮成了宗门最可靠的公共账本。',
+      job: {
+        id: 'steward',
+        name: '仓库 / 理财',
+        title: '仓库 / 理财',
+        type: 'recycle',
+        effect: { type: 'recycle', mult: 1.1 },
+        recycleMult: 1.1
+      },
+      jobTitle: '仓库 / 理财',
+      storySteps: [
+        storyStep(1, '先把账本理顺', '貔貅把大家的东西都“借”来囤，其实只是怕不够分。', [requirement('tool', 4, 1), requirement('herb', 3, 1)]),
+        storyStep(2, '透明肚皮当账本', '每一枚金币都数得清清楚楚，借出的也会按时归还。', [requirement('build', 4, 1), requirement('tool', 3, 1)]),
+        storyStep(3, '分享让大家都富', '库房亮起来，它成了最可靠的管家。', [requirement('herb', 5, 1), requirement('build', 4, 1)])
+      ]
+    },
+    {
+      id: 'qilin',
+      name: '麒麟',
+      unlockFamily: 'groom',
+      unlockTier: 6,
+      careTypes: ['groom'],
+      art: [
+        'assets/art/characters/qilin_lv1.webp',
+        'assets/art/characters/qilin_lv2.webp',
+        'assets/art/characters/qilin_lv3.webp',
+        'assets/art/characters/qilin_lv4.webp',
+        'assets/art/characters/qilin_lv5.webp'
+      ],
+      stageNames: ['莲印·端坐小鹿犊', '扶角·温和劝解使', '卸重·软云长老', '打滚·暖场小福星', '仁德·太平麒麟君'],
+      dialogue: [
+        '没事的，我站得笔直。',
+        '累的话，靠着我歇一歇。',
+        '不完美也没关系呀。',
+        '今天也四脚朝天打滚吧！'
+      ],
+      lore: '仁兽也，行步生莲；灵气稀薄后，大家更指望它“来了就会好”。它学会放下必须完美，成了会打滚的暖场小长老。',
+      job: {
+        id: 'elder',
+        name: '和平安抚 / 迎福长老',
+        title: '和平安抚 / 迎福长老',
+        type: 'heal',
+        effect: { type: 'dailyHeal', add: 2 },
+        healAdd: 2
+      },
+      jobTitle: '和平安抚 / 迎福长老',
+      storySteps: [
+        storyStep(1, '不用一直端着', '麒麟把自己站得太直，角歪了都要偷偷扶正。', [requirement('groom', 4, 1), requirement('herb', 3, 1)]),
+        storyStep(2, '学会四脚朝天', '它在大家面前第一次打滚，大家反而靠得更近。', [requirement('groom', 5, 1), requirement('build', 3, 1)]),
+        storyStep(3, '莲池边的暖场长老', '莲印从它脚下生出，谁吵架都会先看看它。', [requirement('groom', 6, 1), requirement('herb', 4, 1)])
+      ]
+    },
+    {
+      id: 'fenghuang',
+      name: '凤凰',
+      unlockFamily: 'play',
+      unlockTier: 7,
+      careTypes: ['groom'],
+      art: [
+        'assets/art/characters/fenghuang_lv1.webp',
+        'assets/art/characters/fenghuang_lv2.webp',
+        'assets/art/characters/fenghuang_lv3.webp',
+        'assets/art/characters/fenghuang_lv4.webp',
+        'assets/art/characters/fenghuang_lv5.webp'
+      ],
+      stageNames: ['换羽·绒球小雏凤', '清歌·软羽小学唱', '试音·节庆小歌者', '开嗓·百鸟和鸣使', '来仪·五采凤凰君'],
+      dialogue: [
+        '别看我……羽毛还没长齐。',
+        '我轻轻唱，不掉毛就很好。',
+        '不完美也能很好听。',
+        '换羽季，一起捡羽毛做书签吧！'
+      ],
+      lore: '百鸟之王，五采而文；灵气稀薄时正赶上换羽期。大家轮流给它顺毛，它重新敢开口唱，发现不完美也能很好听。',
+      job: {
+        id: 'singer',
+        name: '节庆歌者 / 疗愈吟唱',
+        title: '节庆歌者 / 疗愈吟唱',
+        type: 'reset',
+        effect: { type: 'dailyGeneratorReset', daily: 1 },
+        dailyReset: 1
+      },
+      jobTitle: '节庆歌者 / 疗愈吟唱',
+      storySteps: [
+        storyStep(1, '躲起来也没关系', '凤凰躲在花盆后，怕被问“这也叫凤凰？”', [requirement('play', 4, 1), requirement('herb', 3, 1)]),
+        storyStep(2, '大家一起捡羽毛', '换羽也能开派对，它发现旧羽毛也可以很美。', [requirement('play', 5, 1), requirement('groom', 3, 1)]),
+        storyStep(3, '唱给晚归的人', '节庆台上，它重新唱起那首安眠的歌。', [requirement('play', 6, 1), requirement('herb', 4, 1)])
+      ]
+    },
+    {
+      id: 'kunpeng',
+      name: '鲲鹏',
+      unlockFamily: 'herb',
+      unlockTier: 9,
+      careTypes: ['play'],
+      art: [
+        'assets/art/characters/kunpeng_lv1.webp',
+        'assets/art/characters/kunpeng_lv2.webp',
+        'assets/art/characters/kunpeng_lv3.webp',
+        'assets/art/characters/kunpeng_lv4.webp',
+        'assets/art/characters/kunpeng_lv5.webp'
+      ],
+      stageNames: ['鼓泡·半鲲小胖鱼', '摆鳍·云池试水使', '扑翼·云海新手向导', '乘风·两态逍遥君', '化鹏·九万里云海主'],
+      dialogue: [
+        '我是鱼，还是鸟呀？',
+        '水里像家，天上也像家。',
+        '抓住我的鳍，带你去云上！',
+        '迷路也没关系，云海很好看。'
+      ],
+      lore: '北冥有鱼，化而为鸟；灵气稀薄后它卡在半鲲半鹏。它学会两种形态都是自己，成了云海最会迷路、也最会带路的向导。',
+      job: {
+        id: 'guide',
+        name: '云海向导 / 运输',
+        title: '云海向导 / 运输',
+        type: 'supply',
+        effect: { type: 'dailyItems', daily: 3, tier: 3 },
+        dailyItems: 3,
+        itemTier: 3
+      },
+      jobTitle: '云海向导 / 运输',
+      storySteps: [
+        storyStep(1, '先在水里游一游', '鲲鹏一会儿变鱼一会儿变鸟，把自己绕晕了。', [requirement('herb', 5, 1), requirement('build', 4, 1)]),
+        storyStep(2, '两种都是你', '大家告诉它，会游的、会飞的，都是鲲鹏。', [requirement('build', 6, 1), requirement('tool', 4, 1)]),
+        storyStep(3, '云海的小向导', '它驮着小兽去看云上日落，迷路也开心。', [requirement('herb', 7, 1), requirement('build', 5, 1)])
+      ]
     }
   ];
 
@@ -432,6 +758,8 @@
     { id: 'PROD_BED', name: '灵木床', volume: 2, inputs: [requirement('build', 4, 1), requirement('groom', 3, 1)], use: '九尾狐静室与卷二修缮' },
     { id: 'PROD_MEAL', name: '疗愈餐', volume: 3, inputs: [requirement('food', 6, 1), requirement('herb', 4, 1)], use: '饕餮卷医案' },
     { id: 'PROD_CLEAR', name: '清心丹', volume: 3, inputs: [requirement('tool', 6, 1), requirement('herb', 6, 1)], use: '焦虑类医案' },
+    { id: 'PROD_GARDEN', name: '药圃阵盘', volume: 4, inputs: [requirement('herb', 5, 1), requirement('build', 3, 1)], use: '百草园区域信物' },
+    { id: 'PROD_FLAME', name: '丹火令', volume: 5, inputs: [requirement('tool', 5, 1), requirement('build', 3, 1)], use: '丹房区域信物' },
     { id: 'PROD_HEARTH', name: '百草暖炉', volume: 8, inputs: [requirement('build', 7, 1), requirement('herb', 5, 1)], use: '暖房修缮' },
     { id: 'PROD_ARRAY', name: '聚灵阵图', volume: 10, inputs: [requirement('build', 8, 1), requirement('charm', 3, 1)], use: '后期区域焕新' },
     { id: 'PROD_REVIVE', name: '九转还魂露', volume: 11, inputs: [requirement('herb', 8, 1), requirement('tool', 7, 1)], use: '重症医案' },
@@ -547,9 +875,18 @@
     }
   };
 
-  /* P1 宗门修缮数据（卷章引擎 · 幕一）：卷一·穷奇篇的 3 区域 × 3 段修缮链。
-     每段一个修缮委托，全部外置（ADR-0004）。requirements 只用早期可达素材
-     （药材/药具生成器 + 梳毛/陪玩小游戏），保证首个会话即可跑完幕一。 */
+  /* 宗门修缮数据 + 宗门舆图（地图 / 扩张 / 更新 / 升级）。
+     每区域仍是 3 段修缮委托；新增 map 节点、unlock 解锁条件、stageLines
+     世界变化文案与 stageBonuses 段位加成。新区域暂无专属 stage 图时 art 留空，
+     由 UI 以区域图标 + 状态色占位（后续按卷补图）。 */
+  function sectStage(title, text, requirements, reward, productNeed) {
+    var order = { title: title, text: text, requirements: copyRequirements(requirements), reward: reward || {} };
+    if (productNeed) order.productNeed = { productId: productNeed, count: 1 };
+    return { order: order };
+  }
+  function stageBonus(stage, text, type, effect) {
+    return { stage: stage, text: text, effect: Object.assign({ type: type }, effect || {}) };
+  }
   var sect = {
     name: '栖霞宗',
     era: '末法时代 · 灵气稀薄',
@@ -557,10 +894,25 @@
     volumeQuote: '《山海经·海内北经》：“穷奇状如虎，有翼。”',
     volumeNote: '末法时代，灵气稀薄。栖霞宗的山门已经荒了很久。你握住门环的那一刻，门后传来一声轻轻的、紧张的呼噜。',
     stageNames: ['荒废', '清理', '修补', '焕新'],
+    map: {
+      title: '宗门舆图',
+      fogLabel: '灵雾未散',
+      progressLabel: '宗门焕新度',
+      columns: 2
+    },
     areas: [
       {
-        id: 'gate', name: '山门', icon: '⛩', volume: 1,
+        id: 'gate', name: '山门', icon: '⛩', volume: 1, focus: 'visitor',
+        map: { row: 1, column: 0 },
+        generatorFamily: null, facilities: [],
         art: ['assets/art/v7/sect/gate_stage0.webp', 'assets/art/v7/sect/gate_stage1.webp', 'assets/art/v7/sect/gate_stage2.webp', 'assets/art/v7/sect/gate_stage3.webp'],
+        stageLines: ['山门还笼在枯藤里。', '藤蔓退去，旧门环重新反光。', '门环修好了，晚归的脚步声听得见。', '栖霞宗的门匾亮起，这扇门重新有了温度。'],
+        unlock: { kind: 'default' },
+        stageBonuses: [
+          stageBonus(1, '访客委托刷新 -15 分钟', 'order.refreshMs', { add: -15 * 60 * 1000 }),
+          stageBonus(2, '访客委托刷新再 -15 分钟', 'order.refreshMs', { add: -15 * 60 * 1000 }),
+          stageBonus(3, '访客委托刷新再 -15 分钟', 'order.refreshMs', { add: -15 * 60 * 1000 })
+        ],
         stages: [
           { order: { title: '点亮门灯', text: '山门的灯盏碎了。合两株草药、一贴药膏，先让门口亮起来。', requirements: [requirement('herb', 2, 1), requirement('tool', 1, 1)], reward: { jade: 30, xp: 20 } } },
           { order: { title: '修补门环', text: '门环锈住了。补好它，晚归的脚步声就听得见。', requirements: [requirement('tool', 2, 1), requirement('herb', 1, 1)], reward: { jade: 40, xp: 25 } } },
@@ -568,8 +920,17 @@
         ]
       },
       {
-        id: 'clinic', name: '医馆·药庐', icon: '⚕', volume: 1,
+        id: 'clinic', name: '医馆·药庐', icon: '⚕', volume: 1, focus: 'board',
+        map: { row: 1, column: 1 },
+        generatorFamily: 'tool', facilities: ['clinic'],
         art: ['assets/art/v7/sect/clinic_stage0.webp', 'assets/art/v7/sect/clinic_stage1.webp', 'assets/art/v7/sect/clinic_stage2.webp', 'assets/art/v7/sect/clinic_stage3.webp'],
+        stageLines: ['药庐积了灰，抽屉老是滑出来。', '灰尘扫净，药材愿意留下来了。', '药柜修好，每一味药都有了自己的格子。', '药炉温温地亮着，落魄的神兽才肯安心进门。'],
+        unlock: { kind: 'default' },
+        stageBonuses: [
+          stageBonus(1, '委托奖励 +2%', 'order.rewardJade', { mult: 1.02 }),
+          stageBonus(2, '委托奖励再 +3%', 'order.rewardJade', { mult: 1.03 }),
+          stageBonus(3, '合成棋盘 +2 格', 'board.cells', { count: 2 })
+        ],
         stages: [
           { order: { title: '清扫药庐', text: '药庐积了灰。扫干净，药材才愿意留下来。', requirements: [requirement('tool', 2, 1), requirement('herb', 2, 1)], reward: { jade: 35, xp: 22 } } },
           { order: { title: '修好药柜', text: '药柜缺了一角，抽屉老是滑出来。', requirements: [requirement('tool', 3, 1), requirement('herb', 2, 1)], reward: { jade: 50, xp: 30 } } },
@@ -577,8 +938,17 @@
         ]
       },
       {
-        id: 'forecourt', name: '前院迎客坪', icon: '✿', volume: 2,
+        id: 'forecourt', name: '前院迎客坪', icon: '✿', volume: 2, focus: 'visitor',
+        map: { row: 2, column: 0 },
+        generatorFamily: null, facilities: [],
         art: ['assets/art/v7/sect/forecourt_stage0.webp', 'assets/art/v7/sect/forecourt_stage1.webp', 'assets/art/v7/sect/forecourt_stage2.webp', 'assets/art/v7/sect/forecourt_stage3.webp'],
+        stageLines: ['青石径被落叶埋住了。', '扫开青石径，客人走得进来了。', '迎客凳摆好，远客有了歇脚的地方。', '迎宾灯次第亮起，谁都不会找不到家。'],
+        unlock: { kind: 'volume', volume: 2 },
+        stageBonuses: [
+          stageBonus(1, '委托奖励 +2%', 'order.rewardJade', { mult: 1.02 }),
+          stageBonus(2, '委托奖励再 +3%', 'order.rewardJade', { mult: 1.03 }),
+          stageBonus(3, '访客委托刷新再 -15 分钟', 'order.refreshMs', { add: -15 * 60 * 1000 })
+        ],
         stages: [
           { order: { title: '扫开青石径', text: '青石径被落叶埋了。扫开它，客人走得进来。', requirements: [requirement('herb', 2, 1), requirement('play', 1, 1)], reward: { jade: 35, xp: 22 } } },
           { order: { title: '摆好迎客凳', text: '给远来的小神兽留个歇脚的地方。', requirements: [requirement('groom', 2, 1), requirement('herb', 2, 1)], reward: { jade: 50, xp: 30 } } },
@@ -586,18 +956,217 @@
         ]
       },
       {
-        id: 'groom_pavilion', name: '梳洗阁', icon: '🪮', volume: 2,
+        id: 'groom_pavilion', name: '梳洗阁', icon: '🪮', volume: 2, focus: 'minigame',
+        map: { row: 2, column: 1 },
+        generatorFamily: null, facilities: ['groom'],
         art: ['assets/art/v7/sect/groom_pavilion_stage0.webp', 'assets/art/v7/sect/groom_pavilion_stage1.webp', 'assets/art/v7/sect/groom_pavilion_stage2.webp', 'assets/art/v7/sect/groom_pavilion_stage3.webp'],
+        stageLines: ['旧竹席落满灰，尾巴们没处舒展。', '竹席收好，空出了转身的地方。', '梳洗镜架起，今天的样子被认真照见。', '九尾灯沿檐亮起，九条尾巴有了自在转身的地方。'],
+        unlock: { kind: 'product', volume: 2, productId: 'PROD_BED', productCount: 1 },
+        stageBonuses: [
+          stageBonus(1, '梳洗局 A 评级奖励 +5%', 'minigame.bonusChance', { family: 'groom', add: 0.05 }),
+          stageBonus(2, '梳洗局 S 评级奖励 +5%', 'minigame.bonusChance', { family: 'groom', add: 0.05 }),
+          stageBonus(3, '梳洗普通奖励每日 +1 局', 'minigame.extraRuns', { family: 'groom', add: 1 })
+        ],
         stages: [
           { order: { title: '理清旧竹席', text: '先把落满灰的竹席收好，给尾巴们腾出舒展的地方。', requirements: [requirement('build', 2, 1), requirement('groom', 2, 1)], reward: { jade: 45, xp: 25 } } },
           { order: { title: '架起梳洗镜', text: '镜子不评价谁，只把今天精神一点的样子认真照回来。', requirements: [requirement('build', 3, 1), requirement('groom', 3, 1)], reward: { jade: 65, xp: 38 } } },
           { order: { title: '点亮九尾灯', text: '灯火沿着檐角一盏盏亮起，九条尾巴终于有了自在转身的地方。', requirements: [requirement('build', 4, 1), requirement('groom', 3, 1)], productNeed: { productId: 'PROD_BED', count: 1 }, reward: { jade: 95, xp: 55 } } }
         ]
+      },
+      {
+        id: 'workshop', name: '工坊', icon: '🪵', volume: 2, focus: 'generator',
+        map: { row: 3, column: 0 },
+        generatorFamily: 'build', facilities: ['workshop'],
+        art: [],
+        stageLines: ['旧工坊堆满木料，榫卯都松了。', '木料清点归位，工台重新平稳。', '鲁班台架起，构件开始咬合。', '营造司重新开炉，建材线随之点亮。'],
+        unlock: { kind: 'areaStage', volume: 2, requireAreaId: 'gate', requireStage: 3, requireAreaId2: 'clinic', requireStage2: 3 },
+        stageBonuses: [
+          stageBonus(1, '建材生成器部件掉率 +1%', 'generator.partChance', { family: 'build', add: 0.01 }),
+          stageBonus(2, '建材生成器部件掉率再 +1%', 'generator.partChance', { family: 'build', add: 0.01 }),
+          stageBonus(3, '建材生成器容量 +2', 'generator.capacity', { family: 'build', add: 2 })
+        ],
+        stages: [
+          sectStage('清点旧木料', '把散落的木料按长短码好，工坊就重新有了规矩。', [requirement('build', 2, 1), requirement('tool', 1, 1)], { jade: 40, xp: 24 }),
+          sectStage('架起鲁班台', '老台子的榫卯松了，喂给它新构件。', [requirement('build', 3, 1), requirement('tool', 2, 1)], { jade: 60, xp: 35 }),
+          sectStage('点亮营造司', '工坊的炉火亮起，建材线开始为宗门产出。', [requirement('build', 4, 1), requirement('herb', 3, 1)], { jade: 95, xp: 55 })
+        ]
+      },
+      {
+        id: 'den', name: '静室·兽舍', icon: '🏮', volume: 2, focus: 'growth',
+        map: { row: 3, column: 1 },
+        generatorFamily: null, facilities: ['den'],
+        art: [],
+        stageLines: ['兽舍空着，风吹过会呜呜响。', '旧垫子晒暖，不再漏风。', '灵木床架好，住客有了安睡的地方。', '静室亮起小灯，每只神兽都有了回家的路。'],
+        unlock: { kind: 'product', volume: 2, requireAreaId: 'groom_pavilion', requireStage: 3, productId: 'PROD_BED', productCount: 1 },
+        stageBonuses: [
+          stageBonus(1, '全兽每日 Heal +1', 'beast.dailyHeal', { add: 1 }),
+          stageBonus(2, '全兽每日 Heal 再 +1', 'beast.dailyHeal', { add: 1 }),
+          stageBonus(3, '照料好感 +5%', 'care.affectionMult', { mult: 1.05 })
+        ],
+        stages: [
+          sectStage('晒暖旧软垫', '把旧垫子搬到日头下，蓬松的云会留在里面。', [requirement('build', 2, 1), requirement('groom', 2, 1)], { jade: 45, xp: 25 }),
+          sectStage('架起灵木床', '让床脚稳稳落在地上，梦就不会摇晃。', [requirement('build', 3, 1), requirement('groom', 3, 1)], { jade: 70, xp: 40 }),
+          sectStage('留一盏小灯', '夜里留一盏灯，等每一位晚归的朋友。', [requirement('build', 4, 1), requirement('herb', 3, 1)], { jade: 95, xp: 55 })
+        ]
+      },
+      {
+        id: 'canteen', name: '膳堂', icon: '🍚', volume: 3, focus: 'generator',
+        map: { row: 4, column: 0 },
+        generatorFamily: 'food', facilities: ['canteen'],
+        art: [],
+        stageLines: ['灶台冷着，粮仓空了大半。', '米面归位，灶台重新擦亮。', '烟囱冒出第一缕暖烟。', '膳堂开火，第一口热饭留给朋友。'],
+        unlock: { kind: 'volume', volume: 3 },
+        stageBonuses: [
+          stageBonus(1, '膳食生成器双倍掉落 +5%', 'generator.doubleDrop', { family: 'food', add: 0.05 }),
+          stageBonus(2, '膳食生成器双倍掉落再 +5%', 'generator.doubleDrop', { family: 'food', add: 0.05 }),
+          stageBonus(3, '膳食生成器双倍掉落再 +10%', 'generator.doubleDrop', { family: 'food', add: 0.1 })
+        ],
+        stages: [
+          sectStage('收拾空粮仓', '把撒落的米粒收好，一粒也不浪费。', [requirement('food', 2, 1), requirement('herb', 1, 1)], { jade: 45, xp: 26 }),
+          sectStage('生起小灶火', '灶火不着急，先把热汤煨上。', [requirement('food', 3, 1), requirement('tool', 2, 1)], { jade: 70, xp: 40 }),
+          sectStage('摆开团圆桌', '把第一口热饭端上桌，谁都不饿着。', [requirement('food', 4, 1), requirement('herb', 3, 1)], { jade: 100, xp: 58 })
+        ]
+      },
+      {
+        id: 'herb_garden', name: '百草园', icon: '🌿', volume: 4, focus: 'generator',
+        map: { row: 4, column: 1 },
+        generatorFamily: 'herb', facilities: ['herb'],
+        art: [],
+        stageLines: ['灵土板结，药苗蔫蔫地垂着头。', '土垄重新松软，露水留得住。', '药苗挺直，第一批新芽冒尖。', '百草园灵气流动，药圃进入盛产。'],
+        unlock: { kind: 'product', volume: 4, productId: 'PROD_GARDEN', productCount: 1 },
+        stageBonuses: [
+          stageBonus(1, '药材生成器冷却 -5%', 'generator.rechargeRate', { family: 'herb', mult: 0.95 }),
+          stageBonus(2, '药材生成器冷却再 -5%', 'generator.rechargeRate', { family: 'herb', mult: 0.95 }),
+          stageBonus(3, '药材生成器容量 +2', 'generator.capacity', { family: 'herb', add: 2 })
+        ],
+        stages: [
+          sectStage('松一松灵土', '板结的土需要耐心翻动，根才喘得过气。', [requirement('herb', 3, 1), requirement('build', 2, 1)], { jade: 55, xp: 30 }),
+          sectStage('修好引露渠', '让晨露顺着旧渠流到每株药苗脚下。', [requirement('herb', 4, 1), requirement('tool', 3, 1)], { jade: 80, xp: 46 }),
+          sectStage('点亮聚灵圃', '药圃重新呼吸，连风都慢了下来。', [requirement('herb', 5, 1), requirement('build', 4, 1)], { jade: 110, xp: 64 })
+        ]
+      },
+      {
+        id: 'alchemy', name: '丹房', icon: '⚗', volume: 5, focus: 'generator',
+        map: { row: 5, column: 0 },
+        generatorFamily: 'tool', facilities: ['alchemy'],
+        art: [],
+        stageLines: ['丹炉落灰，药香早就散了。', '旧炉膛清理干净，火种重新引上。', '药具码放整齐，丹房有了条理。', '丹火不熄，药具线进入盛产。'],
+        unlock: { kind: 'product', volume: 5, productId: 'PROD_FLAME', productCount: 1 },
+        stageBonuses: [
+          stageBonus(1, '药具生成器冷却 -5%', 'generator.rechargeRate', { family: 'tool', mult: 0.95 }),
+          stageBonus(2, '药具生成器冷却再 -5%', 'generator.rechargeRate', { family: 'tool', mult: 0.95 }),
+          stageBonus(3, '药具生成器部件掉率 +2%', 'generator.partChance', { family: 'tool', add: 0.02 })
+        ],
+        stages: [
+          sectStage('清一清炉膛', '旧灰清掉，丹炉才肯重新发热。', [requirement('tool', 3, 1), requirement('build', 2, 1)], { jade: 60, xp: 34 }),
+          sectStage('码齐百种药具', '药具各回其位，拿取不再手忙脚乱。', [requirement('tool', 4, 1), requirement('herb', 3, 1)], { jade: 85, xp: 50 }),
+          sectStage('续上不熄丹火', '丹房重新吞吐药香，宗门有了稳定的药具产出。', [requirement('tool', 5, 1), requirement('build', 4, 1)], { jade: 115, xp: 68 })
+        ]
+      },
+      {
+        id: 'library', name: '藏书阁', icon: '📜', volume: 6, focus: 'codex',
+        map: { row: 5, column: 1 },
+        generatorFamily: null, facilities: ['library'],
+        art: [],
+        stageLines: ['书页受潮，字迹都困倦了。', '旧书晒好，纸页重新挺括。', '书架修稳，《山海册》有了安放处。', '灯下可读书，宗门经验 +10%。'],
+        unlock: { kind: 'volume', volume: 6 },
+        stageBonuses: [
+          stageBonus(1, '委托经验 +3%', 'order.xpMult', { mult: 1.03 }),
+          stageBonus(2, '委托经验再 +3%', 'order.xpMult', { mult: 1.03 }),
+          stageBonus(3, '委托经验再 +4%', 'order.xpMult', { mult: 1.04 })
+        ],
+        stages: [
+          sectStage('晒一晒旧书', '受潮的书页要慢慢晒，字才会醒过来。', [requirement('herb', 3, 1), requirement('groom', 2, 1)], { jade: 60, xp: 36 }),
+          sectStage('修稳藏书架', '书架不再吱呀，典籍可以安心住下。', [requirement('build', 4, 1), requirement('tool', 3, 1)], { jade: 90, xp: 54 }),
+          sectStage('点亮读书灯', '灯下读山海，宗门的路越走越明白。', [requirement('herb', 5, 1), requirement('tool', 4, 1)], { jade: 120, xp: 72 })
+        ]
+      },
+      {
+        id: 'playground', name: '嬉游坪', icon: '🎐', volume: 7, focus: 'minigame',
+        map: { row: 6, column: 0 },
+        generatorFamily: null, facilities: ['play'],
+        art: [],
+        stageLines: ['坪上荒草长到腰高。', '草剪平了，空出追跑的场地。', '木马与彩球摆好，笑声有了去处。', '百戏台亮灯，连击窗口 +3 秒。'],
+        unlock: { kind: 'volume', volume: 7 },
+        stageBonuses: [
+          stageBonus(1, '连击窗口 +1 秒', 'combo.windowMs', { add: 1000 }),
+          stageBonus(2, '连击窗口再 +1 秒', 'combo.windowMs', { add: 1000 }),
+          stageBonus(3, '连击窗口再 +1 秒', 'combo.windowMs', { add: 1000 })
+        ],
+        stages: [
+          sectStage('剪平荒草', '让坪地重新平整，跑起来不怕绊倒。', [requirement('play', 3, 1), requirement('build', 2, 1)], { jade: 65, xp: 40 }),
+          sectStage('摆好旧玩具', '木马摇铃都擦亮，排成一排等人来玩。', [requirement('play', 4, 1), requirement('herb', 3, 1)], { jade: 95, xp: 58 }),
+          sectStage('点亮百戏台', '台上灯一亮，整个庭院都热闹起来。', [requirement('play', 5, 1), requirement('build', 4, 1)], { jade: 125, xp: 76 })
+        ]
+      },
+      {
+        id: 'storage', name: '库房', icon: '🏺', volume: 9, focus: 'storage',
+        map: { row: 6, column: 1 },
+        generatorFamily: null, facilities: ['storage'],
+        art: [],
+        stageLines: ['库房漏雨，箱笼都受潮了。', '屋顶补好，箱笼重新干燥。', '货架按族归位，找东西不再翻箱倒柜。', '库房满而不乱，药匣 +1 格、回收价 +10%。'],
+        unlock: { kind: 'volume', volume: 9 },
+        stageBonuses: [
+          stageBonus(1, '药匣上限 +1', 'storage.slots', { add: 1 }),
+          stageBonus(2, '回收价 +5%', 'recycle.mult', { mult: 1.05 }),
+          stageBonus(3, '回收价再 +5%', 'recycle.mult', { mult: 1.05 })
+        ],
+        stages: [
+          sectStage('补好漏雨的屋顶', '先让库房不再受潮，物件才存得住。', [requirement('build', 5, 1), requirement('herb', 3, 1)], { jade: 100, xp: 60 }),
+          sectStage('晒干旧箱笼', '把箱笼搬到日头下，霉味慢慢散掉。', [requirement('tool', 4, 1), requirement('herb', 4, 1)], { jade: 115, xp: 70 }),
+          sectStage('点亮库房灯火', '灯火照亮每个格子，宗门家底清清楚楚。', [requirement('build', 6, 1), requirement('tool', 4, 1)], { jade: 140, xp: 85 })
+        ]
+      },
+      {
+        id: 'charm_altar', name: '后山符台', icon: '🧿', volume: 10, focus: 'generator',
+        map: { row: 7, column: 0 },
+        generatorFamily: 'charm', facilities: ['charm_altar'],
+        art: [],
+        stageLines: ['符台被藤蔓封住，符纸散了一地。', '藤蔓清开，台面露出旧纹路。', '符笔与朱砂归位，纹路重新清晰。', '符台灵气重现，符箓线随之开放。'],
+        unlock: { kind: 'product', volume: 10, productId: 'PROD_ARRAY', productCount: 1 },
+        stageBonuses: [
+          stageBonus(1, '符箓订单开启', 'family.active', { family: 'charm' }),
+          stageBonus(2, '符箓订单奖励 +10%', 'order.familyReward', { family: 'charm', mult: 1.1 }),
+          stageBonus(3, '符箓订单奖励再 +10%', 'order.familyReward', { family: 'charm', mult: 1.1 })
+        ],
+        stages: [
+          sectStage('清开符台藤蔓', '把旧符纸一片片收好，台面先露出来。', [requirement('herb', 5, 1), requirement('tool', 4, 1)], { jade: 110, xp: 66 }),
+          sectStage('归位朱砂符笔', '符笔蘸新墨，旧纹路重新发亮。', [requirement('build', 6, 1), requirement('herb', 5, 1)], { jade: 135, xp: 82 }),
+          sectStage('重开聚灵符阵', '符台重开，后山的灵气慢慢聚了回来。', [requirement('herb', 6, 1), requirement('tool', 5, 1)], { jade: 160, xp: 98 })
+        ]
+      },
+      {
+        id: 'cloud_isle', name: '云海浮岛', icon: '☁', volume: 12, focus: 'generator',
+        map: { row: 7, column: 1 },
+        generatorFamily: 'treasure', facilities: ['cloud_isle'],
+        art: [],
+        stageLines: ['浮岛悬在云里，渡口空无一人。', '渡舟修好，云海重新可以抵达。', '岛上灯火点亮，宝台有了回应。', '云海宝台重启，珍宝线随之开放。'],
+        unlock: { kind: 'product', volume: 12, productId: 'PROD_BOAT', productCount: 1 },
+        stageBonuses: [
+          stageBonus(1, '珍宝订单开启', 'family.active', { family: 'treasure' }),
+          stageBonus(2, '珍宝订单奖励 +10%', 'order.familyReward', { family: 'treasure', mult: 1.1 }),
+          stageBonus(3, '珍宝订单奖励再 +10%', 'order.familyReward', { family: 'treasure', mult: 1.1 })
+        ],
+        stages: [
+          sectStage('修好云海渡舟', '舟底有裂纹，先补好才敢渡云。', [requirement('build', 7, 1), requirement('herb', 6, 1)], { jade: 140, xp: 86 }),
+          sectStage('点亮浮岛灯火', '让云上有一点暖光，渡口不再空落落。', [requirement('tool', 7, 1), requirement('build', 6, 1)], { jade: 170, xp: 105 }),
+          sectStage('重启云海宝台', '宝台浮起微光，归墟的珍宝会顺云而来。', [requirement('herb', 8, 1), requirement('tool', 7, 1)], { jade: 210, xp: 130 })
+        ]
       }
     ],
     volumes: [
       { volume: 1, beastId: 'qiongqi', title: '卷一 · 穷奇篇', areaIds: ['gate', 'clinic'], storyTaskCount: 3 },
-      { volume: 2, beastId: 'jiuweihu', title: '卷二 · 九尾狐篇', areaIds: ['forecourt', 'groom_pavilion'], storyTaskCount: 9 }
+      { volume: 2, beastId: 'jiuweihu', title: '卷二 · 九尾狐篇', areaIds: ['forecourt', 'groom_pavilion', 'workshop', 'den'], storyTaskCount: 9 },
+      { volume: 3, beastId: 'taotie', title: '卷三 · 饕餮篇', areaIds: ['canteen'], storyTaskCount: 9 },
+      { volume: 4, beastId: 'dijiang', title: '卷四 · 帝江篇', areaIds: ['herb_garden'], storyTaskCount: 9 },
+      { volume: 5, beastId: 'bifang', title: '卷五 · 毕方篇', areaIds: ['alchemy'], storyTaskCount: 9 },
+      { volume: 6, beastId: 'baize', title: '卷六 · 白泽篇', areaIds: ['library'], storyTaskCount: 9 },
+      { volume: 7, beastId: 'taowu', title: '卷七 · 梼杌篇', areaIds: ['playground'], storyTaskCount: 9 },
+      { volume: 8, beastId: 'zhulong', title: '卷八 · 烛龙篇', areaIds: [], storyTaskCount: 9 },
+      { volume: 9, beastId: 'pixiu', title: '卷九 · 貔貅篇', areaIds: ['storage'], storyTaskCount: 9 },
+      { volume: 10, beastId: 'qilin', title: '卷十 · 麒麟篇', areaIds: ['charm_altar'], storyTaskCount: 9 },
+      { volume: 11, beastId: 'fenghuang', title: '卷十一 · 凤凰篇', areaIds: [], storyTaskCount: 9 },
+      { volume: 12, beastId: 'kunpeng', title: '卷十二 · 鲲鹏篇', areaIds: ['cloud_isle'], storyTaskCount: 9 }
     ],
     nextChapter: { label: '卷二 · 九尾狐篇', hook: '九条尾巴缠成了一团——有位客人，正等着被好好看见。' }
   };

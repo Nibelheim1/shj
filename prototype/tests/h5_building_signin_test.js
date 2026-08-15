@@ -155,7 +155,7 @@ check('v5 建筑存档迁移到四栋 v6，并产生可审计退款', function (
     facilities: { herb: { level: 3 }, groom: { level: 2 } }
   };
   const migrated = Core.normalize(raw, NOW, '2025-01-01');
-  expect(Number(migrated.version) === 6, 'building migration must emit schema v6');
+  expect(Number(migrated.version) >= 6, 'building migration must emit schema v6+');
   IDS.forEach((id) => {
     expect(migrated.facilities && migrated.facilities[id], 'migrated state missing ' + id);
     expect(Number(migrated.facilities[id].level) >= 1 && Number(migrated.facilities[id].level) <= 3,

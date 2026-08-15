@@ -41,7 +41,9 @@ function dataBeast(id) {
  * spelling as the recruit slot while retaining story/arrival assertions. */
 function logicalSlot(order) {
   if (!order) return null;
-  return order.slot === 'story' ? 'recruit' : order.slot;
+  if (order.slot === 'story') return 'recruit';
+  if (order.slot === 'main' && ['story', 'arrival', 'memory'].indexOf(order.kind) >= 0) return 'recruit';
+  return order.slot;
 }
 
 function assertRevealEvent(event, label) {
@@ -71,15 +73,15 @@ function orderBy(state, predicate, label) {
 
 function assertSlots(state, label) {
   const orders = state && state.activeOrders;
-  const valid = Array.isArray(orders) && orders.length === 3 && orders.every(Boolean);
+  const valid = Array.isArray(orders) && orders.length === 5 && orders.every(Boolean);
   if (!valid) {
     /* A future ending implementation may intentionally close all slots. */
     expect(state && state.endingUnlocked === true && Array.isArray(orders) && orders.length === 0,
-      label + ' activeOrders 应保持三个槽位，或在结局明确关闭');
+      label + ' activeOrders 应保持五个槽位，或在结局明确关闭');
     return;
   }
-  const slots = orders.map(logicalSlot).sort().join('|');
-  expect(slots === 'growth|recruit|supply', label + ' activeOrders 应覆盖 recruit/growth/supply 三槽');
+  const slots = orders.map((order) => order.slot).sort().join('|');
+  expect(slots === 'journey|main|medical|renovation|visitor', label + ' activeOrders 应覆盖 main/renovation/medical/visitor/journey 五槽');
   expect(orders.every((order) => order.id && order.permanent === true), label + ' 槽位订单应为有效永久订单');
 }
 
@@ -109,7 +111,7 @@ function seedRequirements(state, requirements) {
 function inventoryFingerprint(state) {
   return JSON.stringify({
     grid: state.grid,
-    storage: state.storage,
+    storage: state.storage ? { slots: state.storage.slots, items: state.storage.items } : state.storage,
     pendingRewards: state.pendingRewards
   });
 }
@@ -155,6 +157,11 @@ function reload(state, label, now) {
 
 function deliverSeeded(state, order, label, now) {
   seedRequirements(state, order.requirements || []);
+  if (order.productNeed && order.productNeed.productId) {
+    state.products = state.products || {};
+    const productNeed = order.productNeed;
+    state.products[productNeed.productId] = Math.max(Number(state.products[productNeed.productId] || 0), Number(productNeed.count) || 1);
+  }
   expect(Core.canDeliver(state, order) === true, label + ' 填充需求后应可交付');
   const beforeJade = Number(state.jade);
   const beforeXp = Number(state.xp);
@@ -279,17 +286,17 @@ function run() {
   expect(state.endingUnlocked === true, '三兽完成后应解锁结局');
   expect(typeof state.nextChapter === 'string' && state.nextChapter.length > 0, '结局应保留下一章目标');
   assertSlots(state, '结局');
-  const memory = orderBy(state,
-    (order) => logicalSlot(order) === 'recruit' && order.kind === 'memory',
-    '结局后的永久回忆订单');
-  expect(memory.permanent === true, '结局后的 story 槽应保持永久订单');
+  const continuation = orderBy(state,
+    (order) => logicalSlot(order) === 'recruit' && order.kind === 'arrival' && order.beastId === 'dijiang',
+    '结局后的下一位伙伴来信');
+  expect(continuation.permanent === true, '结局后主线槽应给出帝江的来信');
   state = reload(state, '最终结局重载', NOW + 9999);
   expect(state.endingUnlocked === true && BEAST_IDS.every((id) => state.beastCases[id].transformed),
     '最终重载后仍应保留 endingUnlocked 与三兽蜕变');
 
   console.log('== H5 full progression ==');
   console.log('  PASS  新档 -> 三兽三段故事 -> 有效偏好照料 -> 蜕变 ack -> 下一 arrival -> endingUnlocked');
-  console.log('  PASS  关键节点 JSON clone + normalize 重载、奖励保留与三槽订单契约');
+  console.log('  PASS  关键节点 JSON clone + normalize 重载、奖励保留与五槽订单契约');
 }
 
 try {

@@ -142,6 +142,15 @@
         <div><span class="eyebrow">栖霞宗 · 末法时代</span><h1 id="sect-title">把往日的风采，轻轻找回来</h1></div>
         <span id="sect-chapter-chip" class="stage-chip">卷一 · 穷奇篇</span>
       </div>
+      <section class="sect-card sect-map-card" aria-labelledby="sect-map-title">
+        <div class="section-title-row"><div><span class="eyebrow">宗门舆图 · 拨开灵雾</span><h2 id="sect-map-title">整座山都记着你的每一步</h2></div><span id="sect-map-progress" class="small-note">0 / 14</span></div>
+        <div id="sect-map-stage" class="sect-map-stage" data-sect-map-stage>
+          <div class="sect-map-canvas" aria-hidden="true"></div>
+          <div id="sect-map" class="sect-map" data-sect-map role="list" aria-label="宗门舆图区域列表"></div>
+          <div id="sect-map-npcs" class="sect-map-npcs" aria-label="宗门散步的小访客" aria-hidden="true"></div>
+        </div>
+        <p id="sect-map-note" class="sect-map-note">交付修缮委托后，这里会立刻变亮；小访客们会在山径上自己散步。</p>
+      </section>
       <section id="sect-scene" class="sect-scene" data-scene-world data-scene-id="sect" data-current-area="gate" data-stage="ruined" aria-labelledby="sect-scene-title">
         <div id="sect-scene-background-layer" class="sect-scene-layer sect-scene-background" data-scene-node="background" data-asset-slot="sect-background" aria-hidden="true"></div>
         <div class="sect-scene-layer sect-scene-ground" data-scene-node="ground" aria-hidden="true"><i class="sect-ground-path"></i><i class="sect-ground-shadow"></i></div>
@@ -170,7 +179,7 @@
           <button class="sect-hotspot" data-action="select-sect-area" data-area="forecourt" type="button" aria-label="切换前院区域"><span aria-hidden="true"></span></button>
           <button class="sect-hotspot" data-action="select-sect-area" data-area="groom_pavilion" type="button" aria-label="切换梳洗阁区域"><span aria-hidden="true"></span></button>
         </div>
-        <nav class="sect-area-switcher" data-area-switcher aria-label="宗门区域切换">
+        <nav id="sect-area-switcher" class="sect-area-switcher" data-area-switcher aria-label="宗门区域切换">
           <button class="sect-area-tab is-current" data-action="select-sect-area" data-area="gate" type="button" aria-current="true">山门</button>
           <button class="sect-area-tab" data-action="select-sect-area" data-area="clinic" type="button" aria-current="false">医馆</button>
           <button class="sect-area-tab" data-action="select-sect-area" data-area="forecourt" type="button" aria-current="false">前院</button>
@@ -199,11 +208,12 @@
 
     <section id="codex-view" class="view" aria-labelledby="codex-title">
       <div class="view-heading">
-        <div><span class="eyebrow">山海册 · 三兽疗愈图鉴</span><h1 id="codex-title">每次陪伴都会留下痕迹</h1></div>
-        <span id="codex-total" class="stage-chip">0 / 3</span>
+        <div><span class="eyebrow">山海册 · 十二兽疗愈图鉴</span><h1 id="codex-title">每次陪伴都会留下痕迹</h1></div>
+        <span id="codex-total" class="stage-chip">0 / 12</span>
       </div>
       <aside id="chapter-goal" class="chapter-goal"></aside>
       <div id="codex-list" class="codex-list beast-catalog" data-catalog aria-live="polite"></div>
+      <div class="codex-pager"><button id="codex-prev" type="button">‹ 上一页</button><span id="codex-page">1 / 2</span><button id="codex-next" type="button">下一页 ›</button></div>
       <section id="ending-card" class="ending-card" aria-live="polite"></section>
     </section>
   </main>
@@ -216,6 +226,7 @@
     <div class="nav-goal"><span id="goal-progress">第一卷疗愈进度 · 0%</span><i><em id="goal-bar"></em></i></div>
   </nav>
 
+  <div id="world-change-root" aria-live="polite"></div>
   <div id="toast-root" aria-live="polite"></div>
   <div id="guide-root"></div>
   <div id="modal-root"></div>

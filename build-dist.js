@@ -10,7 +10,7 @@ const ART_TARGET = path.join(dist, 'assets', 'art');
 // The merge slice currently ships three beasts (相柳 removed from the cast in
 // the 2026-08 erratum).  Keep this list in one place so adding another stage
 // asset never turns into a qiongqi-only special case.
-const BEAST_IDS = ['qiongqi', 'jiuweihu', 'taotie'];
+const BEAST_IDS = ['qiongqi', 'jiuweihu', 'taotie', 'dijiang', 'bifang', 'baize', 'taowu', 'zhulong', 'pixiu', 'qilin', 'fenghuang', 'kunpeng'];
 
 function toPosix(value) {
   return value.split(path.sep).join('/');
@@ -221,6 +221,7 @@ for (let level = 1; level <= 5; level += 1) {
     `assets/art/characters/${filename}`
   );
 }
+copyDirectoryIfPresent('prototype/assets/art/npc', 'assets/art/npc', (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp');
 
 // Reuse all currently available merge and courtyard art, but tolerate a
 // checkout that has not generated one of the optional asset directories yet.

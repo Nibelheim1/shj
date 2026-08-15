@@ -67,14 +67,19 @@ function seedOrder(state, order) {
 
 function deliverSeededOrder(state, order, now, label) {
   seedOrder(state, order);
+  if (order.productNeed && order.productNeed.productId) {
+    state.products = state.products || {};
+    const productNeed = order.productNeed;
+    state.products[productNeed.productId] = Math.max(Number(state.products[productNeed.productId] || 0), Number(productNeed.count) || 1);
+  }
   return ok(Core.deliverOrder(state, order.id, RNG, now), label);
 }
 
 function assertThreeSlots(state, label) {
   Core.ensureOrders(state, RNG);
-  expect(Array.isArray(state.activeOrders) && state.activeOrders.length === 3,
-    label + ' 必须保留三个委托槽');
-  expect(state.activeOrders.every(Boolean), label + ' 三个委托槽不可同时为空');
+  expect(Array.isArray(state.activeOrders) && state.activeOrders.length === 5,
+    label + ' 必须保留五个委托槽');
+  expect(state.activeOrders.every(Boolean), label + ' 五个委托槽不可同时为空');
   expect(state.activeOrders.some((order) => Core.isOrderReachable(state, order)),
     label + ' 至少一个委托必须可达');
 }
@@ -173,10 +178,10 @@ function run() {
   expect(state.endingUnlocked === true, '三兽完成后应解锁第一卷结局');
   expect(typeof state.nextChapter === 'string' && state.nextChapter.length > 0,
     '结局必须保留下一章目标');
-  const memory = orderBy(state,
-    (order) => order.slot === 'story' && (order.kind === 'memory' || order.kind === 'story'),
-    '结局后的永久循环委托');
-  expect(memory.permanent === true, '结局后的故事槽应为永久委托');
+  const continuation = orderBy(state,
+    (order) => (order.slot === 'main' || order.slot === 'story') && order.kind === 'arrival' && order.beastId === 'dijiang',
+    '结局后的帝江来信');
+  expect(continuation.permanent === true, '结局后的故事槽应给出来信');
 
   /* Facilities (and their offline production) are exercised after enough real jade is earned. */
   ok(Core.upgradeFacility(state, 'herb'), '草药园升级至 2 级');
@@ -207,7 +212,7 @@ function run() {
 
   console.log('== merge slice 7-day simulation ==');
   console.log('  PASS  三兽三故事+照料、arrival 激活、岗位/设施、每日重置、八小时离线结算与结局循环');
-  console.log('  PASS  三槽常驻、零体力合成和下一章目标均已验证');
+  console.log('  PASS  五槽常驻、零体力合成和下一章目标均已验证');
 }
 
 try {

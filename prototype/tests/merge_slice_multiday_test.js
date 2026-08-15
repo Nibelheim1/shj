@@ -130,12 +130,12 @@ check('advanceTime 对 24h 离线结算严格封顶 8h', function () {
     '同一离线时间重复结算不重复发放');
 });
 
-check('ensureDaily 幂等，7 日后三兽仍在且三个订单槽常驻', function () {
+check('ensureDaily 幂等，7 日后三兽仍在且五个订单槽常驻', function () {
   const state = fresh();
   const firstDate = '2025-01-01';
   Core.ensureDaily(state, firstDate, NOW);
   Core.ensureOrders(state, stableRng);
-  expect(Array.isArray(state.activeOrders) && state.activeOrders.length === 3, '首日生成三个订单');
+  expect(Array.isArray(state.activeOrders) && state.activeOrders.length === 5, '首日生成五个订单');
   const firstIdsBySlot = {};
   state.activeOrders.forEach(function (order) {
     expect(order && order.id, '首日订单均有稳定 id');
@@ -149,11 +149,11 @@ check('ensureDaily 幂等，7 日后三兽仍在且三个订单槽常驻', funct
     Core.advanceTime(state, now);
     Core.ensureDaily(state, date, now);
     Core.ensureOrders(state, stableRng);
-    expect(state.activeOrders.length === 3, '第 ' + (day + 1) + ' 日仍有三个订单槽');
+    expect(state.activeOrders.length === 5, '第 ' + (day + 1) + ' 日仍有五个订单槽');
     expect(state.activeOrders.every(Boolean), '第 ' + (day + 1) + ' 日订单不为空');
     expect(state.activeOrders.every(permanent), '第 ' + (day + 1) + ' 日订单仍为永久订单');
     state.activeOrders.forEach(function (order) {
-      if (order.slot === 'supply') return; // v6 补给单每日重新生成（id 允许变化）
+      if (order.slot === 'visitor' || order.slot === 'journey' || order.slot === 'supply') return; // 访客/旅程补给单每日重新生成（id 允许变化）
       expect(order.id === firstIdsBySlot[order.slot],
         '第 ' + (day + 1) + ' 日未丢失 ' + order.slot + ' 永久订单');
     });

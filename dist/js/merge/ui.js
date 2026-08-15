@@ -19,6 +19,7 @@
   var selectedIndex = null;
   var activeView = 'merge-view';
   var toastTimer = null;
+  var worldChangeTimer = null;
   var tickTimer = null;
   var careSession = null;
   var saveStore = null;
@@ -37,6 +38,9 @@
   var foxSpriteKey = '';
   var foxActionIndex = 0;
   var sectAreaSelection = 'gate';
+  var sectNpcTimer = null;
+  var codexPage = 1;
+  var CODEX_PAGE_SIZE = 6;
 
   function q(id) { return document ? document.getElementById(id) : null; }
 
@@ -212,6 +216,25 @@
     }).join('');
   }
 
+  function itemSourceHint(family, tier) {
+    var definition = familyDef(family);
+    if (!definition) return '';
+    tier = Math.max(1, Number(tier) || 1);
+    var baseSource = '';
+    var chain = DATA.generators && DATA.generators.producerChains && DATA.generators.producerChains[family];
+    if (chain) {
+      baseSource = (chain.generatorNames && chain.generatorNames[0] || definition.name + '生成器') + '产出 1 阶材料；生成器有概率掉落自己的部件，部件可合成新生成器';
+    } else if (family === 'groom') {
+      baseSource = '梳洗台消消乐结算奖励（轻松/标准/困难/大师/挑战均可获得）';
+    } else if (family === 'play') {
+      baseSource = '嬉游亭连连看结算奖励（轻松/标准/困难/大师/挑战均可获得）';
+    } else {
+      baseSource = '由后续卷章的区域信物或专属产线解锁后获得';
+    }
+    if (tier <= 1) return '1 阶来源：' + baseSource;
+    return '当前 ' + tier + ' 阶：由 2 个 ' + (tier - 1) + ' 阶合成；最底阶来源：' + baseSource;
+  }
+
   function openItemRoute(family, tier, source) {
     var definition = familyDef(family);
     if (!definition) return null;
@@ -219,12 +242,16 @@
     var current = producer ? Core.makeGeneratorPart(family, tier) : Core.makeItem(family, tier);
     var routeNames = producer ? producer.names : definition.items;
     var sourceLabel = source ? '<small class="route-source">' + esc(source) + '</small>' : '';
+    var sourceHint = producer
+      ? '来源：本族生成器生产素材时概率掉落；连续 15 次未掉落会保底。两个 T4 部件合成一台 Lv1 生成器。'
+      : itemSourceHint(family, tier);
     return modalShell('<span class="eyebrow">物品说明 · 长按查看</span><h2>' + esc(current.name) + '</h2>' + sourceLabel +
       '<p>' + (producer ? '两个同阶部件继续合成；四阶部件合到五阶时，会真正变成可产出素材的生成器。' : '两个同类同阶物品合成下一阶；路线从 1 阶持续到 ' + routeNames.length + ' 阶。') + '</p><div class="route-list item-route-list">' + (producer ? routeNames.map(function (name, index) {
         var partTier = index + 1;
         return '<span class="route-step ' + (partTier === Number(tier) ? 'current' : '') + '">' + (partTier < 5 ? '<img src="' + esc(itemPath({ kind: 'generator_part', family: family, tier: partTier })) + '" alt="" />' : '<b>⚙</b>') + '<b>' + partTier + '阶</b><small>' + esc(name) + '</small></span>';
       }).join('') : routeMarkup(family, tier)) + '</div>' +
-      '<div class="route-merge-rule">当前：' + esc(producer ? '生产器部件' : definition.name) + ' · ' + Number(tier) + ' 阶　→　' + (Number(tier) < routeNames.length ? '下一阶可由 2 个当前物品合成' : '已达最高阶') + '</div>', 'task-modal item-route-modal');
+      '<div class="route-merge-rule">当前：' + esc(producer ? '生产器部件' : definition.name) + ' · ' + Number(tier) + ' 阶　→　' + (Number(tier) < routeNames.length ? '下一阶可由 2 个当前物品合成' : '已达最高阶') + '</div>' +
+      '<div class="route-source-hint"><b>材料来源</b><span>' + esc(sourceHint) + '</span></div>', 'task-modal item-route-modal');
   }
 
   function openGeneratorDetails(family) {
@@ -240,8 +267,13 @@
     if (info && info.nextLevel) {
       upgradeText = info.canUpgrade ? '合并两个 Lv' + info.level + ' · 升至 Lv' + info.nextLevel : '还需另一个 Lv' + info.level + ' 生成器';
     } else if (info) upgradeText = '生成器已满级';
+    var partInfo = info && info.partDropChance != null
+      ? '<div class="generator-upgrade-summary"><b>部件产出</b><small>' + Math.round(info.partDropChance * 100) + '% · 保底进度 ' + Number(info.partPity || 0) + '/15</small></div>'
+      : '';
+    var areaBonuses = Core.stageBonusesOfType ? Core.stageBonusesOfType(state, ['generator.rechargeRate', 'generator.capacity', 'generator.partChance', 'generator.doubleDrop'].join('|'), family) : [];
+    var bonusText = areaBonuses.length ? '<div class="generator-upgrade-summary"><b>宗门区域加成</b><small>' + esc(areaBonuses.map(function (bonus) { return bonus.text; }).join(' · ')) + '</small></div>' : '';
     var modal = modalShell('<span class="eyebrow">生成说明 · 长按查看</span><h2>' + esc(title) + (info ? ' Lv' + info.level : '') + '</h2><p>' + esc(intro) + '</p>' +
-      (info ? '<div class="generator-upgrade-summary"><b>当前产出</b><small>' + esc(odds) + '</small></div>' : '') +
+      (info ? '<div class="generator-upgrade-summary"><b>当前产出</b><small>' + esc(odds) + '</small></div>' : '') + partInfo + bonusText +
       '<div class="generator-route-list">' + definition.items.map(function (name, index) {
         var tier = index + 1;
         var direct = info && info.dropTable && info.dropTable.find(function (drop) { return Number(drop.tier) === tier; });
@@ -1017,6 +1049,14 @@
     renderDaily();
     renderFacilities();
     renderJobs();
+    var yardScene = q('yard-scene');
+    if (yardScene && Core.areaStatus) {
+      var gateStatus = Core.areaStatus(state, 'gate');
+      var clinicStatus = Core.areaStatus(state, 'clinic');
+      yardScene.dataset.sectStage = String(Math.max(gateStatus ? gateStatus.stage : 0, clinicStatus ? clinicStatus.stage : 0));
+      yardScene.dataset.sectGateStage = String(gateStatus ? gateStatus.stage : 0);
+      yardScene.dataset.sectClinicStage = String(clinicStatus ? clinicStatus.stage : 0);
+    }
   }
 
   function renderDaily() {
@@ -1084,10 +1124,21 @@
   }
 
   function jobDescription(beast) {
-    if (beast.id === 'qiongqi') return '每90分钟带回定向补给，最多3份';
-    if (beast.id === 'jiuweihu') return '每日额外1次免费委托刷新';
-    if (beast.id === 'dijiang') return '百草园提速20%，容量+1';
-    return '膳食生成时有20%概率双倍掉落';
+    var map = {
+      qiongqi: '每90分钟带回定向补给，最多3份',
+      jiuweihu: '每日额外1次免费委托刷新',
+      taotie: '膳食生成时有20%概率双倍掉落',
+      dijiang: '百草园提速20%，容量+1',
+      bifang: '所有生成器冷却 -10%',
+      baize: '委托经验 +10%',
+      taowu: '连击窗口 +5 秒',
+      zhulong: '灵力回复速度 +20%',
+      pixiu: '回收价格 +10%',
+      qilin: '每次有效照料全队疗愈 +2',
+      fenghuang: '每日可重置一台生成器冷却',
+      kunpeng: '每日可领取3份随机3阶素材'
+    };
+    return map[beast.id] || '蜕变后为宗门提供持续加成';
   }
 
   function renderJobs() {
@@ -1106,8 +1157,14 @@
   function renderCodex() {
     var discoveredCount = DATA.beasts.filter(function (beast) { return state.codex[beast.id].discovered; }).length;
     q('codex-total').textContent = discoveredCount + ' / ' + DATA.beasts.length;
-    q('chapter-goal').innerHTML = '<strong>山海成长册</strong>先陪九尾狐走完五级成长线；其他伙伴也会保存好感、疗愈与经验。';
-    q('codex-list').innerHTML = DATA.beasts.map(function (beast) {
+    var pageCount = Math.max(1, Math.ceil(DATA.beasts.length / CODEX_PAGE_SIZE));
+    codexPage = Math.max(1, Math.min(pageCount, Number(codexPage) || 1));
+    var pageBeasts = DATA.beasts.slice((codexPage - 1) * CODEX_PAGE_SIZE, codexPage * CODEX_PAGE_SIZE);
+    q('codex-page').textContent = codexPage + ' / ' + pageCount;
+    q('codex-prev').disabled = codexPage <= 1;
+    q('codex-next').disabled = codexPage >= pageCount;
+    q('chapter-goal').innerHTML = '<strong>山海成长册</strong>十二位伙伴共 60 个形态；好感、疗愈与经验都会逐级点亮。';
+    q('codex-list').innerHTML = pageBeasts.map(function (beast) {
       var entry = state.beastCases[beast.id];
       var discovered = state.codex[beast.id].discovered;
       var unlock = beast.unlockFamily ? Core.getItemName(beast.unlockFamily, beast.unlockTier) : '初始住客';
@@ -1121,7 +1178,7 @@
         '<div class="codex-growth">Lv' + entry.level + '/5 · 好感 ' + entry.affection + (next ? '/' + next.affection : '') + ' · 疗愈 ' + entry.heal + (next ? '/' + next.heal : '') + ' · 经验 ' + entry.exp + (next ? '/' + next.exp : '') + '</div>' +
         '<div class="codex-job">点击查看大图、故事与形态</div></div></article>';
     }).join('');
-    q('ending-card').innerHTML = state.endingUnlocked ? '<h2>第一卷 · 灯火长明</h2><p>伙伴们会继续成长，五条目标与宗门修缮每天都有新的心愿。</p>' : '<h2>下一页正等你翻开</h2><p>陪九尾狐突破新形态，每一级都会解锁一段只属于它的小故事。</p>';
+    q('ending-card').innerHTML = state.endingUnlocked ? '<h2>第一卷 · 灯火长明</h2><p>伙伴们会继续成长，十二页山海册等你一页页点亮。</p>' : '<h2>下一页正等你翻开</h2><p>陪九尾狐突破新形态，每一级都会解锁一段只属于它的小故事。</p>';
   }
 
   function renderProgress() {
@@ -1130,45 +1187,286 @@
     q('goal-bar').style.width = progress + '%';
   }
 
-  function renderSectScene(progress, areas) {
-    var scene = q('sect-scene');
-    if (!scene || !areas.length) return;
-    if (!areas.some(function (area) { return area.id === sectAreaSelection; })) sectAreaSelection = areas[0].id;
-    var area = areas.find(function (entry) { return entry.id === sectAreaSelection; }) || areas[0];
-    var stageIndex = Math.max(0, Math.min(3, Number(state.sect && state.sect.stages && state.sect.stages[area.id]) || 0));
-    var stateNames = ['ruined', 'cleaned', 'repaired', 'renewed'];
-    var stateName = stateNames[stageIndex];
-    var stageLabel = (DATA.sect.stageNames || [])[stageIndex] || stateName;
-    var art = Core.sectAreaStageArt ? Core.sectAreaStageArt(state, area.id).art : area.art && area.art[stageIndex];
-    scene.dataset.currentArea = area.id;
-    scene.dataset.stage = stateName;
-    q('sect-building-layer').dataset.currentArea = area.id;
-    q('sect-building-layer').dataset.stage = stateName;
-    q('sect-scene-title').textContent = area.name;
-    q('sect-scene-stage').textContent = stageLabel;
-    q('sect-scene-stage').dataset.stage = stateName;
-    q('sect-scene-progress').textContent = stageIndex + ' / 3';
-    var background = q('sect-scene-background-layer');
-    if (background) background.style.backgroundImage = 'url("' + sceneAssetPath('bg_courtyard_buildingfree.webp') + '")';
-    Array.prototype.forEach.call(scene.querySelectorAll('[data-area]'), function (node) {
-      var allowed = areas.some(function (entry) { return entry.id === node.dataset.area; });
-      node.hidden = !allowed;
-      if (!allowed) return;
-      var selected = node.dataset.area === area.id;
-      node.setAttribute('aria-current', selected ? 'true' : 'false');
-      node.classList.toggle('is-current', selected);
-      if (node.matches('.sect-building-hotspot')) {
-        var nodeArea = areas.find(function (entry) { return entry.id === node.dataset.area; });
-        var nodeStage = Math.max(0, Math.min(3, Number(state.sect.stages[nodeArea.id]) || 0));
-        var nodeState = stateNames[nodeStage];
-        var nodeArt = Core.sectAreaStageArt ? Core.sectAreaStageArt(state, nodeArea.id).art : nodeArea.art && nodeArea.art[nodeStage];
-        node.dataset.stage = nodeState;
-        node.dataset.state = nodeState;
-        var visual = node.querySelector('.sect-building-visual');
-        if (visual && nodeArt) visual.style.backgroundImage = 'url("' + String(nodeArt).replace(/"/g, '') + '")';
-        var stageNode = node.querySelector('small[data-stage-label]');
-        if (stageNode) stageNode.textContent = (DATA.sect.stageNames || [])[nodeStage] || nodeState;
+  function sectFocusLabel(focus) {
+    return {
+      visitor: '访客', board: '合成棋盘', generator: '生成器', minigame: '小游戏',
+      growth: '神兽成长', codex: '山海册', storage: '库房', activity: '活动'
+    }[focus] || '宗门';
+  }
+
+  function sectAreaArt(status, stageIndex) {
+    stageIndex = Math.max(0, Math.min(3, Math.floor(numberOf(stageIndex, 0))));
+    if (status && status.art && status.art[stageIndex]) return status.art[stageIndex];
+    /* 新增区域没有单独 stage 系列图时，使用统一的正式建筑基底图，
+       UI 通过 data-stage 滤镜呈现荒废→焕新。 */
+    if (status && status.areaId) return 'assets/art/v7/sect/' + status.areaId + '_stage' + stageIndex + '.webp';
+    return null;
+  }
+
+  function numberOf(value, fallback) {
+    var n = Number(value);
+    return isFinite(n) ? n : fallback;
+  }
+
+  function sectStateName(stageIndex) {
+    return ['ruined', 'cleaned', 'repaired', 'renewed'][Math.max(0, Math.min(3, Math.floor(numberOf(stageIndex, 0))))] || 'ruined';
+  }
+
+  function areaThumbMarkup(status, stageIndex, label) {
+    var art = sectAreaArt(status, stageIndex);
+    if (art) return '<div class="change-thumb" style="background-image:url(\'' + esc(String(art).replace(/'/g, '')) + '\')"></div>';
+    return '<div class="change-thumb" aria-label="' + esc(label || status.name) + '"><i>' + esc(status.icon) + '</i></div>';
+  }
+
+  function areaMapArtMarkup(status) {
+    var art = sectAreaArt(status, status.stage);
+    if (art) return '<div class="sect-map-art" style="background-image:url(\'' + esc(String(art).replace(/'/g, '')) + '\')"></div>';
+    return '<div class="sect-map-art"><i>' + esc(status.icon) + '</i></div>';
+  }
+
+  function areaBadgeChips(status) {
+    var chips = [];
+    (status.facilities || []).forEach(function (facilityId) {
+      var facility = state.facilities && state.facilities[facilityId];
+      var definition = DATA.buildings && DATA.buildings[facilityId];
+      if (definition && facility && facility.level) chips.push(esc(definition.name) + ' Lv' + facility.level);
+      else if (definition) chips.push(esc(definition.name));
+    });
+    if (status.generatorFamily) {
+      var info = Core.getGeneratorState ? Core.getGeneratorState(state, status.generatorFamily) : null;
+      if (info && info.ok) chips.push('生产 Lv' + info.level);
+      else if (state.unlockedGenerators.indexOf(status.generatorFamily) >= 0) chips.push('生产待置');
+      else chips.push('产线未开');
+    }
+    return chips;
+  }
+
+  function sectMapPosition(status) {
+    var row = Math.max(1, Number(status.map && status.map.row) || 1);
+    var column = Math.max(0, Number(status.map && status.map.column) || 0);
+    var x = column === 0 ? 26 : 74;
+    if (row % 2 === 1) x = column === 0 ? 30 : 70;
+    var y = 9 + (row - 1) * 13.2;
+    return { left: Math.max(8, Math.min(92, x)), top: Math.max(6, Math.min(92, y)) };
+  }
+
+  var SECT_NPCS = [
+    { id: 'aluan', name: '阿鸾' },
+    { id: 'squirrel', name: '松鼠客' },
+    { id: 'deer', name: '小鹿' },
+    { id: 'rabbit', name: '兔灯' },
+    { id: 'badger', name: '獾叔' },
+    { id: 'sparrow', name: '山雀' }
+  ];
+
+  function renderSectNpcs() {
+    var rootNode = q('sect-map-npcs');
+    if (!rootNode) return;
+    rootNode.innerHTML = SECT_NPCS.map(function (npc, index) {
+      var left = 8 + ((index * 17) % 84);
+      var top = 8 + ((index * 31) % 80);
+      return '<img class="map-npc" data-map-npc="' + esc(npc.id) + '" src="assets/art/npc/' + esc(npc.id) + '.webp" alt="' + esc(npc.name) + '在散步" style="left:' + left + '%;top:' + top + '%" />';
+    }).join('');
+  }
+
+  function stepSectNpcs() {
+    if (!state || !document) return;
+    var rootNode = q('sect-map-npcs');
+    if (!rootNode || rootNode.hidden) return;
+    Array.prototype.forEach.call(rootNode.querySelectorAll('[data-map-npc]'), function (npc, index) {
+      var currentLeft = parseFloat(npc.style.left) || (8 + index * 17);
+      var currentTop = parseFloat(npc.style.top) || (10 + index * 29);
+      var nextLeft = clampNpc(currentLeft + ((Math.random() - 0.5) * 26), 5, 88);
+      var nextTop = clampNpc(currentTop + ((Math.random() - 0.5) * 20), 5, 90);
+      npc.style.left = nextLeft + '%';
+      npc.style.top = nextTop + '%';
+      npc.classList.toggle('facing-left', nextLeft < currentLeft);
+    });
+  }
+
+  function clampNpc(value, min, max) {
+    return Math.max(min, Math.min(max, Number(value) || min));
+  }
+
+  function ensureSectNpcTimer() {
+    if (sectNpcTimer || !root.setInterval) return;
+    sectNpcTimer = root.setInterval(stepSectNpcs, 6500);
+  }
+
+  function renderSectMap() {
+    var mapNode = q('sect-map');
+    if (!mapNode) return;
+    var view = Core.mapView ? Core.mapView(state) : { ok: true, totalAreas: 0, renewedCount: 0, nodes: [] };
+    var progressNode = q('sect-map-progress');
+    if (progressNode) progressNode.textContent = view.renewedCount + ' / ' + view.totalAreas + ' 焕新';
+    mapNode.innerHTML = view.nodes.map(function (status) {
+      if (!status || !status.ok) return '';
+      var pos = sectMapPosition(status);
+      var pips = '';
+      for (var index = 0; index < Math.max(1, status.target || 3); index++) {
+        var pipCls = index < status.stage ? 'done' : index === status.stage && !status.locked ? 'current' : '';
+        pips += '<i class="' + pipCls + '"></i>';
       }
+      var chips = status.locked ? [] : areaBadgeChips(status);
+      var badgeMarkup = chips.length ? '<div class="sect-map-badges">' + chips.map(function (chip) { return '<span>' + chip + '</span>'; }).join('') + '</div>' : '';
+      var lockedMarkup = status.locked ? '<span class="fog-tag">' + esc(status.canUnlock ? '可解锁' : '灵雾') + '</span>' : '';
+      var cls = ['sect-map-node'];
+      if (status.locked) cls.push('locked');
+      else if (status.stage >= status.target) cls.push('is-done');
+      if (sectAreaSelection === status.areaId) cls.push('is-current');
+      return '<button type="button" role="listitem" class="' + cls.join(' ') + '" data-area-node="' + esc(status.areaId) + '" data-area-stage="' + status.stage + '" data-stage="' + sectStateName(status.stage) + '" style="left:' + pos.left + '%;top:' + pos.top + '%" aria-label="' + esc(status.name + (status.locked ? '，' + status.lockHint : '')) + '">' +
+        lockedMarkup + areaMapArtMarkup(status) +
+        '<h3>' + esc(status.icon) + ' ' + esc(status.name) + '<small>' + esc(sectFocusLabel(status.focus)) + '</small></h3>' +
+        '<div class="sect-map-pips">' + pips + '</div>' +
+        badgeMarkup +
+        '</button>';
+    }).join('');
+    renderSectNpcs();
+    ensureSectNpcTimer();
+    var note = q('sect-map-note');
+    if (note) {
+      var unlockable = view.nodes.find(function (status) { return status && status.locked && status.canUnlock; });
+      note.textContent = unlockable
+        ? '灵雾正在松动：' + unlockable.name + '已可以解锁，点击查看。'
+        : '交付修缮委托后，这里会立刻变亮；小访客们会在山径上自己散步。';
+    }
+  }
+
+  function renderSectScene(areas) {
+    var scene = q('sect-scene');
+    if (!scene) return;
+    var unlockedAreas = areas.filter(function (area) { return area && !Core.areaStatus(state, area.id).locked; });
+    var selectableAreas = unlockedAreas.length ? unlockedAreas : areas;
+    if (!selectableAreas.some(function (area) { return area.id === sectAreaSelection; })) sectAreaSelection = selectableAreas[0] ? selectableAreas[0].id : '';
+    if (!sectAreaSelection) return;
+    var selected = selectableAreas.find(function (area) { return area.id === sectAreaSelection; }) || selectableAreas[0];
+    var status = Core.areaStatus ? Core.areaStatus(state, selected.id) : { ok: true, stage: 0, art: selected.art || [] };
+    var stageIndex = Math.max(0, Math.min(3, status.stage || 0));
+    var stateName = sectStateName(stageIndex);
+    var stageLabel = (DATA.sect.stageNames || ['荒废', '清理', '修补', '焕新'])[stageIndex] || stateName;
+    var art = sectAreaArt(status, stageIndex);
+    scene.dataset.currentArea = selected.id;
+    scene.dataset.stage = stateName;
+    var buildingLayer = q('sect-building-layer');
+    buildingLayer.dataset.currentArea = selected.id;
+    buildingLayer.dataset.stage = stateName;
+    q('sect-scene-title').textContent = selected.name + (status.locked ? ' · 灵雾未散' : '');
+    q('sect-scene-stage').textContent = status.locked ? '未解锁' : stageLabel;
+    q('sect-scene-stage').dataset.stage = status.locked ? 'locked' : stateName;
+    q('sect-scene-progress').textContent = status.locked ? '0 / 3' : stageIndex + ' / 3';
+    var background = q('sect-scene-background-layer');
+    if (background) background.style.backgroundImage = art ? 'url("' + String(art).replace(/"/g, '') + '")' : 'url("' + sceneAssetPath('bg_courtyard_buildingfree.webp') + '")';
+    buildingLayer.innerHTML = areas.map(function (area) {
+      var nodeStatus = Core.areaStatus ? Core.areaStatus(state, area.id) : null;
+      if (!nodeStatus || !nodeStatus.ok) return '';
+      var nodeStage = Math.max(0, Math.min(3, nodeStatus.stage || 0));
+      var nodeState = nodeStatus.locked ? 'locked' : sectStateName(nodeStage);
+      var nodeArt = sectAreaArt(nodeStatus, nodeStage);
+      var label = nodeStatus.locked ? '灵雾未散' : (DATA.sect.stageNames || [])[nodeStage] || nodeState;
+      var visual = nodeArt
+        ? '<span class="sect-building-visual" style="background-image:url(\'' + esc(String(nodeArt).replace(/'/g, '')) + '\')" aria-hidden="true"></span>'
+        : '<span class="sect-building-visual" aria-hidden="true">' + esc(nodeStatus.icon) + '</span>';
+      return '<button class="sect-building-hotspot' + (area.id === selected.id ? ' is-current' : '') + '" data-scene-node="building" data-area="' + esc(area.id) + '" data-stage="' + nodeState + '" data-state="' + nodeState + '" data-action="select-sect-area" type="button" aria-label="' + esc(nodeStatus.name + '，' + label) + '" aria-current="' + (area.id === selected.id ? 'true' : 'false') + '">' +
+        visual + '<b data-area-label>' + esc(nodeStatus.name) + '</b><small data-stage-label>' + esc(label) + '</small></button>';
+    }).join('');
+    var switcher = q('sect-area-switcher');
+    if (switcher) {
+      switcher.innerHTML = areas.map(function (area) {
+        var nodeStatus = Core.areaStatus ? Core.areaStatus(state, area.id) : null;
+        var label = nodeStatus && nodeStatus.locked ? '🔒' + area.name : area.name;
+        return '<button class="sect-area-tab' + (area.id === selected.id ? ' is-current' : '') + '" data-action="select-sect-area" data-area="' + esc(area.id) + '" type="button" aria-current="' + (area.id === selected.id ? 'true' : 'false') + '">' + esc(label) + '</button>';
+      }).join('');
+    }
+    var hotspots = scene.querySelector('.sect-scene-hotspots');
+    if (hotspots) hotspots.innerHTML = '';
+  }
+
+  function showWorldChange(event) {
+    var rootNode = q('world-change-root');
+    if (!rootNode || !event) return;
+    if (worldChangeTimer) root.clearTimeout(worldChangeTimer);
+    var status = Core.areaStatus ? Core.areaStatus(state, event.areaId) : null;
+    var fromArt = null;
+    var toArt = null;
+    if (status && status.art) {
+      fromArt = status.art[Math.max(0, Math.min(3, event.fromStage || 0))] || null;
+      toArt = status.art[Math.max(0, Math.min(3, event.toStage || 0))] || null;
+    }
+    var fromMarkup = fromArt
+      ? '<div class="change-thumb" style="background-image:url(\'' + esc(String(fromArt).replace(/'/g, '')) + '\')"></div>'
+      : '<div class="change-thumb"><i>' + esc(status && status.icon || '⛩') + '</i></div>';
+    var toMarkup = toArt
+      ? '<div class="change-thumb" style="background-image:url(\'' + esc(String(toArt).replace(/'/g, '')) + '\')"></div>'
+      : '<div class="change-thumb"><i>' + esc(status && status.icon || '⛩') + '</i></div>';
+    rootNode.innerHTML = '<section class="world-change-card" role="status">' + fromMarkup +
+      '<span class="change-arrow">→</span>' + toMarkup +
+      '<div class="change-copy"><b>' + esc(event.areaName || '') + ' · ' + esc(event.stageName || '焕新') + '</b>' +
+      '<small>' + esc(event.text || '宗门又变好了一点。') + '</small>' +
+      (event.bonusText ? '<small>永久加成：' + esc(event.bonusText) + '</small>' : '') +
+      '<button class="change-go" type="button" data-go-map>去看看</button></div></section>';
+    var go = rootNode.querySelector('[data-go-map]');
+    if (go) go.addEventListener('click', function () {
+      hideWorldChange();
+      switchView('sect-view');
+      renderSect();
+    });
+    worldChangeTimer = root.setTimeout(hideWorldChange, 4500);
+  }
+
+  function hideWorldChange() {
+    var rootNode = q('world-change-root');
+    if (!rootNode) return;
+    var card = rootNode.querySelector('.world-change-card');
+    if (!card) { rootNode.innerHTML = ''; return; }
+    card.classList.add('leaving');
+    root.setTimeout(function () { rootNode.innerHTML = ''; }, 320);
+  }
+
+  function showAreaCeremony(areaId, mode, result) {
+    var status = Core.areaStatus ? Core.areaStatus(state, areaId) : null;
+    if (!status || !status.ok) return;
+    var rootNode = q('world-change-root');
+    if (!rootNode) return;
+    mode = mode || 'unlock';
+    var isRenewal = mode === 'stage3';
+    var title = isRenewal ? status.name + ' · 焕新' : status.name + ' · 灵雾散开';
+    var copy = isRenewal
+      ? (status.stageLines && status.stageLines[3]) || '整片区域重新亮了起来，宗门又变好了一分。'
+      : (status.stageLines && status.stageLines[0]) || '新的山径出现在宗舆图上，第一份修缮委托已经送到。';
+    var badge = result && result.stageBonus && result.stageBonus.text
+      ? result.stageBonus.text
+      : isRenewal ? '区域永久加成已生效' : '新的修缮委托已开启';
+    rootNode.innerHTML = '<section class="world-ceremony" role="dialog" aria-modal="true" aria-label="区域更新">' +
+      '<span class="ceremony-icon">' + esc(status.icon) + '</span>' +
+      '<h2>' + esc(title) + '</h2>' +
+      '<p>' + esc(copy) + '</p>' +
+      '<span class="ceremony-bonus">' + esc(badge) + '</span>' +
+      '<button type="button" data-ceremony-close>' + (isRenewal ? '去看看焕新的宗门' : '收下这份新天地') + '</button></section>';
+    var close = rootNode.querySelector('[data-ceremony-close]');
+    if (close) close.addEventListener('click', function () {
+      rootNode.innerHTML = '';
+      switchView('sect-view');
+      renderSect();
+    });
+  }
+
+  function openAreaUnlockModal(areaId) {
+    var status = Core.areaStatus ? Core.areaStatus(state, areaId) : null;
+    if (!status || !status.ok) return;
+    var ready = status.canUnlock;
+    var modal = modalShell(
+      '<span class="eyebrow">宗门舆图 · 区域扩张</span><h2>' + esc(status.icon) + ' ' + esc(status.name) + '</h2>' +
+      '<p>' + esc(status.lockHint || '这片山径还被灵雾封着。') + '</p>' +
+      '<div class="task-reward">' + esc('区域职能：' + sectFocusLabel(status.focus) + (status.generatorFamily ? ' · 新生成器产线' : '')) + '</div>' +
+      '<button class="modal-action" data-confirm-unlock type="button" ' + (ready ? '' : 'disabled') + '>' + (ready ? '拨开灵雾，扩张宗门' : '条件未齐 · 去完成前置目标') + '</button>',
+      'task-modal area-unlock-modal'
+    );
+    if (!modal) return;
+    var confirm = modal.querySelector('[data-confirm-unlock]');
+    if (confirm) confirm.addEventListener('click', function () {
+      var result = Core.unlockArea ? Core.unlockArea(state, areaId, Date.now()) : { ok: false, reason: 'unavailable' };
+      closeModal();
+      if (mutate(result, status.name + '已纳入宗门版图', null, 'order')) showAreaCeremony(areaId);
     });
   }
 
@@ -1182,7 +1480,8 @@
     q('sect-quote').textContent = DATA.sect.volumeQuote || '';
     q('sect-note').textContent = DATA.sect.volumeNote || '';
     var progress = Core.chapterProgress ? Core.chapterProgress(state) : { act: 1, actName: '修缮', actNames: ['修缮', '收容', '疗愈', '焕新', '上岗'], renovationDone: 0, renovationTarget: 9, chapterDone: false };
-    renderSectScene(progress, areas);
+    renderSectMap();
+    renderSectScene(areas);
     q('sect-acts-title').textContent = '幕' + ['一', '二', '三', '四', '五'][Math.max(0, progress.act - 1)] + ' · ' + progress.actName;
     q('sect-reno-progress').textContent = '修缮度 ' + progress.renovationDone + '/' + progress.renovationTarget;
     q('sect-acts').innerHTML = progress.actNames.map(function (name, index) {
@@ -1192,12 +1491,16 @@
     }).join('');
     var stageNames = DATA.sect.stageNames || [];
     q('sect-areas').innerHTML = areas.map(function (area) {
-      var done = (state.sect && state.sect.stages && state.sect.stages[area.id]) || 0;
+      var status = Core.areaStatus ? Core.areaStatus(state, area.id) : null;
+      var done = status ? status.stage : (state.sect && state.sect.stages && state.sect.stages[area.id]) || 0;
       var pips = stageNames.slice(0, 4).map(function (stageName, index) {
-        var cls = index < done ? 'done' : index === done ? 'current' : '';
+        var cls = index < done ? 'done' : index === done && !(status && status.locked) ? 'current' : '';
         return '<span class="sect-stage-pip ' + cls + '">' + esc(stageName || String(index + 1)) + (index < done ? ' ✓' : '') + '</span>';
       }).join('');
-      return '<div class="sect-area-card"><div class="sect-area-head"><strong>' + esc((area.icon || '') + ' ' + area.name) + '</strong><span class="stage-chip">' + done + '/3 段</span></div><div class="sect-stage-pips">' + pips + '</div></div>';
+      var bonusMarkup = status && status.bonuses && status.bonuses.length
+        ? '<div class="sect-area-bonus-list">' + status.bonuses.map(function (bonus) { return '<div class="sect-area-bonus active"><b>段' + bonus.stage + '加成</b><span>' + esc(bonus.text) + '</span></div>'; }).join('') + '</div>'
+        : '';
+      return '<div class="sect-area-card"><div class="sect-area-head"><strong>' + esc((area.icon || '') + ' ' + area.name) + '</strong><span class="stage-chip">' + (status && status.locked ? '未解锁' : done + '/3 段') + '</span></div><div class="sect-stage-pips">' + pips + '</div>' + bonusMarkup + '</div>';
     }).join('');
     var reno = Core.currentRenovation ? Core.currentRenovation(state) : null;
     var renoNode = q('sect-reno');
@@ -1208,7 +1511,10 @@
         '<div class="order-need-icons">' + reno.order.requirements.map(needMarkup).join('') + '</div>' +
         '<button class="deliver-btn" data-deliver-reno type="button" ' + (renoReady ? '' : 'disabled') + '>' + (renoReady ? '交付修缮' : '素材未齐 · 去医馆合成') + '</button>';
     } else {
-      renoNode.innerHTML = '<div class="section-title-row"><div><span class="eyebrow">幕一完成</span><h2>宗门修缮完毕</h2></div></div><p>山门、医馆与前院都已焕新。接下来，去医馆完成穷奇的医案吧。</p>';
+      var volumeLocked = areas.some(function (area) { var status = Core.areaStatus(state, area.id); return status && status.locked; });
+      renoNode.innerHTML = volumeLocked
+        ? '<div class="section-title-row"><div><span class="eyebrow">区域扩张待办</span><h2>本卷仍有灵雾锁着的山径</h2></div></div><p>回到上方的宗门舆图，点击可解锁区域交付信物，新修缮委托就会出现。</p>'
+        : '<div class="section-title-row"><div><span class="eyebrow">本卷修缮完成</span><h2>宗门焕然一新</h2></div></div><p>把眼前的世界交给下一次交付：去医馆合成、去庭院照料，新区域会随卷章继续展开。</p>';
     }
     q('sect-hook').innerHTML = progress.chapterDone
       ? '<h2>' + esc(DATA.sect.nextChapter.label) + '</h2><p>' + esc(DATA.sect.nextChapter.hook) + '</p>'
@@ -1267,6 +1573,9 @@
       'bubble-locked': '灵泡还在孕育中，稍后再来开启',
       'bubble-not-found': '这个灵泡已经开启了',
       'recipe-locked': '这份配方会在后续卷章解锁',
+      'already-unlocked': '这片区域已经在你宗门版图里了',
+      locked: '解锁条件还未齐备，先看看地图上的提示',
+      'unknown-area': '这片山径还没被记入舆图',
       'protected-item': '生成器和特殊物品不能回收',
       'confirm-required': '四阶以上素材需要再次确认'
     }[reason] || '现在还不能完成这个动作';
@@ -2121,8 +2430,24 @@
     q('sect-view').addEventListener('click', function (event) {
       var areaButton = event.target.closest('[data-action="select-sect-area"], .sect-building-hotspot[data-area]');
       if (areaButton && areaButton.dataset.area) {
+        var status = Core.areaStatus ? Core.areaStatus(state, areaButton.dataset.area) : null;
+        if (status && status.locked) { openAreaUnlockModal(areaButton.dataset.area); return; }
         sectAreaSelection = areaButton.dataset.area;
         renderSect();
+        playSfx('click');
+        return;
+      }
+      var mapButton = event.target.closest('[data-area-node]');
+      if (mapButton && mapButton.dataset.areaNode) {
+        var mapStatus = Core.areaStatus ? Core.areaStatus(state, mapButton.dataset.areaNode) : null;
+        if (mapStatus && mapStatus.locked) {
+          openAreaUnlockModal(mapButton.dataset.areaNode);
+        } else {
+          sectAreaSelection = mapButton.dataset.areaNode;
+          renderSect();
+          var scene = q('sect-scene');
+          if (scene && typeof scene.scrollIntoView === 'function') scene.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
         playSfx('click');
         return;
       }
@@ -2130,6 +2455,8 @@
       if (!deliverReno) return;
       var result = Core.deliverRenovation ? Core.deliverRenovation(state) : { ok: false, reason: 'unavailable' };
       if (mutate(result, result.actOneDone ? '幕一完成 · 宗门焕然一新，去医馆迎接穷奇' : '修缮完成 · ' + (result.areaName || '宗门') + '又亮了一点', null, 'order')) {
+        if (result.worldEvent) showWorldChange(result.worldEvent);
+        if (result.areaStage >= 3) showAreaCeremony(result.areaId, 'stage3', result);
         if (result.actOneDone) { renderSect(); switchView('sect-view'); }
       }
     });
@@ -2192,6 +2519,19 @@
       if (!event.target.closest('[data-claim-weekly]')) return;
       var result = Core.claimWeekly(state);
       if (mutate(result, '本周疗愈挑战完成 · 高阶素材已入库', null, 'order')) showCourtyardReward('本周奖励 · T3');
+    });
+    q('codex-prev').addEventListener('click', function () {
+      if (codexPage <= 1) return;
+      codexPage--;
+      renderCodex();
+      playSfx('click');
+    });
+    q('codex-next').addEventListener('click', function () {
+      var pageCount = Math.max(1, Math.ceil(DATA.beasts.length / CODEX_PAGE_SIZE));
+      if (codexPage >= pageCount) return;
+      codexPage++;
+      renderCodex();
+      playSfx('click');
     });
     q('codex-list').addEventListener('click', function (event) {
       var card = event.target.closest('[data-beast-id]');

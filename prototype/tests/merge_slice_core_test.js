@@ -169,12 +169,12 @@ check('data 模块导出至少包含四条首发异兽线', function () {
   BEASTS.forEach(function (id) { expect(text.indexOf(id) >= 0, '数据包含 ' + id); });
 });
 
-check('初始三槽订单始终存在，且至少一个可达', function () {
+check('初始五槽订单始终存在，且至少一个可达', function () {
   const state = fresh();
   const orders = Core.ensureOrders(state, deterministicRng);
   expect(orders === state.activeOrders, 'ensureOrders 返回 state.activeOrders');
-  expect(orders.length === 3, 'activeOrders 恰为三个槽位');
-  expect(orders.every(Boolean), '三个订单槽均非空');
+  expect(orders.length === 5, 'activeOrders 恰为五个槽位');
+  expect(orders.every(Boolean), '五个订单槽均非空');
   expect(typeof Core.isOrderReachable === 'function', 'Core.isOrderReachable 已公开');
   expect(orders.some(function (order) { return Core.isOrderReachable(state, order) === true; }), '至少一个订单可达');
 });
@@ -314,20 +314,18 @@ check('energy=0 仍可 claimJob，且重复 claim 幂等', function () {
     '同一时间重复 claim 不重复发奖');
 });
 
-check('满盘时 pending 奖励不丢，腾出格后可继续领取', function () {
+check('满盘时 generate 安全拒绝且不扣体力/储能', function () {
   const state = fresh();
   expect(Array.isArray(state.grid) && state.grid.length > 0, '棋盘已初始化');
+  const specialCells = state.grid.map(function (entry) { return entry && entry.kind ? entry : null; });
   state.grid = state.grid.map(function () { return item('herb', 1); });
-  const pendingBefore = pendingCount(state);
+  specialCells.forEach(function (entry, index) { if (entry) state.grid[index] = entry; });
+  const energyBefore = state.energy;
+  const generatorBefore = JSON.stringify(state.grid.filter(function (entry) { return entry && entry.kind === 'generator'; }));
   const produced = Core.generate(state, 'herb', deterministicRng, NOW);
-  expect(produced && (produced.ok === false || produced.pending === true || produced.queued === true), '满盘 generate 不静默丢弃');
-  expect(pendingCount(state) > pendingBefore || produced.pending === true || produced.queued === true,
-    '满盘产出进入 pending 队列');
-  const moved = Core.moveToStorage(state, 0);
-  resultOk(moved, '移动一件物品到 storage 腾出棋盘格');
-  Core.advanceTime(state, NOW + 1);
-  expect(pendingCount(state) < pendingBefore + 2 || state.grid.some(function (entry) { return entry && entry.family === 'herb'; }),
-    '腾位后 pending 奖励仍可回到棋盘/继续保留');
+  expect(produced && produced.ok === false && produced.reason === 'board-full', '满盘 generate 返回 board-full');
+  expect(state.energy === energyBefore, '满盘不扣体力');
+  expect(JSON.stringify(state.grid.filter(function (entry) { return entry && entry.kind === 'generator'; })) === generatorBefore, '满盘不扣生成器储能');
 });
 
 check('背景购买扣费、持久拥有且可反复切换', function () {
