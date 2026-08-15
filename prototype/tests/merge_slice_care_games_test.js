@@ -32,10 +32,10 @@ function tilePoint(tile, rect) {
 
 function gameTileBox(tile, rect) {
   return rect ? {
-    x: rect.x + tile.cx * rect.cell + tile.layer * rect.cell * 0.10,
-    y: rect.y + tile.cy * rect.cell + tile.layer * rect.cell * 0.10 * 0.65,
-    w: rect.cell * 0.86,
-    h: rect.cell * 0.86
+    x: rect.x + tile.cx * rect.cell + tile.layer * rect.cell * 0.08,
+    y: rect.y + tile.cy * rect.cell + tile.layer * rect.cell * 0.08 * 0.65,
+    w: rect.cell,
+    h: rect.cell
   } : null;
 }
 
@@ -64,10 +64,10 @@ function clearTriples(game, count) {
 }
 
 const DIFFICULTY_DIMENSIONS = {
-  easy: { match3: [6, 6, 5], sheep: [4, 4, 1, 4, 4] },
-  normal: { match3: [6, 6, 6], sheep: [5, 5, 2, 6, 12] },
-  hard: { match3: [6, 7, 6], sheep: [6, 6, 3, 8, 16] },
-  master: { match3: [7, 8, 6], sheep: [7, 7, 4, 10, 20] }
+  easy: { match3: [6, 6, 5], sheep: [3, 3, 1, 6, 6] },
+  normal: { match3: [6, 6, 6], sheep: [4, 4, 2, 7, 14] },
+  hard: { match3: [6, 7, 6], sheep: [5, 5, 3, 8, 16] },
+  master: { match3: [7, 8, 6], sheep: [6, 6, 4, 9, 18] }
 };
 
 function runDifficultyProfileChecks(Match3) {
@@ -131,9 +131,10 @@ function runSheepGameChecks() {
       doneSummary = { perf: perf, summary: summary };
     }
   });
-  assert.strictEqual(game.cols, 6, '羊了个羊塔基宽 6');
-  assert.strictEqual(game.rows, 6, '羊了个羊塔基高 6');
+  assert.strictEqual(game.cols, 5, '羊了个羊塔基宽 5（基座收窄提高难度）');
+  assert.strictEqual(game.rows, 5, '羊了个羊塔基高 5');
   assert.strictEqual(game.layers, 3, '羊了个羊共 3 层');
+  assert.strictEqual(game.maxSlots, 6, '底部槽收窄为 6 格');
   assert.strictEqual(game.totalTriples, 16, '羊了个羊共 16 组三连');
   assert.strictEqual(game.tiles.filter(function (tile) { return !tile.removed; }).length, 48, '塔内共 48 张牌');
   assert.ok(game.hasLegalMove(), '初盘有露头牌');
@@ -214,10 +215,11 @@ function runSheepGameChecks() {
 
   const challenge = new SheepGame.Game('PLAY', { difficulty: 'challenge', rng: deterministicRng() });
   assert.deepStrictEqual([challenge.cols, challenge.rows, challenge.layers, challenge.totalTriples, challenge.timeLimit],
-    [8, 8, 5, 20, 150], '挑战模式独立塔基、层数与时长');
+    [7, 7, 5, 20, 150], '挑战模式独立塔基、层数与时长');
+  assert.strictEqual(challenge.maxSlots, 6, '挑战模式同样使用 6 格槽');
   assert.ok(challenge.failPerfCap >= 0.84, '挑战模式高分失败也可匹配高表现');
 
-  console.log('  PASS  SheepGame 6×6 3 层 16 组、三消/槽满/高分失败/清盘/超时/取消/挑战');
+  console.log('  PASS  SheepGame 5×5 3 层 16 组、三消/槽满/高分失败/清盘/超时/取消/挑战');
 }
 
 function loadMatch3(constantRandom) {

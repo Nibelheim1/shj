@@ -66,9 +66,14 @@ check('配置含四档难度、双游戏尺寸、玩法规则和统一奖励表'
   assert.strictEqual(DATA.careGames.difficulties.master.play.layers, 4);
   assert.strictEqual(DATA.careGames.difficulties.easy.play.tilesPerType, 3);
   assert.strictEqual(DATA.careGames.difficulties.normal.play.layers, 2);
-  assert.strictEqual(DATA.careGames.difficulties.hard.play.scoreTarget, 2800);
+  assert.strictEqual(DATA.careGames.difficulties.hard.play.slots, 6);
+  assert.strictEqual(DATA.careGames.difficulties.hard.play.cols, 5);
+  assert.strictEqual(DATA.careGames.difficulties.hard.play.scoreTarget, 3100);
   assert.strictEqual(DATA.careGames.difficulties.master.play.failPerfCap, 0.84);
   assert.strictEqual(DATA.careGames.difficulties.master.play.comboWindow, 1.0);
+  assert.ok(Array.isArray(DATA.careGames.difficulties.challenge.play.icons) &&
+    DATA.careGames.difficulties.challenge.play.icons.length === 10,
+    '挑战模式配置 10 种跨系列图标');
   assert.strictEqual(DATA.careGames.rewardRunsPerFacility, 3);
 });
 

@@ -21,31 +21,33 @@
 }(typeof window !== 'undefined' ? window : this, function (global) {
   'use strict';
 
-  var NAMES = ['play_01', 'play_02', 'play_03', 'play_04', 'play_05', 'play_06', 'play_07', 'play_08', 'play_09', 'play_10'];
-  var SYMBOLS = ['🍎', '🪁', '🎈', '🥁', '⭐', '🍬', '🪀', '🎐', '🔔', '⛵'];
+  /* 跨系列图标池：每个系列只取一张，减少同色混淆；不足 10 张时再从
+     同系列补高等级图标，拉开视觉距离。 */
+  var NAMES = ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08'];
+  var SYMBOLS = ['🍎', '🌿', '🧪', '🍚', '🪵', '🪮', '🧿', '🪸', '🎏', '⚙️'];
   var DEFAULT_ASSET_ROOT = 'assets/art/match3/';
   var imageCache = {};
 
   var DIFFICULTIES = {
     easy: {
-      cols: 4, rows: 4, layers: 1, typeCount: 4, tilesPerType: 3, slots: 7,
-      timeLimit: 70, scoreTarget: 700, failPerfCap: 0.58, comboWindow: 2.2
+      cols: 3, rows: 3, layers: 1, typeCount: 6, tilesPerType: 3, slots: 6,
+      timeLimit: 70, scoreTarget: 900, failPerfCap: 0.58, comboWindow: 2.2
     },
     normal: {
-      cols: 5, rows: 5, layers: 2, typeCount: 6, tilesPerType: 6, slots: 7,
-      timeLimit: 80, scoreTarget: 1600, failPerfCap: 0.72, comboWindow: 1.9
+      cols: 4, rows: 4, layers: 2, typeCount: 7, tilesPerType: 6, slots: 6,
+      timeLimit: 80, scoreTarget: 1900, failPerfCap: 0.72, comboWindow: 1.9
     },
     hard: {
-      cols: 6, rows: 6, layers: 3, typeCount: 8, tilesPerType: 6, slots: 7,
-      timeLimit: 90, scoreTarget: 2800, failPerfCap: 0.84, comboWindow: 1.4
+      cols: 5, rows: 5, layers: 3, typeCount: 8, tilesPerType: 6, slots: 6,
+      timeLimit: 90, scoreTarget: 3100, failPerfCap: 0.84, comboWindow: 1.4
     },
     master: {
-      cols: 7, rows: 7, layers: 4, typeCount: 10, tilesPerType: 6, slots: 7,
-      timeLimit: 100, scoreTarget: 4400, failPerfCap: 0.84, comboWindow: 1.0
+      cols: 6, rows: 6, layers: 4, typeCount: 9, tilesPerType: 6, slots: 6,
+      timeLimit: 100, scoreTarget: 4600, failPerfCap: 0.84, comboWindow: 1.0
     },
     challenge: {
-      cols: 8, rows: 8, layers: 5, typeCount: 10, tilesPerType: 6, slots: 7,
-      timeLimit: 150, scoreTarget: 6200, failPerfCap: 0.84, comboWindow: 1.2
+      cols: 7, rows: 7, layers: 5, typeCount: 10, tilesPerType: 6, slots: 6,
+      timeLimit: 150, scoreTarget: 6400, failPerfCap: 0.84, comboWindow: 1.2
     }
   };
   var DEFAULT_DIFFICULTY = 'hard';
@@ -138,7 +140,11 @@
     this.maxSlots = integerOption(this.opts.slots, profile.slots, 7);
     this.totalTiles = this.typeCount * this.tilesPerType;
     this.totalTriples = this.totalTiles / 3;
-    this.names = NAMES.slice(0, this.typeCount);
+    this.names = Array.isArray(this.opts.icons) && this.opts.icons.length
+      ? this.opts.icons.slice(0, this.typeCount)
+      : NAMES.slice(0, this.typeCount);
+    while (this.names.length < this.typeCount) this.names.push(NAMES[this.names.length % NAMES.length]);
+    this.icons = this.names.slice();
     this.assetRoot = normalizeRoot(this.opts.assetRoot || (global && global.SHEEP_GAME_ASSET_ROOT) || DEFAULT_ASSET_ROOT);
     this.rng = typeof this.opts.rng === 'function' ? this.opts.rng : Math.random;
     this.timeLimit = Math.max(1, finite(this.opts.timeLimit, profile.timeLimit || 90));
@@ -227,8 +233,9 @@
   };
 
   Game.prototype._tileRect = function (tile, rect) {
-    var size = rect.cell * 0.86;
-    var layerShift = tile.layer * rect.cell * 0.10;
+    /* 缩小基座后，图标按整格绘制：显示面积约为早期版本的两倍。 */
+    var size = rect.cell;
+    var layerShift = tile.layer * rect.cell * 0.08;
     return {
       x: rect.x + tile.cx * rect.cell + layerShift,
       y: rect.y + tile.cy * rect.cell + layerShift * 0.65,
@@ -523,7 +530,7 @@
     }
     var drawn = false;
     if (!covered && imageReady(image) && ctx.drawImage) {
-      try { ctx.drawImage(image, box.x + box.w * 0.14, box.y + box.h * 0.14, box.w * 0.72, box.h * 0.72); drawn = true; } catch (error) {}
+      try { ctx.drawImage(image, box.x + box.w * 0.02, box.y + box.h * 0.02, box.w * 0.96, box.h * 0.96); drawn = true; } catch (error) {}
     }
     if (!drawn) {
       ctx.fillStyle = covered ? '#9A7F9F' : '#7A3751';

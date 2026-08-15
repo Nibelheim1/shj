@@ -174,10 +174,10 @@ function sheepRect(game) {
 function touchTile(game, tile) {
   const rect = sheepRect(game);
   const box = {
-    x: rect.x + tile.cx * rect.cell + tile.layer * rect.cell * 0.10,
-    y: rect.y + tile.cy * rect.cell + tile.layer * rect.cell * 0.10 * 0.65,
-    w: rect.cell * 0.86,
-    h: rect.cell * 0.86
+    x: rect.x + tile.cx * rect.cell + tile.layer * rect.cell * 0.08,
+    y: rect.y + tile.cy * rect.cell + tile.layer * rect.cell * 0.08 * 0.65,
+    w: rect.cell,
+    h: rect.cell
   };
   return game.onTouchStart(box.x + box.w / 2, box.y + box.h / 2, rect);
 }
@@ -305,8 +305,10 @@ function runSheepDepth() {
   }
   assert.ok(sheepEvents.indexOf('swap') >= 0 && sheepEvents.indexOf('match') >= 0, '羊了个羊发出 swap/match 事件');
   const eventSummary = eventGame._summary();
-  assert.deepStrictEqual(Array.from(eventSummary.icons), SheepGame.NAMES.slice(0, eventGame.typeCount),
-    '图标统一为已有 play_0X 系列素材');
+  assert.deepStrictEqual(Array.from(eventSummary.icons), eventGame.icons.slice(0, eventGame.typeCount),
+    '图标按配置使用跨系列素材池');
+  const iconFamilies = new Set(eventSummary.icons.map(function (name) { return name.replace(/_\d+$/, ''); }));
+  assert.ok(iconFamilies.size >= 5, '素材覆盖多个系列，避免同色系混淆');
 
   console.log('  PASS  Sheep 800 固定种子、露头判定、槽满失败、高分失败奖励、清塔、超时与已有素材');
 }

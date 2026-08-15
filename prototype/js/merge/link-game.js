@@ -22,11 +22,10 @@
   var GAME_SECONDS = 45;
   var TIME_PICKUP_SECONDS = 5;
   var TIME_PICKUP_LIFE = 4.5;
-  var SYMBOLS = ['🍎', '🪁', '🎈', '🥁', '⭐', '🍬', '🪀', '🎐', '🔔', '⛵'];
-  // Keep the first six familiar toys for the light tier, then add two
-  // handcrafted icons per higher tier.  The assets are shared by the browser
-  // slice and the standalone link-game renderer.
-  var NAMES = ['play_01', 'play_02', 'play_03', 'play_04', 'play_05', 'play_06', 'play_07', 'play_08', 'play_09', 'play_10'];
+  /* 跨系列图标池：每个系列取一张基础图标避免同色混淆；不足 10 张时再
+     从同系列补高等级图标。羊了个羊与连连看共用此池。 */
+  var NAMES = ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08'];
+  var SYMBOLS = ['🍎', '🌿', '🧪', '🍚', '🪵', '🪮', '🧿', '🪸', '🎏', '⚙️'];
   var DEFAULT_ASSET_ROOT = 'assets/art/match3/';
   var imageCache = {};
   var SPECIAL_ORDER = ['bomb', 'ice', 'color'];

@@ -1020,32 +1020,32 @@
       easy: {
         id: 'easy', name: '轻松', unlock: 'default',
         groom: { cols: 6, rows: 6, typeCount: 5, timeLimit: 60, moveLimit: 26, minLegalMoves: 5, objective: { mode: 'score', targetMultiplier: 0.72, label: '解开单层毛结并制造特殊块' }, knotMode: 'single', timePickupBudget: 4, itemCounts: { hammer: 3, shuffle: 2, theme: 2 } },
-        play: { cols: 4, rows: 4, layers: 1, typeCount: 4, tilesPerType: 3, slots: 7, timeLimit: 70, scoreTarget: 700, failPerfCap: 0.58, comboWindow: 2.2 },
+        play: { cols: 3, rows: 3, layers: 1, typeCount: 6, tilesPerType: 3, slots: 6, timeLimit: 70, scoreTarget: 900, failPerfCap: 0.58, comboWindow: 2.2, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
         rewards: { floor: [1], B: [1, 1], A: [2], S: [2, 1] }
       },
       normal: {
         id: 'normal', name: '标准', unlock: 'firstStory',
         groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 60, moveLimit: 23, minLegalMoves: 4, objective: { mode: 'score', targetMultiplier: 0.90, label: '收集目标图案并解开混合毛结' }, knotMode: 'mixed', timePickupBudget: 3, itemCounts: { hammer: 2, shuffle: 2, theme: 1 } },
-        play: { cols: 5, rows: 5, layers: 2, typeCount: 6, tilesPerType: 6, slots: 7, timeLimit: 80, scoreTarget: 1600, failPerfCap: 0.72, comboWindow: 1.9 },
+        play: { cols: 4, rows: 4, layers: 2, typeCount: 7, tilesPerType: 6, slots: 6, timeLimit: 80, scoreTarget: 1900, failPerfCap: 0.72, comboWindow: 1.9, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01'] },
         rewards: { floor: [1], B: [2], A: [2, 1], S: [3] }
       },
       hard: {
         id: 'hard', name: '困难', unlock: 'groomLevel2',
         groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 60, moveLimit: 20, minLegalMoves: 3, objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '清除扩散毛结并完成两次连锁' }, knotMode: 'double-spread', timePickupBudget: 2, itemCounts: { hammer: 2, shuffle: 1, theme: 1 } },
-        play: { cols: 6, rows: 6, layers: 3, typeCount: 8, tilesPerType: 6, slots: 7, timeLimit: 90, scoreTarget: 2800, failPerfCap: 0.84, comboWindow: 1.4 },
+        play: { cols: 5, rows: 5, layers: 3, typeCount: 8, tilesPerType: 6, slots: 6, timeLimit: 90, scoreTarget: 3100, failPerfCap: 0.84, comboWindow: 1.4, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01'] },
         rewards: { floor: [2], B: [2, 1], A: [3], S: [3, 2] }
       },
       master: {
         id: 'master', name: '大师', unlock: 'groomLevel3',
         groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 60, moveLimit: 18, minLegalMoves: 2, objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '破除三层毛结并组合两枚特殊块' }, knotMode: 'double-triple', timePickupBudget: 1, itemCounts: { hammer: 1, shuffle: 1, theme: 1 } },
-        play: { cols: 7, rows: 7, layers: 4, typeCount: 10, tilesPerType: 6, slots: 7, timeLimit: 100, scoreTarget: 4400, failPerfCap: 0.84, comboWindow: 1.0 },
+        play: { cols: 6, rows: 6, layers: 4, typeCount: 9, tilesPerType: 6, slots: 6, timeLimit: 100, scoreTarget: 4600, failPerfCap: 0.84, comboWindow: 1.0, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08'] },
         rewards: { floor: [2], B: [3], A: [3, 2], S: [4], repeatS: [3, 2] }
       },
       challenge: {
         id: 'challenge', name: '挑战模式', unlock: 'default', challenge: true,
         rewardCap: 6, maxRewardItems: 6,
         groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 120, moveLimit: 50, minLegalMoves: 3, objective: { mode: 'score', targetMultiplier: 1.7, label: '在长局中尽量刷新高分' }, knotMode: 'mixed', timePickupBudget: 4, itemCounts: { hammer: 2, shuffle: 2, theme: 2 } },
-        play: { cols: 8, rows: 8, layers: 5, typeCount: 10, tilesPerType: 6, slots: 7, timeLimit: 150, scoreTarget: 6200, failPerfCap: 0.84, comboWindow: 1.2 },
+        play: { cols: 7, rows: 7, layers: 5, typeCount: 10, tilesPerType: 6, slots: 6, timeLimit: 150, scoreTarget: 6400, failPerfCap: 0.84, comboWindow: 1.2, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08'] },
         rewards: { scoreBased: true, minItems: 2, maxItems: 6, maxTier: 3 }
       }
     }
