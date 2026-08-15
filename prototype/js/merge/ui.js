@@ -1246,7 +1246,7 @@
     var column = Math.max(0, Number(status.map && status.map.column) || 0);
     var x = column === 0 ? 26 : 74;
     if (row % 2 === 1) x = column === 0 ? 30 : 70;
-    var y = 9 + (row - 1) * 13.2;
+    var y = 10 + (row - 1) * 13;
     return { left: Math.max(8, Math.min(92, x)), top: Math.max(6, Math.min(92, y)) };
   }
 
@@ -1355,7 +1355,9 @@
     q('sect-scene-stage').dataset.stage = status.locked ? 'locked' : stateName;
     q('sect-scene-progress').textContent = status.locked ? '0 / 3' : stageIndex + ' / 3';
     var background = q('sect-scene-background-layer');
-    if (background) background.style.backgroundImage = art ? 'url("' + String(art).replace(/"/g, '') + '")' : 'url("' + sceneAssetPath('bg_courtyard_buildingfree.webp') + '")';
+    /* 背景只负责提供庭院环境，区域建筑统一由前景 building-visual 呈现，
+       避免同一张区域大图在背景与建筑层重复叠放。 */
+    if (background) background.style.backgroundImage = 'url("' + sceneAssetPath('bg_courtyard_buildingfree.webp') + '")';
     buildingLayer.innerHTML = areas.map(function (area) {
       var nodeStatus = Core.areaStatus ? Core.areaStatus(state, area.id) : null;
       if (!nodeStatus || !nodeStatus.ok) return '';
