@@ -982,7 +982,7 @@
     challengeRewards: {
       maxItems: 6,
       groom: { countThresholds: [600, 1200, 2200, 3600], tier2Score: 1200, tier3Score: 3000 },
-      play: { countThresholds: [2500, 5000, 8500, 13000], tier2Score: 5000, tier3Score: 12000 }
+      play: { countThresholds: [600, 1200, 2200, 3400], tier2Score: 1500, tier3Score: 3000 }
     },
     historyLimit: 5,
     effectiveActions: { groom: 3, play: 4 },
@@ -991,32 +991,32 @@
       easy: {
         id: 'easy', name: '轻松', unlock: 'default',
         groom: { cols: 6, rows: 6, typeCount: 5, timeLimit: 60, moveLimit: 26, minLegalMoves: 5, objective: { mode: 'score', targetMultiplier: 0.72, label: '解开单层毛结并制造特殊块' }, knotMode: 'single', timePickupBudget: 4, itemCounts: { hammer: 3, shuffle: 2, theme: 2 } },
-        play: { cols: 6, rows: 4, typeCount: 6, pairs: 12, timeLimit: 70, maxTurns: 3, allowOutside: true, layoutShift: 'none', lockedPairs: 0, goalCount: 1, specialPairs: { bomb: 1, ice: 0, color: 0 }, timePickupBudget: 4, itemCounts: { hint: 4, shuffle: 2, bell: 2 } },
+        play: { cols: 4, rows: 3, typeCount: 6, pairs: 6, timeLimit: 70, previewMs: 2400, flipBackMs: 950, mismatchPenalty: 0, comboWindow: 2.4 },
         rewards: { floor: [1], B: [1, 1], A: [2], S: [2, 1] }
       },
       normal: {
         id: 'normal', name: '标准', unlock: 'firstStory',
         groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 60, moveLimit: 23, minLegalMoves: 4, objective: { mode: 'score', targetMultiplier: 0.90, label: '收集目标图案并解开混合毛结' }, knotMode: 'mixed', timePickupBudget: 3, itemCounts: { hammer: 2, shuffle: 2, theme: 1 } },
-        play: { cols: 8, rows: 4, typeCount: 6, pairs: 16, timeLimit: 80, maxTurns: 2, allowOutside: true, layoutShift: 'down', lockedPairs: 1, goalCount: 2, specialPairs: { bomb: 1, ice: 1, color: 1 }, timePickupBudget: 3, itemCounts: { hint: 3, shuffle: 2, bell: 1 } },
+        play: { cols: 4, rows: 4, typeCount: 8, pairs: 8, timeLimit: 80, previewMs: 1600, flipBackMs: 800, mismatchPenalty: 0, comboWindow: 1.9 },
         rewards: { floor: [1], B: [2], A: [2, 1], S: [3] }
       },
       hard: {
         id: 'hard', name: '困难', unlock: 'groomLevel2',
         groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 60, moveLimit: 20, minLegalMoves: 3, objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '清除扩散毛结并完成两次连锁' }, knotMode: 'double-spread', timePickupBudget: 2, itemCounts: { hammer: 2, shuffle: 1, theme: 1 } },
-        play: { cols: 8, rows: 5, typeCount: 6, pairs: 20, timeLimit: 90, maxTurns: 2, allowOutside: true, layoutShift: 'left', lockedPairs: 2, goalCount: 2, specialPairs: { bomb: 2, ice: 1, color: 1 }, timePickupBudget: 2, itemCounts: { hint: 2, shuffle: 1, bell: 1 } },
+        play: { cols: 5, rows: 4, typeCount: 10, pairs: 10, timeLimit: 90, previewMs: 900, flipBackMs: 700, mismatchPenalty: 1, comboWindow: 1.4 },
         rewards: { floor: [2], B: [2, 1], A: [3], S: [3, 2] }
       },
       master: {
         id: 'master', name: '大师', unlock: 'groomLevel3',
         groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 60, moveLimit: 18, minLegalMoves: 2, objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '破除三层毛结并组合两枚特殊块' }, knotMode: 'double-triple', timePickupBudget: 1, itemCounts: { hammer: 1, shuffle: 1, theme: 1 } },
-        play: { cols: 8, rows: 6, typeCount: 6, pairs: 24, timeLimit: 100, maxTurns: 2, allowOutside: true, layoutShift: 'cascade', lockedPairs: 4, goalCount: 3, specialPairs: { bomb: 2, ice: 2, color: 2 }, timePickupBudget: 1, itemCounts: { hint: 1, shuffle: 1, bell: 0 } },
+        play: { cols: 6, rows: 4, typeCount: 10, pairs: 12, timeLimit: 100, previewMs: 600, flipBackMs: 600, mismatchPenalty: 1, comboWindow: 1.0 },
         rewards: { floor: [2], B: [3], A: [3, 2], S: [4], repeatS: [3, 2] }
       },
       challenge: {
         id: 'challenge', name: '挑战模式', unlock: 'default', challenge: true,
         rewardCap: 6, maxRewardItems: 6,
         groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 120, moveLimit: 50, minLegalMoves: 3, objective: { mode: 'score', targetMultiplier: 1.7, label: '在长局中尽量刷新高分' }, knotMode: 'mixed', timePickupBudget: 4, itemCounts: { hammer: 2, shuffle: 2, theme: 2 } },
-        play: { cols: 8, rows: 8, typeCount: 6, pairs: 32, timeLimit: 150, maxTurns: 2, allowOutside: true, layoutShift: 'cascade', lockedPairs: 4, goalCount: 3, specialPairs: { bomb: 3, ice: 2, color: 2 }, timePickupBudget: 3, itemCounts: { hint: 2, shuffle: 1, bell: 1 } },
+        play: { cols: 6, rows: 5, typeCount: 10, pairs: 15, timeLimit: 150, previewMs: 0, flipBackMs: 500, mismatchPenalty: 1, comboWindow: 1.2 },
         rewards: { scoreBased: true, minItems: 2, maxItems: 6, maxTier: 3 }
       }
     }

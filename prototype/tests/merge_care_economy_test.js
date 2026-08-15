@@ -33,16 +33,17 @@ function challengeRewardValue(result) {
   }, 0);
 }
 
-function runChallenge(score, validActions, outcome) {
+function runChallenge(score, validActions, outcome, careType) {
+  careType = careType || 'groom';
   const state = fresh('challenge');
   const before = {
     affection: state.beastCases.qiongqi.affection,
     heal: state.beastCases.qiongqi.heal,
     exp: state.beastCases.qiongqi.exp
   };
-  const started = Core.beginCare(state, 'groom', 'challenge', 'qiongqi');
+  const started = Core.beginCare(state, careType, 'challenge', 'qiongqi');
   assert.strictEqual(started.ok, true, 'challenge care must begin from the independent challenge entry');
-  const result = Core.recordCare(state, 'groom', {
+  const result = Core.recordCare(state, careType, {
     beastId: 'qiongqi',
     difficulty: 'challenge',
     outcome: outcome || 'complete',
@@ -61,16 +62,14 @@ check('配置含四档难度、双游戏尺寸、玩法规则和统一奖励表'
   assert.strictEqual(DATA.careGames.difficulties.master.groom.moveLimit, 18);
   assert.strictEqual(DATA.careGames.difficulties.master.groom.knotMode, 'double-triple');
   assert.ok(DATA.careGames.difficulties.master.groom.objective.label.includes('特殊块'));
-  assert.strictEqual(DATA.careGames.difficulties.hard.play.pairs, 20);
-  assert.strictEqual(DATA.careGames.difficulties.master.play.pairs, 24);
-  assert.strictEqual(DATA.careGames.difficulties.easy.play.maxTurns, 3);
-  assert.strictEqual(DATA.careGames.difficulties.master.play.allowOutside, true);
-  assert.strictEqual(DATA.careGames.difficulties.normal.play.layoutShift, 'down');
-  assert.strictEqual(DATA.careGames.difficulties.hard.play.layoutShift, 'left');
-  assert.strictEqual(DATA.careGames.difficulties.master.play.layoutShift, 'cascade');
-  assert.strictEqual(DATA.careGames.difficulties.master.play.maxTurns, 2);
-  assert.strictEqual(DATA.careGames.difficulties.master.play.lockedPairs, 4);
-  assert.strictEqual(DATA.careGames.difficulties.master.play.goalCount, 3);
+  assert.strictEqual(DATA.careGames.difficulties.hard.play.pairs, 10);
+  assert.strictEqual(DATA.careGames.difficulties.master.play.pairs, 12);
+  assert.strictEqual(DATA.careGames.difficulties.easy.play.previewMs, 2400);
+  assert.strictEqual(DATA.careGames.difficulties.master.play.previewMs, 600);
+  assert.strictEqual(DATA.careGames.difficulties.normal.play.flipBackMs, 800);
+  assert.strictEqual(DATA.careGames.difficulties.hard.play.mismatchPenalty, 1);
+  assert.strictEqual(DATA.careGames.difficulties.master.play.mismatchPenalty, 1);
+  assert.strictEqual(DATA.careGames.difficulties.master.play.comboWindow, 1.0);
   assert.strictEqual(DATA.careGames.rewardRunsPerFacility, 3);
 });
 
@@ -207,6 +206,25 @@ check('challenge 跳过或无有效操作不得奖励', function () {
   assert.strictEqual(Number(noAction.result.healGained), 0);
   assert.strictEqual(Number(noAction.result.beastExpGained), 0);
   assert.strictEqual(challengeRewardValue(noAction.result), 0, 'challenge with no valid operations must grant no synthesis material');
+});
+
+check('challenge 翻牌配对的分数阈值单调、封顶并走神兽礼物路线', function () {
+  const scores = [0, 700, 1600, 3200, 100000];
+  const values = scores.map(function (score) {
+    const runResult = runChallenge(score, 10, 'complete', 'play');
+    const result = runResult.result;
+    assert.strictEqual(result.ok, true, 'play challenge settlement must succeed');
+    assert.strictEqual(result.challenge, true, 'play challenge settlement marked challenge');
+    assert.ok((result.rewardItems || []).length <= 6, 'play challenge reward count respects cap');
+    return challengeRewardValue(result);
+  });
+  for (let index = 1; index < values.length; index += 1) {
+    assert.ok(values[index] >= values[index - 1], 'play challenge reward value must be monotonic with score');
+  }
+  const cappedA = runChallenge(100000, 10, 'complete', 'play').result;
+  const cappedB = runChallenge(1000000000, 10, 'complete', 'play').result;
+  assert.strictEqual(challengeRewardValue(cappedB), challengeRewardValue(cappedA),
+    'play challenge scores above ceiling must not grant extra material');
 });
 
 console.log(failures ? failures + ' FAIL' : 'ALL PASS');

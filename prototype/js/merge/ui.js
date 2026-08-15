@@ -90,7 +90,7 @@
 
   function careTypeLabel(type) {
     if (type === 'groom') return '梳洗台消消乐';
-    if (type === 'play') return '亭子连连看';
+    if (type === 'play') return '嬉游亭翻牌配对';
     return '照料小游戏';
   }
 
@@ -254,7 +254,7 @@
     } else if (family === 'groom') {
       baseSource = '梳洗台消消乐结算奖励（轻松/标准/困难/大师/挑战均可获得）';
     } else if (family === 'play') {
-      baseSource = '嬉游亭连连看结算奖励（轻松/标准/困难/大师/挑战均可获得）';
+      baseSource = '嬉游亭翻牌配对结算奖励（轻松/标准/困难/大师/挑战均可获得）';
     } else {
       baseSource = '由后续卷章的区域信物或专属产线解锁后获得';
     }
@@ -517,7 +517,7 @@
         '<article class="how-to-play-item"><b>② 完成委托</b><span>目标条固定保留主线、修缮、医案、访客与七日旅程五槽，点开卡片即可查看需求和奖励。</span></article>' +
         '<article class="how-to-play-item"><b>③ 养成生成器</b><span>常驻生成器在线点击只耗体力、不限次数，消耗暖玉与体力即可升级。生成器会掉落部件：四阶部件合成造物生成器，它不耗体力、次数有限，用尽后消散并返还部件。</span></article>' +
         '<article class="how-to-play-item"><b>④ 庭院照料</b><span>点击梳洗台或嬉游亭后选择难度。达到有效操作门槛即可获得合成素材，奖励次数不限；练习与高难度挑战都会记录成绩。</span></article>' +
-        '<article class="how-to-play-item"><b>⑤ 有效挑战结算</b><span>消消乐至少完成 3 次有效交换、连连看至少连成 4 对。达到门槛后即使时间到也有保底；直接跳过只保留陪伴反馈，不推进病历或奖励。</span></article>' +
+        '<article class="how-to-play-item"><b>⑤ 有效挑战结算</b><span>消消乐至少完成 3 次有效交换、翻牌配对至少连成 4 对。达到门槛后即使时间到也有保底；直接跳过只保留陪伴反馈，不推进病历或奖励。</span></article>' +
         '<article class="how-to-play-item"><b>⑥ 继续成长</b><span>好感、疗愈和经验都达标后会自动解锁新形态与专属故事；高等级也能换回喜欢的旧形态。</span></article>' +
       '</div>' +
       '<div class="how-to-play-note">小提示：棋盘满时奖励会进入药匣暂存，不会丢失；看不懂任何图标时，长按它即可查看名称与来源。</div>' +
@@ -689,7 +689,7 @@
       return '与' + sourceBeast.name + '一起' + gift.careLabel;
     }
     if (need.family === 'groom') return '梳洗台消消乐';
-    if (need.family === 'play') return '亭子连连看';
+    if (need.family === 'play') return '嬉游亭翻牌配对';
     var definition = familyDef(need.family);
     return definition ? definition.name + '生成器/合成' : '合成棋盘';
   }
@@ -1250,7 +1250,7 @@
       return '<article class="codex-card ' + (discovered ? '' : 'locked') + '" data-beast-id="' + beast.id + '">' +
         '<div class="codex-art"><img loading="lazy" src="' + esc(characterAssetPath(beastArt(beast, entry))) + '" alt="' + esc(beast.name) + '大图立绘" /><b>' + (discovered ? esc(levelConfig && levelConfig.title || beast.stageNames[entry.stage]) : '等待来信') + '</b></div>' +
         '<div class="codex-copy"><h2>' + (discovered ? esc(beast.name) : '未结识 · ' + esc(beast.name)) + '</h2><p>' + (discovered ? esc(beast.lore) : '解锁信物：' + esc(unlock)) + '</p>' +
-        '<div class="codex-care"><strong>专属素材：' + esc(careGuide) + '</strong><small>消消乐、连连看和专属委托都增加好感；每日上限 100，未互动次日 -10</small></div>' +
+        '<div class="codex-care"><strong>专属素材：' + esc(careGuide) + '</strong><small>消消乐、翻牌配对和专属委托都增加好感；每日上限 100，未互动次日 -10</small></div>' +
         '<div class="codex-growth">Lv' + entry.level + '/5 · 好感 ' + entry.affection + (next ? '/' + next.affection : '') + ' · 疗愈 ' + entry.heal + (next ? '/' + next.heal : '') + ' · 经验 ' + entry.exp + (next ? '/' + next.exp : '') + '</div>' +
         '<div class="codex-job">点击查看大图、故事与形态</div></div></article>';
     }).join('');
@@ -2058,9 +2058,9 @@
       var objectiveLabel = game.objective && typeof game.objective === 'object' ? game.objective.label : game.objective;
       return (game.typeCount ? game.typeCount + ' 种图标 · ' : '') + (game.moveLimit ? game.moveLimit + ' 步 · ' : '') + esc(objectiveLabel || '完成关卡目标') + ' · 至少 ' + (game.minLegalMoves || 1) + ' 个候选交换';
     }
-    var shift = { none: '静态棋盘', down: '消除后下落', left: '消除后向左收拢', snake: '蛇形重排' }[game.layoutShift] || '动态布局';
-    var specialCount = game.specialPairs ? Object.keys(game.specialPairs).reduce(function (sum, key) { return sum + (Number(game.specialPairs[key]) || 0); }, 0) : 0;
-    return (game.typeCount ? game.typeCount + ' 种图标 · ' : '') + '最多 ' + game.maxTurns + ' 转 · ' + (game.allowOutside === false ? '禁走外圈' : '可走外圈') + ' · ' + shift + (game.lockedPairs ? ' · ' + game.lockedPairs + ' 组锁链' : '') + (game.goalCount ? ' · ' + game.goalCount + ' 个疗愈目标' : '') + (specialCount ? ' · ' + specialCount + ' 对特殊块' : '') + ' · 连击加时';
+    var previewText = Number(game.previewMs) > 0 ? '开局预览 ' + Math.round(Number(game.previewMs) / 1000) + ' 秒' : '无开局预览';
+    var penaltyText = Number(game.mismatchPenalty) > 0 ? ' · 失误扣 ' + game.mismatchPenalty + ' 秒' : '';
+    return (game.typeCount ? game.typeCount + ' 种图案 · ' : '') + game.cols + '×' + game.rows + ' 牌阵 · ' + game.pairs + ' 对 · ' + previewText + penaltyText + ' · 连击加分';
   }
 
   function careGameGuide(type) {
@@ -2070,7 +2070,7 @@
         '<div class="care-guide-row"><i class="care-guide-mark line">↔↕</i><span>条纹块：消除整行或整列；○ 炸弹：清除周围 3×3；✦ 彩石：清除同色图标。</span></div>' +
         '<div class="care-guide-row"><i class="care-guide-mark move">⇄</i><span>拖动相邻图标交换，三连即可消除；四连、五连或 L/T 形会制造特殊块。</span></div></div>';
     }
-    return '<div class="care-game-guide" role="note"><strong>连连看玩法</strong><div class="care-guide-row"><i class="care-guide-mark move">↗</i><span>顶部带金点标记的图标是本局「疗愈目标」，优先消除可额外加分；完成全部目标会触发疗愈达成。连续消除触发连击，3/5/8 连击会爆发、加时并掉落续命时间牌。</span></div><div class="care-guide-row"><i class="care-guide-mark line">✹</i><span>特殊块：✹ 炸弹会连带清除周围对子；蓝框冰冻块需连接两次；“变”色块会定时换成另一种图案。目标、特殊块和连击都能改变你的消除顺序。</span></div><div class="care-guide-row"><i class="care-guide-mark line">!</i><span>不再因错配扣时间：时间只增不减，靠连击与道具续命。提示、重排、灵铃会显示剩余次数；锁定图标需先完成前置配对。</span></div></div>';
+    return '<div class="care-game-guide" role="note"><strong>翻牌配对玩法</strong><div class="care-guide-row"><i class="care-guide-mark move">👀</i><span>开局会短暂展示所有图案（困难/大师更短，挑战无预览）。记住位置后，每次翻开两张卡片。</span></div><div class="care-guide-row"><i class="care-guide-mark line">✓</i><span>两张相同 → 永久翻开并计 1 对有效操作；两张不同 → 短暂展示后自动盖回。连续配对触发连击加分，失误会中断连击，困难以上还会扣除少量时间。</span></div><div class="care-guide-row"><i class="care-guide-mark line">⏱</i><span>倒计时结束按已配对数量结算；清空全部卡片会获得最高的“疗愈达成”表现分。图标全部沿用庭院里已有的陪玩素材。</span></div></div>';
   }
 
   function openCareDifficulty(type) {
@@ -2117,7 +2117,7 @@
     }
     var difficultyConfig = DATA.careGames && DATA.careGames.difficulties[difficulty];
     if (!difficultyConfig) return { ok: false, reason: 'unknown-difficulty' };
-    var Engine = type === 'groom' ? root.Match3 : root.LinkGame;
+    var Engine = type === 'groom' ? root.Match3 : root.MemoryGame;
     var gameRoot = q('care-game-root');
     if (!Engine || !Engine.Game || !gameRoot) {
       toast(type === 'groom' ? '梳洗台正在备好软刷，请稍后再试' : '嬉游亭正在摆放玩具，请稍后再试');
@@ -2131,7 +2131,7 @@
     gameRoot.classList.add('is-open');
     gameRoot.setAttribute('aria-hidden', 'false');
     var warning = '';
-    gameRoot.innerHTML = '<section class="care-game-shell ' + (type === 'groom' ? 'match3-shell' : 'link-shell') + '" role="dialog" aria-modal="true" aria-label="' + (type === 'groom' ? '梳理消消乐' : '陪玩连连看') + '">' + warning + '<canvas id="care-game-canvas" tabindex="0" aria-label="' + (type === 'groom' ? '滑动交换简洁梳洗图案，规划步数、制造特殊块并完成毛结目标' : '点击两个相同图案，遵守本档转折、外圈和动态布局规则') + '"></canvas></section>';
+    gameRoot.innerHTML = '<section class="care-game-shell ' + (type === 'groom' ? 'match3-shell' : 'memory-shell') + '" role="dialog" aria-modal="true" aria-label="' + (type === 'groom' ? '梳理消消乐' : '陪玩翻牌配对') + '">' + warning + '<canvas id="care-game-canvas" tabindex="0" aria-label="' + (type === 'groom' ? '滑动交换简洁梳洗图案，规划步数、制造特殊块并完成毛结目标' : '先记住图案位置，再翻开两张相同卡片；连续配对获得连击分数') + '"></canvas></section>';
     var canvas = q('care-game-canvas');
     var context = canvas && canvas.getContext ? canvas.getContext('2d') : null;
     if (!canvas || !context) {
@@ -2245,7 +2245,7 @@
     session.listeners.pointercancel = pointerUp;
     Object.keys(session.listeners).forEach(function (name) { canvas.addEventListener(name, session.listeners[name], { passive: false }); });
     session.keyHandler = function (event) {
-      if (event.key === 'Escape') settle(0, { game: type === 'groom' ? 'match3' : 'link', perf: 0 }, true);
+      if (event.key === 'Escape') settle(0, { game: type === 'groom' ? 'match3' : 'memory', perf: 0 }, true);
     };
     document.addEventListener('keydown', session.keyHandler);
     session.resizeHandler = resizeCanvas;

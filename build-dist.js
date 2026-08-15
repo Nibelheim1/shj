@@ -189,8 +189,11 @@ else warnMissing('prototype/merge-slice.js');
 
 // The modular merge implementation is optional during migration.  Copy every
 // JavaScript file, including nested files, without assuming bootstrap or UI is
-// the only entry module.
-copyDirectoryIfPresent('prototype/js/merge', 'js/merge', (relativeFile) => path.extname(relativeFile).toLowerCase() === '.js');
+// the only entry module.  link-game.js is retained for headless legacy
+// regression tests only and is no longer referenced by the client entry.
+copyDirectoryIfPresent('prototype/js/merge', 'js/merge', (relativeFile) =>
+  path.extname(relativeFile).toLowerCase() === '.js' &&
+  path.posix.basename(relativeFile).toLowerCase() !== 'link-game.js');
 
 // Some intermediate layouts keep bootstrap/UI one level above js/merge.  Copy
 // those entry modules when present; missing files are intentionally harmless.

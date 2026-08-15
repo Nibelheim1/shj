@@ -147,6 +147,7 @@ function parseStaticRoots(html) {
   const assignments = [
     'MATCH3_ASSET_ROOT',
     'LINK_GAME_ASSET_ROOT',
+    'MEMORY_GAME_ASSET_ROOT',
     'SCENE_ASSET_ROOT',
     'AUDIO_ASSET_ROOT'
   ];
@@ -270,6 +271,7 @@ function collectStaticRoots(report, html, roots) {
   const rootSpecs = [
     ['MATCH3_ASSET_ROOT', 'match3'],
     ['LINK_GAME_ASSET_ROOT', 'link-game'],
+    ['MEMORY_GAME_ASSET_ROOT', 'memory-game'],
     ['SCENE_ASSET_ROOT', 'scenes'],
     ['AUDIO_ASSET_ROOT', 'audio']
   ];

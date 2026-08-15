@@ -4,7 +4,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const LinkGame = require('../js/merge/link-game.js');
+const MemoryGame = require('../js/merge/memory-game.js');
 
 function seeded(seed) {
   let state = seed >>> 0;
@@ -161,126 +161,136 @@ function runMatch3Depth() {
   assert.strictEqual(hintEvents[0] && hintEvents[0].name, 'hint', '提示动作发出 hint 事件');
 }
 
-function replaceGrid(game, rows) {
-  game.rows = rows.length;
-  game.cols = rows[0].length;
-  game.grid = rows.map(function (row) {
-    return row.map(function (type) { return type == null ? null : game._newCell(type); });
-  });
-  game.board = game.grid;
+/* —— 翻牌配对（Memory Game）深度契约 —— */
+
+function liveCards(game) {
+  return game.cards.filter(function (card) { return card && !card.blocked; });
 }
 
-function runLinkDepth() {
-  assertStandardPlusChallenge(LinkGame.DIFFICULTIES, 'Link');
+function hiddenCards(game) {
+  return game.cards.filter(function (card) {
+    return card && !card.blocked && !card.matched && !card.flipped;
+  });
+}
+
+function findHiddenPair(game) {
+  const cards = hiddenCards(game);
+  for (let i = 0; i < cards.length; i++) {
+    for (let j = i + 1; j < cards.length; j++) {
+      if (cards[i].type === cards[j].type) return [cards[i], cards[j]];
+    }
+  }
+  return null;
+}
+
+function touchCard(game, card) {
+  return game.onTouchStart(card.c + 0.5, card.r + 0.5, { x: 0, y: 0, cell: 1 });
+}
+
+function skipPreview(game) {
+  if (game.previewActive) game.update(game.previewT + 0.01);
+  assert.strictEqual(game.previewActive, false);
+}
+
+function clearMemoryBoard(game, label) {
+  let guard = 0;
+  while (!game.finished) {
+    const pair = findHiddenPair(game);
+    assert.ok(pair, label + ' 清盘过程中始终有可配对卡片 #' + guard);
+    assert.strictEqual(touchCard(game, pair[0]), true);
+    assert.strictEqual(touchCard(game, pair[1]), true);
+    guard++;
+    assert.ok(guard <= game.totalPairs, label + ' 清盘步数不应超过对子数');
+  }
+}
+
+function runMemoryDepth() {
+  assertStandardPlusChallenge(MemoryGame.DIFFICULTIES, 'Memory');
   const levels = STANDARD_LEVELS.slice();
   const signatures = new Set();
+
   levels.forEach(function (difficulty, levelIndex) {
-    const profile = LinkGame.DIFFICULTIES[difficulty];
+    const profile = MemoryGame.DIFFICULTIES[difficulty];
     signatures.add(JSON.stringify({
-      maxTurns: profile.maxTurns,
-      allowOutside: profile.allowOutside,
-      layoutShift: profile.layoutShift,
-      lockedPairs: profile.lockedPairs,
-      comboWindow: profile.comboWindow,
-      pickup: profile.timePickupBudget,
-      items: profile.itemCounts
+      previewMs: profile.previewMs,
+      flipBackMs: profile.flipBackMs,
+      mismatchPenalty: profile.mismatchPenalty,
+      comboWindow: profile.comboWindow
     }));
     for (let seed = 1; seed <= 200; seed++) {
-      const game = new LinkGame.Game('PLAY', { difficulty: difficulty, rng: seeded(seed + levelIndex * 10000) });
-      const solution = game.solve();
-      assert.ok(solution, difficulty + ' 必须有完整解 #' + seed);
-      assert.ok(solution.length > 0 && solution.length <= game.totalPairs * 2,
-        difficulty + ' 完整解覆盖全部对子；冰冻可重复点击、炸弹可少一步 #' + seed);
-      assert.ok(game.listLegalPairs().length > 0, difficulty + ' 初盘至少有一个合法对子 #' + seed);
-      assert.strictEqual(game.hasMove(), true, difficulty + ' hasMove 与合法对子一致 #' + seed);
+      const game = new MemoryGame.Game('PLAY', { difficulty: difficulty, rng: seeded(seed + levelIndex * 10000) });
+      assert.strictEqual(game.totalPairs, profile.pairs, difficulty + ' 使用档位对子数 #' + seed);
+      assert.strictEqual(liveCards(game).length, game.totalPairs * 2, difficulty + ' 牌阵应完整 #' + seed);
+      const counts = histogram(liveCards(game));
+      Object.keys(counts).forEach(function (type) {
+        assert.strictEqual(counts[type] % 2, 0, difficulty + ' 每种图案成对出现 #' + seed);
+      });
+      if (profile.previewMs > 0) {
+        assert.strictEqual(game.previewActive, true, difficulty + ' 开局有记忆预览');
+        skipPreview(game);
+      } else {
+        assert.strictEqual(game.previewActive, false, difficulty + ' 无预览档位');
+      }
+      assert.strictEqual(hiddenCards(game).length, game.totalPairs * 2, difficulty + ' 预览结束后全部盖回');
+      assert.strictEqual(game.useHint(), true, difficulty + ' 存在可用提示 #' + seed);
+      assert.strictEqual(game.hint[0].type, game.hint[1].type, difficulty + ' 提示卡片图案相同');
+      assert.strictEqual(game.hint[0].flipped, false, difficulty + ' 提示不会提前翻开卡片');
     }
   });
-  assert.strictEqual(signatures.size, STANDARD_LEVELS.length, 'Link 四个标准档规则不能只改变棋盘尺寸');
+  assert.strictEqual(signatures.size, STANDARD_LEVELS.length, 'Memory 四个标准档规则不能只改变棋盘尺寸');
 
-  /* The public solution is executable against the real shifting/locking
-   * board, not merely a declaration made by the generator. */
   levels.forEach(function (difficulty, index) {
-    const game = new LinkGame.Game('PLAY', { difficulty: difficulty, rng: seeded(900 + index), timeLimit: 999 });
-    const plan = game.solve();
-    plan.forEach(function (step) {
-      if (!game.finished) assert.strictEqual(game._clearPair(step.a, step.b), true, difficulty + ' 解序列每步均可执行');
-    });
-    assert.strictEqual(game.finished, true, difficulty + ' 解序列可真实清盘');
-    assert.strictEqual(game.pairsCleared, game.totalPairs, difficulty + ' 清除全部对子');
-    assert.strictEqual(game.autoRescues, 0, difficulty + ' 构造解无需暗中救援');
+    const game = new MemoryGame.Game('PLAY', { difficulty: difficulty, rng: seeded(900 + index), timeLimit: 999 });
+    skipPreview(game);
+    clearMemoryBoard(game, difficulty);
+    assert.strictEqual(game.finished, true, difficulty + ' 真实触摸可清盘');
+    assert.strictEqual(game.matchedPairs, game.totalPairs, difficulty + ' 清除全部对子');
+    assert.ok(game.perf >= 0.85, difficulty + ' 清盘表现达到 mastery');
+    assert.strictEqual(game.misses, 0, difficulty + ' 按内部配对顺序清盘无误配');
   });
 
-  const outside = new LinkGame.Game('PLAY', { difficulty: 'normal', cols: 3, rows: 3, totalPairs: 4 });
-  replaceGrid(outside, [[0, 1, 0], [2, 3, 4], [1, 2, 3]]);
-  outside.maxTurns = 2; outside.allowOutside = true;
-  assert.ok(outside.findPath({ r: 0, c: 0 }, { r: 0, c: 2 }), '允许外圈时可绕过满行');
-  outside.allowOutside = false;
-  assert.strictEqual(outside.findPath({ r: 0, c: 0 }, { r: 0, c: 2 }), null, '禁用外圈后同一对不可绕板');
+  const mismatch = new MemoryGame.Game('PLAY', { difficulty: 'hard', rng: seeded(55), timeLimit: 999 });
+  skipPreview(mismatch);
+  const a = hiddenCards(mismatch)[0];
+  const b = hiddenCards(mismatch).find(function (card) { return card.type !== a.type; });
+  assert.strictEqual(touchCard(mismatch, a), true);
+  assert.strictEqual(touchCard(mismatch, b), true);
+  assert.ok(mismatch.pendingBack, '错配进入短暂展示');
+  mismatch.update(mismatch.flipBackMs / 1000 + 0.01);
+  assert.strictEqual(a.flipped, false, '错配后第一张盖回');
+  assert.strictEqual(b.flipped, false, '错配后第二张盖回');
+  assert.strictEqual(mismatch.misses, 1, '错配计数');
+  assert.ok(mismatch.timeDebt >= mismatch.mismatchPenalty, '困难档错配扣除时间');
 
-  const turns = new LinkGame.Game('PLAY', { difficulty: 'hard', cols: 3, rows: 3, totalPairs: 2 });
-  replaceGrid(turns, [[null, null, null], [0, 1, 0], [2, 3, 4]]);
-  turns.allowOutside = false; turns.maxTurns = 2;
-  const twoTurnPath = turns.findPath({ r: 1, c: 0 }, { r: 1, c: 2 });
-  assert.ok(twoTurnPath && twoTurnPath.length === 4, '两折 BFS 找到绕行路径');
-  turns.maxTurns = 1;
-  assert.strictEqual(turns.findPath({ r: 1, c: 0 }, { r: 1, c: 2 }), null, '一折限制真实阻止两折路径');
+  const constant = new MemoryGame.Game('PLAY', { difficulty: 'master', rng: function () { return 0; } });
+  assert.strictEqual(liveCards(constant).length, constant.totalPairs * 2, '极端 RNG 仍生成完整牌阵');
+  skipPreview(constant);
+  clearMemoryBoard(constant, '极端 RNG');
+  assert.strictEqual(constant.matchedPairs, constant.totalPairs, '极端 RNG 仍可清盘');
 
-  const locked = new LinkGame.Game('PLAY', { difficulty: 'master', rng: seeded(22) });
-  const lockPair = locked.solutionQueue.find(function (pair) {
-    const a = locked._pointForUid(pair.aId), b = locked._pointForUid(pair.bId);
-    return a && b && locked._cellAt(a.r, a.c).locked;
-  });
-  const lockedA = locked._pointForUid(lockPair.aId), lockedB = locked._pointForUid(lockPair.bId);
-  assert.strictEqual(locked.findPath(lockedA, lockedB), null, '锁定对子不可提前连接');
-  locked.pairsCleared = locked._cellAt(lockedA.r, lockedA.c).unlockAt;
-  locked._refreshLocks();
-  assert.strictEqual(locked._cellAt(lockedA.r, lockedA.c).locked, false, '达到进度阈值后对子解除锁定');
-  assert.strictEqual(locked._cellAt(lockedB.r, lockedB.c).locked, false, '成对棋子同步解除锁定');
+  const timeout = new MemoryGame.Game('PLAY', { difficulty: 'easy', rng: seeded(77), timeLimit: 3, previewMs: 0 });
+  const firstPair = findHiddenPair(timeout);
+  assert.strictEqual(touchCard(timeout, firstPair[0]), true);
+  assert.strictEqual(touchCard(timeout, firstPair[1]), true);
+  timeout.update(3.01);
+  assert.strictEqual(timeout.finished, true, '倒计时结束自动结算');
+  assert.strictEqual(timeout.matchedPairs, 1, '超时保留真实配对进度');
+  assert.ok(timeout.perf < 0.85, '未清盘不能拿 mastery 表现');
 
-  ['normal', 'hard', 'master'].forEach(function (difficulty, index) {
-    const game = new LinkGame.Game('PLAY', { difficulty: difficulty, rng: seeded(300 + index) });
-    const legal = game.listLegalPairs()[0];
-    const before = {};
-    game.grid.flat().filter(Boolean).forEach(function (cell) { before[cell.uid] = game._pointForUid(cell.uid); });
-    assert.ok(legal, difficulty + ' 动态布局测试存在可消对子');
-    assert.strictEqual(game._clearPair(legal.a, legal.b), true, difficulty + ' 动态布局测试可消除合法对子');
-    const moved = game.grid.flat().filter(Boolean).some(function (cell) {
-      const after = game._pointForUid(cell.uid);
-      return before[cell.uid] && (after.r !== before[cell.uid].r || after.c !== before[cell.uid].c);
-    });
-    assert.strictEqual(game.layoutShifts, 1, difficulty + ' 消除后执行布局变化');
-    if (difficulty === 'master') {
-      // master 使用 cascade 交替布局：首次下落消除顶部块时可能没有可见位移，
-      // 但布局阶段必须推进到下一档（left / snake），保证动态布局持续生效。
-      assert.strictEqual(game.layoutCycle, 1, 'master 交替布局已推进到下一阶段');
-    } else assert.strictEqual(typeof moved, 'boolean', difficulty + ' 布局变化完成且棋子状态可读取');
-  });
+  const eventGame = new MemoryGame.Game('PLAY', { difficulty: 'easy', rng: seeded(800), previewMs: 0 });
+  const memoryEvents = [];
+  eventGame.onEvent = function (name) { memoryEvents.push(name); };
+  const pair = findHiddenPair(eventGame);
+  assert.strictEqual(touchCard(eventGame, pair[0]), true);
+  assert.strictEqual(touchCard(eventGame, pair[1]), true);
+  assert.ok(memoryEvents.indexOf('swap') >= 0 && memoryEvents.indexOf('match') >= 0, '翻牌配对发出 swap/match 事件');
+  const eventSummary = eventGame._summary();
+  assert.deepStrictEqual(Array.from(eventSummary.icons), MemoryGame.NAMES.slice(0, eventGame.typeCount),
+    '图标统一为已有 play_0X 系列素材');
 
-  const rescue = new LinkGame.Game('PLAY', { difficulty: 'hard', rng: function () { return 0; } });
-  rescue.pairsCleared = 6;
-  rescue._updatePerf();
-  const beforePerf = rescue.perf;
-  assert.strictEqual(rescue._shuffleRemaining(true), true, '极端 RNG 自动救援仍构造完整可解棋盘');
-  assert.strictEqual(rescue.autoRescues, 1, '自动救援独立计数');
-  assert.ok(rescue.rescuePenalty > 0 && rescue.perf < beforePerf, '自动救援会降低表现，不能冒充免费进度');
-  assert.ok(rescue.solve(), '救援后的剩余棋盘完整可解');
-  const summary = rescue._summary();
-  assert.strictEqual(summary.maxTurns, 2);
-  assert.strictEqual(summary.allowOutside, true);
-  assert.strictEqual(summary.layoutShift, 'left');
-  assert.strictEqual(summary.autoRescues, 1);
-
-  const eventGame = new LinkGame.Game('PLAY', { difficulty: 'easy', rng: seeded(800) });
-  const linkEvents = [];
-  eventGame.onEvent = function (name) { linkEvents.push(name); };
-  const legalPair = eventGame.listLegalPairs()[0];
-  assert.ok(legalPair, '事件测试存在合法对子');
-  assert.strictEqual(eventGame._clearPair(legalPair.a, legalPair.b), true, '事件测试成功消除');
-  assert.ok(linkEvents.indexOf('swap') >= 0 && linkEvents.indexOf('match') >= 0, '连连看发出 swap/match 事件');
-
-  console.log('  PASS  Link 800 固定种子、完整解、BFS 转折/外圈、锁定、动态布局、救援惩罚');
+  console.log('  PASS  Memory 800 固定种子、预览/盖回、错配扣时、清盘、超时结算、事件与已有素材');
 }
 
 runMatch3Depth();
-runLinkDepth();
+runMemoryDepth();
 console.log('ALL PASS');

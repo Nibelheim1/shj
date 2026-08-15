@@ -8,7 +8,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const LinkGame = require('../js/merge/link-game.js');
+const MemoryGame = require('../js/merge/memory-game.js');
 
 function deterministicRng() {
   /* A stable, non-zero sequence still covers the shuffle path. */
@@ -21,46 +21,55 @@ function deterministicRng() {
   };
 }
 
-function cellPoint(point) {
-  return { x: point.c + 0.5, y: point.r + 0.5 };
+function cardPoint(card) {
+  return { x: card.c + 0.5, y: card.r + 0.5 };
 }
 
-function clickPair(game, hint, rect) {
-  const first = cellPoint(hint.a);
-  const second = cellPoint(hint.b);
-  assert.strictEqual(game.onTouchStart(first.x, first.y, rect), true);
-  assert.strictEqual(game.onTouchStart(second.x, second.y, rect), true);
+function touchCard(game, card, rect) {
+  const point = cardPoint(card);
+  return game.onTouchStart(point.x, point.y, rect);
 }
 
-function assertHintLegal(game, hint) {
-  assert.ok(hint && hint.a && hint.b && hint.path, '提示应返回合法对子');
-  const first = game.grid[hint.a.r][hint.a.c];
-  const second = game.grid[hint.b.r][hint.b.c];
-  assert.ok(first && second, '提示端点必须仍在棋盘上');
-  assert.strictEqual(first.type, second.type, '提示端点类型相同');
-  assert.ok(hint.path.length >= 2 && hint.path.length <= 4, '路径最多两次转弯');
-  const directPath = game.findPath(hint.a, hint.b);
-  assert.ok(directPath && directPath.length <= 4, 'findPath 最多两次转弯');
-  assert.deepStrictEqual(hint.path[0], hint.a);
-  assert.deepStrictEqual(hint.path[hint.path.length - 1], hint.b);
+function hiddenCards(game) {
+  return game.cards.filter(function (card) {
+    return card && !card.blocked && !card.matched && !card.flipped;
+  });
+}
+
+function findHiddenPair(game) {
+  const cards = hiddenCards(game);
+  for (let i = 0; i < cards.length; i++) {
+    for (let j = i + 1; j < cards.length; j++) {
+      if (cards[i].type === cards[j].type) return [cards[i], cards[j]];
+    }
+  }
+  return null;
 }
 
 const DIFFICULTY_DIMENSIONS = {
-  easy: { match3: [6, 6, 5], link: [6, 4, 12, 6] },
-  normal: { match3: [6, 6, 6], link: [8, 4, 16, 6] },
-  hard: { match3: [6, 7, 6], link: [8, 5, 20, 6] },
-  master: { match3: [7, 8, 6], link: [8, 6, 24, 6] }
+  easy: { match3: [6, 6, 5], memory: [4, 3, 6, 6] },
+  normal: { match3: [6, 6, 6], memory: [4, 4, 8, 8] },
+  hard: { match3: [6, 7, 6], memory: [5, 4, 10, 10] },
+  master: { match3: [7, 8, 6], memory: [6, 4, 12, 10] }
 };
 
 function runDifficultyProfileChecks(Match3) {
   Object.keys(DIFFICULTY_DIMENSIONS).forEach(function (difficulty) {
     const expected = DIFFICULTY_DIMENSIONS[difficulty];
-    const link = new LinkGame.Game('PLAY', { difficulty: difficulty, rng: deterministicRng() });
-    assert.strictEqual(link.cols, expected.link[0], difficulty + ' 连连看列数');
-    assert.strictEqual(link.rows, expected.link[1], difficulty + ' 连连看行数');
-    assert.strictEqual(link.totalPairs, expected.link[2], difficulty + ' 连连看对数');
-    assert.strictEqual(link.typeCount, expected.link[3], difficulty + ' 连连看保持六种高辨识图案');
-    assert.ok(link.hasMove(), difficulty + ' 连连看初盘可玩');
+    const memory = new MemoryGame.Game('PLAY', { difficulty: difficulty, rng: deterministicRng() });
+    assert.strictEqual(memory.cols, expected.memory[0], difficulty + ' 翻牌配对列数');
+    assert.strictEqual(memory.rows, expected.memory[1], difficulty + ' 翻牌配对行数');
+    assert.strictEqual(memory.totalPairs, expected.memory[2], difficulty + ' 翻牌配对数');
+    assert.strictEqual(memory.typeCount, expected.memory[3], difficulty + ' 翻牌配对图案种类');
+    const liveCards = memory.cards.filter(function (card) { return card && !card.blocked; });
+    assert.strictEqual(liveCards.length, memory.totalPairs * 2, '牌阵应恰好放满全部对子');
+    const counts = liveCards.reduce(function (result, card) {
+      result[card.type] = (result[card.type] || 0) + 1;
+      return result;
+    }, {});
+    Object.keys(counts).forEach(function (type) {
+      assert.strictEqual(counts[type] % 2, 0, difficulty + ' 每种图案成对出现');
+    });
 
     const match3 = new Match3.Game('GROOM', { difficulty: difficulty });
     assert.strictEqual(match3.cols, expected.match3[0], difficulty + ' 消消乐列数');
@@ -71,16 +80,16 @@ function runDifficultyProfileChecks(Match3) {
   });
 
   /* Explicit constructor overrides are independent from a selected profile. */
-  const customLink = new LinkGame.Game('PLAY', {
-    difficulty: 'easy', cols: 6, rows: 8, typeCount: 4, timeLimit: 9,
-    itemCounts: { hint: 1, shuffle: 0, bell: 2 }, rng: deterministicRng()
+  const customMemory = new MemoryGame.Game('PLAY', {
+    difficulty: 'easy', cols: 6, rows: 4, typeCount: 4, timeLimit: 9, rng: deterministicRng()
   });
-  assert.deepStrictEqual([customLink.cols, customLink.rows, customLink.typeCount], [6, 8, 4]);
-  assert.strictEqual(customLink.timeLimit, 9);
-  assert.deepStrictEqual(customLink.itemRemaining, { hint: 1, shuffle: 0, bell: 2 });
-  assert.strictEqual(customLink._useItem('shuffle'), false, '次数为 0 的连连看道具不可用');
-  assert.strictEqual(customLink._useItem('hint'), true, '配置次数的连连看提示道具可用');
-  assert.deepStrictEqual(customLink.itemRemaining, { hint: 0, shuffle: 0, bell: 2 });
+  assert.deepStrictEqual([customMemory.cols, customMemory.rows, customMemory.typeCount], [6, 4, 4]);
+  assert.strictEqual(customMemory.timeLimit, 9);
+  assert.strictEqual(customMemory.totalPairs, 12, '自定义 6×4 牌阵自动配满 12 对');
+  customMemory.update(customMemory.previewMs / 1000 + 0.01);
+  assert.ok(customMemory.useHint(), '翻牌配对提示可用');
+  assert.ok(customMemory.hint && customMemory.hint.length === 2, '提示高亮两张同图案卡片');
+  assert.strictEqual(customMemory.hint[0].type, customMemory.hint[1].type, '提示卡片图案相同');
 
   const customMatch3 = new Match3.Game('GROOM', {
     difficulty: 'master', cols: 6, rows: 6, typeCount: 4, timeLimit: 7,
@@ -97,78 +106,78 @@ function runDifficultyProfileChecks(Match3) {
   assert.strictEqual(customMatch3.itemRemaining.shuffle, 1);
 }
 
-function runLinkGameChecks() {
+function runMemoryGameChecks() {
   let doneCount = 0;
   let doneSummary = null;
-  const game = new LinkGame.Game('PLAY', {
+  const game = new MemoryGame.Game('PLAY', {
     rng: deterministicRng(),
     onDone: function (perf, summary) {
       doneCount++;
       doneSummary = { perf: perf, summary: summary };
     }
   });
-  const cells = game.grid.flat().filter(Boolean);
-  assert.strictEqual(game.cols, 6, '连连看宽度为 6');
-  assert.strictEqual(game.rows, 8, '连连看高度为 8');
-  assert.strictEqual(cells.length, 48, '连连看棋盘 48 格非空');
-  assert.strictEqual(game.totalPairs, 24, '连连看共 24 对');
-  const counts = cells.reduce(function (result, cell) {
-    result[cell.type] = (result[cell.type] || 0) + 1;
+  assert.strictEqual(game.cols, 5, '翻牌配对宽度为 5');
+  assert.strictEqual(game.rows, 4, '翻牌配对高度为 4');
+  assert.strictEqual(game.totalPairs, 10, '翻牌配对共 10 对');
+  const cards = game.cards.filter(function (card) { return card && !card.blocked; });
+  assert.strictEqual(cards.length, 20, '翻牌配对共 20 张卡片');
+  const counts = cards.reduce(function (result, card) {
+    result[card.type] = (result[card.type] || 0) + 1;
     return result;
   }, {});
   Object.keys(counts).forEach(function (type) {
     assert.strictEqual(counts[type] % 2, 0, '每种图案成对出现');
   });
 
-  const rect = {
-    x: 0,
-    y: 0,
-    cell: 1,
-    items: [
-      { id: 'hint', x: 0, y: 100, w: 20, h: 20 },
-      { id: 'shuffle', x: 30, y: 100, w: 20, h: 20 },
-      { id: 'bell', x: 60, y: 100, w: 20, h: 20 }
-    ]
-  };
+  const rect = { x: 0, y: 0, cell: 1 };
+  assert.strictEqual(game.previewActive, true, '标准以上开局有记忆预览');
+  game.update(game.previewMs / 1000 + 0.01);
+  assert.strictEqual(game.previewActive, false, '预览结束后关闭');
+  assert.strictEqual(hiddenCards(game).length, game.totalPairs * 2, '预览结束后全部卡片盖回');
 
-  let hint = game.findHint();
-  assertHintLegal(game, hint);
-  assert.strictEqual(game.hasMove(), true, '初始棋盘至少有一个可消对子');
+  /* 配对成功与失败路径都走公开触摸入口。 */
+  const matchPair = findHiddenPair(game);
+  assert.ok(matchPair, '存在可配对的两张卡');
+  assert.strictEqual(touchCard(game, matchPair[0], rect), true);
+  assert.strictEqual(touchCard(game, matchPair[1], rect), true);
+  assert.strictEqual(game.matchedPairs, 1, '配对成功计 1 对');
+  assert.strictEqual(game.validActions, undefined, '有效操作通过 summary 暴露');
 
-  /* The three item buttons are driven through the same touch entry point as
-   * the canvas adapter: prompt, re-arrange, then bell auto-clears one pair. */
-  assert.strictEqual(game.onTouchStart(10, 110, rect), true);
-  assert.strictEqual(game.itemUses.hint, 1, '提示道具使用次数');
-  assert.strictEqual(game.onTouchStart(40, 110, rect), true);
-  assert.strictEqual(game.itemUses.shuffle, 1, '重排道具使用次数');
-  assert.strictEqual(game.hasMove(), true, '重排后仍有可行对子，不死局');
-  assert.strictEqual(game.onTouchStart(70, 110, rect), true);
-  assert.strictEqual(game.itemUses.bell, 1, '灵铃道具使用次数');
-  assert.strictEqual(game.pairsCleared, 1, '灵铃清除一对');
-  assert.strictEqual(game.hasMove(), true, '灵铃后仍有可行对子');
+  const mismatchA = hiddenCards(game)[0];
+  const mismatchB = hiddenCards(game).find(function (card) { return card.type !== mismatchA.type; });
+  assert.ok(mismatchB, '存在不同图案的两张卡');
+  assert.strictEqual(touchCard(game, mismatchA, rect), true);
+  assert.strictEqual(touchCard(game, mismatchB, rect), true);
+  assert.strictEqual(game.pendingBack != null, true, '错配进入短暂展示');
+  game.update(game.flipBackMs / 1000 + 0.01);
+  assert.strictEqual(game.pendingBack, null, '错配展示后自动盖回');
+  assert.strictEqual(mismatchA.flipped, false, '错配卡片已盖回');
+  assert.strictEqual(mismatchB.flipped, false, '错配卡片已盖回');
+  assert.strictEqual(game.misses, 1, '错配计 1 次失误');
 
   let steps = 0;
   while (!game.finished) {
-    hint = game.findHint();
-    assertHintLegal(game, hint);
-    clickPair(game, hint, rect);
+    const pair = findHiddenPair(game);
+    assert.ok(pair, '清盘循环中始终存在可配对卡片 #' + steps);
+    assert.strictEqual(touchCard(game, pair[0], rect), true);
+    assert.strictEqual(touchCard(game, pair[1], rect), true);
     steps++;
-    assert.ok(steps <= 24, '清盘循环不应超过剩余对子数');
+    assert.ok(steps <= game.totalPairs, '清盘循环不应超过剩余对子数');
   }
   assert.strictEqual(doneCount, 1, '清盘只触发一次 onDone');
   assert.ok(doneSummary, '清盘回调收到结果');
-  assert.strictEqual(doneSummary.perf, 1, '清盘表现分为 1');
-  assert.strictEqual(doneSummary.summary.perf, 1, '清盘摘要表现分为 1');
-  assert.strictEqual(doneSummary.summary.pairsCleared, 24, '清盘摘要为 24 对');
-  assert.deepStrictEqual(doneSummary.summary.itemUses, { hint: 1, shuffle: 1, bell: 1 });
-  assert.strictEqual(doneSummary.summary.difficulty, 'hard', '连连看摘要包含 difficulty');
-  assert.ok(doneSummary.summary.effectiveMoves >= 24, '连连看摘要包含有效操作统计');
+  assert.ok(doneSummary.perf >= 0.85, '清盘表现分达到 mastery 门槛');
+  assert.strictEqual(doneSummary.summary.pairsCleared, 10, '清盘摘要为 10 对');
+  assert.strictEqual(doneSummary.summary.validActions, 10, '清盘摘要含有效配对次数');
+  assert.strictEqual(doneSummary.summary.difficulty, 'hard', '翻牌配对摘要包含 difficulty');
+  assert.ok(doneSummary.summary.score > 0, '翻牌配对产生分数');
 
   let timeoutDone = 0;
   let timeoutSummary = null;
-  const timeoutGame = new LinkGame.Game('PLAY', {
+  const timeoutGame = new MemoryGame.Game('PLAY', {
     rng: deterministicRng(),
     timeLimit: 1,
+    previewMs: 0,
     onDone: function (perf, summary) {
       timeoutDone++;
       timeoutSummary = { perf: perf, summary: summary };
@@ -177,42 +186,23 @@ function runLinkGameChecks() {
   timeoutGame.update(1.01);
   assert.strictEqual(timeoutDone, 1, '超时走 onDone');
   assert.strictEqual(timeoutSummary.perf, 0, '超时基础表现为 0');
-  assert.strictEqual(timeoutSummary.summary.pairsCleared, 0, '超时没有虚构消除');
+  assert.strictEqual(timeoutSummary.summary.pairsCleared, 0, '超时没有虚构配对');
 
   let cancelCount = 0;
-  const cancelGame = new LinkGame.Game('PLAY', {
+  const cancelGame = new MemoryGame.Game('PLAY', {
     rng: deterministicRng(),
+    previewMs: 0,
     onCancel: function () { cancelCount++; }
   });
-  const cancelRect = Object.assign({}, rect, { cancelB: { x: 100, y: 100, w: 20, h: 20 } });
-  assert.strictEqual(cancelGame.onTouchStart(110, 110, cancelRect), true);
-  assert.strictEqual(cancelGame.onTouchEnd(110, 110, cancelRect), true);
+  assert.strictEqual(cancelGame.cancel().finished, true, '主动取消返回摘要并结束');
   assert.strictEqual(cancelCount, 1, '取消走 onCancel');
-  assert.strictEqual(cancelGame.finished, true, '取消后结束');
 
-  /* Constant RNG must still produce a completely solvable pair-preserving
-   * rearrangement; rescue generation is constructive rather than retry-only. */
-  const fallbackGame = new LinkGame.Game('PLAY', { rng: function () { return 0; } });
-  const beforeFallback = fallbackGame.grid.flat().filter(Boolean);
-  const beforeFallbackCounts = beforeFallback.reduce(function (result, cell) {
-    result[cell.type] = (result[cell.type] || 0) + 1;
-    return result;
-  }, {});
-  assert.strictEqual(fallbackGame._shuffleRemaining(), true, '重排 fallback 应成功返回');
-  const afterFallback = fallbackGame.grid.flat().filter(Boolean);
-  const afterFallbackCounts = afterFallback.reduce(function (result, cell) {
-    result[cell.type] = (result[cell.type] || 0) + 1;
-    return result;
-  }, {});
-  assert.strictEqual(afterFallback.length, beforeFallback.length, 'fallback 前后非空格数量一致');
-  assert.deepStrictEqual(afterFallbackCounts, beforeFallbackCounts, 'fallback 前后各 type 数量一致');
-  assert.strictEqual(fallbackGame.hasMove(), true, 'fallback 后棋盘可继续消除');
-  const fallbackPlan = fallbackGame.solve();
-  assert.ok(Array.isArray(fallbackPlan) && fallbackPlan.length > 0 && fallbackPlan.length <= fallbackGame.totalPairs,
-    'fallback 后仍可完整求解（炸弹可让操作数少于对子数）');
-  assert.strictEqual(fallbackGame.manualShuffles, 1, '手动重排独立计数');
+  const challenge = new MemoryGame.Game('PLAY', { difficulty: 'challenge', rng: deterministicRng() });
+  assert.deepStrictEqual([challenge.cols, challenge.rows, challenge.totalPairs, challenge.timeLimit], [6, 5, 15, 150], '挑战模式独立牌阵与时长');
+  assert.strictEqual(challenge.previewMs, 0, '挑战模式无开局预览');
+  assert.strictEqual(challenge.mismatchPenalty, 1, '挑战模式失误扣时');
 
-  console.log('  PASS  LinkGame 6×8 24 对、道具、清盘、超时、取消');
+  console.log('  PASS  MemoryGame 5×4 10 对、预览、配对/错配、清盘、超时、取消、挑战');
 }
 
 function loadMatch3(constantRandom) {
@@ -307,12 +297,12 @@ function runChallengeProfileChecks() {
   const Match3 = loadMatch3();
   assert.ok(Match3 && Match3.DIFFICULTIES && Match3.DIFFICULTIES.challenge,
     'Match3.DIFFICULTIES.challenge must be public');
-  assert.ok(LinkGame && LinkGame.DIFFICULTIES && LinkGame.DIFFICULTIES.challenge,
-    'LinkGame.DIFFICULTIES.challenge must be public');
+  assert.ok(MemoryGame && MemoryGame.DIFFICULTIES && MemoryGame.DIFFICULTIES.challenge,
+    'MemoryGame.DIFFICULTIES.challenge must be public');
   assert.ok(Number(Match3.DIFFICULTIES.challenge.timeLimit) > Number(Match3.DIFFICULTIES.master.timeLimit),
     'challenge Match3 time must exceed master');
-  assert.ok(Number(LinkGame.DIFFICULTIES.challenge.timeLimit) > Number(LinkGame.DIFFICULTIES.master.timeLimit),
-    'challenge LinkGame time must exceed master');
+  assert.ok(Number(MemoryGame.DIFFICULTIES.challenge.timeLimit) > Number(MemoryGame.DIFFICULTIES.master.timeLimit),
+    'challenge MemoryGame time must exceed master');
 
   const match3 = new Match3.Game('GROOM', { difficulty: 'challenge' });
   assert.strictEqual(match3.difficulty, 'challenge');
@@ -323,18 +313,18 @@ function runChallengeProfileChecks() {
   assert.ok(matchSummary.operations && Number(matchSummary.operations.valid) === 0,
     'an untouched challenge Match3 must have no valid operations');
 
-  const link = new LinkGame.Game('PLAY', { difficulty: 'challenge', rng: deterministicRng() });
-  assert.strictEqual(link.difficulty, 'challenge');
-  assert.ok(Number(link.timeLimit) > Number(LinkGame.DIFFICULTIES.master.timeLimit));
-  const linkSummary = link.finish(false);
-  assert.strictEqual(linkSummary.difficulty, 'challenge', 'LinkGame challenge summary must expose difficulty');
-  assert.strictEqual(Number(linkSummary.score), 0, 'an untouched challenge LinkGame must have zero score');
-  assert.ok(linkSummary.operations && Number(linkSummary.operations.valid) === 0,
-    'an untouched challenge LinkGame must have no valid operations');
+  const memory = new MemoryGame.Game('PLAY', { difficulty: 'challenge', rng: deterministicRng() });
+  assert.strictEqual(memory.difficulty, 'challenge');
+  assert.ok(Number(memory.timeLimit) > Number(MemoryGame.DIFFICULTIES.master.timeLimit));
+  const memorySummary = memory.finish(false);
+  assert.strictEqual(memorySummary.difficulty, 'challenge', 'MemoryGame challenge summary must expose difficulty');
+  assert.strictEqual(Number(memorySummary.score), 0, 'an untouched challenge MemoryGame must have zero score');
+  assert.strictEqual(Number(memorySummary.validActions), 0,
+    'an untouched challenge MemoryGame must have no valid operations');
   console.log('  PASS  challenge 双小游戏独立时长、构造器与 summary');
 }
 
-runLinkGameChecks();
+runMemoryGameChecks();
 runMatch3Checks();
 runChallengeProfileChecks();
 console.log('ALL PASS');

@@ -1,4 +1,4 @@
-# 小游戏玩法生态调研与借鉴记录（消消乐 / 连连看）
+# 小游戏玩法生态调研与借鉴记录（消消乐 / 连连看 / 翻牌配对）
 
 **目标**：向 GitHub 高星开源项目学习玩法，并合规引入音效资产。
 **红线**：只借鉴“玩法思路 / 公开 API 设计”，不复制 GPL 代码；只下载明确 CC0/MIT 授权的资产。
@@ -12,6 +12,8 @@
 | [hugeen/Match3](https://github.com/hugeen/Match3) | 50 | MIT | 网格消除引擎分层 | 参考其模块边界；本项目已有特殊块/连锁 |
 | [yuyuzhang/CocosCreator-LianLianKan](https://github.com/yuyuzhang/CocosCreator-LianLianKan) | 36 | 未标注明确授权（仅学习用） | 连连看算法与音效设置 | 未下载资产，仅参考体验 |
 | [wxchen/llk](https://github.com/wxchen/llk) | 高星历史项目 | 见仓库 LICENSE | 经典双格连通玩法 | 本项目已有 BFS 转折/外圈路径 |
+| [remarkablegames/memory-card](https://github.com/remarkablegames/memory-card) | — | MIT | 翻牌记忆配对规则与少步数计分 | 已替换连连看为主流程陪玩小游戏（代码自研，见 `gdd-memory-card-replacement.md`） |
+| [js13kGames/memorygame](https://github.com/js13kGames/memorygame) | — | MIT（README 声明） | 难度分层、连击与时间压力 | 借鉴规则；不复制代码与资产 |
 
 ## 二、已借鉴并实现的玩法增强
 
@@ -34,5 +36,5 @@
 ## 四、后续可继续丰富（未在本轮实现）
 
 - Match3：障碍物生成器、定时模式、步数购买、跨关道具继承。
-- 连连看：赛季棋盘、每日挑战、翻牌记忆模式。
+- 翻牌配对：赛季棋盘、每日挑战、特殊牌（冻结/双倍分）——详见 `design/gdd/gdd-memory-card-replacement.md`。
 - 音效：Kenney 后续 CC0 音效包可扩展为连击升调、特殊块爆炸等。

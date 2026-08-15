@@ -2788,7 +2788,7 @@
     if (!game) return outcome === 'skip' ? 0 : required; /* 兼容 v4 调用与旧自动化测试。 */
     var candidates = careType === 'groom'
       ? [game.validActions, game.validMoves, game.validSwaps, game.movesUsed, game.swaps, game.moves]
-      : [game.validActions, game.pairsCleared, game.pairs, game.matchedPairs, game.matches];
+      : [game.validActions, game.pairsCleared, game.matchedPairs, game.pairs, game.matchedPairsCount, game.matches];
     for (var index = 0; index < candidates.length; index++) {
       if (candidates[index] != null) return Math.max(0, Math.floor(number(candidates[index], 0)));
     }
