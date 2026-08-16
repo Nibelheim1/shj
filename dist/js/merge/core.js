@@ -1371,7 +1371,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
         mainline: true,
         beastId: current.id,
         prerequisite: { type: 'story', beastId: current.id, completedStep: definition.storySteps.length },
-        title: '陪' + definition.name + '玩出第一份礼物',
+        title: '陪玩第一礼',
         symptom: '故事已经准备好了，和' + definition.name + '一起' + currentGift.careLabel + '一次，它会把成长礼物悄悄收进药匣。',
         requirements: [{ family: currentGift.care, tier: 1, count: 1 }],
         rewards: { jade: 20, xp: 20 },
@@ -1398,7 +1398,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
         mainline: true,
         beastId: next.id,
         prerequisite: { type: 'transformation', beastId: state.transformedOrder && state.transformedOrder.length ? state.transformedOrder[state.transformedOrder.length - 1] : null },
-        title: next.name + '循着' + previous.name + '的礼物来了',
+        title: next.name + '的来信',
         symptom: '和' + previous.name + '一起' + gift.careLabel + '，把「' + primaryName + '」与「' + supportName + '」收进药匣——这是' + next.name + '收到的第一份邀请。',
         requirements: arrivalReq,
         rewards: rewardsFor('story', arrivalReq, state),
@@ -1417,7 +1417,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       slot: 'story',
       kind: 'memory',
       mainline: false,
-      title: '山海回忆 · 新的一页',
+      title: '山海新页',
       symptom: '第一卷已经结束，疗愈所仍每天收到新的来信。',
       requirements: memoryReq,
       rewards: rewardsFor('story', memoryReq, state),
@@ -1565,7 +1565,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       id: nextOrderId(state, 'supply'),
       slot: 'supply',
       kind: 'supply',
-      title: '邻里补给 · ' + first.items[task.requirements[0].tier - 1] + ' + ' + second.items[task.requirements[1].tier - 1],
+      title: '邻里补给',
       symptom: '一份随时可推进的低阶委托，保障棋盘不会卡死。',
       requirements: task.requirements,
       productNeed: task.productNeed,
@@ -1592,7 +1592,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       slot: 'care',
       kind: 'care',
       beastId: current ? current.id : null,
-      title: current && definition ? definition.name + '的日常照料 · ' + first.items[task.requirements[0].tier - 1] + ' · ' + second.items[task.requirements[1].tier - 1] : '庭院日常照料 · ' + first.items[task.requirements[0].tier - 1] + ' · ' + second.items[task.requirements[1].tier - 1],
+      title: '日常照料',
       symptom: '交付素材获得暖玉；实际照料在庭院中进行且不消耗体力。',
       requirements: task.requirements,
       productNeed: task.productNeed,
@@ -1611,7 +1611,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     if (!next) {
       return normalizeOrder({
         id: 'recruit-complete', slot: 'recruit', kind: 'recruit_complete', status: 'COMPLETE',
-        title: '山海伙伴已到齐', symptom: '庭院里的相遇告一段落，新的来信还会继续寄来。',
+        title: '伙伴已到齐', symptom: '庭院里的相遇告一段落，新的来信还会继续寄来。',
         requirements: [], rewards: {}, mainline: true
       });
     }
@@ -1682,7 +1682,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var order = annotateOrderDifficulty(normalizeOrder({
       id: 'growth-' + keyName,
       slot: 'growth', kind: 'growth', beastId: beastId, boundDate: date, growthSequence: sequence, beastLevel: level,
-      title: definition.name + '的成长心愿',
+      title: '成长心愿',
       symptom: '这份心意只属于' + definition.name + '：和它一起' + gift.careLabel + '，才能把' + gift.item + '系列素材带回来。',
       requirements: requirements,
       productNeed: productNeed,
@@ -1705,7 +1705,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     if (state.daily.supplyCompleted >= 3) {
       return normalizeOrder({
         id: 'supply-' + state.daily.date + '-complete', slot: 'supply', kind: 'supply_complete', status: 'COMPLETE',
-        title: '今日药箱已备齐', symptom: '百草园的药香会一直留到明天。', requirements: [], rewards: {}
+        title: '今日药箱', symptom: '百草园的药香会一直留到明天。', requirements: [], rewards: {}
       });
     }
     var selected = beastDefinition(state.yardBeastId || state.activeCaseId);
@@ -1724,7 +1724,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     return annotateOrderDifficulty(normalizeOrder({
       id: 'supply-' + state.daily.date + '-' + sequence,
       slot: 'supply', kind: 'supply', boundDate: state.daily.date,
-      title: '百草补给 · 第' + sequence + '箱',
+      title: '百草补给',
       symptom: '药箱会随你的阅历逐步加量，完成后带回暖玉与庭院经验。',
       requirements: requirements,
       rewards: { jade: 16 + effort * 4 + rank * 4, xp: 10 + effort * 2 + rank * 3 }
@@ -1742,7 +1742,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var current = currentRenovation(state);
     if (!current) return normalizeOrder({
       id: 'renovation-volume-' + currentChapterVolume(state) + '-complete', slot: 'renovation', kind: 'renovation_complete', status: 'COMPLETE',
-      title: '本卷修缮已经完成', symptom: '宗门焕然一新，接下来去照顾新住客吧。', requirements: [], rewards: {}
+      title: '本卷已修完', symptom: '宗门焕然一新，接下来去照顾新住客吧。', requirements: [], rewards: {}
     });
     return normalizeOrder({
       id: 'renovation-' + current.areaId + '-' + (current.stageIndex + 1),
@@ -1767,7 +1767,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     order.boundAt = number(now, Date.now());
     var refreshMs = Math.max(60 * 1000, number(DATA.order && DATA.order.visitorRefreshMs, 3 * 60 * 60 * 1000) + stageBonusSum(state, 'order.refreshMs', 'add'));
     order.refreshAt = order.boundAt + refreshMs;
-    order.title = '山海访客 · ' + order.title.replace(/^邻里补给 · /, '');
+    order.title = '山海访客';
     order.symptom = '远道而来的小客人想带一份山中物资继续赶路。';
     return order;
   }
@@ -1778,7 +1778,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     return normalizeOrder({
       id: 'journey-' + state.daily.date,
       slot: 'journey', kind: 'journey', boundDate: state.daily.date,
-      title: '今日宗门手札', symptom: '完成一份轻量备料，让今天的修缮和陪伴都有着落。',
+      title: '宗门手札', symptom: '完成一份轻量备料，让今天的修缮和陪伴都有着落。',
       requirements: reqs, rewards: rewardsFor('journey', reqs, state)
     });
   }
@@ -2358,7 +2358,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       var growthKey = (order.boundDate || state.daily.date) + ':' + order.beastId + ':' + Math.max(1, Math.floor(number(order.growthSequence, 1)));
       state.growthOrders[growthKey] = normalizeOrder({
         id: order.id, slot: 'growth', kind: 'growth_complete', status: 'COMPLETE', beastId: order.beastId,
-        boundDate: order.boundDate || state.daily.date, title: beastDefinition(order.beastId).name + '今天收获满满',
+        boundDate: order.boundDate || state.daily.date, title: '今日收获',
         symptom: '成长经验、疗愈和暖玉都已经记下。', requirements: [], rewards: {}
       });
     } else if (order.slot === 'recruit' || order.kind === 'recruit') {
@@ -2633,6 +2633,17 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
   }
 
   /* “下一步”动态提示：可交付 > 一步合成 > 陪玩礼物 > 成长就绪 > 修缮 > 推进委托。 */
+  function isCompleteOrder(order) {
+    return order && (order.status === 'COMPLETE' || /_complete$/.test(order.kind || ''));
+  }
+
+  /* 订单卡排序契约：已完成的订单永远排到最后，未完成的保持原顺序在前。 */
+  function sortOrderCards(orders) {
+    return (orders || []).slice().sort(function (a, b) {
+      return (isCompleteOrder(a) ? 1 : 0) - (isCompleteOrder(b) ? 1 : 0);
+    });
+  }
+
   function nextActionHint(state, orders, activeBeastId) {
     orders = orders && orders.length ? orders : ensureOrders(state, Math.random);
     function isOpen(order) {
@@ -3543,6 +3554,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     recycleLowestPreview: recycleLowestPreview,
     generatorEfficiency: generatorEfficiency,
     nextActionHint: nextActionHint,
+    sortOrderCards: sortOrderCards,
     moveBoardItem: moveBoardItem,
     deliverOrder: deliverOrder,
     affectionRewardForOrder: affectionRewardForOrder,

@@ -22,6 +22,7 @@ const TESTS = [
   'prototype/tests/h5_link_cross_match_regression_test.js',
   'prototype/tests/h5_v6_asset_matrix_test.js',
   'prototype/tests/h5_player_copy_test.js',
+  'prototype/tests/h5_order_title_rule_test.js',
   'prototype/tests/h5_save_integration_fault_test.js',
   'prototype/tests/h5_asset_release_gate_test.js',
   'prototype/tests/h5_viewport_gate_test.js',

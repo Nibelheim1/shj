@@ -224,13 +224,13 @@
       },
       jobTitle: '门卫 / 安保',
       storySteps: [
-        storyStep(1, '先把夜灯点亮', '穷奇把爪子缩在门后，一整晚没有合眼。陪它玩一小会儿，它才肯把藏起来的梳妆小礼放进灯下。', [
+        storyStep(1, '点亮夜灯', '穷奇把爪子缩在门后，一整晚没有合眼。陪它玩一小会儿，它才肯把藏起来的梳妆小礼放进灯下。', [
           sourcedRequirement('groom', 2, 1, 'qiongqi'), requirement('herb', 1, 1)
         ]),
-        storyStep(2, '替它包好旧伤', '后腿的旧伤发热了。药布落下时，它没有咬住你的手，只把新赢来的小梳子往你掌心推。', [
+        storyStep(2, '包扎旧伤', '后腿的旧伤发热了。药布落下时，它没有咬住你的手，只把新赢来的小梳子往你掌心推。', [
           sourcedRequirement('groom', 3, 1, 'qiongqi'), requirement('herb', 2, 1)
         ]),
-        storyStep(3, '门口有人等你', '穷奇把玩熟的小镜子收进包袱，第一次走出门后，把伞递给了晚归的朋友。', [
+        storyStep(3, '门口等你', '穷奇把玩熟的小镜子收进包袱，第一次走出门后，把伞递给了晚归的朋友。', [
           sourcedRequirement('groom', 4, 1, 'qiongqi'), requirement('tool', 2, 1)
         ])
       ]
@@ -249,7 +249,7 @@
         care: 'play',
         family: 'play',
         item: '嬉云糖塔',
-        note: '九尾狐把尾巴卷成球、把笑声编成新游戏。玩出来的心意，正是它成长与邀请饕餮的信物。'
+        note: '九尾狐尾巴卷成球、把笑声编成新游戏。玩出来的心意，正是它成长与邀请饕餮的信物。'
       },
       art: [
         'assets/art/characters/jiuweihu_lv1.webp',
@@ -277,13 +277,13 @@
       },
       jobTitle: '迎宾 / 形象大使',
       storySteps: [
-        storyStep(1, '把尾巴卷成球', '九尾狐对着水坑发愁：九条尾巴各想各的，越想漂亮越乱。陪它玩一会儿，尾巴才肯合作。', [
+        storyStep(1, '尾巴卷成球', '九尾狐对着水坑发愁：九条尾巴各想各的，越想漂亮越乱。陪它玩一会儿，尾巴才肯合作。', [
           sourcedRequirement('play', 2, 1, 'jiuweihu'), requirement('herb', 1, 1)
         ]),
-        storyStep(2, '编一个新游戏', '它愿意把最蓬的一条尾巴借给害羞的新客，还把笑声编成大家都想玩的新游戏。', [
+        storyStep(2, '编个新游戏', '它愿意把最蓬的一条尾巴借给害羞的新客，还把笑声编成大家都想玩的新游戏。', [
           sourcedRequirement('play', 3, 1, 'jiuweihu'), requirement('herb', 2, 1)
         ]),
-        storyStep(3, '今天也喜欢自己', '九条尾巴整齐摇摆，它把玩出来的糖塔摆上窗台，主动带大家熟悉收容所。', [
+        storyStep(3, '喜欢自己', '九条尾巴整齐摇摆，它把玩出来的糖塔摆上窗台，主动带大家熟悉收容所。', [
           sourcedRequirement('play', 4, 1, 'jiuweihu'), requirement('groom', 3, 1)
         ])
       ]
@@ -333,13 +333,13 @@
       },
       jobTitle: '厨房 / 食材管理',
       storySteps: [
-        storyStep(1, '先做一碗热饭', '饕餮看见什么都想吃，其实只是担心这一口不够大家分。陪它玩一次“分享菜单”，它才肯慢慢尝。', [
+        storyStep(1, '先做热饭', '饕餮看见什么都想吃，其实只是担心这一口不够大家分。陪它玩一次“分享菜单”，它才肯慢慢尝。', [
           sourcedRequirement('food', 2, 1, 'taotie'), requirement('herb', 1, 1)
         ]),
-        storyStep(2, '尝一口就知道', '它开始学着把多出来的食材分成每个人都喜欢的小份，玩出来的菜谱越写越长。', [
+        storyStep(2, '尝过知道', '它开始学着把多出来的食材分成每个人都喜欢的小份，玩出来的菜谱越写越长。', [
           sourcedRequirement('food', 3, 1, 'taotie'), requirement('herb', 2, 1)
         ]),
-        storyStep(3, '把第一口留给朋友', '今天的灶火亮着。饕餮端出宴席盒，第一口没有塞进自己的肚子，而是递给了帝江。', [
+        storyStep(3, '分享第一口', '今天的灶火亮着。饕餮端出宴席盒，第一口没有塞进自己的肚子，而是递给了帝江。', [
           sourcedRequirement('food', 4, 1, 'taotie'), requirement('tool', 2, 1)
         ])
       ]
@@ -388,7 +388,7 @@
       storySteps: [
         storyStep(1, '别再撞墙啦', '帝江想被看见，又总滚错方向，在花墙前急得直打转。', [requirement('herb', 3, 1), requirement('tool', 2, 1)]),
         storyStep(2, '教它挥手', '它学会用六只小短腿比划，写出一封歪歪扭扭的信。', [requirement('herb', 4, 1), requirement('play', 2, 1)]),
-        storyStep(3, '花园里最亮的团子', '大家围过来读懂了它，它把百草园滚得又松又软。', [requirement('herb', 5, 1), requirement('tool', 3, 1)])
+        storyStep(3, '最亮的团子', '大家围过来读懂了它，它把百草园滚得又松又软。', [requirement('herb', 5, 1), requirement('tool', 3, 1)])
       ]
     },
     {
@@ -432,9 +432,9 @@
       },
       jobTitle: '木工 / 修理匠',
       storySteps: [
-        storyStep(1, '先别怕小火苗', '毕方一紧张就冒火星，其实那些火花伤不到谁。', [requirement('tool', 3, 1), requirement('build', 2, 1)]),
-        storyStep(2, '单脚也能站稳', '它慢慢学会深呼吸，独脚站在工作台前不再摔倒。', [requirement('tool', 4, 1), requirement('herb', 3, 1)]),
-        storyStep(3, '修好第一扇门', '笃笃笃的敲击声稳稳落下，宗门又多了一位巧手。', [requirement('tool', 5, 1), requirement('build', 4, 1)])
+        storyStep(1, '别怕小火苗', '毕方一紧张就冒火星，其实那些火花伤不到谁。', [requirement('tool', 3, 1), requirement('build', 2, 1)]),
+        storyStep(2, '单脚站稳', '它慢慢学会深呼吸，独脚站在工作台前不再摔倒。', [requirement('tool', 4, 1), requirement('herb', 3, 1)]),
+        storyStep(3, '修好一扇门', '笃笃笃的敲击声稳稳落下，宗门又多了一位巧手。', [requirement('tool', 5, 1), requirement('build', 4, 1)])
       ]
     },
     {
@@ -478,9 +478,9 @@
       },
       jobTitle: '图鉴 / 解说员',
       storySteps: [
-        storyStep(1, '背不完也没关系', '白泽越急越絮叨，把大家都讲困了。', [requirement('herb', 4, 1), requirement('tool', 3, 1)]),
-        storyStep(2, '给传说换个讲法', '它把凶巴巴的古事，讲成了会发光的睡前小故事。', [requirement('groom', 3, 1), requirement('herb', 3, 1)]),
-        storyStep(3, '山海册的新序章', '藏书阁里多了一位温柔的讲卷君。', [requirement('tool', 5, 1), requirement('herb', 4, 1)])
+        storyStep(1, '背不完没事', '白泽越急越絮叨，把大家都讲困了。', [requirement('herb', 4, 1), requirement('tool', 3, 1)]),
+        storyStep(2, '传说新讲法', '它把凶巴巴的古事，讲成了会发光的睡前小故事。', [requirement('groom', 3, 1), requirement('herb', 3, 1)]),
+        storyStep(3, '山海新序章', '藏书阁里多了一位温柔的讲卷君。', [requirement('tool', 5, 1), requirement('herb', 4, 1)])
       ]
     },
     {
@@ -513,7 +513,7 @@
         '累了就歇，歇完我陪你继续。',
         '早操时间到，一个都不许赖床！'
       ],
-      lore: '古籍所载的“顽”兽，倔头倔脑；灵气稀薄后练功总差一口气。它把倔劲用在了“陪你练到会为止”，成了最守时的游乐教练。',
+      lore: '古籍所载的“顽”兽，倔头倔脑；灵气稀薄后练功总差一口气。它把倔劲用在了“陪你练到会”，成了最守时的游乐教练。',
       job: {
         id: 'coach',
         name: '体能 / 游乐教练',
@@ -524,9 +524,9 @@
       },
       jobTitle: '体能 / 游乐教练',
       storySteps: [
-        storyStep(1, '站反了也没关系', '梼杌用不服气盖住害羞，其实它怕做不好被嫌弃。', [requirement('play', 3, 1), requirement('build', 2, 1)]),
-        storyStep(2, '陪你练到会为止', '它把倔劲变成耐心，一遍遍示范，不嘲笑谁。', [requirement('play', 4, 1), requirement('herb', 3, 1)]),
-        storyStep(3, '宗门早操开课', '百戏台前，最守时的教练上线了。', [requirement('play', 5, 1), requirement('build', 4, 1)])
+        storyStep(1, '站反也没事', '梼杌用不服气盖住害羞，其实它怕做不好被嫌弃。', [requirement('play', 3, 1), requirement('build', 2, 1)]),
+        storyStep(2, '陪你练到会', '它把倔劲变成耐心，一遍遍示范，不嘲笑谁。', [requirement('play', 4, 1), requirement('herb', 3, 1)]),
+        storyStep(3, '宗门早操', '百戏台前，最守时的教练上线了。', [requirement('play', 5, 1), requirement('build', 4, 1)])
       ]
     },
     {
@@ -570,9 +570,9 @@
       },
       jobTitle: '照明 / 暖房',
       storySteps: [
-        storyStep(1, '白天别打呼啦', '烛龙白天睡、夜里亮，作息全乱了。', [requirement('build', 4, 1), requirement('herb', 3, 1)]),
-        storyStep(2, '把光调得刚刚好', '它学会控制亮度，不再亮得吓到自己。', [requirement('build', 5, 1), requirement('tool', 3, 1)]),
-        storyStep(3, '做大家的小夜灯', '夜里，静室有一盏会呼吸的暖光。', [requirement('build', 6, 1), requirement('herb', 4, 1)])
+        storyStep(1, '白天别打呼', '烛龙白天睡、夜里亮，作息全乱了。', [requirement('build', 4, 1), requirement('herb', 3, 1)]),
+        storyStep(2, '把光调刚好', '它学会控制亮度，不再亮得吓到自己。', [requirement('build', 5, 1), requirement('tool', 3, 1)]),
+        storyStep(3, '做小夜灯', '夜里，静室有一盏会呼吸的暖光。', [requirement('build', 6, 1), requirement('herb', 4, 1)])
       ]
     },
     {
@@ -616,9 +616,9 @@
       },
       jobTitle: '仓库 / 理财',
       storySteps: [
-        storyStep(1, '先把账本理顺', '貔貅把大家的东西都“借”来囤，其实只是怕不够分。', [requirement('tool', 4, 1), requirement('herb', 3, 1)]),
-        storyStep(2, '透明肚皮当账本', '每一枚金币都数得清清楚楚，借出的也会按时归还。', [requirement('build', 4, 1), requirement('tool', 3, 1)]),
-        storyStep(3, '分享让大家都富', '库房亮起来，它成了最可靠的管家。', [requirement('herb', 5, 1), requirement('build', 4, 1)])
+        storyStep(1, '先理账本', '貔貅把大家的东西都“借”来囤，其实只是怕不够分。', [requirement('tool', 4, 1), requirement('herb', 3, 1)]),
+        storyStep(2, '透明账本', '每一枚金币都数得清清楚楚，借出的也会按时归还。', [requirement('build', 4, 1), requirement('tool', 3, 1)]),
+        storyStep(3, '分享大家富', '库房亮起来，它成了最可靠的管家。', [requirement('herb', 5, 1), requirement('build', 4, 1)])
       ]
     },
     {
@@ -662,9 +662,9 @@
       },
       jobTitle: '和平安抚 / 迎福长老',
       storySteps: [
-        storyStep(1, '不用一直端着', '麒麟把自己站得太直，角歪了都要偷偷扶正。', [requirement('groom', 4, 1), requirement('herb', 3, 1)]),
-        storyStep(2, '学会四脚朝天', '它在大家面前第一次打滚，大家反而靠得更近。', [requirement('groom', 5, 1), requirement('build', 3, 1)]),
-        storyStep(3, '莲池边的暖场长老', '莲印从它脚下生出，谁吵架都会先看看它。', [requirement('groom', 6, 1), requirement('herb', 4, 1)])
+        storyStep(1, '不用端着', '麒麟把自己站得太直，角歪了都要偷偷扶正。', [requirement('groom', 4, 1), requirement('herb', 3, 1)]),
+        storyStep(2, '四脚朝天', '它在大家面前第一次打滚，大家反而靠得更近。', [requirement('groom', 5, 1), requirement('build', 3, 1)]),
+        storyStep(3, '莲池暖长老', '莲印从它脚下生出，谁吵架都会先看看它。', [requirement('groom', 6, 1), requirement('herb', 4, 1)])
       ]
     },
     {
@@ -708,9 +708,9 @@
       },
       jobTitle: '节庆歌者 / 疗愈吟唱',
       storySteps: [
-        storyStep(1, '躲起来也没关系', '凤凰躲在花盆后，怕被问“这也叫凤凰？”', [requirement('play', 4, 1), requirement('herb', 3, 1)]),
-        storyStep(2, '大家一起捡羽毛', '换羽也能开派对，它发现旧羽毛也可以很美。', [requirement('play', 5, 1), requirement('groom', 3, 1)]),
-        storyStep(3, '唱给晚归的人', '节庆台上，它重新唱起那首安眠的歌。', [requirement('play', 6, 1), requirement('herb', 4, 1)])
+        storyStep(1, '躲也没关系', '凤凰躲在花盆后，怕被问“这也叫凤凰？”', [requirement('play', 4, 1), requirement('herb', 3, 1)]),
+        storyStep(2, '一起捡羽毛', '换羽也能开派对，它发现旧羽毛也可以很美。', [requirement('play', 5, 1), requirement('groom', 3, 1)]),
+        storyStep(3, '唱给晚归人', '节庆台上，它重新唱起那首安眠的歌。', [requirement('play', 6, 1), requirement('herb', 4, 1)])
       ]
     },
     {
@@ -755,9 +755,9 @@
       },
       jobTitle: '云海向导 / 运输',
       storySteps: [
-        storyStep(1, '先在水里游一游', '鲲鹏一会儿变鱼一会儿变鸟，把自己绕晕了。', [requirement('herb', 5, 1), requirement('build', 4, 1)]),
+        storyStep(1, '先水里游游', '鲲鹏一会儿变鱼一会儿变鸟，把自己绕晕了。', [requirement('herb', 5, 1), requirement('build', 4, 1)]),
         storyStep(2, '两种都是你', '大家告诉它，会游的、会飞的，都是鲲鹏。', [requirement('build', 6, 1), requirement('tool', 4, 1)]),
-        storyStep(3, '云海的小向导', '它驮着小兽去看云上日落，迷路也开心。', [requirement('herb', 7, 1), requirement('build', 5, 1)])
+        storyStep(3, '云海小向导', '它驮着小兽去看云上日落，迷路也开心。', [requirement('herb', 7, 1), requirement('build', 5, 1)])
       ]
     }
   ];
@@ -789,13 +789,13 @@
      混入其他来源后不能再用于某只神兽的专属成长/来信订单。 */
   var giftNotes = {
     qiongqi: '穷奇把最心爱的玩具一样样擦亮收进包袱。陪它玩一场，九尾狐要的玩具礼物就准备好了。',
-    jiuweihu: '九尾狐把尾巴卷成球、把笑声编成新游戏。玩出来的心意，正是它成长与邀请饕餮的信物。',
+    jiuweihu: '九尾狐尾巴卷成球、把笑声编成新游戏。玩出来的心意，正是它成长与邀请饕餮的信物。',
     taotie: '饕餮把游戏玩成“一人一口”的分享会，赢来的玩具也要先排好队。帝江的玩具来信和它自己的成长心意，都在这一箱里。',
     dijiang: '帝江滚来滚去，把每件玩具都滚得亮晶晶。陪它玩一圈，毕方的玩具来信就有了着落。',
     bifang: '毕方梳羽时把最软的小梳子收进妆匣。白泽的梳妆来信和它自己的成长心意，都从梳洗台来。',
     baize: '白泽把讲不完的故事编成发绳和小梳子。梼杌的梳妆来信，就藏在它顺好的毛毛里。',
     taowu: '梼杌把晨操练成新游戏，赢来的玩具排成一队。烛龙的玩具来信，它一份都不肯少。',
-    zhulong: '烛龙把光调得刚刚好，梳鳞时掉下的亮片做成小梳子。貔貅的梳妆来信，就这样一点点攒起来。',
+    zhulong: '烛龙把光调刚好，梳鳞时掉下的亮片做成小梳子。貔貅的梳妆来信，就这样一点点攒起来。',
     pixiu: '貔貅把玩具分享给每个伙伴，越玩越亮堂。麒麟的玩具来信，就藏在它递出去的那一份里。',
     qilin: '麒麟打滚时蹭出的莲香，被它编成软软的发绳。凤凰的梳妆来信，就系在这一次次四脚朝天里。',
     fenghuang: '凤凰换羽时把最漂亮的羽毛收成发饰。鲲鹏的梳妆来信，就藏在这些不再躲闪的羽毛里。',
@@ -893,21 +893,21 @@
   }
 
   var volumeOneOrderTemplates = catalogTemplates('v1', 'volume1', 1, [
-    '扫开山门石阶', '擦亮旧铜门环', '补好迎风门旗', '清点药庐空柜', '晒干返潮药屉',
-    '点燃第一炉药香', '给门后的小虎留灯', '缝好安睡软垫', '把安神药包交到爪心'
+    '扫开山门阶', '擦亮铜门环', '补迎风门旗', '清点空药柜', '晒返潮药屉',
+    '点第一炉香', '给门后留灯', '缝安睡软垫', '送安神药包'
   ], ['herb', 'tool'], 3);
   var volumeTwoOrderTemplates = catalogTemplates('v2', 'volume2', 2, [
-    '扫出一条迎客花径', '修好前院木栏', '给等候区添软凳', '挂起第一盏狐灯', '收好散落的梳齿',
-    '擦净梳洗阁铜镜', '架稳灵木床底座', '铺开不打结的软毯', '给狐尾备好清露', '把五尾镜摆回窗边',
-    '邀请第一位山海访客', '点亮七盏晚归灯', '写下青丘来信', '布置迎宾岗位', '为九尾展开留出空地'
+    '扫迎客花径', '修前院木栏', '添等候软凳', '挂第一狐灯', '收散落梳齿',
+    '擦梳洗铜镜', '架灵木床座', '铺不打结毯', '备狐尾清露', '摆回五尾镜',
+    '邀山海访客', '点七盏晚灯', '写青丘来信', '布置迎宾岗', '留尾巴空地'
   ], ['herb', 'tool', 'build', 'groom', 'play'], 4);
   var medicalOrderTemplates = catalogTemplates('medical', 'medical', 1, [
-    '夜里总被风声惊醒', '旧伤一到雨天就发痒', '尾毛打结不敢照镜子', '赶路太久忘了喝水',
-    '闻到药香还是会紧张', '第一次进门想躲起来', '睡前需要一盏小灯', '康复后也要按时复诊'
+    '怕夜风惊醒', '旧伤雨天痒', '尾毛怕照镜', '赶路忘喝水',
+    '闻药香紧张', '进门想躲起', '睡前要点灯', '按时去复诊'
   ], ['herb', 'tool', 'groom'], 3);
   var visitorOrderTemplates = catalogTemplates('visitor', 'visitor', 1, [
-    '松鼠客人的轻便药囊', '小鹿客人的清晨露水', '白鹤客人的远行绷带', '山雀客人的暖巢香草', '獾叔客人的耐磨药具',
-    '兔子客人的梳毛小礼', '穿山甲客人的石缝药包', '狸猫客人的晚归灯油', '雨燕客人的风干草叶', '小熊客人的登山补给'
+    '松鼠轻药囊', '小鹿晨露水', '白鹤远绷带', '山雀暖巢草', '獾叔耐磨具',
+    '兔子梳毛礼', '穿山甲药包', '狸猫晚灯油', '雨燕风草叶', '小熊登山补'
   ], ['herb', 'tool'], 3);
   var firstReleaseOrderTemplates = volumeOneOrderTemplates.concat(volumeTwoOrderTemplates, medicalOrderTemplates, visitorOrderTemplates);
 
@@ -1011,25 +1011,25 @@
     difficulties: {
       easy: {
         id: 'easy', name: '轻松', unlock: 'default',
-        groom: { cols: 6, rows: 6, typeCount: 5, timeLimit: 60, moveLimit: 26, minLegalMoves: 5, objective: { mode: 'score', targetMultiplier: 0.72, label: '解开单层毛结并制造特殊块' }, knotMode: 'single', timePickupBudget: 4, itemCounts: { hammer: 3, shuffle: 2, theme: 2 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01'] },
+        groom: { cols: 6, rows: 6, typeCount: 5, timeLimit: 90, moveLimit: 26, minLegalMoves: 5, objective: { mode: 'score', targetMultiplier: 0.72, label: '解开单层毛结并制造特殊块' }, knotMode: 'single', timePickupBudget: 4, itemCounts: { hammer: 3, shuffle: 2, theme: 2 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01'] },
         play: { cols: 3, rows: 3, layers: 3, typeCount: 7, tilesPerType: 3, slots: 5, timeLimit: 70, scoreTarget: 900, failPerfCap: 0.58, comboWindow: 2.2, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
         rewards: { floor: [1], B: [1, 1], A: [2], S: [2, 1] }
       },
       normal: {
         id: 'normal', name: '标准', unlock: 'firstStory',
-        groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 60, moveLimit: 23, minLegalMoves: 4, objective: { mode: 'score', targetMultiplier: 0.90, label: '收集目标图案并解开混合毛结' }, knotMode: 'mixed', timePickupBudget: 3, itemCounts: { hammer: 2, shuffle: 2, theme: 1 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
+        groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 90, moveLimit: 23, minLegalMoves: 4, objective: { mode: 'score', targetMultiplier: 0.90, label: '收集目标图案并解开混合毛结' }, knotMode: 'mixed', timePickupBudget: 3, itemCounts: { hammer: 2, shuffle: 2, theme: 1 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
         play: { cols: 3, rows: 3, layers: 3, typeCount: 9, tilesPerType: 3, slots: 5, timeLimit: 85, scoreTarget: 1900, failPerfCap: 0.72, comboWindow: 1.9, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
         rewards: { floor: [1], B: [2], A: [2, 1], S: [3] }
       },
       hard: {
         id: 'hard', name: '困难', unlock: 'groomLevel2',
-        groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 60, moveLimit: 20, minLegalMoves: 3, objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '清除扩散毛结并完成两次连锁' }, knotMode: 'double-spread', timePickupBudget: 2, itemCounts: { hammer: 2, shuffle: 1, theme: 1 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
+        groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 90, moveLimit: 20, minLegalMoves: 3, objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '清除扩散毛结并完成两次连锁' }, knotMode: 'double-spread', timePickupBudget: 2, itemCounts: { hammer: 2, shuffle: 1, theme: 1 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
         play: { cols: 3, rows: 3, layers: 4, typeCount: 11, tilesPerType: 3, slots: 5, timeLimit: 95, scoreTarget: 3100, failPerfCap: 0.84, comboWindow: 1.4, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
         rewards: { floor: [2], B: [2, 1], A: [3], S: [3, 2] }
       },
       master: {
         id: 'master', name: '大师', unlock: 'groomLevel3',
-        groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 60, moveLimit: 18, minLegalMoves: 2, objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '破除三层毛结并组合两枚特殊块' }, knotMode: 'double-triple', timePickupBudget: 1, itemCounts: { hammer: 1, shuffle: 1, theme: 1 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
+        groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 90, moveLimit: 18, minLegalMoves: 2, objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '破除三层毛结并组合两枚特殊块' }, knotMode: 'double-triple', timePickupBudget: 1, itemCounts: { hammer: 1, shuffle: 1, theme: 1 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
         play: { cols: 3, rows: 3, layers: 4, typeCount: 12, tilesPerType: 3, slots: 5, timeLimit: 105, scoreTarget: 4600, failPerfCap: 0.84, comboWindow: 1.0, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
         rewards: { floor: [2], B: [3], A: [3, 2], S: [4], repeatS: [3, 2] }
       },
@@ -1227,8 +1227,8 @@
         ],
         stages: [
           sectStage('清一清炉膛', '旧灰清掉，丹炉才肯重新发热。', [requirement('tool', 3, 1), requirement('build', 2, 1)], { jade: 60, xp: 34 }),
-          sectStage('码齐百种药具', '药具各回其位，拿取不再手忙脚乱。', [requirement('tool', 4, 1), requirement('herb', 3, 1)], { jade: 85, xp: 50 }),
-          sectStage('续上不熄丹火', '丹房重新吞吐药香，宗门有了稳定的药具产出。', [requirement('tool', 5, 1), requirement('build', 4, 1)], { jade: 115, xp: 68 })
+          sectStage('码齐药具', '药具各回其位，拿取不再手忙脚乱。', [requirement('tool', 4, 1), requirement('herb', 3, 1)], { jade: 85, xp: 50 }),
+          sectStage('续上丹火', '丹房重新吞吐药香，宗门有了稳定的药具产出。', [requirement('tool', 5, 1), requirement('build', 4, 1)], { jade: 115, xp: 68 })
         ]
       },
       {
@@ -1280,9 +1280,9 @@
           stageBonus(3, '回收价再 +5%', 'recycle.mult', { mult: 1.05 })
         ],
         stages: [
-          sectStage('补好漏雨的屋顶', '先让库房不再受潮，物件才存得住。', [requirement('build', 5, 1), requirement('herb', 3, 1)], { jade: 100, xp: 60 }),
+          sectStage('补好屋顶', '先让库房不再受潮，物件才存得住。', [requirement('build', 5, 1), requirement('herb', 3, 1)], { jade: 100, xp: 60 }),
           sectStage('晒干旧箱笼', '把箱笼搬到日头下，霉味慢慢散掉。', [requirement('tool', 4, 1), requirement('herb', 4, 1)], { jade: 115, xp: 70 }),
-          sectStage('点亮库房灯火', '灯火照亮每个格子，宗门家底清清楚楚。', [requirement('build', 6, 1), requirement('tool', 4, 1)], { jade: 140, xp: 85 })
+          sectStage('点亮库房', '灯火照亮每个格子，宗门家底清清楚楚。', [requirement('build', 6, 1), requirement('tool', 4, 1)], { jade: 140, xp: 85 })
         ]
       },
       {
@@ -1298,9 +1298,9 @@
           stageBonus(3, '符箓订单奖励再 +10%', 'order.familyReward', { family: 'charm', mult: 1.1 })
         ],
         stages: [
-          sectStage('清开符台藤蔓', '把旧符纸一片片收好，台面先露出来。', [requirement('herb', 5, 1), requirement('tool', 4, 1)], { jade: 110, xp: 66 }),
-          sectStage('归位朱砂符笔', '符笔蘸新墨，旧纹路重新发亮。', [requirement('build', 6, 1), requirement('herb', 5, 1)], { jade: 135, xp: 82 }),
-          sectStage('重开聚灵符阵', '符台重开，后山的灵气慢慢聚了回来。', [requirement('herb', 6, 1), requirement('tool', 5, 1)], { jade: 160, xp: 98 })
+          sectStage('清开符台', '把旧符纸一片片收好，台面先露出来。', [requirement('herb', 5, 1), requirement('tool', 4, 1)], { jade: 110, xp: 66 }),
+          sectStage('归位符笔', '符笔蘸新墨，旧纹路重新发亮。', [requirement('build', 6, 1), requirement('herb', 5, 1)], { jade: 135, xp: 82 }),
+          sectStage('重开符阵', '符台重开，后山的灵气慢慢聚了回来。', [requirement('herb', 6, 1), requirement('tool', 5, 1)], { jade: 160, xp: 98 })
         ]
       },
       {
@@ -1316,9 +1316,9 @@
           stageBonus(3, '珍宝订单奖励再 +10%', 'order.familyReward', { family: 'treasure', mult: 1.1 })
         ],
         stages: [
-          sectStage('修好云海渡舟', '舟底有裂纹，先补好才敢渡云。', [requirement('build', 7, 1), requirement('herb', 6, 1)], { jade: 140, xp: 86 }),
-          sectStage('点亮浮岛灯火', '让云上有一点暖光，渡口不再空落落。', [requirement('tool', 7, 1), requirement('build', 6, 1)], { jade: 170, xp: 105 }),
-          sectStage('重启云海宝台', '宝台浮起微光，归墟的珍宝会顺云而来。', [requirement('herb', 8, 1), requirement('tool', 7, 1)], { jade: 210, xp: 130 })
+          sectStage('修好渡舟', '舟底有裂纹，先补好才敢渡云。', [requirement('build', 7, 1), requirement('herb', 6, 1)], { jade: 140, xp: 86 }),
+          sectStage('点亮浮岛', '让云上有一点暖光，渡口不再空落落。', [requirement('tool', 7, 1), requirement('build', 6, 1)], { jade: 170, xp: 105 }),
+          sectStage('重启宝台', '宝台浮起微光，归墟的珍宝会顺云而来。', [requirement('herb', 8, 1), requirement('tool', 7, 1)], { jade: 210, xp: 130 })
         ]
       }
     ],

@@ -1122,7 +1122,9 @@
     var list = q('order-list');
     if (!list) return;
     var orders = Core.ensureOrders(state, Math.random);
-    list.innerHTML = orders.map(function (order) {
+    /* 已完成的订单卡统一排到订单栏最后：未完成在前，完成的不再抢占前面位置。 */
+    var cardOrders = Core.sortOrderCards ? Core.sortOrderCards(orders) : orders.slice();
+    list.innerHTML = cardOrders.map(function (order) {
       var careGate = order.kind === 'care_gate';
       var ready = careGate ? false : Core.canDeliver(state, order);
       var reachable = Core.isOrderReachable(state, order);

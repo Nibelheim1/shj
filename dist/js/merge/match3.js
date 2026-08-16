@@ -67,25 +67,25 @@
   var DIFFICULTIES = {
     easy: {
       cols: 6, rows: 6, typeCount: 5, obstacleRate: 0.32, knotRate: 0.24, knotStrength: 1,
-      moveLimit: 26, minLegalMoves: 5, timeLimit: 60, timePickupBudget: 4,
+      moveLimit: 26, minLegalMoves: 5, timeLimit: 90, timePickupBudget: 4,
       objective: { mode: 'score', targetMultiplier: 0.72, label: '入门目标' },
       itemCounts: { hammer: 3, shuffle: 2, theme: 2 }
     },
     normal: {
       cols: 6, rows: 6, typeCount: 6, obstacleRate: 0.40, knotRate: 0.32, knotStrength: 2,
-      moveLimit: 23, minLegalMoves: 4, timeLimit: 60, timePickupBudget: 3,
+      moveLimit: 23, minLegalMoves: 4, timeLimit: 90, timePickupBudget: 3,
       objective: { mode: 'score', targetMultiplier: 0.90, label: '标准目标' },
       itemCounts: { hammer: 2, shuffle: 2, theme: 1 }
     },
     hard: {
       cols: 6, rows: 7, typeCount: 6, obstacleRate: 0.48, knotRate: 0.39, knotStrength: 2,
-      moveLimit: 20, minLegalMoves: 3, timeLimit: 60, timePickupBudget: 2,
+      moveLimit: 20, minLegalMoves: 3, timeLimit: 90, timePickupBudget: 2,
       objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '进阶目标' },
       itemCounts: { hammer: 2, shuffle: 1, theme: 1 }
     },
     master: {
       cols: 7, rows: 8, typeCount: 6, obstacleRate: 0.56, knotRate: 0.44, knotStrength: 3,
-      moveLimit: 18, minLegalMoves: 2, timeLimit: 60, timePickupBudget: 1,
+      moveLimit: 18, minLegalMoves: 2, timeLimit: 90, timePickupBudget: 1,
       objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '大师目标' },
       itemCounts: { hammer: 1, shuffle: 1, theme: 1 }
     },
