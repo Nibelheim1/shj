@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAt": "2026-08-16T11:00:10.009Z",
-  "totalBytes": 9849686,
+  "generatedAt": "2026-08-16T11:10:42.246Z",
+  "totalBytes": 9849856,
   "files": [
     {
       "path": "assets/art/buildings/clinic_lv1.webp",
@@ -1692,8 +1692,8 @@
     {
       "path": "js/merge/ui.js",
       "bundle": "boot",
-      "bytes": 204304,
-      "sha256": "892706c880f473edbe41112d8b07b7c792ebab0b2601fa031b08c6478a1fe788"
+      "bytes": 204474,
+      "sha256": "63bdee6733b9b5696ed548f3f69d011e56c63170ffaec81a354ddba20f5cf676"
     },
     {
       "path": "merge-slice.css",

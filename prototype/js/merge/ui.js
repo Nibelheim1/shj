@@ -1135,7 +1135,7 @@
         var productName = productRecipe ? productRecipe.name : order.productNeed.productId;
         productTileMarkup = '<span class="order-need product-order-need" data-longpress-recipe="' + esc(order.productNeed.productId) + '" title="配方柜物品：' + esc(productName) + ' ×' + order.productNeed.count + ' · 长按看配方"><img src="' + esc(recipeArtPath(productRecipe)) + '" alt="' + esc(productName) + '" /><b>' + order.productNeed.count + '</b></span>';
       }
-      var needsMarkup = complete ? '<div class="care-gate-hint">今天这一槽已经完成</div>' : '<div class="order-need-icons">' + requirements.map(needMarkup).join('') + productTileMarkup + '</div>';
+      var needsMarkup = complete ? '' : '<div class="order-need-icons">' + requirements.map(needMarkup).join('') + productTileMarkup + '</div>';
       var rewards = order.rewards || {};
       var rewardBits = [];
       if (rewards.jade) rewardBits.push('◆' + rewards.jade);
@@ -1144,12 +1144,7 @@
       if (rewards.heal) rewardBits.push('疗愈+' + rewards.heal);
       if (rewards.energy) rewardBits.push('体力+' + rewards.energy);
       if (rewards.generatorParts && rewards.generatorParts.length) rewardBits.push('部件×' + rewards.generatorParts.length);
-      if (order.generatorNeed) {
-        needsMarkup += '<div class="care-gate-hint">需在场：' + esc(order.generatorNeed.family === 'herb' ? '药材' : order.generatorNeed.family === 'tool' ? '药具' : order.generatorNeed.family === 'food' ? '膳食' : '建材') + '造物生成器 Lv' + esc(order.generatorNeed.minLevel) + '+ ×' + order.generatorNeed.count + '</div>';
-      }
-      if (order.giftChain && order.giftChain.note) {
-        needsMarkup += '<div class="care-gate-hint gift-chain-note">' + esc(order.giftChain.note) + '</div>';
-      }
+      /* 主页面订单卡不放任何文案：礼物链故事、生成器要求等只在详情弹窗展示。 */
       var kindChip = mainline
         ? '<span class="mainline-badge">主线</span>'
         : '<span class="order-kind">' + kindLabel(order.kind) + '</span>';
@@ -2355,6 +2350,14 @@
         (productRecipe ? '<img src="' + esc(recipeArtPath(productRecipe)) + '" alt="" />' : '') +
         '<span>配方柜：' + esc(productName) + ' ×' + order.productNeed.count + ' · 长按看配方</span></div>';
     }
+    var generatorHintMarkup = '';
+    if (order.generatorNeed) {
+      generatorHintMarkup = '<div class="care-gate-hint">需在场：' + esc(order.generatorNeed.family === 'herb' ? '药材' : order.generatorNeed.family === 'tool' ? '药具' : order.generatorNeed.family === 'food' ? '膳食' : '建材') + '造物生成器 Lv' + esc(order.generatorNeed.minLevel) + '+ ×' + order.generatorNeed.count + '</div>';
+    }
+    var giftNoteMarkup = '';
+    if (order.giftChain && order.giftChain.note) {
+      giftNoteMarkup = '<div class="care-gate-hint gift-chain-note">' + esc(order.giftChain.note) + '</div>';
+    }
     var modal = modalShell('<span class="eyebrow">' + kindLabel(order.kind) + '委托</span><h2>' + esc(order.title) + '</h2><p class="task-symptom">' + esc(order.symptom || '') + '</p>' +
       (order.mainline ? '<div class="order-prerequisite"><b>主线前置</b><span>' + esc(prerequisiteText(order)) + '</span></div>' : '') +
       '<div class="task-needs">' + order.requirements.map(function (need) {
@@ -2362,6 +2365,8 @@
         return '<div class="task-need-row" data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托详情"><img src="' + esc(itemPath(item)) + '" alt="" /><span><strong>' + esc(item.name) + '</strong><small>' + esc(familyDef(need.family).name) + ' · ' + need.tier + '阶 · 来源：' + esc(sourceLabelForNeed(need)) + '</small></span><b>' + countNeed(need) + '/' + need.count + '</b></div>';
       }).join('') + '</div><div class="task-source-note">同类同阶二合一；每种物品都标明了具体来源，小游戏材料需要在对应设施中获得。委托每日自动刷新，刷新页面不会改变槽位；手动刷新消耗今日次数。</div>' +
       careJumpMarkup +
+      generatorHintMarkup +
+      giftNoteMarkup +
       productHintMarkup +
       '<div class="task-reward">完成奖励：◆' + (order.rewards.jade || 0) + ' · 经验 ' + (order.rewards.xp || 0) + (orderAffection ? ' · 好感 +' + orderAffection : '') + '</div>' +
       '<button class="modal-action" data-modal-deliver type="button" ' + (can ? '' : 'disabled') + '>' + (can ? '立即交付' : '素材尚未齐全') + '</button>' +
