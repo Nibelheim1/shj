@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAt": "2026-08-16T03:46:42.909Z",
-  "totalBytes": 10426634,
+  "generatedAt": "2026-08-16T04:42:30.175Z",
+  "totalBytes": 9835995,
   "files": [
     {
       "path": "assets/art/buildings/clinic_lv1.webp",
@@ -228,8 +228,8 @@
     {
       "path": "assets/art/characters/jiuweihu_lv3.webp",
       "bundle": "scene",
-      "bytes": 114360,
-      "sha256": "33725b9089471b7538b715b678073cdaa6103c0b4c1e6c77f5cfaf58a8f7e71e"
+      "bytes": 36512,
+      "sha256": "570eff80fa56b57b75dc79cb67b03299d8b627a8fa588c03efbd727bbc123461"
     },
     {
       "path": "assets/art/characters/jiuweihu_lv4_atlas.webp",
@@ -240,8 +240,8 @@
     {
       "path": "assets/art/characters/jiuweihu_lv4.webp",
       "bundle": "scene",
-      "bytes": 166014,
-      "sha256": "b0c516b29c588b7fc6f09522f8e15f0e2e47682917de49b129f635455e431931"
+      "bytes": 50480,
+      "sha256": "c1b82859d871c7fd2e054ac4f8d9f6bf0a07ee2dca7968ec0be467d243da64c2"
     },
     {
       "path": "assets/art/characters/jiuweihu_lv5_atlas.webp",
@@ -252,8 +252,8 @@
     {
       "path": "assets/art/characters/jiuweihu_lv5.webp",
       "bundle": "scene",
-      "bytes": 185614,
-      "sha256": "f54b79aab1db8f1fd4fbf78308ae7ed4332ca167837203027ababd0009a92409"
+      "bytes": 58566,
+      "sha256": "0d9708d5c6a8a42d325a3f35cecbe91acaae2ee446bb5c11e786f6c1d33aad67"
     },
     {
       "path": "assets/art/characters/kunpeng_lv1.webp",
@@ -1248,8 +1248,8 @@
     {
       "path": "assets/art/v7/scenes/bg_fox_lantern_buildingfree.webp",
       "bundle": "scene",
-      "bytes": 251368,
-      "sha256": "69c0e3744a5cbca75d8c01b401f020a8cb1c3ad0d0c8f1977108730551d83e62"
+      "bytes": 211100,
+      "sha256": "98f06a12981428c21960d6d7a11194a8fee53c462f68edcda6c0b9812ddca8d5"
     },
     {
       "path": "assets/art/v7/scenes/bg_sect_map.webp",
@@ -1332,26 +1332,26 @@
     {
       "path": "assets/art/v7/sect/clinic_stage0.webp",
       "bundle": "scene",
-      "bytes": 127642,
-      "sha256": "f900e8dafcb707598d991e40c4cbe31d18004e0734ce3c2a4f0813b057668cb5"
+      "bytes": 107004,
+      "sha256": "55826acf19eb3a6b289cdb181609068118b923c7ac9a844228cb94dd47c4c6d0"
     },
     {
       "path": "assets/art/v7/sect/clinic_stage1.webp",
       "bundle": "scene",
-      "bytes": 110658,
-      "sha256": "7fb56fac59b7e1849ab625bee414ff8e88403ed2e6dae3bf3259a057c1dc6299"
+      "bytes": 94470,
+      "sha256": "eef9f7dacab4b3bedaccf3516d901f84d54bf3da62e010ff08073a9898acc22e"
     },
     {
       "path": "assets/art/v7/sect/clinic_stage2.webp",
       "bundle": "scene",
-      "bytes": 110832,
-      "sha256": "f1bd044bf459d4e36e50eb6fad12aa7f75accd2c4d9bb14b622ec53bf0a96f0b"
+      "bytes": 94674,
+      "sha256": "0ab1a2e3e3ec35a99c478da3a3b9e8b836c554f8c17d49ba1b7869ff0446fd6b"
     },
     {
       "path": "assets/art/v7/sect/clinic_stage3.webp",
       "bundle": "scene",
-      "bytes": 96260,
-      "sha256": "0c205ace79e0df9fdd8e2f86a0bc9f82586d17c00f87aa7fe9874f405f804026"
+      "bytes": 81774,
+      "sha256": "6bcbad1618f1e72ec9469df6526bd9cefaa49f780cf72cb12f823c080969b412"
     },
     {
       "path": "assets/art/v7/sect/cloud_isle_stage0.webp",
@@ -1410,68 +1410,68 @@
     {
       "path": "assets/art/v7/sect/forecourt_stage1.webp",
       "bundle": "scene",
-      "bytes": 133790,
-      "sha256": "49f5ed1caf63699d9876abc0e3a3e9a57da1c49bfffae8bed7c4ef32d9287697"
+      "bytes": 113174,
+      "sha256": "c64e0e7944f0a8cc8ed78b24d569bab8fc53d412f946a0f6ccf6dc57e1af5dc2"
     },
     {
       "path": "assets/art/v7/sect/forecourt_stage2.webp",
       "bundle": "scene",
-      "bytes": 135348,
-      "sha256": "ebd967cdf82ea17e11c5a77a2dc1d628fca20e5688169d5a33a7e4d7db171ffb"
+      "bytes": 115694,
+      "sha256": "976038df1239bfd06de370396a223d69e89dc22f8ec7f037e3d3110b0b6f2eee"
     },
     {
       "path": "assets/art/v7/sect/forecourt_stage3.webp",
       "bundle": "scene",
-      "bytes": 115204,
-      "sha256": "9a2ed7fb47b9f4227275aa702450bb89ab87178239402a80227bd10346591c7e"
+      "bytes": 98770,
+      "sha256": "cbf125face113b5f77f6875b7fd86afd20daf79ad921b807f6dbbbc35720541a"
     },
     {
       "path": "assets/art/v7/sect/gate_stage0.webp",
       "bundle": "scene",
-      "bytes": 108648,
-      "sha256": "aa1b13f75191af0f1e8aa3652caef97e318169575753d4d4bec9da9ffe5ef4e6"
+      "bytes": 89494,
+      "sha256": "b57d8c01c8215f5f53cdb6272b7be587c5c27a71370ad232160d445d4b3e291a"
     },
     {
       "path": "assets/art/v7/sect/gate_stage1.webp",
       "bundle": "scene",
-      "bytes": 92892,
-      "sha256": "6eafc17fff978c77f54e1d8d095bd41ecbd22909d56d13e94ab509e98051e933"
+      "bytes": 79104,
+      "sha256": "aad7e9085888f733b734429c549ec00e4a9248aac8b21b976291d4bb54995a53"
     },
     {
       "path": "assets/art/v7/sect/gate_stage2.webp",
       "bundle": "scene",
-      "bytes": 82750,
-      "sha256": "e2806067c7953ad9bc4775d0bc3183854d81aa3bc554398610ee51e782ef8f54"
+      "bytes": 69542,
+      "sha256": "3d9a0622e1d7230ae795907f44e24ab1b3b4e22e5b12fd01e3f801bfbc7260ab"
     },
     {
       "path": "assets/art/v7/sect/gate_stage3.webp",
       "bundle": "scene",
-      "bytes": 87192,
-      "sha256": "325552db6d937ef3bf5ec0a4563f2a9401fb3858d16b21e4d5bcd3e02ef5326c"
+      "bytes": 73684,
+      "sha256": "660a5d08c7a950f103361ec18fdc4eeb5e03c16c6b5ddd0a0a34a2b4ebf62dfd"
     },
     {
       "path": "assets/art/v7/sect/groom_pavilion_stage0.webp",
       "bundle": "scene",
-      "bytes": 114274,
-      "sha256": "82a2e90d807f2e56b03080f656f3a1b0aa8ebc5ec5a04f599be5ce008043af9f"
+      "bytes": 95988,
+      "sha256": "0e3b8f262f3787d614d8d52d15db28b1464542a7f7dbab6db7410a1f0f9755c0"
     },
     {
       "path": "assets/art/v7/sect/groom_pavilion_stage1.webp",
       "bundle": "scene",
-      "bytes": 95550,
-      "sha256": "5da9e99e3ad920d0797764b1d8a57896ce6b316e99e47a2061019cde1e61ec9d"
+      "bytes": 81828,
+      "sha256": "ddd574913db79bc242bb26fcc0ef050967aab95931d27a0c98482ac1ef4553e5"
     },
     {
       "path": "assets/art/v7/sect/groom_pavilion_stage2.webp",
       "bundle": "scene",
-      "bytes": 88432,
-      "sha256": "a8547bbff98673e2dd4dda1ddc3f160dc82bf3eaaccca8ebd2d08137f621c4e8"
+      "bytes": 75012,
+      "sha256": "f3c473ba629f3570ff2b72d9cdd255e1eb628fb052cfffc7941886895f0a32c7"
     },
     {
       "path": "assets/art/v7/sect/groom_pavilion_stage3.webp",
       "bundle": "scene",
-      "bytes": 88932,
-      "sha256": "8f4fc749c6c6e8c596dcd503a60897434532d2d022323ce643825264fd76248e"
+      "bytes": 75254,
+      "sha256": "e6f7b4ba3d92c048bc466de525484a50477ba6badafb41c3cbffe44696148ade"
     },
     {
       "path": "assets/art/v7/sect/herb_garden_stage0.webp",
@@ -1645,7 +1645,7 @@
       "path": "index.html",
       "bundle": "boot",
       "bytes": 23417,
-      "sha256": "42c9611f4a7415e20ee93c9790458bbd5b60d324eb19386676f4d1b843857d47"
+      "sha256": "5a103b48a3262ddabb884019b912597afa5d2a2314989bef010a792efc8e158e"
     },
     {
       "path": "js/merge/audio.js",
@@ -1692,14 +1692,14 @@
     {
       "path": "js/merge/ui.js",
       "bundle": "boot",
-      "bytes": 202137,
-      "sha256": "c5385d04429f9973e43020b4d6607227aeee7fa9e4afa5fa78552589f798753c"
+      "bytes": 203535,
+      "sha256": "c6d555525dd45198aa128e5448359c34b16f66a7795a90d75831bc9ebd8fecbe"
     },
     {
       "path": "merge-slice.css",
       "bundle": "boot",
-      "bytes": 111928,
-      "sha256": "8806a6c27fa776aea36853101c3e2c052d0481789a75b5c52b7e3984f9fd8666"
+      "bytes": 123527,
+      "sha256": "1d2a1e34c13dd7c0c6fbe8260ecdd78f1a1cb6ca63ca9d0c632425424ae7d860"
     },
     {
       "path": "merge-slice.js",

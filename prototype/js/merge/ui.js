@@ -1170,7 +1170,7 @@
         needsMarkup += '<div class="care-gate-hint gift-progress">「' + esc(giftBeast.name) + '礼」现有 ' + giftStats.count + ' 件' +
           (giftStats.maxTier ? ' · 最高 ' + giftStats.maxTier + ' 阶' : '') +
           ' · ' + esc(giftInfo.careLabel) + '可获得</div>';
-        needsMarkup += '<button class="deliver-btn care-jump" data-go-care="' + esc(giftNeed.sourceBeast) + '" type="button">去' + esc(giftInfo.careLabel) + ' · 拿' + esc(giftBeast.name) + '礼</button>';
+        needsMarkup += '<button class="deliver-btn care-jump" data-go-care="' + esc(giftNeed.sourceBeast) + '" type="button">去' + esc(giftInfo.careLabel) + '拿礼物</button>';
       }
       var actionMarkup = '<button class="deliver-btn" data-deliver="' + esc(order.id) + '" type="button" ' + (ready && !complete ? '' : 'disabled') + '>' + (complete ? '今日已完成' : '交付 · ' + rewardBits.join(' · ')) + '</button>';
       return '<article class="order-card ' + (mainline ? 'main-order ' : '') + (ready ? 'ready ' : '') + (!reachable ? 'unreachable' : '') + '" data-order-id="' + esc(order.id) + '" data-help="order-card" title="点击查看详情，长按查看委托卡说明">' +
@@ -1372,10 +1372,10 @@
     return {
       background: { id: backgroundId, url: background ? backgroundAssetPath(background) : '' },
       buildings: {
-        clinic: { x: 20, y: buildingY(clinic.level, false), scale: buildingScale(clinic.level, false), level: clinic.level, image: DATA.buildings.clinic.art[clinic.level - 1], state: 'ready', bubble: '疗愈 +' + DATA.facilities.clinic.levels[clinic.level - 1].healReward },
-        herb: { x: 20, y: buildingY(herb.level, true), scale: buildingScale(herb.level, true), level: herb.level, image: DATA.buildings.herb.art[herb.level - 1], state: herb.stored.length ? 'ready' : 'producing', bubble: herb.stored.length ? '可领取 ×' + herb.stored.length : 'Lv' + herb.level + ' 生产中' },
-        groom: { x: 80, y: buildingY(groom.level, true), scale: buildingScale(groom.level, true), level: groom.level, image: DATA.buildings.groom.art[groom.level - 1], state: budget.unlimited || groomLeft ? 'care' : 'practice', bubble: budget.unlimited ? '不限奖励' : (groomLeft ? groomLeft + ' 局奖励' : '练习模式') },
-        play: { x: 80, y: buildingY(play.level, false), scale: buildingScale(play.level, false), level: play.level, image: DATA.buildings.play.art[play.level - 1], state: budget.unlimited || playLeft ? 'care' : 'practice', bubble: budget.unlimited ? '不限奖励' : (playLeft ? playLeft + ' 局奖励' : '练习模式') }
+        clinic: { x: 24, y: buildingY(clinic.level, false), scale: buildingScale(clinic.level, false), level: clinic.level, image: DATA.buildings.clinic.art[clinic.level - 1], state: 'ready', bubble: '疗愈 +' + DATA.facilities.clinic.levels[clinic.level - 1].healReward },
+        herb: { x: 22, y: buildingY(herb.level, true), scale: buildingScale(herb.level, true), level: herb.level, image: DATA.buildings.herb.art[herb.level - 1], state: herb.stored.length ? 'ready' : 'producing', bubble: herb.stored.length ? '可领取 ×' + herb.stored.length : 'Lv' + herb.level + ' 生产中' },
+        groom: { x: 78, y: buildingY(groom.level, true), scale: buildingScale(groom.level, true), level: groom.level, image: DATA.buildings.groom.art[groom.level - 1], state: budget.unlimited || groomLeft ? 'care' : 'practice', bubble: budget.unlimited ? '不限奖励' : (groomLeft ? groomLeft + ' 局奖励' : '练习模式') },
+        play: { x: 76, y: buildingY(play.level, false), scale: buildingScale(play.level, false), level: play.level, image: DATA.buildings.play.art[play.level - 1], state: budget.unlimited || playLeft ? 'care' : 'practice', bubble: budget.unlimited ? '不限奖励' : (playLeft ? playLeft + ' 局奖励' : '练习模式') }
       },
       character: { x: 50, y: 84, groundY: 84, scale: 0.78, src: beastArt(display.definition, display.entry), stage: display.entry.activeFormLevel - 1, state: display.entry.transformed ? 'transformed' : 'idle', transformed: !!display.entry.transformed },
       speech: display.definition.dialogue[stage]
@@ -1662,7 +1662,7 @@
         '<div class="codex-art"><img loading="lazy" src="' + esc(characterAssetPath(beastArt(beast, entry))) + '" alt="' + esc(beast.name) + '大图立绘" /><b>' + (discovered ? esc(levelConfig && levelConfig.title || beast.stageNames[entry.stage]) : '等待来信') + '</b></div>' +
         '<div class="codex-copy"><h2>' + (discovered ? esc(beast.name) : '未结识 · ' + esc(beast.name)) + '</h2><p>' + (discovered ? esc(beast.lore) : '解锁信物：' + esc(unlock)) + '</p>' +
         '<div class="codex-care"><strong>专属素材：' + esc(careGuide) + '</strong><small>消消乐、羊了个羊和专属委托都增加好感；每日上限 100，未互动次日 -10</small></div>' +
-        '<div class="codex-growth">Lv' + entry.level + '/5 · 好感 ' + entry.affection + (next ? '/' + next.affection : '') + ' · 疗愈 ' + entry.heal + (next ? '/' + next.heal : '') + ' · 经验 ' + entry.exp + (next ? '/' + next.exp : '') + '</div>' +
+        '<div class="codex-growth"><b>Lv' + entry.level + '/5</b><span>好感 ' + entry.affection + (next ? '/' + next.affection : '') + '</span><span>疗愈 ' + entry.heal + (next ? '/' + next.heal : '') + '</span><span>经验 ' + entry.exp + (next ? '/' + next.exp : '') + '</span></div>' +
         '<div class="codex-job">点击查看大图、故事与形态</div></div></article>';
     }).join('');
     q('ending-card').innerHTML = state.endingUnlocked ? '<h2>第一卷 · 灯火长明</h2><p>伙伴们会继续成长，十二页山海册等你一页页点亮。</p>' : '<h2>下一页正等你翻开</h2><p>陪九尾狐突破新形态，每一级都会解锁一段只属于它的小故事。</p>';
@@ -1683,10 +1683,9 @@
 
   function sectAreaArt(status, stageIndex) {
     stageIndex = Math.max(0, Math.min(3, Math.floor(numberOf(stageIndex, 0))));
-    if (status && status.art && status.art[stageIndex]) return status.art[stageIndex];
-    /* 新增区域没有单独 stage 系列图时，使用统一的正式建筑基底图，
-       UI 通过 data-stage 滤镜呈现荒废→焕新。 */
-    if (status && status.areaId) return 'assets/art/v7/sect/' + status.areaId + '_stage' + stageIndex + '.webp';
+    if (status && Array.isArray(status.art) && status.art[stageIndex]) return status.art[stageIndex];
+    /* 区域没有专属 stage 系列图（art: []）时返回 null：调用方统一渲染
+       “灵雾待启”占位，而不是加载灰白剪影占位图破坏主视觉。 */
     return null;
   }
 
@@ -1708,7 +1707,7 @@
   function areaMapArtMarkup(status) {
     var art = sectAreaArt(status, status.stage);
     if (art) return '<div class="sect-map-art" style="background-image:url(\'' + esc(String(art).replace(/'/g, '')) + '\')"></div>';
-    return '<div class="sect-map-art"><i>' + esc(status.icon) + '</i></div>';
+    return '<div class="sect-map-art no-art" aria-label="' + esc(status.name || status.areaId) + '暂未开启"><span class="fog-tag">灵雾待启</span><i aria-hidden="true">☁</i></div>';
   }
 
   function areaBadgeChips(status) {
@@ -1734,7 +1733,8 @@
     var x = column === 0 ? 26 : 74;
     if (row % 2 === 1) x = column === 0 ? 30 : 70;
     var y = 10 + (row - 1) * 13;
-    return { left: Math.max(8, Math.min(92, x)), top: Math.max(6, Math.min(92, y)) };
+    /* 节点宽 92px、标签与徽章随行展开：左右留边，顶部避开标题，底部避开底栏。 */
+    return { left: Math.max(12, Math.min(84, x)), top: Math.max(7, Math.min(88, y)) };
   }
 
   var SECT_NPCS = [
@@ -1750,8 +1750,9 @@
     var rootNode = q('sect-map-npcs');
     if (!rootNode) return;
     rootNode.innerHTML = SECT_NPCS.map(function (npc, index) {
-      var left = 8 + ((index * 17) % 84);
-      var top = 8 + ((index * 31) % 80);
+      /* NPC 只在中下段的山路上散步，避免漂在顶部建筑上被误读为浮窗。 */
+      var left = 10 + ((index * 23) % 80);
+      var top = 52 + ((index * 17) % 34);
       return '<img class="map-npc" data-map-npc="' + esc(npc.id) + '" src="assets/art/npc/' + esc(npc.id) + '.webp" alt="' + esc(npc.name) + '在散步" style="left:' + left + '%;top:' + top + '%" />';
     }).join('');
   }
@@ -1761,10 +1762,10 @@
     var rootNode = q('sect-map-npcs');
     if (!rootNode || rootNode.hidden) return;
     Array.prototype.forEach.call(rootNode.querySelectorAll('[data-map-npc]'), function (npc, index) {
-      var currentLeft = parseFloat(npc.style.left) || (8 + index * 17);
-      var currentTop = parseFloat(npc.style.top) || (10 + index * 29);
-      var nextLeft = clampNpc(currentLeft + ((Math.random() - 0.5) * 26), 5, 88);
-      var nextTop = clampNpc(currentTop + ((Math.random() - 0.5) * 20), 5, 90);
+      var currentLeft = parseFloat(npc.style.left) || (10 + index * 23);
+      var currentTop = parseFloat(npc.style.top) || (52 + index * 17);
+      var nextLeft = clampNpc(currentLeft + ((Math.random() - 0.5) * 24), 6, 86);
+      var nextTop = clampNpc(currentTop + ((Math.random() - 0.5) * 12), 46, 86);
       npc.style.left = nextLeft + '%';
       npc.style.top = nextTop + '%';
       npc.classList.toggle('facing-left', nextLeft < currentLeft);
@@ -1778,6 +1779,25 @@
   function ensureSectNpcTimer() {
     if (sectNpcTimer || !root.setInterval) return;
     sectNpcTimer = root.setInterval(stepSectNpcs, 6500);
+  }
+
+  /* 区域图缺失探测：后台加载失败时统一替换为“灵雾待启”占位，
+     避免 404 的灰白方块直接暴露在主视觉上。 */
+  function probeMissingArt(selector, placeholderHtml, missingClass) {
+    var nodes = document.querySelectorAll(selector);
+    Array.prototype.forEach.call(nodes, function (node) {
+      var url = node.style.backgroundImage || '';
+      var match = /url\(["']?(.+?)["']?\)/.exec(url);
+      if (!match || node.classList.contains(missingClass)) return;
+      var probe = new Image();
+      probe.onload = function () {};
+      probe.onerror = function () {
+        node.classList.add(missingClass);
+        node.style.backgroundImage = 'none';
+        if (placeholderHtml) node.innerHTML = placeholderHtml;
+      };
+      probe.src = match[1];
+    });
   }
 
   function renderSectMap() {
@@ -1808,6 +1828,7 @@
         badgeMarkup +
         '</button>';
     }).join('');
+    probeMissingArt('#sect-map .sect-map-art', '<span class="fog-tag">灵雾待启</span><i aria-hidden="true">☁</i>', 'no-art');
     renderSectNpcs();
     ensureSectNpcTimer();
     var note = q('sect-map-note');
@@ -1854,10 +1875,11 @@
       var label = nodeStatus.locked ? '灵雾未散' : (DATA.sect.stageNames || [])[nodeStage] || nodeState;
       var visual = nodeArt
         ? '<span class="sect-building-visual" style="background-image:url(\'' + esc(String(nodeArt).replace(/'/g, '')) + '\')" aria-hidden="true"></span>'
-        : '<span class="sect-building-visual" aria-hidden="true">' + esc(nodeStatus.icon) + '</span>';
+        : '<span class="sect-building-visual missing-art" aria-hidden="true">☁<span class="fog-tag">灵雾未散</span></span>';
       return '<button class="sect-building-hotspot' + (area.id === selected.id ? ' is-current' : '') + '" data-scene-node="building" data-area="' + esc(area.id) + '" data-stage="' + nodeState + '" data-state="' + nodeState + '" data-action="select-sect-area" type="button" aria-label="' + esc(nodeStatus.name + '，' + label) + '" aria-current="' + (area.id === selected.id ? 'true' : 'false') + '">' +
         visual + '<b data-area-label>' + esc(nodeStatus.name) + '</b><small data-stage-label>' + esc(label) + '</small></button>';
     }).join('');
+    probeMissingArt('#sect-building-layer .sect-building-visual', '<span class="fog-tag">灵雾未散</span>☁', 'missing-art');
     var switcher = q('sect-area-switcher');
     if (switcher) {
       switcher.innerHTML = areas.map(function (area) {

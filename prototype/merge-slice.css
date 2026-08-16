@@ -968,3 +968,145 @@ body{min-block-size:100svh;}
 .world-ceremony button{margin-top:16px;min-width:130px;min-height:38px;border:0;border-radius:99px;background:var(--coral);color:#fff;font-size:12px;font-weight:900;cursor:pointer;}
 @keyframes world-change-in{from{opacity:0;transform:translateY(16px) scale(.96);}to{opacity:1;transform:translateY(0) scale(1);}}
 @keyframes world-change-out{to{opacity:0;transform:translateY(14px) scale(.97);}}
+
+/* ================= UI 整洁度整治（2026-08-16）================ */
+/* 原则：同一行高、同一圆角、同一描边语言；提示不遮挡美术主体；空态有呼吸感。 */
+
+/* —— 顶栏：去掉与体力胶囊重复的“体力中心”按钮，胶囊统一内距 —— */
+#energy-help { display:none; }
+.hud-values { gap:4px; }
+.hud-pill { flex-direction:column; gap:2px; align-items:center; justify-content:center; min-height:38px; padding:4px 7px; border-radius:13px; box-shadow:0 1px 0 #68442d10; }
+.hud-pill small { font-size:8px; color:#8f796a; line-height:1; }
+.hud-pill b { font-size:11px; line-height:1.15; }
+.hud-pill.hud-level { padding:4px 8px; }
+
+/* —— 底部导航：选中态从整块橙色改为描边浮起，进度条可读 —— */
+.slice-nav { gap:7px; padding-top:7px; }
+.slice-nav .nav-button { display:grid; place-items:center; gap:2px; border-radius:14px; background:#fbf5ea; box-shadow:0 1px 0 #68442d0d; }
+.slice-nav .nav-button span { color:#9a7b5f; }
+.slice-nav .nav-button small { color:#7c6048; }
+.slice-nav .nav-button.active { background:linear-gradient(#fff3e2,#ffe4d1); border-color:#df7959; box-shadow:inset 0 0 0 1px #df795955,0 3px 0 #c96a4c,0 5px 10px #b8563c20; }
+.slice-nav .nav-button.active span { color:#b8563c; }
+.slice-nav .nav-button.active small { color:var(--coral-dark); }
+.slice-nav .nav-goal { padding:6px 9px; border:1px solid #72533b1c; border-radius:12px; background:#f6ede0; }
+.slice-nav .nav-goal span { color:#775c42; font-size:8px; }
+.slice-nav .nav-goal i { height:7px; margin-top:5px; }
+
+/* —— 合成页：下一步引导、委托卡、棋盘 —— */
+#next-action { border:1px solid #e4b65f55; background:linear-gradient(120deg,#fff6dc,#fffdf7); box-shadow:none; font-size:9px; line-height:1.5; }
+#next-action button { float:none; margin:0 7px 0 0; padding:5px 9px; box-shadow:0 2px 0 var(--coral-dark); }
+#next-action strong { display:inline; margin-right:6px; font-size:11px; }
+#merge-view #next-action { display:flex; align-items:center; flex-wrap:nowrap; }
+#merge-view #next-action button { flex:0 0 auto; }
+#merge-view #next-action strong { flex:0 0 auto; white-space:nowrap; }
+#merge-view #next-action { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+
+#merge-view .order-list { gap:7px; padding:2px 2px 4px; }
+#merge-view .order-card { display:flex; flex-direction:column; min-height:120px; padding:7px 6px 6px; border-radius:13px; }
+#merge-view .order-head { gap:3px 5px; }
+#merge-view .order-head strong { font-size:10px; line-height:1.25; margin-top:2px; }
+#merge-view .order-need-icons { min-height:46px; gap:4px; margin-top:3px; }
+#merge-view .order-need { width:44px; height:44px; border:1px solid #72533b14; border-radius:10px; box-shadow:0 1px 2px #68442d0e; }
+#merge-view .order-card .order-progress { margin-top:auto; padding-top:4px; line-height:1.35; }
+#merge-view .order-card .deliver-btn, #merge-view .order-card .care-jump { margin-top:5px; min-height:22px; padding:4px 6px; font-size:8px; line-height:1.15; }
+
+#merge-view .board-card { padding-bottom:6px; }
+#merge-view .merge-board { background:linear-gradient(150deg,#e9d7c0,#f6e7d4); border:1px solid #72533b20; box-shadow:inset 0 2px 10px #68442d0d; }
+#merge-view .merge-cell { border:1px solid #72533b16; border-radius:9px; background:#fffaf2f0; box-shadow:0 1px 2px #68442d0c; }
+#merge-view .merge-cell img { width:86%; height:86%; }
+#merge-view .merge-cell b { right:2px; bottom:2px; min-width:15px; padding:1px 3px; font-size:8px; border-radius:6px; }
+#merge-view .merge-cell em { max-width:92%; padding:0 2px; overflow:hidden; text-overflow:ellipsis; }
+
+/* —— 庭院：标题加可读底板；徽章移到立绘下方不挡建筑；角色落地；场景与面板柔和过渡 —— */
+.yard-sky-copy { max-width:270px; margin:8px 0 0 8px; padding:8px 10px; border:1px solid #ffffff80; border-radius:14px; background:#fffaf0d9; backdrop-filter:blur(3px); box-shadow:0 3px 10px #4b37271a; }
+.yard-sky-copy .eyebrow { color:#8d6949; }
+.yard-sky-copy p { color:#795d4b; line-height:1.4; }
+.scene-building .building-level-badge { left:4px; top:88px; min-width:24px; padding:2px 6px; border:1px solid #ffffff90; background:#58705bd9; font-size:7px; box-shadow:0 2px 4px #4b37271f; }
+.scene-building .world-state-bubble { right:4px; top:88px; min-width:30px; padding:2px 6px; border:1px solid #8fb17f88; background:#f3f8eef2; color:#557a50; font-size:7px; box-shadow:0 2px 4px #4b37271c; }
+.scene-character:after { left:10%; width:80%; height:11px; bottom:-2px; background:#2f3927; opacity:.30; filter:blur(5px); }
+#yard-scene:after { content:""; position:absolute; left:0; right:0; bottom:0; height:26px; z-index:9; background:linear-gradient(180deg,transparent,#fffdf9d9); pointer-events:none; }
+.weekly-world-goal { align-items:center; padding:7px 8px; gap:8px; }
+.weekly-world-goal button { flex:0 0 auto; white-space:nowrap; padding:6px 10px; box-shadow:0 2px 0 #5b8a5f; }
+.weekly-world-goal small { max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+.yard-goal-panel, .progress-card { border-radius:16px; }
+
+/* —— 宗门舆图：无美术区域改“灵雾待启”占位；标签加实底可读；节点让路给 NPC；地图底图正常显示 —— */
+.sect-map-canvas { background:url('assets/art/v7/scenes/bg_sect_map.webp') center/cover; background-blend-mode:normal; }
+.sect-map-canvas:after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,#fffaf066 0%,transparent 32%,#5b4c331f 100%); }
+.sect-map { z-index:2; }
+.sect-map-npcs { z-index:1; }
+.sect-map-npcs .map-npc { opacity:.92; }
+.sect-map-node { width:92px; }
+.sect-map-art { width:54px; height:54px; border-radius:14px; box-shadow:0 4px 10px #68442d2e; }
+.sect-map-art.no-art { background:linear-gradient(160deg,#f4f7f1,#d9ded3); border:2px dashed #a6ae9b; box-shadow:none; }
+.sect-map-art.no-art i { background:transparent; font-size:20px; opacity:.5; }
+.sect-map-art.no-art .fog-tag { top:50%; transform:translate(-50%,-50%); padding:2px 6px; font-size:7px; background:#5a5348d9; }
+.sect-map-node h3 { max-width:92px; margin-top:4px; padding:3px 8px; background:#fffaf0fa; box-shadow:0 2px 6px #68442d24; font-size:9px; line-height:1.2; }
+.sect-map-pips { margin-top:3px; }
+.sect-map-badges { margin-top:3px; }
+.sect-map-badges span { background:#fff3daf8; box-shadow:0 1px 2px #68442d14; }
+.sect-map-stage { border-radius:16px; }
+
+/* —— 图鉴：立绘完整居中不裁切；锁定卡有“等待来信”的安静空态；间距统一 —— */
+.codex-list.beast-catalog { gap:7px; }
+.codex-card { grid-template-columns:70px minmax(0,1fr); gap:7px; min-height:104px; padding:7px; border-radius:13px; }
+.codex-art { place-items:center center; border-radius:10px; }
+.codex-art img { width:100%; height:100%; max-height:none; object-fit:contain; object-position:center center; padding:6px 3px 0; }
+.codex-card.locked .codex-art img { padding-bottom:4px; }
+.codex-card.locked .codex-art:after { content:"等待来信"; position:absolute; left:3px; right:3px; bottom:3px; padding:2px 0; border-radius:7px; background:#f5ead9dd; color:#8c7761; font-size:7px; font-weight:900; text-align:center; }
+.codex-art b { z-index:2; }
+.codex-copy h2 { font-size:12px; }
+.codex-copy p { margin-top:3px; font-size:8px; line-height:1.4; -webkit-line-clamp:2; }
+.codex-care { margin-top:4px; padding:4px 5px; border-radius:8px; }
+.codex-growth { display:flex; flex-wrap:wrap; align-items:center; gap:2px 7px; margin-top:5px; font-size:8px; color:#7c6048; letter-spacing:.01em; }
+.codex-growth b { padding:1px 5px; border-radius:99px; background:#f2e2cf; color:#a85e43; font-size:8px; }
+.codex-growth span { color:#8c7b6d; }
+.codex-growth span:first-of-type { color:#6d5241; font-weight:800; }
+.codex-job { margin-top:5px; padding:4px 5px; font-size:7px; }
+.codex-pager { margin-top:9px; gap:9px; }
+.codex-pager span { min-width:44px; text-align:center; }
+
+/* 小屏下徽章位置随建筑高度同步（见 @media 前规则） */
+@media (max-width:370px) {
+  .scene-building .building-level-badge, .scene-building .world-state-bubble { top:62px; }
+  .codex-card { grid-template-columns:58px minmax(0,1fr); padding:6px; }
+}
+.order-target-progress { box-shadow:inset 0 1px 2px #68442d18; }
+.order-target-slot { box-shadow:inset 0 1px 2px #68442d14; }
+
+/* —— 第三轮：委托卡底部对齐、完成态、NPC 巡游范围 —— */
+.sect-building-visual.missing-art { display:grid; place-items:center; border:2px dashed #a6ae9b; border-radius:18px; background:linear-gradient(160deg,#f6f8f3,#dde2d6)!important; font-size:30px; color:#9aa68f; }
+.sect-building-visual.missing-art .fog-tag { position:absolute; left:50%; bottom:10px; transform:translateX(-50%); padding:2px 8px; border-radius:99px; background:#57503fd9; color:#fff8e8; font-size:8px; font-weight:900; white-space:nowrap; }
+.order-list { align-items:stretch; }
+#merge-view .order-card { position:relative; }
+#merge-view .order-card .deliver-btn,
+#merge-view .order-card .care-jump { margin-top:auto; }
+#merge-view .order-card.ready { box-shadow:0 0 0 2px #7eaf7966,0 4px 10px #5b946021; }
+#merge-view .order-card.main-order.ready { background:linear-gradient(120deg,#f2f9ed,#fffdf8) padding-box,linear-gradient(135deg,#8fbf85,#5f9a62) border-box; box-shadow:0 0 0 2px #7eaf7944,0 4px 10px #5b946026; }
+#merge-view .order-card .care-jump { white-space:nowrap; }
+#merge-view .order-card.ready::after { content:"✓ 可交付"; position:absolute; right:5px; top:5px; padding:2px 5px; border-radius:99px; background:#7eaf79; color:#fff; font-size:7px; font-weight:900; line-height:1; }
+#merge-view .order-head { padding-right:0; }
+#merge-view .order-card.ready .order-head strong { padding-right:34px; }
+.sect-map-art.no-art { border-color:#9aa68f; background:linear-gradient(160deg,#f6f8f3,#dde2d6); }
+.sect-map-art.no-art .fog-tag { background:#57503fd9; }
+.slice-nav { padding-right:10px; }
+/* —— 第二轮：礼物标签底栏式、生成器格徽章、庭院阴影与面板节奏 —— */
+.order-need { grid-template-rows:minmax(0,1fr) auto; }
+.order-need img { width:100%; height:100%; }
+.order-need .gift-source { position:static; display:block; grid-row:2; width:100%; padding:1px 0 2px; border-radius:0 0 8px 8px; background:#b596d0; color:#fff; font-size:6px; line-height:1.1; text-align:center; }
+.order-need b { right:1px; top:1px; bottom:auto; }
+#merge-view .order-need { border-radius:11px; }
+#merge-view .order-need .gift-source { border-radius:0 0 10px 10px; }
+
+.merge-cell.generator-tile b { right:2px; top:2px; min-width:16px; padding:1px 3px; font-size:7px; }
+.merge-cell.generator-tile em { bottom:0; left:0; right:0; max-width:none; padding:1px 2px; background:#fffaf0c9; border-radius:0 0 8px 8px; font-size:6px; line-height:1.2; }
+.merge-cell.generator-part-tile em { bottom:0; left:0; right:0; border-radius:0 0 8px 8px; }
+
+.scene-building[data-node-id="clinic"] { --scene-x:26; --scene-y:50; }
+.scene-character:after { left:8%; width:84%; height:13px; bottom:-4px; background:#26341e; opacity:.38; filter:blur(6px); }
+.scene-character img { filter:drop-shadow(0 6px 4px #3a2d1f2e) saturate(.98) contrast(1.03); }
+#yard-view .yard-goal-panel .section-title-row { margin-bottom:3px; }
+#yard-view .sign-in-track { margin-top:7px; }
+#yard-view .goal-claim { margin-top:7px; }
+#yard-view .progress-card { margin-top:7px; border-radius:16px; }
+.yard-scene { border-radius:17px; }
