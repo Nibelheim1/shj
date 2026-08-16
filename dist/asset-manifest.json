@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAt": "2026-08-16T02:24:22.244Z",
-  "totalBytes": 10412665,
+  "generatedAt": "2026-08-16T03:46:42.909Z",
+  "totalBytes": 10426634,
   "files": [
     {
       "path": "assets/art/buildings/clinic_lv1.webp",
@@ -1656,8 +1656,8 @@
     {
       "path": "js/merge/core.js",
       "bundle": "boot",
-      "bytes": 174042,
-      "sha256": "28926a8dd17dafd3a6844b7465bfe0333afed4caaa8b5134afab66e5ada513d9"
+      "bytes": 179958,
+      "sha256": "5bb41e7315bfcb2bcca93577096a3cf9f7dea102282a28fdc9623da40395e365"
     },
     {
       "path": "js/merge/courtyard-scene.js",
@@ -1692,14 +1692,14 @@
     {
       "path": "js/merge/ui.js",
       "bundle": "boot",
-      "bytes": 195155,
-      "sha256": "54aaceef1ecabbed95ba4806a3518f744f33650027d10f680e661d0dcad07c42"
+      "bytes": 202137,
+      "sha256": "c5385d04429f9973e43020b4d6607227aeee7fa9e4afa5fa78552589f798753c"
     },
     {
       "path": "merge-slice.css",
       "bundle": "boot",
-      "bytes": 110857,
-      "sha256": "63ff36fad8c19e608c1e189d1f56bedccde2abd28fb1851f916b4e7e68d507e8"
+      "bytes": 111928,
+      "sha256": "8806a6c27fa776aea36853101c3e2c052d0481789a75b5c52b7e3984f9fd8666"
     },
     {
       "path": "merge-slice.js",

@@ -347,10 +347,23 @@
     var partInfo = info && info.partDropChance != null && isPermanent
       ? '<div class="generator-upgrade-summary"><b>部件产出</b><small>' + Math.round(info.partDropChance * 100) + '% · 保底进度 ' + Number(info.partPity || 0) + '/15</small></div>'
       : '';
+    /* 产出效率：以 Lv1 为基准的 1 阶当量，升级前后的提升一目了然。 */
+    var efficiencyInfo = '';
+    if (info && info.dropTable && isPermanent) {
+      var currentEff = Core.generatorEfficiency ? Core.generatorEfficiency(info.dropTable) : 1;
+      var nextLevelDrops = info.nextLevel && DATA.generators && DATA.generators.levels && DATA.generators.levels[info.nextLevel - 1] ? DATA.generators.levels[info.nextLevel - 1].drops : null;
+      var nextEff = nextLevelDrops && Core.generatorEfficiency ? Core.generatorEfficiency(nextLevelDrops) : null;
+      var efficiencyPercent = function (value) { return value <= 1 ? '100%' : '+' + Math.round((value - 1) * 100) + '%'; };
+      efficiencyInfo = '<div class="generator-upgrade-summary"><b>产出效率</b><small>以 Lv1 为基准 ' + efficiencyPercent(currentEff) + (nextEff ? ' · 升级后 ' + efficiencyPercent(nextEff) : '') + '</small></div>';
+    }
+    /* 离线储备：体力耗尽时可动用的免费产出次数。 */
+    var reserveInfo = info && isPermanent
+      ? '<div class="generator-upgrade-summary"><b>离线储备</b><small>' + Math.max(0, Number(info.charges || 0)) + ' / ' + Math.max(0, Number(info.capacity || 0)) + ' 次 · 体力耗尽时可动用储备继续产出</small></div>'
+      : '';
     var areaBonuses = Core.stageBonusesOfType ? Core.stageBonusesOfType(state, ['generator.rechargeRate', 'generator.capacity', 'generator.partChance', 'generator.doubleDrop'], family) : [];
     var bonusText = areaBonuses.length ? '<div class="generator-upgrade-summary"><b>宗门区域加成</b><small>' + esc(areaBonuses.map(function (bonus) { return bonus.text; }).join(' · ')) + '</small></div>' : '';
     var modal = modalShell('<span class="eyebrow">生成说明 · 长按查看</span><h2>' + esc(title) + (info ? ' Lv' + info.level + (isPermanent ? '' : ' · 造物') : '') + '</h2><p>' + esc(intro) + '</p>' +
-      (info ? '<div class="generator-upgrade-summary"><b>当前产出</b><small>' + esc(odds) + '</small></div>' : '') + lifetimeInfo + partInfo + bonusText +
+      (info ? '<div class="generator-upgrade-summary"><b>当前产出</b><small>' + esc(odds) + '</small></div>' : '') + efficiencyInfo + lifetimeInfo + partInfo + reserveInfo + bonusText +
       '<div class="generator-route-list">' + definition.items.map(function (name, index) {
         var tier = index + 1;
         var direct = info && info.dropTable && info.dropTable.find(function (drop) { return Number(drop.tier) === tier; });
@@ -859,7 +872,7 @@
       html: '<article class="how-to-play-item"><b>④ 常驻生成器</b><span>在线点击只消耗 1 点体力、不限次数；用暖玉 + 体力升级，升级还受宗门区域与配方成品前置限制。升级后高阶掉落概率提高，并有概率掉部件。</span></article>' +
         '<article class="how-to-play-item"><b>⑤ 生产器部件</b><span>两个同阶部件合成下一阶；两个 4 阶部件会变成“造物生成器”。造物生成器不耗体力、次数有限，用尽后消散并返还 1–2 个部件。</span></article>' +
         '<article class="how-to-play-item"><b>⑥ 配方台与配方柜</b><span>部分委托要求“配方成品”。在配方台消耗两种指定材料制作（如安神药包 = 3阶药材 + 3阶药具），成品放进配方柜，交付时自动扣除。长按配方可看图、材料来源与用途。</span></article>' +
-        '<article class="how-to-play-item"><b>⑦ 体力规则</b><span>每 150 秒恢复 1 点，离线最多积攒 8 小时。零体力仍可合成、交付委托、领取百草园与岗位产出。</span></article>'
+        '<article class="how-to-play-item"><b>⑦ 体力规则</b><span>每 150 秒恢复 1 点，离线最多积攒 8 小时。零体力仍可合成、交付委托、领取百草园与岗位产出；生成器积攒的离线储备也能在体力耗尽时继续使用。</span></article>'
     },
     {
       title: '庭院照料与小游戏',
@@ -1010,21 +1023,24 @@
     if (!node) return;
     var display = caseForDisplay();
     q('merge-title').textContent = '陪' + display.definition.name + '一起成长';
-    /* P1：幕一修缮优先出现在"下一步"，把合成 → 修缮 → 收容串成可见目标链。 */
-    var progress = Core.chapterProgress ? Core.chapterProgress(state) : null;
-    var reno = Core.currentRenovation ? Core.currentRenovation(state) : null;
-    if (progress && progress.act === 1 && reno) {
-      var renoReady = Core.canDeliverRenovation ? Core.canDeliverRenovation(state) : false;
-      node.innerHTML = '<button data-go-sect type="button">去宗门修缮</button><strong>下一步：' + esc(reno.area.name) + ' · ' + esc(reno.order.title) + '</strong>' + (renoReady ? '素材已备齐，去宗门页交付修缮。' : esc(reno.order.text));
-      return;
-    }
+    /* “下一步”按最短可完成路径动态排序：可交付 > 一步合成 > 陪玩礼物 > 成长就绪 > 修缮 > 推进委托。 */
     var orders = Core.ensureOrders(state, Math.random);
-    var gate = Core.canLevelUpBeast(state, display.id);
-    if (gate.ok) {
-      node.innerHTML = '<button data-open-codex-beast="' + esc(display.id) + '" type="button">查看新形态</button><strong>' + esc(display.definition.name) + '正在迎来新变化</strong>好感、疗愈和经验达标后会自动成长。';
+    var hint = Core.nextActionHint ? Core.nextActionHint(state, orders, display.id) : { type: 'order', order: orders[0], text: '合成并交付需要的素材。' };
+    if (hint.type === 'deliver' && hint.order) {
+      node.innerHTML = '<button data-focus-order="' + esc(hint.order.id) + '" type="button">去交付</button><strong>下一步：交付「' + esc(hint.order.title) + '」</strong>' + esc(hint.text);
+    } else if (hint.type === 'merge' && hint.order) {
+      node.innerHTML = '<button data-focus-order="' + esc(hint.order.id) + '" type="button">查看委托</button><strong>下一步：合成「' + esc(itemName({ family: hint.family, tier: hint.tier })) + '」</strong>' + esc(hint.text);
+    } else if (hint.type === 'care') {
+      node.innerHTML = '<button data-go-care="' + esc(hint.beastId) + '" type="button">去庭院</button><strong>下一步：陪' + esc(beastDef(hint.beastId).name) + '收集礼物</strong>' + esc(hint.text);
+    } else if (hint.type === 'levelup') {
+      node.innerHTML = '<button data-open-codex-beast="' + esc(hint.beastId) + '" type="button">查看新形态</button><strong>' + esc(display.definition.name) + '正在迎来新变化</strong>好感、疗愈和经验达标后会自动成长。';
+    } else if (hint.type === 'renovation' && hint.order) {
+      var renoReady = Core.canDeliverRenovation ? Core.canDeliverRenovation(state) : false;
+      node.innerHTML = '<button data-go-sect type="button">去宗门修缮</button><strong>' + esc(hint.text) + '</strong>' + (renoReady ? '素材已备齐，去宗门页交付修缮。' : esc(hint.detail || hint.order.text || ''));
+    } else if (hint.order) {
+      node.innerHTML = '<button data-focus-order="' + esc(hint.order.id) + '" type="button">查看委托</button><strong>下一步：' + esc(hint.order.title) + '</strong>' + esc(hint.detail || '合成并交付需要的素材。');
     } else {
-      var nextOrder = orders.filter(function (order) { return Core.canDeliver(state, order); })[0] || orders.filter(function (order) { return order.status !== 'COMPLETE'; })[0] || orders[0];
-      node.innerHTML = '<button data-focus-order="' + esc(nextOrder.id) + '" type="button">查看委托</button><strong>下一步：' + esc(nextOrder.title) + '</strong>' + esc(nextOrder.symptom || '合成并交付需要的素材。');
+      node.innerHTML = '<strong>下一步：继续合成与交付</strong>回收或用暂存区腾出位置，准备需要的素材。';
     }
   }
 
@@ -1037,6 +1053,21 @@
       });
     });
     return count;
+  }
+
+  /* 礼物素材进度：当前拥有件数与最高阶，让“还差多少陪玩”看得见。 */
+  function giftItemStats(family, sourceBeast) {
+    var count = 0;
+    var maxTier = 0;
+    [state.grid, state.storage.items].forEach(function (items) {
+      (items || []).forEach(function (item) {
+        if (item && !item.kind && item.family === family && item.giftSource === sourceBeast) {
+          count++;
+          if (item.tier > maxTier) maxTier = item.tier;
+        }
+      });
+    });
+    return { count: count, maxTier: maxTier };
   }
 
   function needMarkup(need) {
@@ -1128,6 +1159,19 @@
       if (order.giftChain && order.giftChain.note) {
         needsMarkup += '<div class="care-gate-hint gift-chain-note">' + esc(order.giftChain.note) + '</div>';
       }
+      /* 礼物委托：直达照料入口 + 礼物素材进度可视化。 */
+      var giftNeed = !complete && requirements.filter(function (need) {
+        return need.sourceBeast && countNeed(need) < need.count;
+      })[0] || null;
+      if (giftNeed) {
+        var giftBeast = beastDef(giftNeed.sourceBeast);
+        var giftInfo = careGiftForDisplay(giftNeed.sourceBeast);
+        var giftStats = giftItemStats(giftNeed.family, giftNeed.sourceBeast);
+        needsMarkup += '<div class="care-gate-hint gift-progress">「' + esc(giftBeast.name) + '礼」现有 ' + giftStats.count + ' 件' +
+          (giftStats.maxTier ? ' · 最高 ' + giftStats.maxTier + ' 阶' : '') +
+          ' · ' + esc(giftInfo.careLabel) + '可获得</div>';
+        needsMarkup += '<button class="deliver-btn care-jump" data-go-care="' + esc(giftNeed.sourceBeast) + '" type="button">去' + esc(giftInfo.careLabel) + ' · 拿' + esc(giftBeast.name) + '礼</button>';
+      }
       var actionMarkup = '<button class="deliver-btn" data-deliver="' + esc(order.id) + '" type="button" ' + (ready && !complete ? '' : 'disabled') + '>' + (complete ? '今日已完成' : '交付 · ' + rewardBits.join(' · ')) + '</button>';
       return '<article class="order-card ' + (mainline ? 'main-order ' : '') + (ready ? 'ready ' : '') + (!reachable ? 'unreachable' : '') + '" data-order-id="' + esc(order.id) + '" data-help="order-card" title="点击查看详情，长按查看委托卡说明">' +
         '<div class="order-head">' + (mainline ? '<span class="mainline-badge">主线</span>' : '') + '<span class="order-kind">' + kindLabel(order.kind) + '</span>' + (order.difficultyLabel ? '<span class="order-kind">' + esc(order.difficultyLabel) + ' · 强度' + order.effort + '</span>' : '') + '<strong>' + esc(order.title) + '</strong></div>' +
@@ -1177,7 +1221,7 @@
         var generatorArt = itemPath(item);
         var generatorMeta = item.permanent === false
           ? '剩余 ' + Math.max(0, Number(item.lifetime) || 0) + ' 次'
-          : '体力1 · 不限次';
+          : (Number(item.charges) > 0 ? '储备' + Number(item.charges) + ' · ' : '') + '体力1 · 不限次';
         content = (generatorArt ? '<img src="' + esc(generatorArt) + '" alt="" />' : '<span>' + esc(family ? family.icon : '✦') + '</span>') + '<b>Lv' + Math.max(1, Number(item.level) || 1) + '</b><em>' + esc(generatorMeta) + '</em>';
       } else if (item && item.kind === 'generator_part') {
         classes.push('generator-part-tile');
@@ -2155,6 +2199,7 @@
         mutate(generated, generatedText);
       } else {
         saveState(); render(); toast(failureText(generated));
+        if (generated.reason === 'board-full') showBoardFullPanel();
       }
       return;
     }
@@ -2199,6 +2244,48 @@
     render();
     switchView('yard-view');
     toast('已定位主线异兽 · 完成任一小游戏的有效互动即可推进');
+  }
+
+  /* 照料直达：跳到庭院并高亮对应建筑 3 秒（陪玩 -> 嬉游亭，梳洗 -> 梳洗台）。 */
+  function goCareAndPulse(beastId) {
+    if (beastId && Core.selectYardBeast) {
+      var selected = Core.selectYardBeast(state, beastId);
+      if (!selected.ok) { toast(failureText(selected)); return; }
+      saveState();
+    }
+    closeModal();
+    render();
+    switchView('yard-view');
+    var giftInfo = careGiftForDisplay(beastId || state.yardBeastId);
+    var hotspotName = giftInfo.care === 'groom' ? 'groom' : 'play';
+    var hotspot = document.querySelector('[data-care="' + hotspotName + '"]') || document.querySelector('[data-hotspot="' + hotspotName + '"]');
+    if (hotspot) {
+      hotspot.classList.remove('hint-pulse');
+      void hotspot.offsetWidth;
+      hotspot.classList.add('hint-pulse');
+      root.setTimeout(function () { hotspot.classList.remove('hint-pulse'); }, 3200);
+    }
+    var buildingName = hotspotName === 'groom' ? '梳洗台' : '嬉游亭';
+    toast('已切换到庭院 · 高亮的' + buildingName + '可以开始' + giftInfo.careLabel);
+  }
+
+  /* 满盘一键腾位：预览要回收的最低阶素材，确认后执行。 */
+  function showBoardFullPanel() {
+    var preview = Core.recycleLowestPreview ? Core.recycleLowestPreview(state, 3) : { ok: false, count: 0 };
+    var canRecycle = preview && preview.ok && preview.recycled.length > 0;
+    var planMarkup = canRecycle
+      ? '<div class="board-full-plan"><b>可回收 ' + preview.recycled.length + ' 件低阶素材</b><small>' + preview.recycled.map(function (entry) { return esc(entry.name + ' ' + entry.tier + '阶'); }).join('、') + '</small><em>约 +◆' + preview.jade + '</em></div>'
+      : '<p class="board-full-empty">棋盘上暂时没有适合一键回收的低阶素材。可以打开回收抽屉整理高阶素材，或先交付已完成素材的委托。</p>';
+    var modal = modalShell('<span class="eyebrow">棋盘已满 · 一键腾位</span><h2>先清理一点空间吧</h2>' +
+      '<p class="task-symptom">回收最低阶的素材换暖玉，马上腾出位置继续合成。</p>' + planMarkup +
+      (canRecycle ? '<button class="modal-action" data-recycle-lowest type="button">回收最低阶 ' + preview.recycled.length + ' 件 · +◆' + preview.jade + '</button>' : '') +
+      '<button class="modal-secondary" data-close-modal type="button">先自己整理</button>', 'task-modal board-full-modal');
+    if (modal && canRecycle) {
+      modal.querySelector('[data-recycle-lowest]').addEventListener('click', function () {
+        var result = Core.recycleLowestItems(state, 3);
+        if (mutate(result, '已回收 ' + (result.recycled ? result.recycled.length : 0) + ' 件 · +◆' + (result.jade || 0), null, 'purchase')) closeModal();
+      });
+    }
   }
 
   function deliver(id) {
@@ -2848,6 +2935,8 @@
       if (consumeSuppressedClick()) return;
       var careGateButton = event.target.closest('[data-care-gate]');
       if (careGateButton) { event.stopPropagation(); focusCareGate(orderById(careGateButton.dataset.careGate)); return; }
+      var careJumpButton = event.target.closest('[data-go-care]');
+      if (careJumpButton) { event.stopPropagation(); goCareAndPulse(careJumpButton.dataset.goCare); return; }
       var deliverButton = event.target.closest('[data-deliver]');
       if (deliverButton) { event.stopPropagation(); deliver(deliverButton.dataset.deliver); return; }
       var card = event.target.closest('[data-order-id]');
@@ -2900,6 +2989,8 @@
       if (event.target.closest('[data-show-transform]')) showTransformation();
       if (event.target.closest('[data-go-yard]')) switchView('yard-view');
       if (event.target.closest('[data-go-sect]')) switchView('sect-view');
+      var careHint = event.target.closest('[data-go-care]');
+      if (careHint) goCareAndPulse(careHint.dataset.goCare);
       var codexBeast = event.target.closest('[data-open-codex-beast]');
       if (codexBeast) openCodexDetails(codexBeast.dataset.openCodexBeast);
       var focus = event.target.closest('[data-focus-order]');

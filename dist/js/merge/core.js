@@ -2436,7 +2436,9 @@
     var generatorLevel = clamp(number(found.item.level, 1), 1, number(DATA.generators && DATA.generators.maxLevel, 5));
     var isPermanent = found.item.permanent !== false;
     if (isPermanent) {
-      if (state.energy <= 0) return { ok: false, reason: 'energy' };
+      /* 体力耗尽时可动用生成器离线储备（charges），每点储备换一次产出。 */
+      var reserveCharges = Math.max(0, Math.floor(number(found.item.charges, 0)));
+      if (state.energy <= 0 && reserveCharges <= 0) return { ok: false, reason: 'energy' };
       var onlineIntervalMs = Math.max(0, Math.floor(number(DATA.generators && DATA.generators.onlineIntervalMs, 0)));
       if (onlineIntervalMs > 0 && found.item.lastProducedAt != null && now - found.item.lastProducedAt < onlineIntervalMs) {
         return { ok: false, reason: 'generator-busy', readyInMs: onlineIntervalMs - (now - found.item.lastProducedAt) };
@@ -2455,7 +2457,8 @@
     });
     var item = makeItem(family, rolledTier);
     if (isPermanent) {
-      state.energy--;
+      if (state.energy > 0) state.energy--;
+      else found.item.charges = Math.max(0, Math.floor(number(found.item.charges, 0)) - 1);
       found.item.lastProducedAt = now;
     } else {
       found.item.lifetime = Math.max(0, Math.floor(number(found.item.lifetime, 0)) - 1);
@@ -2568,6 +2571,102 @@
     state.grid[gridIndex] = null;
     state.jade += jade;
     return { ok: true, index: gridIndex, item: clone(item), events: [{ type: 'item_recycled', index: gridIndex }], rewards: { jade: jade } };
+  }
+
+  /* 满盘一键腾位：候选只取普通素材（保护生成器/部件/配方产物），
+     非礼物优先、低阶优先、等阶低价值优先——先清最不心疼的。 */
+  function recycleCandidates(state) {
+    var candidates = [];
+    (state.grid || []).forEach(function (item, index) {
+      if (!item || item.kind || item.productId || index >= state.unlockedCells) return;
+      candidates.push({ index: index, item: item, tier: Math.max(1, Math.floor(number(item.tier, 1))), gift: !!item.giftSource });
+    });
+    candidates.sort(function (a, b) {
+      if (a.gift !== b.gift) return a.gift ? 1 : -1;
+      if (a.tier !== b.tier) return a.tier - b.tier;
+      return a.index - b.index;
+    });
+    return candidates;
+  }
+
+  function recycleLowestItems(state, maxCount) {
+    var limit = clamp(Math.floor(number(maxCount, 3)), 1, 5);
+    var picks = recycleCandidates(state).slice(0, limit);
+    var recycled = [];
+    var totalJade = 0;
+    picks.forEach(function (pick) {
+      var result = recycleItem(state, pick.index, true);
+      if (result.ok) {
+        var jade = Math.max(0, Math.floor(number(result.rewards && result.rewards.jade, 0)));
+        recycled.push({ name: getItemName(pick.item.family, pick.item.tier), tier: pick.item.tier, jade: jade });
+        totalJade += jade;
+      }
+    });
+    if (!recycled.length) return { ok: false, reason: 'no-candidates', recycled: [], jade: 0 };
+    return { ok: true, recycled: recycled, jade: totalJade, freed: recycled.length, events: [{ type: 'recycle_lowest', count: recycled.length }] };
+  }
+
+  function recycleLowestPreview(state, maxCount) {
+    /* 在克隆状态上试算，保证预览与实际执行一致。 */
+    return recycleLowestItems(clone(state), maxCount);
+  }
+
+  /* 生成器产出效率：以 Lv1（1 阶 100%）为 1.0 基准，
+     每点概率折算成 1 阶当量（2 个 N 阶合成 1 个 N+1 阶）。 */
+  function generatorEfficiency(dropTable) {
+    var total = 0;
+    (dropTable || []).forEach(function (drop) {
+      total += number(drop.chance, 0) * Math.pow(2, Math.max(0, Math.floor(number(drop.tier, 1)) - 1));
+    });
+    return Math.round(total * 100) / 100;
+  }
+
+  /* “下一步”动态提示：可交付 > 一步合成 > 陪玩礼物 > 成长就绪 > 修缮 > 推进委托。 */
+  function nextActionHint(state, orders, activeBeastId) {
+    orders = orders && orders.length ? orders : ensureOrders(state, Math.random);
+    function isOpen(order) {
+      return order && order.status !== 'COMPLETE' && !/_complete$/.test(order.kind || '') && order.kind !== 'care_gate';
+    }
+    var open = orders.filter(isOpen);
+    var deliverable = open.filter(function (order) { return canDeliver(state, order); })[0];
+    if (deliverable) return { type: 'deliver', order: deliverable, text: '素材已备齐，交付「' + deliverable.title + '」领取奖励' };
+    var mergeCandidate = null;
+    open.forEach(function (order) {
+      if (mergeCandidate) return;
+      (order.requirements || []).forEach(function (need) {
+        if (mergeCandidate || !need || !need.family) return;
+        var have = countItems(state, need.family, need.tier, need.sourceBeast);
+        if (have >= number(need.count, 1)) return;
+        if (number(need.tier, 1) > 1 && countItems(state, need.family, need.tier - 1, need.sourceBeast) >= 2) {
+          mergeCandidate = { type: 'merge', order: order, family: need.family, tier: need.tier, text: '再合成一次「' + getItemName(need.family, need.tier) + '」就能交付「' + order.title + '」' };
+        }
+      });
+    });
+    if (mergeCandidate) return mergeCandidate;
+    for (var orderIndex = 0; orderIndex < open.length; orderIndex++) {
+      var needs = open[orderIndex].requirements || [];
+      for (var needIndex = 0; needIndex < needs.length; needIndex++) {
+        var need = needs[needIndex];
+        if (!need || !need.sourceBeast) continue;
+        if (countItems(state, need.family, need.tier, need.sourceBeast) >= number(need.count, 1)) continue;
+        var beast = beastDefinition(need.sourceBeast);
+        var gift = beast && beast.gift || {};
+        var careType = gift.care || 'play';
+        var careLabel = careType === 'groom' ? '梳洗' : '陪玩';
+        return { type: 'care', order: open[orderIndex], beastId: need.sourceBeast, careType: careType, text: '去庭院和' + (beast ? beast.name : '住客') + '一起' + careLabel + '，把礼物素材收进药匣' };
+      }
+    }
+    var beastId = activeBeastId || state.activeCaseId || (DATA.beasts[0] && DATA.beasts[0].id);
+    if (beastId && canLevelUpBeast(state, beastId).ok) {
+      return { type: 'levelup', beastId: beastId, text: (beastDefinition(beastId) || { name: '住客' }).name + '正在迎来新变化' };
+    }
+    var progress = chapterProgress(state);
+    var reno = progress && progress.act === 1 ? currentRenovation(state) : null;
+    if (reno && reno.order) {
+      return { type: 'renovation', order: reno.order, areaName: reno.area.name, text: '下一步：' + reno.area.name + ' · ' + reno.order.title, detail: reno.order.text };
+    }
+    var fallback = open[0] || orders[0];
+    return { type: 'order', order: fallback, text: fallback ? '推进「' + fallback.title + '」' : '继续合成与交付', detail: fallback && (fallback.symptom || '合成并交付需要的素材。') };
   }
 
   function mergeItems(state, fromIndex, toIndex, now, rng) {
@@ -3426,6 +3525,11 @@
     playerOrderRank: playerOrderRank,
     mergeItems: mergeItems,
     recycleItem: recycleItem,
+    recycleCandidates: recycleCandidates,
+    recycleLowestItems: recycleLowestItems,
+    recycleLowestPreview: recycleLowestPreview,
+    generatorEfficiency: generatorEfficiency,
+    nextActionHint: nextActionHint,
     moveBoardItem: moveBoardItem,
     deliverOrder: deliverOrder,
     affectionRewardForOrder: affectionRewardForOrder,
@@ -3468,6 +3572,7 @@
     getAvailableActions: getAvailableActions,
     getItemName: getItemName,
     makeItem: makeItem,
+    countItems: countItems,
     careGiftInfo: careGiftInfo,
     careRouteForBeast: careRouteForBeast,
     giftChain: function (state, beastId) {

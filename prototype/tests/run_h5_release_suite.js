@@ -6,6 +6,7 @@ const { spawnSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..', '..');
 const TESTS = [
   'prototype/tests/merge_slice_core_test.js',
+  'prototype/tests/merge_loop_relief_test.js',
   'prototype/tests/merge_care_economy_test.js',
   'prototype/tests/merge_slice_care_games_test.js',
   'prototype/tests/h5_minigame_depth_test.js',
