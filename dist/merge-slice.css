@@ -972,7 +972,7 @@ body{min-block-size:100svh;}
 /* ================= UI 整洁度整治（2026-08-16）================ */
 /* 原则：同一行高、同一圆角、同一描边语言；提示不遮挡美术主体；空态有呼吸感。 */
 
-/* —— 顶栏：去掉与体力胶囊重复的“体力中心”按钮，胶囊统一内距 —— */
+/* —— 顶栏：去掉与灵力胶囊重复的“灵力中心”按钮，胶囊统一内距 —— */
 #energy-help { display:none; }
 .hud-values { gap:4px; }
 .hud-pill { flex-direction:column; gap:2px; align-items:center; justify-content:center; min-height:38px; padding:4px 7px; border-radius:13px; box-shadow:0 1px 0 #68442d10; }

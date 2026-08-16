@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const assert = require('assert');
 const path = require('path');
@@ -156,7 +156,7 @@ check('周目标需要跨系统推进且只可领取一次', function () {
   assert.strictEqual(Core.claimWeekly(state).ok, false);
 });
 
-check('challenge 独立入口：所有设施可进入、体力成本固定为 5 且时长超过 master', function () {
+check('challenge 独立入口：所有设施可进入、灵力成本固定为 5 且时长超过 master', function () {
   const challenge = DATA.careGames && DATA.careGames.difficulties && DATA.careGames.difficulties.challenge;
   assert.ok(challenge, 'DATA.careGames.difficulties.challenge must be public');
   assert.ok(challenge.groom && challenge.play, 'challenge must configure both care games');

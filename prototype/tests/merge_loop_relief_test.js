@@ -1,11 +1,11 @@
-'use strict';
+﻿'use strict';
 
 /*
  * 循环救援契约测试（对应 PM 评审 P0/P1 修复）：
  *   P0-1 满盘一键回收：recycleLowestItems / recycleLowestPreview
  *   P0-2 “下一步”动态化：nextActionHint 优先级链
  *   P1-4 生成器产出效率：generatorEfficiency 基准与升级收益
- *   P1-6 离线储备实装：体力 0 时可动用 charges，耗尽后仍拒绝
+ *   P1-6 离线储备实装：灵力 0 时可动用 charges，耗尽后仍拒绝
  *
  * 仅通过 js/merge 的 UMD/CommonJS 接口驱动状态，不依赖 DOM。
  */
@@ -167,11 +167,11 @@ console.log('== D. 离线储备（charges）实装 ==');
   s.grid[gen].lastProducedAt = 0;   // 避开 1.5s 在线间隔
   s.energy = 0;
   s.energyProgressMs = 0;
-  s.lastSeenAt = NOW;               // 后续 generate 使用同一时间点，避免体力回充干扰
+  s.lastSeenAt = NOW;               // 后续 generate 使用同一时间点，避免灵力回充干扰
 
   const r1 = Core.generate(s, genFamily, () => 0.1, NOW);
-  ok(r1.ok, '体力 0 但储备 > 0 时仍可产出');
-  ok(s.energy === 0 && s.grid[gen].charges === 2, '消耗 1 点储备而非体力（余 2）');
+  ok(r1.ok, '灵力 0 但储备 > 0 时仍可产出');
+  ok(s.energy === 0 && s.grid[gen].charges === 2, '消耗 1 点储备而非灵力（余 2）');
 
   s.grid[gen].lastProducedAt = 0;
   const r2 = Core.generate(s, genFamily, () => 0.1, NOW);
@@ -181,7 +181,7 @@ console.log('== D. 离线储备（charges）实装 ==');
 
   s.grid[gen].lastProducedAt = 0;
   const r4 = Core.generate(s, genFamily, () => 0.1, NOW);
-  ok(!r4.ok && r4.reason === 'energy', '储备耗尽且体力 0 时恢复拒绝（reason=' + r4.reason + '）');
+  ok(!r4.ok && r4.reason === 'energy', '储备耗尽且灵力 0 时恢复拒绝（reason=' + r4.reason + '）');
 }
 
 console.log('== E. 配方柜专属格 ==');

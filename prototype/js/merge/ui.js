@@ -257,11 +257,11 @@
     } else if (family === 'play') {
       baseSource = '嬉游亭羊了个羊结算奖励（玩具系列，任何神兽陪玩都产出 play 素材）';
     } else if (family === 'food') {
-      baseSource = '饕餮入伙后解锁「膳堂灶台」生成器（卷三），在线点击消耗体力产出';
+      baseSource = '饕餮入伙后解锁「膳堂灶台」生成器（卷三），在线点击消耗灵力产出';
     } else if (family === 'charm') {
-      baseSource = '梼杌入伙后解锁「后山符台」生成器（卷七），在线点击消耗体力产出';
+      baseSource = '梼杌入伙后解锁「后山符台」生成器（卷七），在线点击消耗灵力产出';
     } else if (family === 'treasure') {
-      baseSource = '烛龙入伙后解锁「云海宝台」生成器（卷八），在线点击消耗体力产出';
+      baseSource = '烛龙入伙后解锁「云海宝台」生成器（卷八），在线点击消耗灵力产出';
     } else {
       baseSource = '由对应卷章解锁的生成器或区域产线获得';
     }
@@ -325,8 +325,8 @@
     var intro = family === 'groom'
       ? '梳子系列不再从合成棋盘生成；完成梳洗台消消乐后按得分领取数量。'
       : isPermanent
-        ? '常驻生成器：在线点击只消耗 1 点体力，不再受储能次数硬卡。升级直接消耗暖玉、体力与区域前置，无需合成第二台。'
-        : '造物生成器：每次产出消耗 1 次使用次数，不消耗体力；次数用尽会消散并返还少量部件。';
+        ? '常驻生成器：在线点击只消耗 1 点灵力，不再受储能次数硬卡。升级直接消耗暖玉、灵力与区域前置，无需合成第二台。'
+        : '造物生成器：每次产出消耗 1 次使用次数，不消耗灵力；次数用尽会消散并返还少量部件。';
     var odds = info && info.dropTable ? info.dropTable.map(function (drop) {
       return drop.tier + '阶 ' + Math.round(drop.chance * 100) + '%';
     }).join(' · ') : '1阶 100%';
@@ -335,7 +335,7 @@
       if (isPermanent) {
         var cost = info.nextCost || {};
         var gateText = info.reason === 'upgrade-gate' ? ' · 前置未满足' : '';
-        upgradeText = '升级 Lv' + info.nextLevel + '：暖玉 ' + Number(cost.jade || 0) + ' + 体力 ' + Number(cost.energy || 0) + gateText;
+        upgradeText = '升级 Lv' + info.nextLevel + '：暖玉 ' + Number(cost.jade || 0) + ' + 灵力 ' + Number(cost.energy || 0) + gateText;
       } else {
         upgradeText = info.canUpgrade
           ? '合并两个 Lv' + info.level + ' 造物生成器 · 升至 Lv' + info.nextLevel
@@ -357,9 +357,9 @@
       var efficiencyPercent = function (value) { return value <= 1 ? '100%' : '+' + Math.round((value - 1) * 100) + '%'; };
       efficiencyInfo = '<div class="generator-upgrade-summary"><b>产出效率</b><small>以 Lv1 为基准 ' + efficiencyPercent(currentEff) + (nextEff ? ' · 升级后 ' + efficiencyPercent(nextEff) : '') + '</small></div>';
     }
-    /* 离线储备：体力耗尽时可动用的免费产出次数。 */
+    /* 离线储备：灵力耗尽时可动用的免费产出次数。 */
     var reserveInfo = info && isPermanent
-      ? '<div class="generator-upgrade-summary"><b>离线储备</b><small>' + Math.max(0, Number(info.charges || 0)) + ' / ' + Math.max(0, Number(info.capacity || 0)) + ' 次 · 体力耗尽时可动用储备继续产出</small></div>'
+      ? '<div class="generator-upgrade-summary"><b>离线储备</b><small>' + Math.max(0, Number(info.charges || 0)) + ' / ' + Math.max(0, Number(info.capacity || 0)) + ' 次 · 灵力耗尽时可动用储备继续产出</small></div>'
       : '';
     var areaBonuses = Core.stageBonusesOfType ? Core.stageBonusesOfType(state, ['generator.rechargeRate', 'generator.capacity', 'generator.partChance', 'generator.doubleDrop'], family) : [];
     var bonusText = areaBonuses.length ? '<div class="generator-upgrade-summary"><b>宗门区域加成</b><small>' + esc(areaBonuses.map(function (bonus) { return bonus.text; }).join(' · ')) + '</small></div>' : '';
@@ -577,225 +577,226 @@
       '</div>';
   }
 
-  var MODULE_HELP = {
+var MODULE_HELP = {
     hud: {
       title: '顶部状态栏',
-      intro: '这一栏是你和疗愈所之间的“仪表盘”。',
-      what: '集中显示玩家等级（等级框底部有升级经验条）、暖玉、体力、净化刷，并提供玩法说明、声音开关与重置按钮。',
-      needs: '等级与体力上限靠完成委托提升；暖玉来自委托、回收、每日/每周目标；体力每 150 秒恢复 1 点，离线最多积攒 8 小时。',
-      use: '随时判断现在能做什么：体力不足时仍然可以合成、交付委托、领取百草园与岗位产出。点击体力数字可直接查看消耗与恢复规则。',
-      tip: '看到任何图标不懂，先长按它；看到任何模块不懂，长按模块本身。'
+      intro: '抬头看一眼，就知道宗门今天过得怎么样。',
+      what: '这里集中显示你的等级、暖玉、灵力和净化刷，还有玩法说明、声音开关与重开旅程。',
+      needs: '等级与灵力上限靠完成委托提升；暖玉来自委托、回收和每日目标；灵力每 150 秒恢复 1 点，守灯结算最多攒 8 小时。',
+      use: '灵力归零也能合成、交付、领取百草园和岗位产出。点一下灵力数字，能看到完整的消耗与恢复规则。',
+      tip: '遇到不懂的图标或模块，长按它，答案会自己出来。'
     },
     orders: {
       title: '委托面板',
-      intro: '游戏的主线、修缮、医案、访客与七日旅程都收在这里。',
-      what: '五个目标槽固定保留五类委托；点卡片打开详情，点“交付”把素材交出去；点目标条可以收起/展开列表。',
-      needs: '每张委托都会列出需要的素材或配方成品；梳妆与陪玩素材只能在庭院小游戏获得，其他素材来自生成器与合成。',
-      use: '交付后获得暖玉、经验、体力或部件，并推进疗愈、宗门修缮与神兽来信。每天的委托有免费刷新次数，刷新不会让已有进度丢失。',
-      tip: '长按委托里的素材图标，能直接看到它的完整合成路线和材料来源。'
+      intro: '主线、修缮、医案、来访和旅程，五条线都在这里推进。',
+      what: '五个槽位各管一类委托。点卡片看详情，点"交付"交出素材，点标题栏可以收起或展开。',
+      needs: '每张委托卡都写明所需素材与古方成品。梳妆和陪玩素材只能从庭院小游戏获得，其余来自生成器与合成。',
+      use: '交付后拿暖玉、阅历和灵力，同时推进疗愈、宗门修缮与神兽来信。每天有免费刷新次数，不会丢失进度。',
+      tip: '长按委托里的素材图标，能看到完整的合成路线和获取方式。'
     },
     'order-card': {
       title: '一张委托卡片',
-      intro: '五个槽位里的一张具体目标。',
-      what: '标题写明任务，正文说明背景；卡片内列出所需素材、当前可收集数量、来源和交付奖励。',
-      needs: '素材图标上显示“拥有/需求”；红色未达成、绿色代表已备齐；配方成品需要在配方柜制作后自动扣除。',
-      use: '点卡片看完整详情与来源，点“交付”完成任务；完成后会推进对应主线、医案、修缮或访客/旅程槽位。',
-      tip: '长按卡片内的素材图标可看合成路线；主线目标完成后，“下一步”会自动更新。'
+      intro: '五个槽位里的一封信，打开看看写了什么。',
+      what: '标题是委托名，正文是背景故事；卡片里列出所需素材、手头数量、来源，以及交付后的奖励。',
+      needs: '素材图标上红字是还不够，绿字是齐了。古方成品需要先去配方台做好，交付时自动取用。',
+      use: '点卡片看完整详情，点"交付"交任务。完成后会自动推进对应槽位的下一步。',
+      tip: '长按卡片里的素材看合成路线；主线完成后，"下一步"提示会自动更新。'
     },
     board: {
       title: '合成棋盘',
-      intro: '这是整个游戏的生产中心，所有材料都在这里整理与合成。',
-      what: '点击素材选中，再点同类同阶素材合成；也可以直接拖动素材到空格整理，或拖到同类同阶素材上完成合成。生成器需要点击产出，封印与藤蔓格需要净化刷解锁。',
-      needs: '普通合成不需要体力；点击常驻生成器每次消耗 1 点体力；造物生成器不耗体力但次数有限。扩建新格子消耗暖玉。',
-      use: '合出高阶素材去完成委托；两个四阶生产器部件可合成造物生成器，用来产出 4–6 阶材料与配方成品。连续合成还会触发连击奖励。',
-      tip: '长按任意素材/部件看“材料来源”，长按生成器看升级条件和掉落概率。'
+      intro: '宗门的灵阵，所有材料都在这里流转。',
+      what: '点一个素材选中，再点同类同阶的就能合成；也可以拖到空格整理，或直接拖到同类同阶素材上合成。点生成器出货，藤蔓和封印格用净化刷解开。',
+      needs: '普通合成不耗灵力；点常驻生成器每次 1 点灵力；造物生成器不耗灵力但次数有限。扩建新格子消耗暖玉。',
+      use: '合出高阶素材去交委托。两个 4 阶部件能合成一台造物生成器，专门产出 4–6 阶材料与古方成品。连续合成还会触发连击。',
+      tip: '长按素材或部件看"从哪来"，长按生成器看升级条件与掉落。'
     },
     recipes: {
       title: '配方柜与配方台',
-      intro: '一些委托点名要“配方成品”，就由这里制造。',
-      what: '配方台列出当前卷章已解锁的配方；点“制作”消耗两种指定素材，成品进入上方配方柜保存。',
-      needs: '例如安神药包需要 3 阶药材 + 3 阶药具；灵木床需要 4 阶建材 + 3 阶梳妆。材料不足时按钮会置灰。',
-      use: '成品不会占棋盘格，专门用于主线/医案/修缮交付；造物生成器也有小概率直接掉出成品。配方柜里的成品不会丢失。',
-      tip: '长按配方卡片或配方柜里的成品，可以看图、看材料来源和这件成品的具体去向。'
+      intro: '有些委托点名要"古方成品"，来这里做。',
+      what: '配方台列出当前已寻到的古方，点"制作"消耗两种素材，成品自动收进配方柜。',
+      needs: '比如安神药包要 3 阶药材 + 3 阶药具，灵木床要 4 阶建材 + 3 阶梳妆。材料不够时按钮会变灰。',
+      use: '成品不占棋盘格子，专门用于主线、医案和修缮交付。造物生成器也有小概率直接掉成品。配方柜里的东西不会丢。',
+      tip: '长按配方卡或柜中成品，可以看到图、材料来源和会用在哪。'
     },
     recycle: {
       title: '回收抽屉',
-      intro: '不想要的普通素材与部件，可以换成暖玉。',
-      what: '打开抽屉后点任意棋盘素材即可回收；四阶以上普通素材和 3 阶以上部件需要二次确认，生成器与特殊物品不能回收。',
-      needs: '回收不需要消耗任何资源；解锁回收价加成后，单件价值还会更高。',
-      use: '把过剩的低阶材料变现为暖玉，用于棋盘扩建、生成器升级、设施升级或背景购买。',
-      tip: '拿不准是否要留的材料先放药匣，不要急着回收；长按素材看完合成路线再决定。'
+      intro: '多余的素材和部件，交回宗门，换成暖玉。',
+      what: '打开抽屉后，点棋盘上的素材就能回收。四阶以上素材和 3 阶以上部件需确认一次，生成器和特殊物品不能回收。',
+      needs: '回收不消耗任何资源。解锁区域加成后，回收价还会更高。',
+      use: '把过剩的低阶材料换成暖玉，用来扩建棋盘、升级生成器、升级设施或买背景。',
+      tip: '不确定要不要留的先放药匣；长按素材看完合成路线，再做决定。'
     },
     storage: {
       title: '药匣 · 暂存区',
-      intro: '棋盘满了奖励也不会丢，这是最重要的安全垫。',
-      what: '点“药匣”打开暂存抽屉；点棋盘格上的素材可以放入暂存格，点暂存格里的素材会放回棋盘空位。',
-      needs: '初始 3 格，可用暖玉扩容到 6 格；满盘时新奖励还会进入另一条“待入盘队列”，自动等空位出现。',
-      use: '临时腾出棋盘空间、保存高阶素材与礼物；任何来源的奖励都有落脚处，不因棋盘满而丢失。',
-      tip: '药匣格与待入盘队列互相独立，扩容只增加手动暂存格。'
+      intro: '棋盘满了，奖励也不会丢——这是宗门最可靠的安全网。',
+      what: '点"药匣"打开暂存抽屉。点棋盘格上的素材可存进去，点暂存格里的素材会放回棋盘空位。',
+      needs: '初始 3 格，可用暖玉扩到 6 格。棋盘满了之后，新奖励会自动进入"待入盘"队列，腾出空位就自动上盘。',
+      use: '临时腾棋盘空间、保存舍不得回收的高阶素材，任何奖励都有落脚处。',
+      tip: '药匣格和待入盘队列是两条独立通道，扩容只增加手动暂存格。'
     },
     yard: {
       title: '庭院场景',
-      intro: '这里是照料神兽、推进疗愈主线的场所。',
-      what: '点击四栋建筑会触发互动：医馆跳回委托页，百草园领取/查看产出，梳洗台和嬉游亭直接进入小游戏。点击中间的神兽可以查看成长详情。',
-      needs: '普通小游戏消耗 1–4 点体力；挑战模式固定 5 点。普通难度增加好感与疗愈，挑战模式只按分数发素材。',
-      use: '有效照料是疗愈故事、蜕变与下一位神兽来信的必要节点；每次有效互动还会带回应有的素材礼物。',
-      tip: '长按四栋建筑，会分别告诉你每栋建筑干什么、需要什么、有什么用。'
+      intro: '照料神兽、推进疗愈主线的地方。',
+      what: '四栋建筑各有互动：医馆跳回委托页，百草园领药材，梳洗台和嬉游亭直接进小游戏。点中间的神兽看成长详情。',
+      needs: '普通小游戏消耗 1–4 点灵力，挑战模式固定 5 点。普通模式加好感和疗愈，挑战模式只按表现发素材。',
+      use: '有效照料是疗愈故事、蜕变和新神兽来信的关键一步。每次有效互动还会带回对应的素材礼物。',
+      tip: '长按四栋建筑，每栋都会告诉你它是干什么的。'
     },
     'yard-background': {
       title: '庭院背景',
-      intro: '疗愈所的外景，可以购买并随时切换。',
-      what: '点击背景按钮打开背景商店；默认晨光庭院免费，桃霞山庭与月影竹溪用暖玉购买，狐灯夜庭是七日约定限定奖励。',
-      needs: '购买背景需要暖玉；七日约定限定背景需要连续/累计领满 7 天每日奖励。',
-      use: '切换后庭院视觉立即变化，选择会写入存档；背景只影响外观，不影响任何数值或玩法。',
-      tip: '先购买再切换；长按本按钮可随时回顾规则。'
+      intro: '给宗门换一身衣裳，随时可以换回来。',
+      what: '点背景按钮打开商店。晨光庭院免费，桃霞山庭和月影竹溪用暖玉买，狐灯夜庭是七日约定的限定奖励。',
+      needs: '买背景要暖玉，狐灯夜庭需要累计领满 7 天每日奖励。',
+      use: '切换后庭院立刻变化，选择会记入旅程记录。背景只影响外观，不影响任何数值。',
+      tip: '先买再切，长按本按钮可以随时回来看规则。'
     },
     'yard-resident': {
       title: '庭院里的住客',
-      intro: '站在庭院中间的就是你正在陪伴的神兽。',
-      what: '点击它可以查看好感、疗愈、经验三条进度与当前形态；它也决定了梳洗台和嬉游亭会为谁累计成长。',
-      needs: '住客通过委托与照料成长；当好感、疗愈、经验三项都达到下一形态要求时会自动蜕变。',
-      use: '与当前住客进行有效照料会推进疗愈主线；不同住客的陪伴路线会带回不同素材，用于下一位神兽的来信。',
-      tip: '有多位住客时，上方会出现切换栏；长按建筑前可以先点住客，确认“这一局为谁而玩”。'
+      intro: '站在庭院中央的，就是你正在陪伴的那只神兽。',
+      what: '点它看好感、疗愈、阅历三条进度和当前形态。它也决定了梳洗台和嬉游亭这一局在为谁累积成长。',
+      needs: '住客通过委托和照料成长。好感、疗愈、阅历都达标后，会自动蜕变成下一形态。',
+      use: '和当前住客有效照料会推进疗愈主线。不同住客会带回不同素材，用来迎接下一位神兽。',
+      tip: '有多位住客时，上方会出现切换栏。进小游戏前先点住客，确认"这一局为谁而玩"。'
     },
     'yard-clinic': {
       title: '医馆',
-      intro: '疗愈数值的主要来源。',
-      what: '点击医馆会回到医馆页查看委托与交付；设施等级决定每次有效照料增加的疗愈量与成长经验倍率。',
-      needs: '升级消耗暖玉；不消耗体力。医馆本身不产出素材。',
-      use: '有效照料结算时，把该局表现转化为疗愈值，推动神兽蜕变与新形态解锁。',
-      tip: '先升级医馆再集中照料，同样一局小游戏能推进更多疗愈。'
+      intro: '疗愈值的主要来源，升级后事半功倍。',
+      what: '点医馆回到委托页查看和交付。设施等级决定每次有效照料能转化多少疗愈值与成长阅历。',
+      needs: '升级只消耗暖玉，不耗灵力。医馆本身不产出素材。',
+      use: '有效照料结算时，把这一局的表现转化为疗愈值，推动神兽蜕变。',
+      tip: '先升级医馆再集中照料，同一局小游戏能推进更多疗愈。'
     },
     'yard-herb': {
       title: '百草园',
-      intro: '稳定产出药材类素材的设施。',
-      what: '每隔一段时间自动生产 1 份药材，储存在园子里等待领取；点击百草园可以直接领取。',
-      needs: '无需体力，升级消耗暖玉；Lv2 起有概率产出 2 阶药材，Lv3 产量与容量进一步提升。',
-      use: '药材是卷一委托、安神药包等配方的主要输入；离线也会按 8 小时上限继续生产。',
-      tip: '梼杌/帝江等岗位加成会让百草园更快、装得更多。'
+      intro: '安安静静长药材的地方，记得常来收。',
+      what: '每隔一段时间自动产一份药材，存在园子里等你来领。点一下百草园就能收走。',
+      needs: '不耗灵力，升级用暖玉。Lv2 起概率出 2 阶药材，Lv3 产量和容量都更高。',
+      use: '药材是卷一委托和安神药包等古方的主要原料。守灯结算也会按 8 小时上限继续生产。',
+      tip: '帝江等神兽上岗后，百草园会更快、装得更多。'
     },
     'yard-groom': {
       title: '梳洗台',
-      intro: '进入梳洗消消乐的小游戏入口。',
-      what: '点击后先选难度，再进入 7×8 棋盘：滑动相邻图标交换，三连消除，四连/L/T 造特殊块，解开带层数的毛结目标。',
-      needs: '普通难度消耗 1–4 点体力，挑战 5 点；轻松/标准默认开放，困难需 Lv2，大师需 Lv3。',
-      use: '有效交换至少 3 次后，即使超时也有保底奖励；表现越高，掉落素材阶位越高。穷奇/九尾狐等神兽的梳洗路线还产出特定礼物素材。',
-      tip: '长按梳洗台不会误触进入游戏；先看说明再点击开始。'
+      intro: '帮神兽理顺毛发——消消乐玩法。',
+      what: '先选难度，再进入 7×8 棋盘。滑动相邻图标交换，三连消、四连造特殊块，贴着带层数的毛结消除来解开它们。',
+      needs: '普通难度 1–4 点灵力，挑战 5 点。轻松和标准默认开放，困难要 Lv2，大师要 Lv3。',
+      use: '有效交换 3 次以上，超时也有保底奖励。表现越好，掉落的素材阶位越高。',
+      tip: '长按梳洗台看说明，不会误触进游戏。'
     },
     'yard-play': {
       title: '嬉游亭',
-      intro: '进入羊了个羊式陪玩小游戏。',
-      what: '点击后先选难度，再在多层玩具塔上点击“露头牌”收进底部槽位，3 张相同自动消除，清空整座塔为最高表现。',
-      needs: '普通难度消耗 1–4 点体力，挑战 5 点；槽满凑不出三张即结束，无可行露头牌时游戏会自动重排。',
-      use: '有效消除至少 4 组后，即使超时也按表现发素材；未通关但分数够高同样有高评级奖励，并推进好感与疗愈。',
-      tip: '推荐先看难度卡上的“羊了个羊玩法”，再开始你的第一局。'
+      intro: '陪神兽玩玩具——叠塔牌玩法。',
+      what: '先选难度，然后在多层玩具塔上点"露头"的牌收进底部槽位，3 张相同自动消除，清空整座塔表现最高。',
+      needs: '普通难度 1–4 点灵力，挑战 5 点。槽满凑不出三张就结束，没牌可点时游戏会自动重排。',
+      use: '消 4 组以上，超时也按表现发素材。没通关但表现够好，一样有高评级奖励。',
+      tip: '先看难度卡上的玩法说明，再开始第一局。'
     },
     'daily-goals': {
       title: '每日目标与七日约定',
-      intro: '把每天的小行动变成可领取的稳定收益。',
-      what: '每日完成 5 次合成、2 个委托、1 次照料后即可领取奖励；七日约定按累计领取天数发奖，漏签不重置。',
-      needs: '不需要额外资源；领取按钮只有在三项目标都完成时才可用。',
-      use: '每日奖励给暖玉、经验与体力，七日约定还会送双份素材、高阶偏好素材和限定狐灯夜庭背景。',
-      tip: '每日目标在庭院页显示，但进度来自合成、委托和照料三个系统。'
+      intro: '把每天的日常，过成稳稳的日子。',
+      what: '每天完成 5 次合成、2 个委托、1 次照料就能领奖励。七日约定按累计领取天数发奖，漏签不重置进度。',
+      needs: '不需要额外资源，三项目标都完成才能领。',
+      use: '每日奖励给暖玉、阅历和灵力。七日约定还会送双份素材、高阶偏好素材和限定狐灯夜庭背景。',
+      tip: '每日目标在庭院页显示，但进度来自合成、委托和照料三个方面。'
     },
     facilities: {
-      title: '疗愈所设施',
-      intro: '四栋建筑都能升级，升级立即生效。',
-      what: '点击设施卡片可查看每一级效果并支付暖玉升级；百草园卡片还能直接领取已产出的药材。',
-      needs: '医馆、百草园、梳洗台、嬉游亭各自有 Lv1–3 的暖玉升级线；小游戏高难度依赖对应设施等级。',
-      use: '医馆提升疗愈/经验，百草园提速增产，梳洗台提高高阶奖励概率，嬉游亭增加提示次数。',
-      tip: '建议升级顺序：医馆 → 百草园 → 你更常玩的小游戏设施。'
+      title: '宗门设施',
+      intro: '四栋建筑都能升级，升了立刻生效。',
+      what: '点设施卡片看每一级效果，付暖玉就能升级。百草园卡片还能直接领已产出的药材。',
+      needs: '医馆、百草园、梳洗台、嬉游亭各有 Lv1–3 的升级线。小游戏高难度依赖对应设施等级。',
+      use: '医馆提升疗愈和阅历，百草园提速增产，梳洗台提高高阶奖励概率，嬉游亭增加提示次数。',
+      tip: '推荐升级顺序：医馆 → 百草园 → 你更常玩的小游戏设施。'
     },
     jobs: {
       title: '岗位产出',
-      intro: '蜕变后的神兽不是终点，而是新的生产来源。',
-      what: '每只神兽蜕变后会解锁专属岗位，持续为宗门提供加成或补给；离线最多结算 8 小时。',
-      needs: '岗位无需额外投入；只有完成三段疗愈并蜕变的神兽才会上岗。',
-      use: '例如穷奇每 90 分钟带回 1 份定向补给，九尾狐每天多 1 次免费刷新，帝江让百草园提速 20%。',
-      tip: '长按“岗位产出”卡片之外，点击卡片详情也能看每只神兽的岗位说明。'
+      intro: '蜕变后的神兽不会闲着，它们会为宗门出力。',
+      what: '每只神兽蜕变后解锁专属岗位，持续提供加成或补给。离线最多结算 8 小时。',
+      needs: '岗位不需要额外投入，只有蜕变后的神兽才会上岗。',
+      use: '比如穷奇每 90 分钟带回补给，九尾狐每天多 1 次免费刷新，帝江让百草园提速 20%。',
+      tip: '长按岗位卡片或点进去，能看到每只神兽具体在做什么。'
     },
     'job-row': {
       title: '一只神兽的岗位',
-      intro: '这位住客蜕变后正在为疗愈所工作。',
-      what: '头像、名字、岗位头衔和岗位效果一目了然；有可领取产出时会出现领取按钮。',
-      needs: '岗位不需要额外投入；未蜕变的神兽显示“待蜕变”。',
+      intro: '这位住客蜕变后，正在为宗门出力。',
+      what: '头像、名字、岗位和效果一目了然。有可领取的产出时，会出现领取按钮。',
+      needs: '岗位不需要额外投入，未蜕变的神兽显示"等一盏灯亮"。',
       use: '岗位效果持续生效，部分岗位会积累可领取的补给，离线最多结算 8 小时。',
-      tip: '想快点解锁岗位，就去庭院完成有效照料并交付成长委托。'
+      tip: '想快点解锁岗位，去庭院完成有效照料并交付成长委托。'
     },
     'sect-map': {
       title: '宗门舆图',
-      intro: '14 个区域构成完整宗门版图，雾锁区域需要信物解锁。',
-      what: '点击已解锁区域查看近景；点击灵雾区域查看解锁条件并支付信物；交付修缮委托后对应区域会逐段变亮。',
-      needs: '解锁区域需要特定信物或配方成品；修缮需要对应阶位的合成素材。',
-      use: '每个区域修缮到焕新会给出永久加成（生产、生成器、棋盘、回收等），并推进卷章剧情。',
-      tip: '长按地图节点或左下角的区域说明，可看到该区域职能。'
+      intro: '14 个区域组成的宗门版图，被灵雾遮住的地方需要信物才能抵达。',
+      what: '点已解锁区域看近景，点灵雾区域看解锁条件并交付信物。交付修缮委托后，对应区域会一段一段变亮。',
+      needs: '解锁区域需要信物或古方成品，修缮需要对应阶位的合成素材。',
+      use: '每个区域修到"焕新"会给出永久加成，覆盖生产、生成器、棋盘、回收等，同时推进卷章故事。',
+      tip: '长按地图节点或左下角的区域说明，可以看到这个区域的故事与职能。'
     },
     'sect-scene': {
       title: '宗门区域近景',
-      intro: '展示当前所选区域的修缮阶段。',
-      what: '切换山门、医馆、前院、梳洗阁等区域，查看荒废 → 清理 → 修补 → 焕新四阶段视觉变化。',
-      needs: '每段修缮都需要交付当前修缮委托要求的素材；无需在这里直接操作。',
-      use: '直观看到宗门变化进度；焕新时触发世界变化卡并发放区域永久加成。',
-      tip: '交付修缮在下方“当前修缮委托”或医馆页的修缮槽进行。'
+      intro: '看看这块地方修到哪一步了。',
+      what: '切换山门、医馆、前院、梳洗阁等区域，看到它们从荒废 → 清理 → 修补 → 焕新的四段变化。',
+      needs: '每段修缮都要交付当前修缮委托要求的素材，不用在这里直接操作。',
+      use: '亲眼看着宗门一天天变好。焕新时会触发世界变化卡，并发放区域永久加成。',
+      tip: '交付修缮在下方"当前修缮委托"或医馆页的修缮槽进行。'
     },
     'sect-acts': {
       title: '五幕卷章',
-      intro: '每一卷由修缮、收容、疗愈、焕新、上岗五幕组成。',
-      what: '显示当前幕进度与修缮度（如幕一 0/9）；每一幕完成后自动进入下一幕。',
-      needs: '幕一主要靠交付修缮委托；后续幕需要医馆合成、庭院照料和蜕变节点。',
-      use: '完成五幕后解锁本卷终章与下一位神兽的来信，是主线推进的仪表。',
-      tip: '卡在某一幕时，去医馆页看“下一步”提示最直接。'
+      intro: '每一卷由修缮、收容、疗愈、蜕变、上岗五幕组成。',
+      what: '显示当前幕的进度（如幕一 0/9），每一幕完成后自动进入下一幕。',
+      needs: '幕一主要靠交付修缮委托推进，后续幕需要医馆合成、庭院照料和蜕变节点。',
+      use: '完成五幕后点亮本卷归灯，并迎来下一位神兽的来信，是主线推进的进度表。',
+      tip: '卡在某一幕时，去医馆页看"下一步"提示最直接。'
     },
     'sect-areas': {
       title: '宗门版图 · 区域进度',
-      intro: '本卷区域的修缮段位与永久加成总览。',
-      what: '列出本卷所有区域的荒废/清理/修补/焕新四段进度，以及每段解锁的永久加成。',
-      needs: '推进靠交付区域修缮委托；雾锁区域需先在舆图解锁。',
-      use: '一眼看清哪些区域已焕新、哪些加成已经生效，方便规划下一步修缮目标。',
-      tip: '区域加成永久保留，优先修满你经常使用的生产与棋盘类区域。'
+      intro: '本卷所有区域的修缮进度和永久加成，一眼看全。',
+      what: '列出本卷每个区域的四段进度，以及每段解锁的永久加成。',
+      needs: '推进靠交付区域修缮委托，灵雾区域要先在舆图解锁。',
+      use: '看清哪些区域已焕新、哪些加成已生效，方便规划下一步修哪里。',
+      tip: '区域加成永久保留，优先修满你常用的生产和棋盘类区域。'
     },
     'sect-area-card': {
       title: '一个区域的段位卡',
       intro: '单个宗门区域的修缮进度卡。',
       what: '显示区域名、当前段位（0/3 到 3/3）以及已生效的永久加成。',
-      needs: '推进需要交付该区域的修缮委托；雾锁区域要先在舆图解锁。',
-      use: '快速核对区域加成是否已经生效，判断下一步该修哪里。',
-      tip: '永久加成对生产、棋盘、回收等系统长期有效。'
+      needs: '推进靠交付该区域的修缮委托，灵雾区域要先在舆图解锁。',
+      use: '快速核对区域加成是否已生效，判断下一步该修哪里。',
+      tip: '永久加成对生产、棋盘、回收等长期有效。'
     },
     codex: {
-      title: '山海册图鉴',
+      title: '山海册',
       intro: '12 只神兽、60 个形态的疗愈收藏册。',
-      what: '点开卡片查看神兽大图、故事、形态收藏与当前成长进度；图鉴分两页，底部按钮翻页。',
-      needs: '结识新神兽需要对应信物（如九尾狐需要 6 阶梳妆素材）；图鉴只读，不消耗资源。',
-      use: '回顾已解锁故事、切换喜欢的旧形态、查看距离下一形态还差多少好感/疗愈/经验。',
-      tip: '长按图鉴卡片可先看该神兽的专属素材与成长说明，点击卡片进入详细页。'
+      what: '点开卡片看神兽大图、故事、形态收藏和成长进度。山海册分两页，底部按钮翻页。',
+      needs: '结识新神兽需要对应信物（比如九尾狐要 6 阶梳妆素材）。山海册只读，不消耗资源。',
+      use: '回顾已解锁的故事、换回喜欢的旧形态、看看离下一形态还差多少。',
+      tip: '长按图鉴卡片先看神兽的专属素材与成长说明，点卡片进详细页。'
     },
     'codex-card': {
-      title: '一张神兽图鉴卡',
-      intro: '一位住客在山海册里的档案。',
-      what: '显示立绘、形态名称、专属素材与当前成长数值；未结识时显示解锁信物。',
-      needs: '未结识神兽需要对应信物；卡片本身不消耗任何资源。',
-      use: '点击进入详情查看全部形态、小故事和成长进度；已解锁的形态可以随时换回庭院展示。',
-      tip: '好感、疗愈、经验三项都达标后，这只神兽会自动长成下一形态。'
+      title: '一张山海册页',
+      intro: '一位住客在山海册里的档案页。',
+      what: '显示立绘、形态名称、专属素材和当前成长数值。还没结识的神兽会显示信物。',
+      needs: '未结识的神兽需要对应信物，卡片本身不消耗任何资源。',
+      use: '点进去看全部形态、小故事和成长进度。已解锁的形态可随时换回庭院展示。',
+      tip: '好感、疗愈、阅历都达标后，这只神兽会自动长成下一形态。'
     },
     'sect-map-node': {
       title: '舆图上的一个区域',
-      intro: '宗门版图里的一个可修缮区域。',
-      what: '节点显示区域图标、名字、当前段位和已解锁的设施/产线；灵雾节点显示解锁条件。',
-      needs: '解锁需要对应信物；修缮需要完成当前修缮委托。',
-      use: '点击已解锁区域查看近景；每个区域焕新后提供永久加成。',
-      tip: '节点上的圆点代表荒废/清理/修补/焕新四段进度。'
+      intro: '宗门版图里一个可以修缮的角落。',
+      what: '节点显示区域图标、名字、当前段位和已解锁的设施或产线。灵雾节点显示解锁条件。',
+      needs: '解锁需要信物，修缮需要完成当前修缮委托。',
+      use: '点已解锁区域看近景，每个区域焕新后提供永久加成。',
+      tip: '节点上的圆点代表荒废、清理、修补、焕新四段进度。'
     },
     nav: {
       title: '底部导航',
-      intro: '宗门、医馆、庭院、图鉴四个页面随时切换。',
-      what: '宗门页修缮与扩张、医馆页合成与委托、庭院页照料与产出、图鉴页查看收藏与成长。',
-      needs: '切换页面不需要体力；未解锁内容也可以提前查看说明。',
-      use: '底部还会显示第一卷疗愈总进度；找不到下一步时，按“医馆”看顶部提示最可靠。',
-      tip: '任何页面都支持长按模块查看说明，提示不会影响当前进度。'
+      intro: '宗门、医馆、庭院、山海册——四个页面随时切换。',
+      what: '宗门页修缮与扩张，医馆页合成与委托，庭院页照料与产出，山海册看收藏与成长。',
+      needs: '切换页面不用灵力，没解锁的内容也能提前看说明。',
+      use: '底部还显示当前卷的疗愈总进度。不知下一步做什么，点"医馆"看顶部提示最靠谱。',
+      tip: '任何页面都支持长按模块看说明，不会影响当前进度。'
     }
   };
-  /* 设施列表里的具体卡片，复用庭院对应建筑的长按说明。 */
+
+  /* 庭院建筑卡片与对应设施的长按说明复用。 */
   ['clinic', 'herb', 'groom', 'play'].forEach(function (id) {
     MODULE_HELP['facility-' + id] = MODULE_HELP['yard-' + id];
   });
@@ -803,7 +804,7 @@
   function openModuleHelp(key) {
     var help = MODULE_HELP[key] || {
       title: '模块说明',
-      intro: '这里是疗愈所的一部分。',
+      intro: '这里是宗门的一部分。',
       what: '点击或长按后可以操作它。',
       needs: '大多数模块在解锁前都会在界面上写明条件。',
       use: '它会推进合成、委托、照料或宗门修缮中的一环。',
@@ -859,35 +860,37 @@
     return modal;
   }
 
-  var HOW_TO_PLAY_PAGES = [
+var HOW_TO_PLAY_PAGES = [
     {
-      title: '先记住这条疗愈路线',
-      html: '<p class="how-to-play-page-intro">宗门修缮 → 医馆合成 → 庭院照料 → 蜕变成长。任何一步都能慢慢来，失败、超时、断线都不会让你丢失已经到手的素材与进度。</p>' +
-        '<article class="how-to-play-item"><b>① 合成棋盘怎么玩</b><span>点击素材再点同类同阶素材即可二合一；也可以拖动素材到空格整理，拖到同类同阶素材上合成。普通合成不消耗体力。</span></article>' +
-        '<article class="how-to-play-item"><b>② 看懂每一格</b><span>图标显示素材阶数与来源标签；齿轮格是生成器，⚙ 部件格要两个同阶合成，🌿 藤蔓和 🔒 封印用净化刷解锁。</span></article>' +
-        '<article class="how-to-play-item"><b>③ 长按是最强帮助键</b><span>长按素材/部件看完整合成路线与材料来源；长按生成器看掉落、升级和前置；长按任意模块（委托、配方、庭院建筑、图鉴等）都能看到“干什么、需要什么、有什么用”。</span></article>' +
-        '<div class="how-to-play-note">棋盘满了奖励会进药匣或待入盘队列；不懂就长按，进度不会因此中断。</div>'
+      title: '先把山门点亮',
+      html: '<p class="how-to-play-page-intro">宗门修缮 → 医馆合成 → 庭院照料 → 蜕变成长。每一步都可以慢慢来；没做完的，灯会替你留着。</p>' +
+        '<article class="how-to-play-item"><b>① 合成棋盘怎么玩</b><span>点一个素材选中，再点同类同阶的就能合成；也可以拖到同类同阶素材上。普通合成不耗灵力。</span></article>' +
+        '<article class="how-to-play-item"><b>② 看懂每一格</b><span>图标上的数字是阶位。齿轮格是生成器，⚙ 部件两个同阶合成，🌿 藤蔓和 🔒 封印用净化刷解开。</span></article>' +
+        '<article class="how-to-play-item"><b>③ 长按是最好的帮助</b><span>长按素材看合成路线与来处；长按生成器看掉落和升级；长按任何模块，它都会小声告诉你自己是什么。</span></article>' +
+        '<div class="how-to-play-note">棋盘满了，奖励会进药匣或待入盘。不懂就长按，脚步不会中断。</div>'
     },
     {
-      title: '材料、生成器与配方',
-      html: '<article class="how-to-play-item"><b>④ 常驻生成器</b><span>在线点击只消耗 1 点体力、不限次数；用暖玉 + 体力升级，升级还受宗门区域与配方成品前置限制。升级后高阶掉落概率提高，并有概率掉部件。</span></article>' +
-        '<article class="how-to-play-item"><b>⑤ 生产器部件</b><span>两个同阶部件合成下一阶；两个 4 阶部件会变成“造物生成器”。造物生成器不耗体力、次数有限，用尽后消散并返还 1–2 个部件。</span></article>' +
-        '<article class="how-to-play-item"><b>⑥ 配方台与配方柜</b><span>部分委托要求“配方成品”。在配方台消耗两种指定材料制作（如安神药包 = 3阶药材 + 3阶药具），成品放进配方柜，交付时自动扣除。长按配方可看图、材料来源与用途。</span></article>' +
-        '<article class="how-to-play-item"><b>⑦ 体力规则</b><span>每 150 秒恢复 1 点，离线最多积攒 8 小时。零体力仍可合成、交付委托、领取百草园与岗位产出；生成器积攒的离线储备也能在体力耗尽时继续使用。</span></article>'
+      title: '把散落的灵气合回来',
+      html: '<article class="how-to-play-item"><b>④ 常驻生成器</b><span>点一下，旧器苏醒，每次产出消耗 1 点灵力，不限次数。用暖玉和灵力升级，等级越高，越容易掉高阶素材与部件。</span></article>' +
+        '<article class="how-to-play-item"><b>⑤ 生产器部件</b><span>两个同阶部件合成下一阶；两个 4 阶部件会搭成一台"造物生成器"。它不耗灵力、次数有限，用尽后散作光点，并返还 1–2 个部件。</span></article>' +
+        '<article class="how-to-play-item"><b>⑥ 配方台与配方柜</b><span>有些委托点名要"古方成品"。在配方台消耗两种指定材料制作（比如安神药包 = 3 阶药材 + 3 阶药具），成品放进配方柜，交付时自动取用。</span></article>' +
+        '<article class="how-to-play-item"><b>⑦ 灵力规则</b><span>每 150 秒恢复 1 点，守灯结算最多计入 8 小时。灵力归零，仍可合成、交付、领产出；生成器攒下的储备，也能在灵力耗尽时继续用。</span></article>' +
+        '<div class="how-to-play-note">灵气慢，宗门也慢。慢一点，刚刚好。</div>'
     },
     {
-      title: '庭院照料与小游戏',
-      html: '<article class="how-to-play-item"><b>⑧ 梳洗台 · 消消乐</b><span>滑动相邻图标交换；3 连消除，4 连造条纹块，L/T 形造炸弹，5 连造彩石。带 ×/2 的毛结要贴着消除逐层解开。至少 3 次有效交换后，超时也有保底奖励。</span></article>' +
-        '<article class="how-to-play-item"><b>⑨ 嬉游亭 · 羊了个羊</b><span>点击多层玩具塔上“露头”的牌收入五格槽，3 张相同自动消除；槽满凑不出三张即结束。至少消除 4 组后，超时也按表现发素材；清空全塔获得最高表现。</span></article>' +
-        '<article class="how-to-play-item"><b>⑩ 有效照料与奖励</b><span>普通难度（轻松/标准/困难/大师）会推进好感、疗愈、经验和主线故事；挑战模式固定 5 体力、只按分数发素材。每日每设施前三局发普通素材，之后可继续练习。</span></article>' +
-        '<article class="how-to-play-item"><b>⑪ 设施与岗位</b><span>四栋设施用暖玉升级立即生效；神兽蜕变后自动上岗（离线最多结算 8 小时），每日目标与七日约定在庭院页领取。</span></article>'
+      title: '把它的心也梳顺',
+      html: '<article class="how-to-play-item"><b>⑧ 梳洗台 · 消消乐</b><span>滑动相邻图标交换，三连消除；四连成条纹，L/T 形成炸弹，五连成彩石。贴着 ×/2 的毛结消除，一层层解开。有效交换 3 次以上，超时也有保底。</span></article>' +
+        '<article class="how-to-play-item"><b>⑨ 嬉游亭 · 叠塔牌</b><span>点玩具塔上"露头"的牌收进五格槽，三张相同自动消去；槽满凑不出就结束。消 4 组以上，超时也按表现发素材；清空整座塔最漂亮。</span></article>' +
+        '<article class="how-to-play-item"><b>⑩ 有效照料与奖励</b><span>普通难度（轻松/标准/困难/大师）推进好感、疗愈、阅历和主线故事；挑战模式固定 5 点灵力，只按表现发素材。每天每设施前三局发普通素材，之后还能继续陪它。</span></article>' +
+        '<article class="how-to-play-item"><b>⑪ 设施与岗位</b><span>四栋设施用暖玉升级，立刻生效。神兽蜕变后自动上岗，离线最多结算 8 小时；每日目标与七日约定在庭院页领取。</span></article>' +
+        '<div class="how-to-play-note">输了这局也不要紧，它只记得你来过。</div>'
     },
     {
-      title: '宗门、成长与最后的小提示',
-      html: '<article class="how-to-play-item"><b>⑫ 宗门页怎么推进</b><span>交付修缮委托让区域荒废 → 清理 → 修补 → 焕新；每个区域焕新后给永久加成。雾锁区域需信物解锁，五幕卷章全部完成后开启下一位神兽来信。</span></article>' +
-        '<article class="how-to-play-item"><b>⑬ 神兽成长</b><span>好感、疗愈、经验三项都达标会自动升级形态并播放故事；图鉴可查看 12 兽共 60 形态，也能换回喜欢的旧形态。</span></article>' +
-        '<article class="how-to-play-item"><b>⑭ 不迷路清单</b><span>不知道下一步：看医馆页“下一步”。不知道材料从哪来：长按材料。不知道某个模块是什么：长按模块。体力没了：先合成、交付、领产出，再等恢复。</span></article>' +
-        '<div class="how-to-play-note">本篇说明可随时点右上角“?”重看；所有规则也散落在对应模块的长按说明里。</div>'
+      title: '把十二盏灯，一盏盏点亮',
+      html: '<article class="how-to-play-item"><b>⑫ 宗门页怎么推进</b><span>交付修缮委托，让区域从荒废 → 清理 → 修补 → 焕新；每段焕新都有永久加成。灵雾锁住的区域需要信物，五幕完成后会收到下一位神兽的来信。</span></article>' +
+        '<article class="how-to-play-item"><b>⑬ 神兽成长</b><span>好感、疗愈、阅历都达标后，它会自动长成下一形态，并讲一段小故事。山海册可看 12 兽 60 形态，也能换回喜欢的旧样子。</span></article>' +
+        '<article class="how-to-play-item"><b>⑭ 不迷路清单</b><span>不知下一步——看医馆页顶部提示；不知材料哪来——长按材料；不知模块是什么——长按它；灵力没了——先合成、交付、领产出，再等它慢慢回来。</span></article>' +
+        '<div class="how-to-play-note">这篇说明随时可点"?"重看；更多话，都藏在长按里。</div>'
     }
   ];
 
@@ -1004,7 +1007,7 @@
     node.innerHTML = '<span class="hud-pill hud-level" title="升级进度 ' + xpPercent + '%（' + xp + ' / ' + xpNext + ' 经验）"><small>等级</small><b>Lv.' + state.level + '</b>' +
       '<span class="hud-level-bar" role="progressbar" aria-label="升级进度" aria-valuenow="' + xp + '" aria-valuemin="0" aria-valuemax="' + xpNext + '"><i style="width:' + xpPercent + '%"></i></span></span>' +
       '<span class="hud-pill hud-jade"><small>暖玉</small><b>◆ ' + state.jade + '</b></span>' +
-      '<button id="energy-pill" class="hud-pill energy hud-energy" type="button" aria-label="体力中心"><small>体力</small><b>⚡ ' + state.energy + '/' + state.maxEnergy + '</b></button>' +
+      '<button id="energy-pill" class="hud-pill energy hud-energy" type="button" aria-label="灵力中心"><small>灵力</small><b>⚡ ' + state.energy + '/' + state.maxEnergy + '</b></button>' +
       (state.cleanTools ? '<span class="hud-pill hud-tools"><small>净化</small><b>刷 ' + state.cleanTools + '</b></span>' : '');
     var energy = q('energy-pill');
     if (energy) energy.addEventListener('click', openEnergyCenter);
@@ -1059,9 +1062,9 @@
 
   function countNeed(need) {
     var count = 0;
-    [state.grid, state.storage.items].forEach(function (items) {
+    [state.grid, state.storage.items, state.pendingRewards].forEach(function (items) {
       (items || []).forEach(function (item) {
-        if (item && !item.kind && item.family === need.family && item.tier === need.tier) count++;
+        if (item && !item.kind && item.family === need.family && Number(item.tier) === Number(need.tier)) count++;
       });
     });
     return count;
@@ -1076,8 +1079,8 @@
 
   function kindLabel(kind) {
     return {
-      main: '主线', renovation: '修缮', medical: '医案', visitor: '访客', journey: '七日旅程',
-      recruit: '相遇', recruit_complete: '相遇', growth: '成长', growth_complete: '成长', supply: '百草补给', supply_complete: '百草补给'
+      main: '卷章', renovation: '修缮', medical: '医案', visitor: '来访', journey: '旅程',
+      recruit: '灯信', recruit_complete: '灯信', growth: '成长', growth_complete: '成长', supply: '补给', supply_complete: '补给'
     }[kind] || '委托';
   }
 
@@ -1135,7 +1138,10 @@
       if (!complete && order.productNeed) {
         var productRecipe = recipeDefinition(order.productNeed.productId);
         var productName = productRecipe ? productRecipe.name : order.productNeed.productId;
-        productTileMarkup = '<span class="order-need product-order-need" data-longpress-recipe="' + esc(order.productNeed.productId) + '" title="配方柜物品：' + esc(productName) + ' ×' + order.productNeed.count + ' · 长按看配方"><img src="' + esc(recipeArtPath(productRecipe)) + '" alt="' + esc(productName) + '" /><b>' + order.productNeed.count + '</b></span>';
+        var productHave = Math.max(0, Number(state.products && state.products[order.productNeed.productId] || 0));
+        var productNeedCount = order.productNeed.count || 1;
+        var productReady = productHave >= productNeedCount;
+        productTileMarkup = '<span class="order-need product-order-need' + (productReady ? ' ready' : '') + '" data-longpress-recipe="' + esc(order.productNeed.productId) + '" title="配方柜物品：' + esc(productName) + ' · 长按看配方"><img src="' + esc(recipeArtPath(productRecipe)) + '" alt="' + esc(productName) + '" /><b>' + Math.min(productHave, productNeedCount) + '/' + productNeedCount + '</b></span>';
       }
       var needsMarkup = complete ? '' : '<div class="order-need-icons">' + requirements.map(needMarkup).join('') + productTileMarkup + '</div>';
       var rewards = order.rewards || {};
@@ -1144,13 +1150,13 @@
       if (rewards.xp) rewardBits.push('阅历+' + rewards.xp);
       if (rewards.beastExp) rewardBits.push('经验+' + rewards.beastExp);
       if (rewards.heal) rewardBits.push('疗愈+' + rewards.heal);
-      if (rewards.energy) rewardBits.push('体力+' + rewards.energy);
+      if (rewards.energy) rewardBits.push('灵力+' + rewards.energy);
       if (rewards.generatorParts && rewards.generatorParts.length) rewardBits.push('部件×' + rewards.generatorParts.length);
       /* 主页面订单卡不放任何文案：礼物链故事、生成器要求等只在详情弹窗展示。 */
       var kindChip = mainline
         ? '<span class="mainline-badge">主线</span>'
         : '<span class="order-kind">' + kindLabel(order.kind) + '</span>';
-      var actionMarkup = '<button class="deliver-btn" data-deliver="' + esc(order.id) + '" type="button" ' + (ready && !complete ? '' : 'disabled') + '>' + (complete ? '今日已完成' : '交付 · ' + rewardBits.join(' · ')) + '</button>';
+      var actionMarkup = '<button class="deliver-btn" data-deliver="' + esc(order.id) + '" type="button" ' + (ready && !complete ? '' : 'disabled') + '>' + (complete ? '今日已安顿' : '交付 · ' + rewardBits.join(' · ')) + '</button>';
       return '<article class="order-card ' + (mainline ? 'main-order ' : '') + (ready ? 'ready ' : '') + (!reachable ? 'unreachable' : '') + '" data-order-id="' + esc(order.id) + '" data-help="order-card" title="点击查看详情，长按查看委托卡说明">' +
         '<div class="order-head">' + kindChip + '<strong>' + esc(order.title) + '</strong></div>' +
         needsMarkup +
@@ -1205,7 +1211,7 @@
         var generatorArt = itemPath(item);
         var generatorMeta = item.permanent === false
           ? '剩余 ' + Math.max(0, Number(item.lifetime) || 0) + ' 次'
-          : (Number(item.charges) > 0 ? '储备' + Number(item.charges) + ' · ' : '') + '体力1 · 不限次';
+          : (Number(item.charges) > 0 ? '储备' + Number(item.charges) + ' · ' : '') + '灵力1 · 不限次';
         content = (generatorArt ? '<img src="' + esc(generatorArt) + '" alt="" />' : '<span>' + esc(family ? family.icon : '✦') + '</span>') + '<b>Lv' + Math.max(1, Number(item.level) || 1) + '</b><em>' + esc(generatorMeta) + '</em>';
       } else if (item && item.kind === 'generator_part') {
         classes.push('generator-part-tile');
@@ -1483,7 +1489,7 @@
     q('yard-beast').src = characterAssetPath(art);
     q('yard-beast').alt = definition.name + ' · Lv' + entry.activeFormLevel;
     syncYardBeastSprite(definition, entry);
-    q('yard-heading').textContent = activeResident ? '陪伴' + definition.name + '慢慢恢复' : entry.transformed ? definition.name + '已经成为疗愈所伙伴' : '查看' + definition.name + '的状态';
+    q('yard-heading').textContent = activeResident ? '陪伴' + definition.name + '慢慢恢复' : entry.transformed ? definition.name + '已经成为宗门伙伴' : '查看' + definition.name + '的状态';
     q('yard-copy').textContent = activeResident ? activeCareText(entry) : entry.transformed ? '岗位已生效 · ' + (activeTargetDef ? '当前治疗对象：' + activeTargetDef.name + ' · ' : '') + '这里正在查看' + definition.name : '当前治疗对象：' + (activeTargetDef ? activeTargetDef.name : '暂无') + ' · 这里正在查看' + definition.name;
     q('yard-speech').textContent = '“' + definition.dialogue[stage] + '”';
     renderYardBackground();
@@ -1532,9 +1538,9 @@
 
   function renderDaily() {
     var goals = [
-      { label: '合成', icon: '▦', current: state.daily.merges, target: 5 },
-      { label: '委托', icon: '✉', current: state.daily.orders, target: 2 },
-      { label: '照料', icon: '♡', current: state.daily.care, target: 1 }
+      { label: '合灵', icon: '▦', current: state.daily.merges, target: 5 },
+      { label: '回信', icon: '✉', current: state.daily.orders, target: 2 },
+      { label: '陪伴', icon: '♡', current: state.daily.care, target: 1 }
     ];
     q('yard-goals').innerHTML = goals.map(function (goal) {
       var done = goal.current >= goal.target;
@@ -1549,7 +1555,7 @@
     if (signTrack) {
       var claimedDays = Math.min(7, Number(state.signIn && state.signIn.daysClaimed || 0));
       signTrack.innerHTML = (DATA.signIn && DATA.signIn.days || []).map(function (reward) {
-        var summary = reward.background ? '限定背景' : reward.energy ? '体力+' + reward.energy : reward.jade ? '暖玉+' + reward.jade : reward.selectedPreferredTier ? '偏好T' + reward.selectedPreferredTier : '双份T' + (reward.items && reward.items[0] && reward.items[0].tier || 1);
+        var summary = reward.background ? '限定背景' : reward.energy ? '灵力+' + reward.energy : reward.jade ? '暖玉+' + reward.jade : reward.selectedPreferredTier ? '偏好T' + reward.selectedPreferredTier : '双份T' + (reward.items && reward.items[0] && reward.items[0].tier || 1);
         var classes = ['sign-in-day'];
         if (reward.day <= claimedDays) classes.push('claimed');
         else if (reward.day === signDay) classes.push('current');
@@ -1649,7 +1655,7 @@
         '<div class="codex-growth"><b>Lv' + entry.level + '/5</b><span>好感 ' + entry.affection + (next ? '/' + next.affection : '') + '</span><span>疗愈 ' + entry.heal + (next ? '/' + next.heal : '') + '</span><span>经验 ' + entry.exp + (next ? '/' + next.exp : '') + '</span></div>' +
         '<div class="codex-job">点击查看大图、故事与形态</div></div></article>';
     }).join('');
-    q('ending-card').innerHTML = state.endingUnlocked ? '<h2>第一卷 · 灯火长明</h2><p>伙伴们会继续成长，十二页山海册等你一页页点亮。</p>' : '<h2>下一页正等你翻开</h2><p>陪九尾狐突破新形态，每一级都会解锁一段只属于它的小故事。</p>';
+    q('ending-card').innerHTML = state.endingUnlocked ? '<h2>第一卷 · 灯火长明</h2><p>第一盏灯亮了。剩下的十一盏，也会一盏一盏，找到回家的路。</p>' : '<h2>下一页正等你翻开</h2><p>小镜子在包袱里发亮——陪九尾狐突破新形态，每一级都会解锁一段只属于它的小故事。</p>';
   }
 
   function renderProgress() {
@@ -1972,8 +1978,9 @@
     var areaIds = volumeConfig.areaIds || [];
     var areas = (DATA.sect.areas || []).filter(function (area) { return areaIds.indexOf(area.id) >= 0; });
     q('sect-chapter-chip').textContent = volumeConfig.title || DATA.sect.chapterChip || '卷一 · 穷奇篇';
-    q('sect-quote').textContent = DATA.sect.volumeQuote || '';
-    q('sect-note').textContent = DATA.sect.volumeNote || '';
+    var volumeNarrative = volumeConfig.narrative || {};
+    q('sect-quote').textContent = volumeNarrative.epigraph || DATA.sect.volumeQuote || '';
+    q('sect-note').textContent = volumeNarrative.record || DATA.sect.volumeNote || '';
     var progress = Core.chapterProgress ? Core.chapterProgress(state) : { act: 1, actName: '修缮', actNames: ['修缮', '收容', '疗愈', '焕新', '上岗'], renovationDone: 0, renovationTarget: 9, chapterDone: false };
     renderSectMap();
     renderSectScene(areas);
@@ -2001,9 +2008,17 @@
     var renoNode = q('sect-reno');
     if (reno) {
       var renoReady = Core.canDeliverRenovation ? Core.canDeliverRenovation(state) : false;
+      var renoProductMarkup = '';
+      if (reno.order.productNeed) {
+        var renoRecipe = recipeDefinition(reno.order.productNeed.productId);
+        var renoProductName = renoRecipe ? renoRecipe.name : reno.order.productNeed.productId;
+        var renoProductHave = Math.max(0, Number(state.products && state.products[reno.order.productNeed.productId] || 0));
+        var renoProductReady = renoProductHave >= (reno.order.productNeed.count || 1);
+        renoProductMarkup = '<span class="order-need product-order-need' + (renoProductReady ? ' ready' : '') + '" data-longpress-recipe="' + esc(reno.order.productNeed.productId) + '" title="配方柜物品：' + esc(renoProductName) + ' ×' + reno.order.productNeed.count + ' · 长按看配方"><img src="' + esc(recipeArtPath(renoRecipe)) + '" alt="' + esc(renoProductName) + '" /><b>' + Math.min(renoProductHave, reno.order.productNeed.count) + '/' + reno.order.productNeed.count + '</b></span>';
+      }
       renoNode.innerHTML = '<div class="section-title-row"><div><span class="eyebrow">当前修缮委托 · ' + esc(reno.area.name) + ' · ' + esc(reno.stageName) + '段</span><h2>' + esc(reno.order.title) + '</h2></div></div>' +
         '<p>' + esc(reno.order.text) + '</p>' +
-        '<div class="order-need-icons">' + reno.order.requirements.map(needMarkup).join('') + '</div>' +
+        '<div class="order-need-icons">' + reno.order.requirements.map(needMarkup).join('') + renoProductMarkup + '</div>' +
         '<button class="deliver-btn" data-deliver-reno type="button" ' + (renoReady ? '' : 'disabled') + '>' + (renoReady ? '交付修缮' : '素材未齐') + '</button>' +
         '<button class="modal-action" data-go-merge type="button">去医馆合成准备素材</button>';
     } else {
@@ -2012,9 +2027,12 @@
         ? '<div class="section-title-row"><div><span class="eyebrow">区域扩张待办</span><h2>本卷仍有灵雾锁着的山径</h2></div></div><p>回到上方的宗门舆图，点击可解锁区域交付信物，新修缮委托就会出现。</p>'
         : '<div class="section-title-row"><div><span class="eyebrow">本卷修缮完成</span><h2>宗门焕然一新</h2></div></div><p>把眼前的世界交给下一次交付：去医馆合成、去庭院照料，新区域会随卷章继续展开。</p>';
     }
+    var nextVolumeConfig = (DATA.sect.volumes || []).find(function (entry) { return entry.volume === volume + 1; }) || null;
+    var hookLabel = nextVolumeConfig ? nextVolumeConfig.title : '终卷 · 欢迎回家';
+    var hookText = volumeNarrative.hook || (nextVolumeConfig ? '新的灯信已经亮起，下一位住客正在路上。' : '灯都亮了。日子还会继续，山海册还会写新的故事。');
     q('sect-hook').innerHTML = progress.chapterDone
-      ? '<h2>' + esc(DATA.sect.nextChapter.label) + '</h2><p>' + esc(DATA.sect.nextChapter.hook) + '</p>'
-      : '<h2>卷终 · 山海册新页</h2><p>' + (progress.act >= 4 ? '穷奇即将焕新上岗，卷章完成时，山海册会写下新的一页。' : '先修好宗门、治好穷奇，卷终就会写下新的一页。') + '</p>';
+      ? '<h2>' + esc(hookLabel) + '</h2><p>' + esc(hookText) + '</p>'
+      : '<h2>卷终 · 山海册新页</h2><p>' + (progress.act >= 4 ? '它即将焕新上岗，卷章完成时，山海册会写下新的一页。' : '先修好宗门、陪它走完疗愈，卷终就会写下新的一页。') + '</p>';
   }
 
   function render() {
@@ -2050,7 +2068,7 @@
   function failureText(result) {
     var reason = result && result.reason;
     return {
-      energy: '体力用完了，但仍可合成、交付委托或领取庭院产出',
+      energy: '灯油见底了。不着急，仍可合成、交付委托或领取庭院产出',
       'board-full': '棋盘已满，产出已安全暂存',
       'generator-locked': '完成上一位异兽蜕变后解锁这条产线',
       'generator-missing': '这台生成器暂时不在棋盘上',
@@ -2194,7 +2212,7 @@
     if (index === cabinetIndex) { openRecipeCabinet(); return; }
     var item = state.grid[index];
     if (index >= state.unlockedCells) {
-      mutate(Core.unlockCell(state), '疗愈所扩建了一格');
+      mutate(Core.unlockCell(state), '宗门扩建了一格');
       return;
     }
     if (!item) { playSfx('click'); selectedIndex = null; renderBoard(); return; }
@@ -2224,7 +2242,7 @@
     var result = Core.mergeItems(state, selectedIndex, index, Date.now());
     if (result.ok) {
       selectedIndex = null;
-      q('selection-hint').textContent = '合成成功 · 零体力也能继续整理与合成';
+      q('selection-hint').textContent = '合成成功 · 零灵力也能继续整理与合成';
       mutate(result, '合成了 ' + itemName(result.item), null, 'merge');
     } else {
       selectedIndex = index;
@@ -2278,9 +2296,9 @@
     var planMarkup = canRecycle
       ? '<div class="board-full-plan"><b>可回收 ' + preview.recycled.length + ' 件低阶素材</b><small>' + preview.recycled.map(function (entry) { return esc(entry.name + ' ' + entry.tier + '阶'); }).join('、') + '</small><em>约 +◆' + preview.jade + '</em></div>'
       : '<p class="board-full-empty">棋盘上暂时没有适合一键回收的低阶素材。可以打开回收抽屉整理高阶素材，或先交付已完成素材的委托。</p>';
-    var modal = modalShell('<span class="eyebrow">棋盘已满 · 一键腾位</span><h2>先清理一点空间吧</h2>' +
-      '<p class="task-symptom">回收最低阶的素材换暖玉，马上腾出位置继续合成。</p>' + planMarkup +
-      (canRecycle ? '<button class="modal-action" data-recycle-lowest type="button">回收最低阶 ' + preview.recycled.length + ' 件 · +◆' + preview.jade + '</button>' : '') +
+    var modal = modalShell('<span class="eyebrow">棋盘已满 · 宗门纪事</span><h2>把最旧的几样交回宗门</h2>' +
+      '<p class="task-symptom">把无处安放的旧物交回宗门，换一点暖玉，棋盘就又能呼吸了。</p>' + planMarkup +
+      (canRecycle ? '<button class="modal-action" data-recycle-lowest type="button">交回宗门 ' + preview.recycled.length + ' 件 · +◆' + preview.jade + '</button>' : '') +
       '<button class="modal-secondary" data-close-modal type="button">先自己整理</button>', 'task-modal board-full-modal');
     if (modal && canRecycle) {
       modal.querySelector('[data-recycle-lowest]').addEventListener('click', function () {
@@ -2292,9 +2310,9 @@
 
   function deliver(id) {
     var result = Core.deliverOrder(state, id, Math.random, Date.now());
-    var message = '委托完成 · 新进展已记录';
-    if (result && result.affectionGained) message += ' · ' + beastDef(result.order.beastId).name + '好感 +' + result.affectionGained;
-    if (result && result.levelsGained) message += ' · 升级 Lv.' + result.level + '，体力上限 +' + result.levelsGained;
+    var message = result && result.order && result.order.deliveryText ? result.order.deliveryText : '委托完成 · 新进展已记录';
+    if (!message && result && result.affectionGained) message += ' · ' + beastDef(result.order.beastId).name + '好感 +' + result.affectionGained;
+    if (!message && result && result.levelsGained) message += ' · 升级 Lv.' + result.level + '，灵力上限 +' + result.levelsGained;
     if (!mutate(result, message, null, 'order')) return result;
     closeModal();
     if (result.revealEvents && result.revealEvents.length) root.setTimeout(showPendingBeastReveal, 120);
@@ -2306,7 +2324,7 @@
     renderMergeTools();
     var section = q('recipe-cabinet');
     var modal = modalShell('<span class="eyebrow">配方柜 · 成品与配方台</span><h2>把材料变成疗愈成品</h2>' +
-      '<p class="task-symptom">制作完成的配方会收进柜子；配方台列出的配方在材料齐全时可以直接制作，制作不消耗体力。</p>' +
+      '<p class="task-symptom">古方成品会轻轻收进配方柜，不占棋盘；材料齐全时可以直接制作，不消耗灵力。</p>' +
       '<div class="recipe-cabinet-host"></div>', 'task-modal recipe-cabinet-modal');
     if (!modal) return;
     var host = modal.querySelector('.recipe-cabinet-host');
@@ -2329,7 +2347,7 @@
       var gateBeast = beastDef(order.beastId);
       var gateModal = modalShell('<span class="eyebrow">伙伴的照料心愿</span><h2>' + esc(order.title) + '</h2><p class="task-symptom">' + esc(order.symptom || '') + '</p>' +
         '<div class="order-prerequisite"><b>主线前置</b><span>' + esc(prerequisiteText(order)) + '</span></div>' +
-        '<div class="care-gate-panel"><strong>去庭院陪陪它吧</strong><span>为 ' + esc(gateBeast ? gateBeast.name : '当前异兽') + ' 在任一设施完成一次普通难度的有效照料。挑战模式只发素材，不推进照料。</span><small>普通难度消耗 1–4 点体力，挑战模式消耗 5 点；达到有效门槛后，超时仍有保底。</small></div>' +
+        '<div class="care-gate-panel"><strong>去庭院陪陪它吧</strong><span>为 ' + esc(gateBeast ? gateBeast.name : '当前异兽') + ' 在任一设施完成一次普通难度的有效照料。挑战模式只发素材，不推进照料。</span><small>普通难度消耗 1–4 点灵力，挑战模式消耗 5 点；达到有效门槛后，超时仍有保底。</small></div>' +
         '<div class="task-reward">完成节点：推进主线并解锁下一段疗愈</div><button class="modal-action" data-care-gate-detail type="button">去庭院照料</button>', 'task-modal care-gate-modal');
       if (gateModal) gateModal.querySelector('[data-care-gate-detail]').addEventListener('click', function () { focusCareGate(order); });
       return;
@@ -2387,9 +2405,9 @@
 
   function openEnergyCenter() {
     var actions = Core.getAvailableActions(state);
-    var modal = modalShell('<span class="eyebrow">庭院体力</span><h2>每一次出发都要留一点力气</h2><p>每 150 秒恢复 1 点，最多 ' + state.maxEnergy + ' 点；离开庭院后最多替你积攒 8 小时。</p>' +
-      '<div class="energy-card"><div class="energy-stat"><span>当前体力</span><b>' + state.energy + '/' + state.maxEnergy + '</b></div><small>小游戏消耗：轻松1 · 标准2 · 困难3 · 大师4 · 挑战5。零体力仍可：' + [actions.merge ? '合成' : '', actions.claimJob ? '领取产出' : '交付委托'].filter(Boolean).join('、') + '</small></div>' +
-      '<p class="ad-hint">先合成、交付或领取百草园产出，等待体力恢复后再挑战。</p>' +
+    var modal = modalShell('<span class="eyebrow">灵力 · 灯油慢慢攒</span><h2>每一次出发，都要留一点力气</h2><p>每 150 秒恢复 1 点，最多 ' + state.maxEnergy + ' 点；离开庭院后最多替你积攒 8 小时。</p>' +
+      '<div class="energy-card"><div class="energy-stat"><span>当前灵力</span><b>' + state.energy + '/' + state.maxEnergy + '</b></div><small>小游戏消耗：轻松1 · 标准2 · 困难3 · 大师4 · 挑战5。零灵力仍可：' + [actions.merge ? '合成' : '', actions.claimJob ? '领取产出' : '交付委托'].filter(Boolean).join('、') + '</small></div>' +
+      '<p class="ad-hint">灯油见底了，不着急。先合成、交付或领取百草园产出，灯会自己慢慢蓄起来。</p>' +
       '<button class="modal-secondary" data-close-energy type="button">知道了，继续玩</button>', 'energy-modal');
     if (modal) modal.querySelector('[data-close-energy]').addEventListener('click', closeModal);
   }
@@ -2509,7 +2527,7 @@
         '<div class="background-card-body"><strong>' + esc(background.name) + '</strong><small>' + esc(background.description || '') + '</small>' +
         '<button type="button" data-background-id="' + esc(background.id) + '" ' + (isActive || background.signInExclusive && !isOwned ? 'disabled' : '') + '>' + action + '</button></div></article>';
     }).join('');
-    var modal = modalShell('<span class="eyebrow">庭院布景 · 购买后切换</span><h2>选择疗愈所背景</h2><p>先用暖玉购买新场景，之后可以随时切换；默认的晨光庭院免费保留。</p><div class="background-list">' + cards + '</div>', 'task-modal background-shop-modal');
+    var modal = modalShell('<span class="eyebrow">庭院布景 · 购买后切换</span><h2>选择宗门背景</h2><p>先用暖玉购买新场景，之后可以随时切换；默认的晨光庭院免费保留。</p><div class="background-list">' + cards + '</div>', 'task-modal background-shop-modal');
     if (!modal) return;
     modal.addEventListener('click', function (event) {
       var button = event.target.closest('[data-background-id]');
@@ -2597,7 +2615,7 @@
     var modal = modalShell('<span class="eyebrow">挑一个合适的挑战</span><h2>' + esc(careTypeLabel(type)) + '</h2>' +
       '<p>' + esc(careOrderRelevance(type)) + '</p><div class="care-run-budget"><b>今日素材奖励</b><span>' + (rewardBudget.unlimited ? '不限' : Math.max(0, rewardBudget.cap - used) + ' / ' + rewardBudget.cap + ' 局') + '</span></div>' +
       '<div class="care-preference-warning">普通难度会增加当前神兽的好感与疗愈；挑战模式只按得分发放更多合成素材，不增加任何成长数值。</div>' +
-      careGameGuide(type) + '<div class="care-difficulty-list">' + cards + '</div><p class="care-effective-rule">体力消耗：轻松1 · 标准2 · 困难3 · 大师4 · 挑战5。离开或跳过不会返还体力。</p>', 'task-modal care-difficulty-modal');
+      careGameGuide(type) + '<div class="care-difficulty-list">' + cards + '</div><p class="care-effective-rule">灵力消耗：轻松1 · 标准2 · 困难3 · 大师4 · 挑战5。离开或跳过不会返还灵力。</p>', 'task-modal care-difficulty-modal');
     if (!modal) return { ok: false, reason: 'modal-unavailable' };
     modal.addEventListener('click', function (event) {
       var button = event.target.closest('[data-care-difficulty]');
@@ -2642,7 +2660,7 @@
       gameRoot.innerHTML = '';
       gameRoot.classList.remove('is-open');
       gameRoot.setAttribute('aria-hidden', 'true');
-      saveState(); render(); toast('当前浏览器无法启动小游戏，体力已返还');
+      saveState(); render(); toast('当前浏览器无法启动小游戏，灵力已返还');
       return { ok: false, reason: 'canvas-unavailable', refunded: true };
     }
 
@@ -2689,7 +2707,7 @@
     } catch (error) {
       Core.refundCare(state, session.careToken);
       stopCareGame();
-      saveState(); render(); toast('小游戏启动失败，体力已返还');
+      saveState(); render(); toast('小游戏启动失败，灵力已返还');
       return { ok: false, reason: 'game-start', refunded: true };
     }
     if (type === 'groom' && difficulty === 'easy' && session.game && typeof session.game.useHint === 'function') {
@@ -2794,7 +2812,7 @@
     var score = Math.max(0, Math.round(Number(summary && summary.score) || 0));
     var perf = Math.round(Math.max(0, Math.min(1, Number(summary && summary.perf) || 0)) * 100);
     var label = result.challenge ? '挑战结算' : result.rewardLimited ? '练习完成' : result.noReward ? (result.qualified ? '体验完成' : '尚未达到有效门槛') : '评级 ' + (result.grade || 'B');
-    var rewardNote = result.challenge ? (result.noReward ? '需要实际完成有效操作并取得分数，挑战局不会增加好感、疗愈或经验。' : '奖励随分数增加，最多六份；挑战局不会增加好感、疗愈或经验。') : result.rewardLimited ? '今日该设施的素材奖励已领取；成绩仍会记录，明天再来。' : result.noReward ? (outcome === 'skip' ? '这次先休息，体力不会返还；准备好后再挑战。' : !result.qualified ? '还差一些有效操作；达到门槛后即使超时也有保底。' : '本局未达到奖励条件，但仍会记录成绩。') : '评级 ' + result.grade + ' · 好感 +' + (result.affectionGained || 0) + ' · 疗愈 +' + (result.healGained || 0) + ' · ' + (result.remainingRewardRuns == null ? '今日素材奖励不限。' : '今日还可领取 ' + result.remainingRewardRuns + ' 局素材。');
+    var rewardNote = result.challenge ? (result.noReward ? '需要实际完成有效操作并取得分数，挑战局不会增加好感、疗愈或经验。' : '奖励随分数增加，最多六份；挑战局不会增加好感、疗愈或经验。') : result.rewardLimited ? '今日该设施的素材奖励已领取；成绩仍会记录，明天再来。' : result.noReward ? (outcome === 'skip' ? '这次先休息，灵力不会返还；准备好后再挑战。' : !result.qualified ? '还差一些有效操作；达到门槛后即使超时也有保底。' : '本局未达到奖励条件，但仍会记录成绩。') : '评级 ' + result.grade + ' · 好感 +' + (result.affectionGained || 0) + ' · 疗愈 +' + (result.healGained || 0) + ' · ' + (result.remainingRewardRuns == null ? '今日素材奖励不限。' : '今日还可领取 ' + result.remainingRewardRuns + ' 局素材。');
     var giftFamily = familyDef(result.giftFamily);
     var giftLine = !result.noReward && result.giftFamily ? ' · 带回' + (giftFamily ? giftFamily.name : result.giftFamily) + '素材' : '';
     var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · 本局回顾</span><h2>' + esc(beastDef(session.beastId).name) + (result.noReward ? '陪你玩了一局' : '把礼物收进了药匣') + '</h2><img src="' + esc(characterAssetPath(beastArt(beastDef(session.beastId), state.beastCases[session.beastId]))) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div><div class="task-reward">' + (result.noReward ? '' : '获得 ') + rewardText + '<br /><small>' + rewardNote + giftLine + '</small></div><button class="modal-action" data-care-continue type="button">继续</button></div>', 'task-modal');
@@ -2829,6 +2847,8 @@
     var acquired = reason === 'acquired';
     var title = acquired ? '新的神兽来到庭院' : '神兽形态升级';
     var line = beastMilestoneLine(definition, level, story);
+    var acquiredLetter = acquired && definition.narrative && definition.narrative.arrivalLetter ? definition.narrative.arrivalLetter : null;
+    var secretLine = acquiredLetter || (levelConfig && levelConfig.title) || definition.lore || '图鉴已记录新的形态';
     if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') {
       courtyardScene.moveCharacterTo({ id: 'resident' }, acquired ? 'greet' : 'transform');
     }
@@ -2838,7 +2858,7 @@
         '<h2>' + esc(definition.name) + ' · Lv' + level + '</h2>' +
         '<div class="beast-milestone-art"><img src="' + esc(characterAssetPath(portrait)) + '" alt="' + esc(definition.name) + ' Lv' + level + '立绘" /></div>' +
         '<p class="beast-milestone-line">“' + esc(line) + '”</p>' +
-        '<small class="beast-milestone-secret">' + esc(levelConfig && levelConfig.title || definition.lore || '图鉴已记录新的形态') + '</small>' +
+        '<small class="beast-milestone-secret">' + esc(secretLine) + '</small>' +
         '<button class="modal-action" data-beast-milestone-close type="button">收下这句心里话</button>' +
       '</div>',
       'beast-milestone-modal'
@@ -2877,17 +2897,17 @@
     var portrait = beastArt(definition, entry);
     var modal = modalShell(
       '<div class="beast-milestone-card welcome-guide-card">' +
-        '<span class="eyebrow">欢迎回到栖霞宗</span>' +
+        '<span class="eyebrow">栖霞宗 · 山门重开</span>' +
         '<h2>穷奇在门口等你</h2>' +
         '<div class="beast-milestone-art"><img src="' + esc(characterAssetPath(portrait)) + '" alt="穷奇立绘" /></div>' +
         '<p class="beast-milestone-line">“' + esc(definition.revealLines && definition.revealLines[0] || definition.dialogue[0] || '别怕，我会守住这里。') + '”</p>' +
         '<div class="welcome-guide-steps">' +
-          '<span><b>第一步</b><small>去「宗门」页交付修缮委托，点亮山门。</small></span>' +
-          '<span><b>第二步</b><small>回「医馆」点生成器得材料，拖同类同阶素材二合一，完成委托。</small></span>' +
-          '<span><b>第三步</b><small>去「庭院」找梳洗台或嬉游亭，完成一次有效照料。</small></span>' +
-          '<span><b>一直有效</b><small>长按素材看路线，长按任意模块看“干什么、需要什么、有什么用”；体力不足也能合成、交付和领取。</small></span>' +
+          '<span><b>第一件事</b><small>去「宗门」交付修缮委托，先把山门点亮。</small></span>' +
+          '<span><b>第二件事</b><small>回「医馆」点生成器得材料，同类同阶合成，完成委托。</small></span>' +
+          '<span><b>第三件事</b><small>去「庭院」的梳洗台或嬉游亭，陪它玩一场。</small></span>' +
+          '<span><b>一直有效</b><small>长按任何东西都能看懂；灵力用完，也能合成、交付和领取。</small></span>' +
         '</div>' +
-        '<p class="welcome-guide-copy">末法时代，灵气稀薄，宗门也荒了很久。先别急着一次做完：按上面的顺序慢慢来，每完成一件都会留下安全存档。接下来会打开一页更完整的玩法说明。</p>' +
+        '<p class="welcome-guide-copy">末法时代，灵气稀薄，宗门荒了很久。别急着一次做完——每做一件，山门就暖一点，穷奇就敢往前挪一点。</p>' +
         '<button class="modal-action" data-welcome-start type="button">开始照顾穷奇</button>' +
       '</div>',
       'beast-milestone-modal welcome-guide-modal'
@@ -2915,19 +2935,23 @@
     if (!beastId) return;
     if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') courtyardScene.moveCharacterTo({ id: 'resident' }, 'transform');
     var definition = beastDef(beastId);
-    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">治疗节点完成 · 岗位解锁</span><h2>' + esc(definition.name) + '完成蜕变</h2><img src="' + esc(characterAssetPath(definition.art[3])) + '" alt="' + esc(definition.name) + '蜕变形态" /><p>' + esc(definition.dialogue[3]) + '</p><div class="task-reward">新岗位：' + esc(definition.job.title) + '<br />' + esc(jobDescription(definition)) + '</div><button class="modal-action" data-ack-transform type="button">一起迎接下一位住客</button></div>', 'task-modal transformation-modal beast-milestone-modal');
+    var narrative = definition.narrative || {};
+    var transformLine = narrative.transformLine || (definition.dialogue && definition.dialogue[3]) || '它变得比从前更精神了。';
+    var transformEyebrow = definition.volumeNumber ? '第 ' + definition.volumeNumber + ' 盏灯 · 归位' : '一盏灯 · 归位';
+    var jobLine = narrative.jobLine || ('新岗位：' + definition.job.title + ' · ' + jobDescription(definition));
+    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + esc(transformEyebrow) + '</span><h2>' + esc(definition.name) + '完成蜕变</h2><img src="' + esc(characterAssetPath(definition.art[3])) + '" alt="' + esc(definition.name) + '蜕变形态" /><p>' + esc(transformLine) + '</p><div class="task-reward">' + esc(jobLine) + '</div><button class="modal-action" data-ack-transform type="button">去点亮下一盏灯</button></div>', 'task-modal transformation-modal beast-milestone-modal');
     if (modal && modal.parentNode) modal.parentNode.classList.add('beast-milestone-backdrop');
     if (modal) modal.querySelector('[data-ack-transform]').addEventListener('click', function () {
       Core.acknowledgeTransformation(state, beastId);
       saveState(); closeModal(); render(); switchView('merge-view');
-      toast(state.endingUnlocked ? '第一卷完成 · 新的心愿仍在继续' : '新的来信已经送到庭院');
+      toast('新的来信，已经送到庭院');
     });
   }
 
   function showOffline(result) {
     if (!result || result.elapsedMs < 5 * 60 * 1000) return;
     var minutes = Math.round(result.appliedMs / 60000);
-    var modal = modalShell('<span class="eyebrow">欢迎回来 · 离线结算</span><h2>庭院替你守住了这段时间</h2><p>实际离线 ' + Math.round(result.elapsedMs / 60000) + ' 分钟，按上限计入 ' + minutes + ' 分钟。</p><div class="offline-list"><div><span>体力</span><b>' + state.energy + '/' + state.maxEnergy + '</b></div><div><span>设施与岗位新增</span><b>' + result.produced + ' 份</b></div><div><span>待入盘奖励</span><b>' + state.pendingRewards.length + ' 份</b></div></div><button class="modal-action" data-close-offline type="button">收下，继续疗愈</button>', 'task-modal');
+    var modal = modalShell('<span class="eyebrow">欢迎回来 · 守灯结算</span><h2>庭院替你守住了这段时间</h2><p>你离开 ' + Math.round(result.elapsedMs / 60000) + ' 分钟，山门按上限记了 ' + minutes + ' 分钟。灯一直亮着，谁都没有害怕。</p><div class="offline-list"><div><span>灵力</span><b>' + state.energy + '/' + state.maxEnergy + '</b></div><div><span>设施与岗位新增</span><b>' + result.produced + ' 份</b></div><div><span>待入盘礼物</span><b>' + state.pendingRewards.length + ' 份</b></div></div><button class="modal-action" data-close-offline type="button">收下，继续把家点亮</button>', 'task-modal');
     if (modal) modal.querySelector('[data-close-offline]').addEventListener('click', closeModal);
   }
 
@@ -3078,7 +3102,8 @@
       var deliverReno = event.target.closest('[data-deliver-reno]');
       if (!deliverReno) return;
       var result = Core.deliverRenovation ? Core.deliverRenovation(state) : { ok: false, reason: 'unavailable' };
-      if (mutate(result, result.actOneDone ? '幕一完成 · 宗门焕然一新，去医馆迎接穷奇' : '修缮完成 · ' + (result.areaName || '宗门') + '又亮了一点', null, 'order')) {
+      var renoMessage = result.deliveryText || (result.actOneDone ? '幕一完成 · 宗门焕然一新，去医馆迎接穷奇' : '修缮完成 · ' + (result.areaName || '宗门') + '又亮了一点');
+      if (mutate(result, renoMessage, null, 'order')) {
         if (result.worldEvent) showWorldChange(result.worldEvent);
         if (result.areaStage >= 3) showAreaCeremony(result.areaId, 'stage3', result);
         if (result.actOneDone) { renderSect(); switchView('sect-view'); }
@@ -3162,12 +3187,12 @@
       if (card) openCodexDetails(card.dataset.beastId);
     });
     q('reset-btn').addEventListener('click', function () {
-      if (root.confirm && !root.confirm('要让疗愈所重新开张吗？当前进度会被清空。')) return;
+      if (root.confirm && !root.confirm('要让宗门重新开张吗？当前进度会被清空。')) return;
       if (saveStore) saveStore.removeAsync ? saveStore.removeAsync() : saveStore.remove();
       safeStorageRemove(KEY);
       state = Core.createFresh(Date.now(), today());
       selectedIndex = null;
-      saveState(); closeModal(); render(); switchView('merge-view'); toast('疗愈所重新开张了');
+      saveState(); closeModal(); render(); switchView('merge-view'); toast('宗门重新开张了');
     });
   }
 

@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 /*
  * Deterministic economy simulation for the H5 merge slice.
@@ -270,7 +270,7 @@ function run() {
       assert.strictEqual(state.totalOrders, 30, 'total order counter should match deliveries');
     });
 
-    check('零体力时仍有可执行合成动作', () => {
+    check('零灵力时仍有可执行合成动作', () => {
       const state = fresh();
       state.energy = 0;
       emptyBoard(state);

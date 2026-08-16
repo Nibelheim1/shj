@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Merge healing loop v4 - deterministic state core.
  *
  * The module intentionally has no DOM or storage dependency.  Browser UI and
@@ -1418,7 +1418,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       kind: 'memory',
       mainline: false,
       title: '山海新页',
-      symptom: '第一卷已经结束，疗愈所仍每天收到新的来信。',
+      symptom: '第一卷已经结束，宗门仍每天收到新的来信。',
       requirements: memoryReq,
       rewards: rewardsFor('story', memoryReq, state),
       permanent: true
@@ -1593,7 +1593,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       kind: 'care',
       beastId: current ? current.id : null,
       title: '日常照料',
-      symptom: '交付素材获得暖玉；实际照料在庭院中进行且不消耗体力。',
+      symptom: '交付素材获得暖玉；实际照料在庭院中进行且不消耗灵力。',
       requirements: task.requirements,
       productNeed: task.productNeed,
       generatorNeed: task.generatorNeed,
@@ -1941,7 +1941,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       fromStage: fromStage,
       toStage: toStage,
       stageName: current.stageName,
-      text: stageLine,
+      text: current.order.deliveryText || stageLine,
       bonusText: stageBonus ? stageBonus.text : null
     };
     var change = recordWorldChange(state, worldEvent);
@@ -1949,6 +1949,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     syncLegacyAliases(state);
     return {
       ok: true,
+      order: clone(current.order),
+      deliveryText: current.order.deliveryText || stageLine,
       areaId: current.areaId,
       areaName: current.area.name,
       stageIndex: current.stageIndex,
@@ -2002,7 +2004,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
   function countItems(state, family, tier, sourceBeast) {
     /* 素材不再区分来源神兽：只按族与阶位计数。 */
     var count = 0;
-    [state.grid, state.storage && state.storage.items].forEach(function (list) {
+    [state.grid, state.storage && state.storage.items, state.pendingRewards].forEach(function (list) {
       (list || []).forEach(function (item) {
         if (!item || item.kind || item.family !== family || number(item.tier, 0) !== tier) return;
         count++;
@@ -2124,7 +2126,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
 
   function consumeRequirement(state, need) {
     var left = need.count;
-    [state.grid, state.storage && state.storage.items].forEach(function (list) {
+    [state.grid, state.storage && state.storage.items, state.pendingRewards].forEach(function (list) {
       if (!list || left <= 0) return;
       for (var index = 0; index < list.length && left > 0; index++) {
         var item = list[index];
@@ -2446,7 +2448,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var generatorLevel = clamp(number(found.item.level, 1), 1, number(DATA.generators && DATA.generators.maxLevel, 5));
     var isPermanent = found.item.permanent !== false;
     if (isPermanent) {
-      /* 体力耗尽时可动用生成器离线储备（charges），每点储备换一次产出。 */
+      /* 灵力耗尽时可动用生成器离线储备（charges），每点储备换一次产出。 */
       var reserveCharges = Math.max(0, Math.floor(number(found.item.charges, 0)));
       if (state.energy <= 0 && reserveCharges <= 0) return { ok: false, reason: 'energy' };
       var onlineIntervalMs = Math.max(0, Math.floor(number(DATA.generators && DATA.generators.onlineIntervalMs, 0)));

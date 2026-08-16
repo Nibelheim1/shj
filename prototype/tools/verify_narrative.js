@@ -1,0 +1,13 @@
+const DATA = require('../js/merge/data.js');
+console.log('version', DATA.version);
+console.log('vol0', DATA.sect.volumes[0].narrative && DATA.sect.volumes[0].narrative.record);
+console.log('vol11', DATA.sect.volumes[11].narrative && DATA.sect.volumes[11].narrative.hook);
+console.log('qiongqi narrative', DATA.beasts[0].narrative && DATA.beasts[0].narrative.transformLine);
+console.log('qiongqi reveal', DATA.beasts[0].revealLines[0]);
+console.log('template', DATA.order.templates.find(o => o.title === '点亮门灯') ? 'renovation in templates?' : 'no');
+console.log('v1 sample', DATA.order.templates.filter(o => o.title === '扫开山门阶')[0] && DATA.order.templates.filter(o => o.title === '扫开山门阶')[0].deliveryText);
+console.log('reno delivery', DATA.sect.areas[0].stages[0].order.deliveryText);
+console.log('story delivery', DATA.beasts[0].storySteps[0].deliveryText);
+console.log('daily', DATA.dailyObjectives.templates.map(t => t.title).join(' / '));
+console.log('bg', DATA.backgrounds[0].description);
+console.log('nextChapter', DATA.sect.nextChapter.hook);

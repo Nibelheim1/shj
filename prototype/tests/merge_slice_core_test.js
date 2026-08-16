@@ -1,10 +1,10 @@
-'use strict';
+﻿'use strict';
 
 /*
- * 合成疗愈所核心契约测试。
+ * 合成宗门核心契约测试。
  *
  * 这些测试只通过 js/merge 的 UMD/CommonJS 接口驱动状态，不依赖 DOM。
- * 它们刻意把“需求阶位”和“需求数量”分开验证，并覆盖零体力、满盘、
+ * 它们刻意把“需求阶位”和“需求数量”分开验证，并覆盖零灵力、满盘、
  * 离线与旧存档迁移等容易把主循环卡死的边界条件。
  */
 const assert = require('assert');
@@ -220,8 +220,8 @@ check('energy=0 仍可合成', function () {
   state.grid[0] = item('herb', 1);
   state.grid[1] = item('herb', 1);
   const result = Core.mergeItems(state, 0, 1, NOW);
-  resultOk(result, '零体力合成');
-  expect(state.energy === 0, '合成不扣除零体力');
+  resultOk(result, '零灵力合成');
+  expect(state.energy === 0, '合成不扣除零灵力');
   const merged = state.grid.filter(Boolean);
   expect(merged.length === 1 && merged[0].family === 'herb' && merged[0].tier === 2, '两件 1 阶合成一件 2 阶');
 });
@@ -258,7 +258,7 @@ check('energy=0 仍可完成照料，重复照料不能绕过故事门槛', func
     const cared = Core.recordCare(progressed, careType, { outcome: 'complete', beastId: id }, NOW + 4);
     resultOk(cared, id + ' 完成一次照料');
     expect(isTransformed(progressed, id), id + ' 三故事+一次照料后进入蜕变状态');
-    expect(progressed.energy === 0, id + ' 照料不依赖体力');
+    expect(progressed.energy === 0, id + ' 照料不依赖灵力');
   });
 });
 
@@ -310,14 +310,14 @@ check('energy=0 仍可 claimJob，且重复 claim 幂等', function () {
   const state = fresh();
   state.energy = 0;
   const first = Core.claimJob(state, 'qiongqi', NOW);
-  resultOk(first, '零体力 claimJob');
+  resultOk(first, '零灵力 claimJob');
   const afterFirst = rewardFingerprint(state);
   const second = Core.claimJob(state, 'qiongqi', NOW);
   expect(second && second.ok === false || rewardFingerprint(state) === afterFirst,
     '同一时间重复 claim 不重复发奖');
 });
 
-check('满盘时 generate 安全拒绝且不扣体力/储能', function () {
+check('满盘时 generate 安全拒绝且不扣灵力/储能', function () {
   const state = fresh();
   expect(Array.isArray(state.grid) && state.grid.length > 0, '棋盘已初始化');
   const specialCells = state.grid.map(function (entry) { return entry && entry.kind ? entry : null; });
@@ -327,7 +327,7 @@ check('满盘时 generate 安全拒绝且不扣体力/储能', function () {
   const generatorBefore = JSON.stringify(state.grid.filter(function (entry) { return entry && entry.kind === 'generator'; }));
   const produced = Core.generate(state, 'herb', deterministicRng, NOW);
   expect(produced && produced.ok === false && produced.reason === 'board-full', '满盘 generate 返回 board-full');
-  expect(state.energy === energyBefore, '满盘不扣体力');
+  expect(state.energy === energyBefore, '满盘不扣灵力');
   expect(JSON.stringify(state.grid.filter(function (entry) { return entry && entry.kind === 'generator'; })) === generatorBefore, '满盘不扣生成器储能');
 });
 

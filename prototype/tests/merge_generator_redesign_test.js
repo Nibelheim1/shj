@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 /* 生成器 v8 契约：常驻无限次 + 资源升级、造物次数耗尽消散、订单难度曲线。 */
 const assert = require('assert');
@@ -27,7 +27,7 @@ check('棋盘改为 7×7，初始开放 35 格', function () {
   expect(DATA.board.cols === 7 && DATA.board.rows === 7, 'data 声明 7×7');
 });
 
-check('常驻生成器在线点击只消耗体力，不再消耗储能', function () {
+check('常驻生成器在线点击只消耗灵力，不再消耗储能', function () {
   const state = fresh();
   const herb = generator(state, 'herb');
   const beforeCharges = Number(herb.charges);
@@ -36,11 +36,11 @@ check('常驻生成器在线点击只消耗体力，不再消耗储能', functio
   expect(free >= 0, '棋盘有空位');
   const result = Core.generate(state, 'herb', () => 0.1, NOW + 2000, free);
   expect(result.ok === true && result.permanent === true, '常驻生成器应可生产');
-  expect(Number(state.energy) === beforeEnergy - 1, '生产消耗 1 点体力');
+  expect(Number(state.energy) === beforeEnergy - 1, '生产消耗 1 点灵力');
   expect(Number(herb.charges) === beforeCharges, '生产不消耗储能');
 });
 
-check('常驻生成器按资源升级：暖玉+体力，无需第二台', function () {
+check('常驻生成器按资源升级：暖玉+灵力，无需第二台', function () {
   const state = fresh();
   state.level = 3;
   state.jade = 1000;
@@ -48,7 +48,7 @@ check('常驻生成器按资源升级：暖玉+体力，无需第二台', functi
   const result = Core.upgradeGenerator(state, 'herb');
   expect(result.ok === true && result.level === 2, 'Lv1→Lv2 资源升级成功');
   expect(result.resourceUpgrade === true, '标记为资源升级');
-  expect(state.jade === 1000 - 180 && state.energy === 100 - 15, '扣除 180 暖玉与 15 体力');
+  expect(state.jade === 1000 - 180 && state.energy === 100 - 15, '扣除 180 暖玉与 15 灵力');
   const info = Core.getGeneratorState(state, 'herb');
   expect(info.upgradeMode === 'resource' && info.nextCost.jade === 420, '下一级仍是资源升级');
 });

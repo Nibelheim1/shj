@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 /*
  * v6 growth/progression contract.
@@ -274,7 +274,7 @@ check('三门槛：affection + heal + bound-beast exp 缺一不可', function ()
   expect(eventList(duplicate).length === 0, 'the same growth story/level-up must be idempotent');
 });
 
-check('beginCare 扣体力；refundCare 只退一次；记录结算继续有效', function () {
+check('beginCare 扣灵力；refundCare 只退一次；记录结算继续有效', function () {
   const state = fresh();
   const type = (DATA.beasts.find((beast) => beast.id === 'qiongqi').careTypes || ['groom'])[0];
   const before = Number(state.energy);

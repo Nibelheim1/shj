@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 /*
  * H5 v7 light-gate contract.
@@ -308,7 +308,7 @@ check('生成器状态查询公开字段完整', function () {
   expect(Array.isArray(info.dropTable) && info.dropTable.length > 0, 'generator dropTable must be non-empty');
 });
 
-check('满盘生成不扣体力与储能', function () {
+check('满盘生成不扣灵力与储能', function () {
   expect(typeof Core.generate === 'function', 'Core.generate must be public');
   const state = Core.createFresh(NOW, DATE);
   const found = generatorFor(state, 'herb');
@@ -332,7 +332,7 @@ check('满盘生成不扣体力与储能', function () {
   expect(Number(generator.charges) === beforeCharges, 'full board generation must not consume generator charge');
 });
 
-check('有空位时生成恰好消耗1体力与1储能', function () {
+check('有空位时生成恰好消耗1灵力与1储能', function () {
   expect(typeof Core.generate === 'function', 'Core.generate must be public');
   const state = Core.createFresh(NOW, DATE);
   const found = generatorFor(state, 'herb');

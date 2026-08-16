@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 /*
  * Deterministic seven-day smoke simulation for the public healing-loop API.
@@ -147,7 +147,7 @@ function run() {
 
   /* Jobs remain useful at zero energy; qiongqi starts with one stored supply. */
   state.energy = 0;
-  ok(Core.claimJob(state, 'qiongqi', BASE + 5), '零体力领取穷奇岗位产出');
+  ok(Core.claimJob(state, 'qiongqi', BASE + 5), '零灵力领取穷奇岗位产出');
   const afterOffline = Core.advanceTime(state, BASE + DAY);
   expect(afterOffline && afterOffline.ok === true, '首日离线结算应成功');
   expect(Number(afterOffline.appliedMs || 0) <= OFFLINE_WINDOW,
@@ -207,12 +207,12 @@ function run() {
   state.grid[1] = Core.makeItem('tool', 1);
   const actions = Core.getAvailableActions(state);
   expect(actions.zeroEnergyPlayable === true && actions.merge === true,
-    '零体力时仍应显示可玩的合成动作');
-  ok(Core.mergeItems(state, 0, 1, BASE + 7 * DAY), '零体力合成仍可执行');
+    '零灵力时仍应显示可玩的合成动作');
+  ok(Core.mergeItems(state, 0, 1, BASE + 7 * DAY), '零灵力合成仍可执行');
 
   console.log('== merge slice 7-day simulation ==');
   console.log('  PASS  三兽三故事+照料、arrival 激活、岗位/设施、每日重置、八小时离线结算与结局循环');
-  console.log('  PASS  五槽常驻、零体力合成和下一章目标均已验证');
+  console.log('  PASS  五槽常驻、零灵力合成和下一章目标均已验证');
 }
 
 try {
