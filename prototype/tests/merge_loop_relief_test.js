@@ -52,26 +52,26 @@ console.log('== A. 满盘一键回收 ==');
   s.jade = 0;
   // 清空棋盘后铺满指定素材，排除初始棋盘的干扰
   for (let i = 0; i < s.grid.length; i++) s.grid[i] = null;
-  s.grid[0] = Core.makeItem('herb', 1);           // 最优先：非礼物 1 阶
-  s.grid[1] = Core.makeItem('tool', 1);           // 次优先：非礼物 1 阶
-  s.grid[2] = Core.makeItem('herb', 2);           // 非礼物 2 阶
-  s.grid[3] = Core.makeItem('tool', 2);           // 非礼物 2 阶
-  s.grid[4] = Core.makeItem('herb', 5);           // 高阶，不优先
-  s.grid[5] = Core.makeItem('tool', 6);           // 高阶，不优先
-  s.grid[6] = Core.makeItem('groom', 1, 'qiongqi'); // 礼物：优先保护
-  s.grid[7] = Core.makeItem('groom', 2, 'qiongqi'); // 礼物：优先保护
+  s.grid[0] = Core.makeItem('herb', 1);
+  s.grid[1] = Core.makeItem('tool', 1);
+  s.grid[2] = Core.makeItem('herb', 2);
+  s.grid[3] = Core.makeItem('tool', 2);
+  s.grid[4] = Core.makeItem('herb', 5);
+  s.grid[5] = Core.makeItem('tool', 6);
+  s.grid[6] = Core.makeItem('groom', 1);
+  s.grid[7] = Core.makeItem('groom', 2);
 
   const preview = Core.recycleLowestPreview(s, 3);
-  ok(preview.ok && preview.recycled.length === 3, '预览回收 3 件（仅低阶非礼物）');
-  ok(preview.recycled.every((entry) => entry.tier <= 2), '预览全部为 1–2 阶素材');
+  ok(preview.ok && preview.recycled.length === 3, '预览回收 3 件低阶素材');
+  ok(preview.recycled.every((entry) => entry.tier === 1), '预览全部为 1 阶素材');
   ok(s.jade === 0 && s.grid[0] != null, '预览不改变真实状态');
 
   const result = Core.recycleLowestItems(s, 3);
   ok(result.ok && result.freed === 3, '实际回收 3 件');
   ok(result.jade > 0 && s.jade === result.jade, '暖玉入账与返回一致');
-  ok(s.grid[0] == null && s.grid[1] == null && s.grid[2] == null, '最低阶 3 格已清空');
+  ok(s.grid[0] == null && s.grid[1] == null && s.grid[6] == null, '三个 1 阶素材已清空');
   ok(s.grid[4] != null && s.grid[5] != null, '高阶素材未被一键回收');
-  ok(s.grid[6] != null && s.grid[7] != null, '礼物素材未被一键回收');
+  ok(s.grid[2] != null && s.grid[3] != null && s.grid[7] != null, '2 阶素材未被一键回收');
 }
 
 console.log('== B. “下一步”动态提示优先级 ==');
@@ -121,16 +121,16 @@ console.log('== B. “下一步”动态提示优先级 ==');
     console.log('  SKIP  找不到可注入的合成缺口，跳过第 2 档');
   }
 
-  // 3) 陪玩礼物：清空棋盘后无任何可交付/可合成素材，礼物缺口必须提示 care
+  // 3) 庭院素材：清空棋盘后无任何可交付/可合成素材，梳妆/陪玩缺口必须提示 care
   const s3 = fresh();
   for (let i = 0; i < s3.grid.length; i++) s3.grid[i] = null;
   let orders3 = Core.ensureOrders(s3, () => 0.4);
-  const giftOrder = orders3.find((order) => (order.requirements || []).some((need) => need.sourceBeast));
-  ok(!!giftOrder, '新档存在礼物型主线委托');
-  if (giftOrder) {
-    const giftNeed = giftOrder.requirements.find((need) => need.sourceBeast);
+  const careOrder = orders3.find((order) => (order.requirements || []).some((need) => need.family === 'groom' || need.family === 'play'));
+  ok(!!careOrder, '新档存在需要庭院素材的主线委托');
+  if (careOrder) {
+    const careNeed = careOrder.requirements.find((need) => need.family === 'groom' || need.family === 'play');
     const hint3 = Core.nextActionHint(s3, orders3, 'qiongqi');
-    ok(hint3.type === 'care' && hint3.beastId === giftNeed.sourceBeast, '礼物缺口且无其他路径时提示去庭院陪伴（' + hint3.type + '/' + hint3.beastId + '）');
+    ok(hint3.type === 'care' && hint3.careType === careNeed.family, '庭院素材缺口时提示去对应设施（' + hint3.type + '/' + hint3.careType + '）');
   }
 
   // 4) 修缮兜底：卷一仍在且无可推进委托时，应落回修缮

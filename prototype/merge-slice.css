@@ -1086,9 +1086,13 @@ body{min-block-size:100svh;}
 .recipe-cabinet-modal .recipe-workbench { margin-top:9px; }
 .care-jump-in-modal { margin-top:8px; border-color:#7fae86; background:#eef6e9; color:#527a56; }
 
-/* 订单栏降高：卡片内容只保留标签/任务名/素材图，高度由内容决定 */
-#merge-view .order-card { min-height:0; padding:5px; }
-#merge-view .order-card .order-progress { display:none; }
+/* 订单卡：按内容自适应加宽，高度封顶；配方柜物品只以图片横排 */
+#merge-view .order-card { flex:0 0 auto; width:max-content; min-width:112px; max-width:min(80vw,280px); max-height:150px; overflow:hidden; }
+#merge-view .order-need-icons { flex-wrap:wrap; align-content:flex-start; }
+#merge-view .order-need.product-order-need { border:2px dashed #c8874d88; background:#fff3dc; }
+#merge-view .order-need.product-order-need img { border-radius:8px; }
+#merge-view .order-need.product-order-need b { background:#b8833f; }
+#merge-view .order-card .care-gate-hint { margin-top:3px; font-size:7px; line-height:1.25; }
 #merge-view .order-head { gap:2px 4px; }
 #merge-view .mainline-badge, #merge-view .order-kind { min-height:15px; padding:1px 5px; font-size:7px; }
 #merge-view .order-head strong { flex:1 1 0; min-width:0; white-space:normal; font-size:9px; line-height:1.25; margin-top:0; }

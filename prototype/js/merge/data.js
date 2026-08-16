@@ -21,14 +21,13 @@
   }
 
   function sourcedRequirement(family, tier, count, sourceBeast) {
-    return { family: family, tier: tier, count: count, sourceBeast: sourceBeast };
+    /* 素材不再区分来源神兽：需求只看族与阶位。 */
+    return requirement(family, tier, count);
   }
 
   function copyRequirements(list) {
     return list.map(function (item) {
-      var copied = requirement(item.family, item.tier, item.count);
-      if (item.sourceBeast) copied.sourceBeast = item.sourceBeast;
-      return copied;
+      return requirement(item.family, item.tier, item.count);
     });
   }
 

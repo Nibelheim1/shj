@@ -414,8 +414,8 @@
     for (var i = 0; i < this.tiles.length; i++) {
       var other = this.tiles[i];
       if (other.removed || other.layer <= tile.layer || other.uid === tile.uid) continue;
-      /* 同层绝不互相遮挡；只要上层牌压住当前牌超过 10%，就不能点击下层。 */
-      if (this._overlapRatio(rect, this._normalizedRect(other)) > 0.10) return true;
+      /* 同层绝不互相遮挡；上层牌压住当前牌面积超过 20% 时不可点击。 */
+      if (this._overlapRatio(rect, this._normalizedRect(other)) > 0.20) return true;
     }
     return false;
   };

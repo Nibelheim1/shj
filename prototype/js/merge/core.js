@@ -467,13 +467,12 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
   function makeItem(family, tier, sourceBeast) {
     var definition = familyDefinition(family);
     var safeTier = clamp(Math.floor(number(tier, 1)), 1, familyTierCap(family));
-    var item = {
+    return {
       family: family,
       tier: safeTier,
       name: definition && definition.items[safeTier - 1] ? definition.items[safeTier - 1] : family + ' ' + safeTier
     };
-    if (sourceBeast) item.giftSource = sourceBeast;
-    return item;
+    /* 素材不再记录来源神兽（sourceBeast 参数保留仅为兼容旧调用）。 */
   }
 
   function generatorLevelConfig(level) {
@@ -1259,7 +1258,6 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       tier: clamp(Math.floor(number(raw.tier, 1)), 1, familyTierCap(raw.family)),
       count: Math.max(1, Math.floor(number(raw.count, 1)))
     };
-    if (raw.sourceBeast) normalized.sourceBeast = raw.sourceBeast;
     return normalized;
   }
 
@@ -1388,8 +1386,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       var primaryTier = clamp(Math.floor(number(next.unlockTier, 6)), 1, familyTierCap(gift.family));
       var supportTier = clamp(Math.max(2, Math.ceil(primaryTier / 3)), 1, familyTierCap(gift.family));
       var arrivalReq = [
-        { family: gift.family, tier: primaryTier, count: 1, sourceBeast: previous.id },
-        { family: gift.family, tier: supportTier, count: 1, sourceBeast: previous.id }
+        { family: gift.family, tier: primaryTier, count: 1 },
+        { family: gift.family, tier: supportTier, count: 1 }
       ];
       var primaryName = getItemName(gift.family, primaryTier);
       var supportName = getItemName(gift.family, supportTier);
@@ -1448,17 +1446,9 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
 
   function maxReachableTier(state, family, sourceBeast) {
     /* Mini-game materials are only reachable when an available resident can
-       actually reward that game.  A sourceBeast requirement additionally pins
-       the gift to that one resident's play/groom session. */
+       actually reward that game.  Materials no longer distinguish which
+       resident produced them, so any reachable source unlocks the tier. */
     if (!familyActiveForState(state, family)) return 0;
-    if (sourceBeast) {
-      var sourceDefinition = beastDefinition(sourceBeast);
-      if (!sourceDefinition || !isYardBeastAvailable(state, sourceBeast)) return 0;
-      var canGift = ['groom', 'play'].some(function (careType) {
-        return careRouteForBeast(sourceBeast, careType).family === family;
-      });
-      return canGift ? familyTierCap(family) : 0;
-    }
     if (GAME_SOURCE_FAMILIES[family]) return hasCareSource(state, family) ? familyTierCap(family) : 0;
     if (state.unlockedGenerators.indexOf(family) >= 0) return familyTierCap(family);
     if (hasGiftFamilySource(state, family)) return familyTierCap(family);
@@ -1631,8 +1621,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var tier = clamp(Math.floor(number(next.unlockTier, 6)), 1, familyTierCap(gift.family));
     var supportTier = clamp(Math.max(2, Math.ceil(tier / 3)), 1, familyTierCap(gift.family));
     var requirements = [
-      normalizeRequirement({ family: gift.family, tier: tier, count: 1, sourceBeast: previous.id }),
-      normalizeRequirement({ family: gift.family, tier: supportTier, count: 1, sourceBeast: previous.id })
+      normalizeRequirement({ family: gift.family, tier: tier, count: 1 }),
+      normalizeRequirement({ family: gift.family, tier: supportTier, count: 1 })
     ];
     return normalizeOrder({
       id: 'recruit-' + next.id,
@@ -1674,8 +1664,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var primaryTier = clamp(Math.floor(number(primaryTiers[rank - 1], 1)), 1, familyTierCap(gift.family));
     var supportTier = clamp(Math.floor(number(supportTiers[rank - 1], 1)), 1, familyTierCap(gift.family));
     var requirements = [
-      normalizeRequirement({ family: gift.family, tier: primaryTier, count: rank >= 8 ? 3 : rank >= 4 ? 2 : 1, sourceBeast: beastId }),
-      normalizeRequirement({ family: gift.family, tier: supportTier, count: rank >= 6 ? 2 : 1, sourceBeast: beastId })
+      normalizeRequirement({ family: gift.family, tier: primaryTier, count: rank >= 8 ? 3 : rank >= 4 ? 2 : 1 }),
+      normalizeRequirement({ family: gift.family, tier: supportTier, count: rank >= 6 ? 2 : 1 })
     ];
     var productNeed = null;
     var generatorNeed = null;
@@ -2010,11 +2000,11 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
   }
 
   function countItems(state, family, tier, sourceBeast) {
+    /* 素材不再区分来源神兽：只按族与阶位计数。 */
     var count = 0;
     [state.grid, state.storage && state.storage.items].forEach(function (list) {
       (list || []).forEach(function (item) {
         if (!item || item.kind || item.family !== family || number(item.tier, 0) !== tier) return;
-        if (sourceBeast != null && item.giftSource !== sourceBeast) return;
         count++;
       });
     });
@@ -2138,8 +2128,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       if (!list || left <= 0) return;
       for (var index = 0; index < list.length && left > 0; index++) {
         var item = list[index];
-        if (item && !item.kind && item.family === need.family && number(item.tier, 0) === need.tier &&
-            (need.sourceBeast == null || item.giftSource === need.sourceBeast)) {
+        if (item && !item.kind && item.family === need.family && number(item.tier, 0) === need.tier) {
           list[index] = null;
           left--;
         }
@@ -2669,13 +2658,13 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       var needs = open[orderIndex].requirements || [];
       for (var needIndex = 0; needIndex < needs.length; needIndex++) {
         var need = needs[needIndex];
-        if (!need || !need.sourceBeast) continue;
-        if (countItems(state, need.family, need.tier, need.sourceBeast) >= number(need.count, 1)) continue;
-        var beast = beastDefinition(need.sourceBeast);
-        var gift = beast && beast.gift || {};
-        var careType = gift.care || 'play';
+        if (!need || !need.family) continue;
+        /* 梳妆/陪玩素材只能来自庭院小游戏：缺口时提示去对应设施。 */
+        if (need.family !== 'groom' && need.family !== 'play') continue;
+        if (countItems(state, need.family, need.tier) >= number(need.count, 1)) continue;
+        var careType = need.family;
         var careLabel = careType === 'groom' ? '梳洗' : '陪玩';
-        return { type: 'care', order: open[orderIndex], beastId: need.sourceBeast, careType: careType, text: '去庭院和' + (beast ? beast.name : '住客') + '一起' + careLabel + '，把礼物素材收进药匣' };
+        return { type: 'care', order: open[orderIndex], careType: careType, text: '去庭院' + careLabel + '收集「' + getItemName(need.family, need.tier) + '」，这是交付委托的关键素材' };
       }
     }
     var beastId = activeBeastId || state.activeCaseId || (DATA.beasts[0] && DATA.beasts[0].id);
