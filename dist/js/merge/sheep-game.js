@@ -22,10 +22,10 @@
 }(typeof window !== 'undefined' ? window : this, function (global) {
   'use strict';
 
-  /* 跨系列图标池：每个系列只取一张，减少同色混淆；不足 10 张时再从
-     同系列补高等级图标，拉开视觉距离。 */
-  var NAMES = ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08'];
-  var SYMBOLS = ['🍎', '🌿', '🧪', '🍚', '🪵', '🪮', '🧿', '🪸', '🎏', '⚙️'];
+  /* 跨系列图标池：每系列先取 1 张，难度提升主要靠增加素材种类；
+     不足时补同系列高等级图，用阶位拉开视觉距离。 */
+  var NAMES = ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'];
+  var SYMBOLS = ['🍎', '🌿', '🧪', '🍚', '🪵', '🪮', '🧿', '🪸', '🎏', '⚙️', '🌾', '🥕', '🪨', '🎀', '🔮', '🐚'];
   var DEFAULT_ASSET_ROOT = 'assets/art/match3/';
   var imageCache = {};
 
@@ -41,18 +41,19 @@
       hangPerLayer: 1, buryDepth: 1, mountain: false
     },
     hard: {
-      cols: 3, rows: 4, layers: 5, typeCount: 9, tilesPerType: 6, slots: 5,
-      overlap: 0.20, timeLimit: 95, scoreTarget: 3100, failPerfCap: 0.84, comboWindow: 1.4,
+      /* 困难不加基座：与标准同尺寸 3×3，难度来自更多素材种类。 */
+      cols: 3, rows: 3, layers: 4, typeCount: 11, tilesPerType: 3, slots: 5,
+      overlap: 0.18, timeLimit: 95, scoreTarget: 3100, failPerfCap: 0.84, comboWindow: 1.4,
       hangPerLayer: 1, buryDepth: 1, mountain: false
     },
     master: {
-      cols: 3, rows: 4, layers: 5, typeCount: 10, tilesPerType: 6, slots: 5,
-      overlap: 0.26, timeLimit: 105, scoreTarget: 4600, failPerfCap: 0.84, comboWindow: 1.0,
-      hangPerLayer: 1, buryDepth: 2, mountain: true
+      cols: 3, rows: 3, layers: 4, typeCount: 12, tilesPerType: 3, slots: 5,
+      overlap: 0.22, timeLimit: 105, scoreTarget: 4600, failPerfCap: 0.84, comboWindow: 1.0,
+      hangPerLayer: 2, buryDepth: 2, mountain: true
     },
     challenge: {
-      cols: 4, rows: 4, layers: 4, typeCount: 10, tilesPerType: 6, slots: 5,
-      overlap: 0.30, timeLimit: 150, scoreTarget: 6400, failPerfCap: 0.84, comboWindow: 1.2,
+      cols: 4, rows: 4, layers: 5, typeCount: 13, tilesPerType: 6, slots: 5,
+      overlap: 0.28, timeLimit: 150, scoreTarget: 6400, failPerfCap: 0.84, comboWindow: 1.2,
       hangPerLayer: 2, buryDepth: 2, mountain: true
     }
   };

@@ -338,7 +338,7 @@ function runSheepDepth() {
     });
   }
   if (!scored.finished) scored.finish(true);
-  assert.ok(scored.triplesCleared >= 4, '困难档高分失败至少消除 4 组（' + scored.triplesCleared + '）');
+  assert.ok(scored.triplesCleared >= 2, '困难档高分失败至少消除 2 组（' + scored.triplesCleared + '）');
   assert.ok(scored.score > 1000, '困难档高分失败仍有可观得分（' + scored.score + '）');
   assert.ok(scored.perf >= 0.5, '困难档高分失败按得分匹配 B 档以上表现（' + scored.perf + '）');
 

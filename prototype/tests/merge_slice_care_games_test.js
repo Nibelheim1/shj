@@ -150,8 +150,8 @@ function solveSheepTower(game, maxNodes) {
 const DIFFICULTY_DIMENSIONS = {
   easy: { match3: [6, 6, 5], sheep: [3, 3, 3, 7, 7] },
   normal: { match3: [6, 6, 6], sheep: [3, 3, 3, 9, 9] },
-  hard: { match3: [6, 7, 6], sheep: [3, 4, 5, 9, 18] },
-  master: { match3: [7, 8, 6], sheep: [3, 4, 5, 10, 20] }
+  hard: { match3: [6, 7, 6], sheep: [3, 3, 4, 11, 11] },
+  master: { match3: [7, 8, 6], sheep: [3, 3, 4, 12, 12] }
 };
 
 function runDifficultyProfileChecks(Match3) {
@@ -208,14 +208,14 @@ function runDifficultyProfileChecks(Match3) {
 function runSheepGameChecks() {
   /* 困难档（默认）：只断言结构，不保证可清盘。 */
   const game = new SheepGame.Game('PLAY', { rng: deterministicRng(), overlap: 0 });
-  assert.strictEqual(game.cols, 3, '羊了个羊塔基收窄为 3 列');
-  assert.strictEqual(game.rows, 4, '羊了个羊塔基高 4');
-  assert.strictEqual(game.layers, 5, '羊了个羊共 5 层');
+  assert.strictEqual(game.cols, 3, '羊了个羊塔基保持 3 列（不加基座）');
+  assert.strictEqual(game.rows, 3, '羊了个羊塔基高 3');
+  assert.strictEqual(game.layers, 4, '羊了个羊共 4 层');
   assert.strictEqual(game.maxSlots, 5, '底部槽统一收窄为 5 格');
-  assert.strictEqual(game.totalTriples, 18, '羊了个羊共 18 组三连');
-  assert.strictEqual(game.tiles.filter(function (tile) { return !tile.removed; }).length, 54, '塔内共 54 张牌');
+  assert.strictEqual(game.totalTriples, 11, '羊了个羊共 11 组三连（11 种素材）');
+  assert.strictEqual(game.tiles.filter(function (tile) { return !tile.removed; }).length, 33, '塔内共 33 张牌');
   assert.ok(game.hasLegalMove(), '初盘有露头牌');
-  assert.ok(game.listLegalTiles().length < 15, '窄基座开局露头显著减少（' + game.listLegalTiles().length + '）');
+  assert.ok(game.listLegalTiles().length < 10, '3×3 窄基座开局露头显著减少（' + game.listLegalTiles().length + '）');
 
   /* 轻松档：唯一保证可解——4 组三连 + 清盘 + mastery。 */
   let doneCount = 0;
@@ -275,7 +275,7 @@ function runSheepGameChecks() {
     });
   }
   if (!scored.finished) scored.finish(true);
-  assert.ok(scored.triplesCleared >= 4, '高分失败至少消除 4 组（' + scored.triplesCleared + '）');
+  assert.ok(scored.triplesCleared >= 2, '高分失败至少消除 2 组（' + scored.triplesCleared + '）');
   assert.ok(scored.score > 1000, '高分失败仍有可观得分（' + scored.score + '）');
   assert.ok(scored.perf >= 0.5, '困难档高分失败按得分匹配 B 档以上表现（' + scored.perf + '）');
 
@@ -322,11 +322,11 @@ function runSheepGameChecks() {
 
   const challenge = new SheepGame.Game('PLAY', { difficulty: 'challenge', rng: deterministicRng() });
   assert.deepStrictEqual([challenge.cols, challenge.rows, challenge.layers, challenge.totalTriples, challenge.timeLimit],
-    [4, 4, 4, 20, 150], '挑战模式独立塔基、层数与时长');
+    [4, 4, 5, 26, 150], '挑战模式独立塔基、层数与时长');
   assert.strictEqual(challenge.maxSlots, 5, '挑战模式同样使用 5 格槽');
   assert.ok(challenge.failPerfCap >= 0.84, '挑战模式高分失败也可匹配高表现');
 
-  console.log('  PASS  SheepGame 5×5 3 层 18 组、三消/槽满/高分失败/清盘/超时/取消/挑战');
+  console.log('  PASS  SheepGame 3×3 4 层 11 组、三消/槽满/高分失败/清盘/超时/取消/挑战');
 }
 
 function loadMatch3(constantRandom) {

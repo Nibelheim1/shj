@@ -1098,12 +1098,13 @@ body{min-block-size:100svh;}
 #merge-view .order-card .deliver-btn { min-height:20px; margin-top:4px; padding:3px 5px; font-size:7px; }
 #merge-view .order-card.ready::after { right:4px; top:4px; padding:1px 4px; font-size:6px; }
 
-/* 生成器格：与普通格一致的米色底，等级只作角标，绿色全部移除 */
-#merge-view .merge-cell.generator-tile { background:#fffaf2f0; border:1px solid #72533b16; box-shadow:0 1px 2px #68442d0c; }
+/* 生成器格：与普通格一致的米色底，等级只作小角标；无任何阴影、无绿色/红色色块 */
+#merge-view .merge-cell.generator-tile { background:#fffaf2f0; border:1px solid #72533b16; box-shadow:none; }
 #merge-view .merge-cell.generator-tile img { width:88%; height:74%; margin-top:2px; object-fit:contain; filter:none; }
-#merge-view .merge-cell.generator-tile em { position:absolute; left:2px; right:2px; bottom:2px; max-width:none; padding:1px 2px; border-radius:5px; background:#f6ede0f2; color:#8d6949; font-size:6px; line-height:1.15; }
-#merge-view .merge-cell.generator-tile b { right:2px; top:2px; background:#b8563c; }
-#merge-view .merge-cell.generator-tile.generator-locked { background:#f0e9df; border-color:#c9b9a4; box-shadow:inset 0 0 0 2px #e4dccb; }
+#merge-view .merge-cell.generator-tile em { position:absolute; left:2px; right:2px; bottom:2px; max-width:none; padding:1px 2px; border-radius:5px; background:#f6ede0f2; color:#8d6949; font-size:6px; line-height:1.15; box-shadow:none; }
+/* 关键修复：显式 bottom:auto + height:auto，防止与 #merge-view .merge-cell b 的 bottom 冲突把角标拉伸成整列色块 */
+#merge-view .merge-cell.generator-tile b { right:2px; top:2px; bottom:auto; height:auto; min-height:0; line-height:1; background:#b8563c; box-shadow:none; }
+#merge-view .merge-cell.generator-tile.generator-locked { background:#f0e9df; border-color:#c9b9a4; box-shadow:none; }
 .sect-building-visual.missing-art { display:grid; place-items:center; border:2px dashed #a6ae9b; border-radius:18px; background:linear-gradient(160deg,#f6f8f3,#dde2d6)!important; font-size:30px; color:#9aa68f; }
 .sect-building-visual.missing-art .fog-tag { position:absolute; left:50%; bottom:10px; transform:translateX(-50%); padding:2px 8px; border-radius:99px; background:#57503fd9; color:#fff8e8; font-size:8px; font-weight:900; white-space:nowrap; }
 /* —— 第三轮：委托卡底部对齐、完成态、NPC 巡游范围 —— */
@@ -1128,7 +1129,7 @@ body{min-block-size:100svh;}
 #merge-view .order-need { border-radius:11px; }
 #merge-view .order-need .gift-source { border-radius:0 0 10px 10px; }
 
-.merge-cell.generator-tile b { right:2px; top:2px; min-width:16px; padding:1px 3px; font-size:7px; }
+.merge-cell.generator-tile b { right:2px; top:2px; bottom:auto; height:auto; min-width:16px; padding:1px 3px; font-size:7px; box-shadow:none; }
 .merge-cell.generator-tile em { bottom:0; left:0; right:0; max-width:none; padding:1px 2px; background:#fffaf0c9; border-radius:0 0 8px 8px; font-size:6px; line-height:1.2; }
 .merge-cell.generator-part-tile em { bottom:0; left:0; right:0; border-radius:0 0 8px 8px; }
 
