@@ -63,11 +63,12 @@ check('配置含四档难度、双游戏尺寸、玩法规则和统一奖励表'
   assert.strictEqual(DATA.careGames.difficulties.master.groom.knotMode, 'double-triple');
   assert.ok(DATA.careGames.difficulties.master.groom.objective.label.includes('特殊块'));
   assert.strictEqual(DATA.careGames.difficulties.hard.play.typeCount, 9);
-  assert.strictEqual(DATA.careGames.difficulties.master.play.layers, 3);
+  assert.strictEqual(DATA.careGames.difficulties.master.play.layers, 5);
   assert.strictEqual(DATA.careGames.difficulties.easy.play.tilesPerType, 3);
   assert.strictEqual(DATA.careGames.difficulties.normal.play.layers, 3);
-  assert.strictEqual(DATA.careGames.difficulties.hard.play.slots, 6);
-  assert.strictEqual(DATA.careGames.difficulties.hard.play.cols, 5);
+  assert.strictEqual(DATA.careGames.difficulties.hard.play.slots, 5);
+  assert.strictEqual(DATA.careGames.difficulties.hard.play.cols, 3);
+  assert.strictEqual(DATA.careGames.difficulties.hard.play.rows, 4);
   assert.strictEqual(DATA.careGames.difficulties.hard.play.scoreTarget, 3100);
   assert.strictEqual(DATA.careGames.difficulties.master.play.failPerfCap, 0.84);
   assert.strictEqual(DATA.careGames.difficulties.master.play.comboWindow, 1.0);

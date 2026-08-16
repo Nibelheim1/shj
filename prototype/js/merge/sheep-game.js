@@ -4,7 +4,7 @@
  * Rules (same family as the popular 3-tile clearing games):
  *   - Tiles are stacked in several layers.
  *   - Only uncovered top tiles can be tapped.
- *   - Tapped tiles enter a configurable bottom tray (six slots in the H5
+ *   - Tapped tiles enter a configurable bottom tray (five slots in the H5
  *     difficulty profiles); three identical icons clear.
  *   - The tray filling up with no triple ends the run with a score settlement.
  *   - Clearing the whole tower gives the best performance grade.
@@ -31,24 +31,29 @@
 
   var DIFFICULTIES = {
     easy: {
-      cols: 3, rows: 3, layers: 3, typeCount: 7, tilesPerType: 3, slots: 6,
-      overlap: 0.10, timeLimit: 70, scoreTarget: 900, failPerfCap: 0.58, comboWindow: 2.2
+      cols: 3, rows: 3, layers: 3, typeCount: 7, tilesPerType: 3, slots: 5,
+      overlap: 0.10, timeLimit: 70, scoreTarget: 900, failPerfCap: 0.58, comboWindow: 2.2,
+      hangPerLayer: 0, buryDepth: 0, mountain: false
     },
     normal: {
-      cols: 4, rows: 4, layers: 3, typeCount: 8, tilesPerType: 6, slots: 6,
-      overlap: 0.16, timeLimit: 85, scoreTarget: 1900, failPerfCap: 0.72, comboWindow: 1.9
+      cols: 3, rows: 3, layers: 3, typeCount: 9, tilesPerType: 3, slots: 5,
+      overlap: 0.14, timeLimit: 85, scoreTarget: 1900, failPerfCap: 0.72, comboWindow: 1.9,
+      hangPerLayer: 1, buryDepth: 1, mountain: false
     },
     hard: {
-      cols: 5, rows: 5, layers: 3, typeCount: 9, tilesPerType: 6, slots: 6,
-      overlap: 0.22, timeLimit: 95, scoreTarget: 3100, failPerfCap: 0.84, comboWindow: 1.4
+      cols: 3, rows: 4, layers: 5, typeCount: 9, tilesPerType: 6, slots: 5,
+      overlap: 0.20, timeLimit: 95, scoreTarget: 3100, failPerfCap: 0.84, comboWindow: 1.4,
+      hangPerLayer: 1, buryDepth: 1, mountain: false
     },
     master: {
-      cols: 6, rows: 6, layers: 3, typeCount: 10, tilesPerType: 6, slots: 6,
-      overlap: 0.28, timeLimit: 105, scoreTarget: 4600, failPerfCap: 0.84, comboWindow: 1.0
+      cols: 3, rows: 4, layers: 5, typeCount: 10, tilesPerType: 6, slots: 5,
+      overlap: 0.26, timeLimit: 105, scoreTarget: 4600, failPerfCap: 0.84, comboWindow: 1.0,
+      hangPerLayer: 1, buryDepth: 2, mountain: true
     },
     challenge: {
-      cols: 7, rows: 7, layers: 4, typeCount: 10, tilesPerType: 6, slots: 6,
-      overlap: 0.32, timeLimit: 150, scoreTarget: 6400, failPerfCap: 0.84, comboWindow: 1.2
+      cols: 4, rows: 4, layers: 4, typeCount: 10, tilesPerType: 6, slots: 5,
+      overlap: 0.30, timeLimit: 150, scoreTarget: 6400, failPerfCap: 0.84, comboWindow: 1.2,
+      hangPerLayer: 2, buryDepth: 2, mountain: true
     }
   };
   var DEFAULT_DIFFICULTY = 'hard';
@@ -123,6 +128,30 @@
     return !!(image.naturalWidth || image.width || image.complete);
   }
 
+  /* 从候选池中随机抽出一组“家族尽量不重复”的图标：每局开局图标
+     组合都会变化，而不是永远使用固定顺序的同一批。 */
+  function pickDiverseIcons(pool, count, rng) {
+    var copy = pool.slice();
+    shuffleArray(copy, rng);
+    var byFamily = {};
+    copy.forEach(function (name) {
+      var family = name.replace(/_\d+$/, '');
+      (byFamily[family] = byFamily[family] || []).push(name);
+    });
+    var families = Object.keys(byFamily);
+    shuffleArray(families, rng);
+    var picked = [];
+    for (var i = 0; i < families.length && picked.length < count; i++) {
+      var list = byFamily[families[i]];
+      shuffleArray(list, rng);
+      picked.push(list[0]);
+    }
+    var rest = copy.filter(function (name) { return picked.indexOf(name) < 0; });
+    shuffleArray(rest, rng);
+    while (picked.length < count && rest.length) picked.push(rest.shift());
+    return picked;
+  }
+
   function Game(kind, opts) {
     this.kind = kind || 'PLAY';
     this.opts = opts || {};
@@ -138,17 +167,23 @@
     this.typeCount = Math.min(this.typeCount, NAMES.length);
     this.tilesPerType = integerOption(this.opts.tilesPerType, profile.tilesPerType, 3);
     this.tilesPerType = Math.max(3, Math.ceil(this.tilesPerType / 3) * 3);
-    this.maxSlots = integerOption(this.opts.slots, profile.slots, 7);
+    this.maxSlots = integerOption(this.opts.slots, profile.slots, 5);
+    this.hangPerLayer = integerOption(this.opts.hangPerLayer, profile.hangPerLayer, 0);
+    this.buryDepth = integerOption(this.opts.buryDepth, profile.buryDepth, 1);
+    this.mountain = this.opts.mountain != null ? !!this.opts.mountain : !!profile.mountain;
+    this._maxTileLayer = 0;
     this.overlap = clamp(finite(this.opts.overlap, profile.overlap), 0, 0.45);
     this.totalTiles = this.typeCount * this.tilesPerType;
     this.totalTriples = this.totalTiles / 3;
-    this.names = Array.isArray(this.opts.icons) && this.opts.icons.length
-      ? this.opts.icons.slice(0, this.typeCount)
-      : NAMES.slice(0, this.typeCount);
+    this.rng = typeof this.opts.rng === 'function' ? this.opts.rng : Math.random;
+    this.names = pickDiverseIcons(
+      Array.isArray(this.opts.icons) && this.opts.icons.length ? this.opts.icons : NAMES,
+      this.typeCount,
+      this.rng
+    );
     while (this.names.length < this.typeCount) this.names.push(NAMES[this.names.length % NAMES.length]);
     this.icons = this.names.slice();
     this.assetRoot = normalizeRoot(this.opts.assetRoot || (global && global.SHEEP_GAME_ASSET_ROOT) || DEFAULT_ASSET_ROOT);
-    this.rng = typeof this.opts.rng === 'function' ? this.opts.rng : Math.random;
     this.timeLimit = Math.max(1, finite(this.opts.timeLimit, profile.timeLimit || 90));
     this.scoreTarget = Math.max(100, finite(this.opts.scoreTarget, profile.scoreTarget || 2800));
     this.failPerfCap = clamp(finite(this.opts.failPerfCap, profile.failPerfCap), 0, 0.84);
@@ -185,46 +220,159 @@
   };
 
   Game.prototype._initBoard = function () {
-    /* 每个三连组的三张牌铺到“当前最浅”的三个不同塔位上，深度均衡。
-       同组深度基本一致：清完上层后同组会一起露头，不会产生死局；
-       但塔顶不再天然同色自清，玩家必须用托盘凑三消。 */
     var groups = [], t, g;
     for (t = 0; t < this.typeCount; t++) {
       for (g = 0; g < this.tilesPerType / 3; g++) groups.push(t);
     }
     shuffleArray(groups, this.rng);
+
     var cells = [];
-    for (var r = 0; r < this.rows; r++) for (var c = 0; c < this.cols; c++) cells.push({ r: r, c: c, depth: 0 });
+    var centerC = (this.cols - 1) / 2;
+    var centerR = (this.rows - 1) / 2;
+    var maxDist = Math.max(0.001, centerC + centerR);
+    var mountainScale = this.mountain ? Math.max(0, Math.min(2, Math.floor(this.layers / 2))) : 0;
+    for (var r = 0; r < this.rows; r++) {
+      for (var c = 0; c < this.cols; c++) {
+        var minLayer = mountainScale
+          ? Math.round((Math.abs(c - centerC) + Math.abs(r - centerR)) * mountainScale / maxDist)
+          : 0;
+        cells.push({ r: r, c: c, min: minLayer, index: cells.length });
+      }
+    }
+
     var tiles = [];
     var uid = 1;
     var maxDepth = 0;
-    for (var gi = 0; gi < groups.length; gi++) {
-      var sorted = cells.slice().sort(function (a, b) {
-        if (a.depth !== b.depth) return a.depth - b.depth;
-        if (a.r !== b.r) return a.r - b.r;
-        return a.c - b.c;
+    var used = {}; /* 'cellIndex:layer' 占位表，避免同一塔同一层叠两张 */
+    var rng = this.rng;
+
+    function cellKey(cellIndex, layer) { return cellIndex + ':' + layer; }
+    function taken(cell, layer) { return used[cellKey(cell.index, layer)] === true; }
+    function occupy(cell, layer) { used[cellKey(cell.index, layer)] = true; }
+    function cellDepth(cell) {
+      var depth = cell.min;
+      while (taken(cell, depth)) depth++;
+      return depth;
+    }
+    function makeTile(groupType, cell, layer) {
+      if (layer > maxDepth) maxDepth = layer;
+      occupy(cell, layer);
+      tiles.push({
+        uid: uid++,
+        type: groupType,
+        r: cell.r,
+        c: cell.c,
+        layer: layer,
+        cx: cell.c + 0.06 + 0.1 * rng(),
+        cy: cell.r + 0.06 + 0.1 * rng(),
+        removed: false
       });
-      var chosen = sorted.slice(0, 3);
-      for (var k = 0; k < 3; k++) {
-        var cell = chosen[k];
-        tiles.push({
-          uid: uid++,
-          type: groups[gi],
-          r: cell.r,
-          c: cell.c,
-          layer: cell.depth,
-          cx: cell.c + 0.06 + 0.1 * this.rng(),
-          cy: cell.r + 0.06 + 0.1 * this.rng(),
-          removed: false
+    }
+
+    var gi = 0;
+    var coverBias = {}; /* 埋深≥2 时，第三张上方的格子需要被后续层盖上 */
+    if (this.hangPerLayer === 0 && !this.mountain) {
+      /* 轻松档（唯一保证可解的档）：整组同层。
+         三张同种总是同时露头，托盘最多只需 3 格，任何局面可解。 */
+      while (gi < groups.length) {
+        var depthCounts = {};
+        cells.forEach(function (cell) {
+          var depth = cellDepth(cell);
+          depthCounts[depth] = (depthCounts[depth] || 0) + 1;
         });
-        cell.depth++;
-        if (cell.depth > maxDepth) maxDepth = cell.depth;
+        var targetDepth = 0;
+        while (targetDepth < 64 && (depthCounts[targetDepth] || 0) < 3) targetDepth++;
+        var candidates = cells.filter(function (cell) { return cellDepth(cell) === targetDepth; });
+        shuffleArray(candidates, rng);
+        if (candidates.length < 3) break;
+        var chosen = candidates.slice(0, 3);
+        for (var k = 0; k < 3; k++) makeTile(groups[gi], chosen[k], targetDepth);
+        gi++;
+      }
+    } else {
+      /* 标准及以上（不保证可解）：窄基座 + 山峰 + 悬挂组。
+         - 每层先放完整组（同款 3 张在本层不同塔）；
+         - 再放悬挂组：2 张本层露头、第 3 张埋到 layer+b 的某个塔顶；
+         - 玩家必须规划托盘与挖掘顺序，塔可能不可清空（按表现结算）。 */
+      var layer = 0;
+      var safety = 0;
+      while (gi < groups.length && safety++ < 256) {
+        var layerCandidates = cells.filter(function (cell) {
+          return cell.min <= layer && !taken(cell, layer);
+        });
+        shuffleArray(layerCandidates, rng);
+        var biasList = coverBias[layer] || [];
+        if (biasList.length) {
+          var biased = layerCandidates.filter(function (cell) {
+            return biasList.some(function (target) { return target.index === cell.index; });
+          });
+          var rest = layerCandidates.filter(function (cell) {
+            return !biasList.some(function (target) { return target.index === cell.index; });
+          });
+          layerCandidates = biased.concat(rest);
+        }
+        var available = layerCandidates.length;
+        var groupsLeft = groups.length - gi;
+        var hangCount = Math.min(this.hangPerLayer, Math.floor(available / 2), groupsLeft);
+        var complete = Math.min(Math.floor((available - hangCount * 2) / 3), groupsLeft - hangCount);
+        if (complete === 0 && hangCount === 0) { layer++; continue; }
+
+        var cursor = 0;
+        for (var ci = 0; ci < complete; ci++) {
+          var pick = layerCandidates.slice(cursor, cursor + 3);
+          cursor += 3;
+          for (var ck = 0; ck < 3; ck++) makeTile(groups[gi], pick[ck], layer);
+          gi++;
+        }
+        for (var hi = 0; hi < hangCount; hi++) {
+          var pair = layerCandidates.slice(cursor, cursor + 2);
+          cursor += 2;
+          var bury = Math.max(1, this.buryDepth);
+          makeTile(groups[gi], pair[0], layer);
+          makeTile(groups[gi], pair[1], layer);
+          /* 经典压藏：第三张优先压在自己其中一张对牌的上方。 */
+          var buryCell = null;
+          if (!taken(pair[0], layer + 1)) buryCell = pair[0];
+          else if (!taken(pair[1], layer + 1)) buryCell = pair[1];
+          if (buryCell) {
+            makeTile(groups[gi], buryCell, layer + 1);
+            if (bury >= 2) {
+              /* 埋深 ≥2：下一层必须有一张牌盖在第三张上方。 */
+              coverBias[layer + 1] = coverBias[layer + 1] || [];
+              coverBias[layer + 1].push(buryCell);
+            }
+          } else {
+            var buryCandidates = cells.filter(function (cell) {
+              return cell.min <= layer + 1 && !taken(cell, layer + 1) &&
+                !(cell.r === pair[0].r && cell.c === pair[0].c) &&
+                !(cell.r === pair[1].r && cell.c === pair[1].c);
+            });
+            shuffleArray(buryCandidates, rng);
+            if (!buryCandidates.length) {
+              buryCandidates = cells.filter(function (cell) {
+                return !(cell.r === pair[0].r && cell.c === pair[0].c) &&
+                       !(cell.r === pair[1].r && cell.c === pair[1].c);
+              });
+              shuffleArray(buryCandidates, rng);
+              if (!buryCandidates.length) buryCandidates = [pair[0]];
+              var buryDepthLayer = cellDepth(buryCandidates[0]);
+              makeTile(groups[gi], buryCandidates[0], buryDepthLayer);
+            } else {
+              makeTile(groups[gi], buryCandidates[0], layer + 1);
+            }
+          }
+          gi++;
+        }
+        layer++;
       }
     }
+
     this.tiles = tiles;
-    /* 实际牌堆深度可能超过配置（例如 7 种 × 3 张铺在 9 格上），
-       布局层数跟随真实深度，避免上层牌超出画布。 */
-    if (maxDepth > this.layers) this.layers = maxDepth;
+    this._maxTileLayer = maxDepth;
+  };
+
+  Game.prototype._effectiveLayers = function () {
+    return Math.max(1, Math.floor(this.layers || 1), (this._maxTileLayer || 0) + 1);
   };
 
   Game.prototype._remainingTiles = function () {
@@ -313,7 +461,7 @@
     shuffleArray(cells, this.rng);
     var left = remaining.length, cursor = 0;
     for (var i = 0; i < cells.length && left > 0; i++) {
-      var maxForCell = Math.min(this.layers, left);
+      var maxForCell = Math.min(this._effectiveLayers(), left);
       var count = 1 + randomInt(this.rng, maxForCell);
       count = Math.min(count, left);
       for (var layer = 0; layer < count; layer++) {
@@ -383,10 +531,31 @@
     return this.perf;
   };
 
+  Game.prototype._inButton = function (x, y, button) {
+    return !!(button && x >= button.x && x <= button.x + button.w && y >= button.y && y <= button.y + button.h);
+  };
+
+  Game.prototype._drawButton = function (ctx, button, label, primary) {
+    if (!ctx || !button) return;
+    this._roundRect(ctx, button.x, button.y, button.w, button.h, button.h / 2);
+    ctx.fillStyle = primary ? '#DF7959' : 'rgba(255,244,232,0.92)';
+    if (ctx.fill) ctx.fill();
+    ctx.strokeStyle = primary ? '#B8563C' : 'rgba(184,86,60,0.55)';
+    ctx.lineWidth = 2;
+    if (ctx.stroke) ctx.stroke();
+    ctx.fillStyle = primary ? '#FFF8EE' : '#B8563C';
+    ctx.font = '900 11px "PingFang SC",sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (ctx.fillText) ctx.fillText(label, button.x + button.w / 2, button.y + button.h / 2 + 0.5);
+  };
+
   Game.prototype.onTouchStart = function (x, y, rect) {
     if (this.finished) return false;
     rect = rect || this._lastRect;
     if (!rect) rect = this._layout(390, 700);
+    /* 底部操作条：与梳洗消消乐一致，可提前结算或跳过本局。 */
+    if (this._inButton(x, y, rect.finishB)) { this.finish(true); return true; }
+    if (this._inButton(x, y, rect.cancelB)) { this.finish(false); return true; }
     var tile = this._tileAt(x, y, rect);
     if (!tile) {
       /* 没有可点的露头牌时自动洗一次牌，保持“零死局”。 */
@@ -497,8 +666,9 @@
     var slotH = Math.max(54, Math.min(76, height * 0.13));
     var availableW = Math.max(10, width - 14);
     var availableH = Math.max(10, height - top - slotH - 8);
-    var extraX = (this.layers - 1) * this.overlap;
-    var extraY = (this.layers - 1) * this.overlap * 0.65;
+    var effective = this._effectiveLayers();
+    var extraX = (effective - 1) * this.overlap;
+    var extraY = (effective - 1) * this.overlap * 0.65;
     var cell = Math.min((availableW - 6) / (this.cols + extraX), availableH / (this.rows + extraY));
     cell = Math.max(16, cell);
     var boardW = cell * (this.cols + extraX);
@@ -574,6 +744,14 @@
     ctx.textAlign = 'left';
     ctx.font = '600 11px sans-serif';
     if (ctx.fillText) ctx.fillText('⏱ ' + Math.ceil(this.timeLeft) + ' 秒 · 槽 ' + this.slot.length + '/' + this.maxSlots, 12, 40);
+
+    /* 底部操作条：与梳洗消消乐一致的“完成结算 / 跳过”。 */
+    var btnW = 82, btnH = 30, btnGap = 8;
+    var btnY = Math.max(6, rect.slotY - btnH - 10);
+    rect.finishB = { x: width - 24 - btnW * 2 - btnGap, y: btnY, w: btnW, h: btnH };
+    rect.cancelB = { x: width - 24 - btnW, y: btnY, w: btnW, h: btnH };
+    this._drawButton(ctx, rect.finishB, '完成结算', true);
+    this._drawButton(ctx, rect.cancelB, '跳过', false);
 
     var sorted = this.tiles.slice().sort(function (a, b) { return a.layer - b.layer; });
     for (var i = 0; i < sorted.length; i++) {

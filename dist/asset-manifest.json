@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAt": "2026-08-16T06:32:51.824Z",
-  "totalBytes": 9842805,
+  "generatedAt": "2026-08-16T08:01:14.109Z",
+  "totalBytes": 9850314,
   "files": [
     {
       "path": "assets/art/buildings/clinic_lv1.webp",
@@ -1668,8 +1668,8 @@
     {
       "path": "js/merge/data.js",
       "bundle": "boot",
-      "bytes": 89455,
-      "sha256": "19c37e7eb5dc5986f90d684aea4d00603e27bc6c113a399cf085f1ff61edcd3e"
+      "bytes": 89525,
+      "sha256": "f5286718d6b9d494478f5ac5ada61ae3eff3db28bbab1309f2c55c162dfda68d"
     },
     {
       "path": "js/merge/match3.js",
@@ -1686,20 +1686,20 @@
     {
       "path": "js/merge/sheep-game.js",
       "bundle": "boot",
-      "bytes": 24218,
-      "sha256": "743e5130ed32d76ba8d26cfadd9868970c21c9e61d134ca73835e2108769a714"
+      "bytes": 32210,
+      "sha256": "cd82cedfd8cedef49c06d55bce59cf891a891d5571ef3cd8df879189cda6299b"
     },
     {
       "path": "js/merge/ui.js",
       "bundle": "boot",
-      "bytes": 206681,
-      "sha256": "94bb8507bb71eba0857201a18ea0a06f907dc85a1f9030659430687585831ad6"
+      "bytes": 205532,
+      "sha256": "b785878de1a267e5e2d25b5c514b5e173a62a42614541cbd7ab5e278121be81a"
     },
     {
       "path": "merge-slice.css",
       "bundle": "boot",
-      "bytes": 125706,
-      "sha256": "1a1477af20d4c4e2466a6cf223e698d349d91db2149749cdb2ab80c40c73af83"
+      "bytes": 126302,
+      "sha256": "06f59177a0ce5cccb063044c3081deb3ffe3fa4a77a6667981062be900531e62"
     },
     {
       "path": "merge-slice.js",

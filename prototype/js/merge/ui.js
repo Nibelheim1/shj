@@ -878,7 +878,7 @@
     {
       title: '庭院照料与小游戏',
       html: '<article class="how-to-play-item"><b>⑧ 梳洗台 · 消消乐</b><span>滑动相邻图标交换；3 连消除，4 连造条纹块，L/T 形造炸弹，5 连造彩石。带 ×/2 的毛结要贴着消除逐层解开。至少 3 次有效交换后，超时也有保底奖励。</span></article>' +
-        '<article class="how-to-play-item"><b>⑨ 嬉游亭 · 羊了个羊</b><span>点击多层玩具塔上“露头”的牌收入六格槽，3 张相同自动消除；槽满凑不出三张即结束。至少消除 4 组后，超时也按表现发素材；清空全塔获得最高表现。</span></article>' +
+        '<article class="how-to-play-item"><b>⑨ 嬉游亭 · 羊了个羊</b><span>点击多层玩具塔上“露头”的牌收入五格槽，3 张相同自动消除；槽满凑不出三张即结束。至少消除 4 组后，超时也按表现发素材；清空全塔获得最高表现。</span></article>' +
         '<article class="how-to-play-item"><b>⑩ 有效照料与奖励</b><span>普通难度（轻松/标准/困难/大师）会推进好感、疗愈、经验和主线故事；挑战模式固定 5 体力、只按分数发素材。每日每设施前三局发普通素材，之后可继续练习。</span></article>' +
         '<article class="how-to-play-item"><b>⑪ 设施与岗位</b><span>四栋设施用暖玉升级立即生效；神兽蜕变后自动上岗（离线最多结算 8 小时），每日目标与七日约定在庭院页领取。</span></article>'
     },
@@ -1172,24 +1172,13 @@
       if (order.giftChain && order.giftChain.note) {
         needsMarkup += '<div class="care-gate-hint gift-chain-note">' + esc(order.giftChain.note) + '</div>';
       }
-      /* 礼物委托：卡片只显示进度，照料直达入口放进订单详情弹窗。 */
-      var giftNeed = !complete && requirements.filter(function (need) {
-        return need.sourceBeast && countNeed(need) < need.count;
-      })[0] || null;
-      if (giftNeed) {
-        var giftBeast = beastDef(giftNeed.sourceBeast);
-        var giftInfo = careGiftForDisplay(giftNeed.sourceBeast);
-        var giftStats = giftItemStats(giftNeed.family, giftNeed.sourceBeast);
-        needsMarkup += '<div class="care-gate-hint gift-progress">「' + esc(giftBeast.name) + '」的礼物 · 现有 ' + giftStats.count + ' 件' +
-          (giftStats.maxTier ? ' · 最高 ' + giftStats.maxTier + ' 阶' : '') +
-          ' · 点开委托可直达' + esc(giftInfo.careLabel) + '</div>';
-      }
+      var kindChip = mainline
+        ? '<span class="mainline-badge">主线</span>'
+        : '<span class="order-kind">' + kindLabel(order.kind) + '</span>';
       var actionMarkup = '<button class="deliver-btn" data-deliver="' + esc(order.id) + '" type="button" ' + (ready && !complete ? '' : 'disabled') + '>' + (complete ? '今日已完成' : '交付 · ' + rewardBits.join(' · ')) + '</button>';
       return '<article class="order-card ' + (mainline ? 'main-order ' : '') + (ready ? 'ready ' : '') + (!reachable ? 'unreachable' : '') + '" data-order-id="' + esc(order.id) + '" data-help="order-card" title="点击查看详情，长按查看委托卡说明">' +
-        '<div class="order-head">' + (mainline ? '<span class="mainline-badge">主线</span>' : '') + '<span class="order-kind">' + kindLabel(order.kind) + '</span>' + (order.difficultyLabel ? '<span class="order-kind">' + esc(order.difficultyLabel) + ' · 强度' + order.effort + '</span>' : '') + '<strong>' + esc(order.title) + '</strong></div>' +
-        '<p>' + esc(order.symptom || '准备需要的素材并完成交付。') + '</p>' +
+        '<div class="order-head">' + kindChip + '<strong>' + esc(order.title) + '</strong></div>' +
         needsMarkup +
-        '<span class="order-progress ' + (ready ? 'ready' : '') + '">' + (ready ? '素材齐全，可以交付' : orderSourceText(order, reachable)) + '</span>' +
         actionMarkup +
         '</article>';
     }).join('');
