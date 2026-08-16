@@ -567,7 +567,7 @@
     hud: {
       title: '顶部状态栏',
       intro: '这一栏是你和疗愈所之间的“仪表盘”。',
-      what: '集中显示玩家等级、暖玉、体力、净化刷，并提供玩法说明、声音开关与重置按钮。',
+      what: '集中显示玩家等级（等级框底部有升级经验条）、暖玉、体力、净化刷，并提供玩法说明、声音开关与重置按钮。',
       needs: '等级与体力上限靠完成委托提升；暖玉来自委托、回收、每日/每周目标；体力每 150 秒恢复 1 点，离线最多积攒 8 小时。',
       use: '随时判断现在能做什么：体力不足时仍然可以合成、交付委托、领取百草园与岗位产出。点击体力数字可直接查看消耗与恢复规则。',
       tip: '看到任何图标不懂，先长按它；看到任何模块不懂，长按模块本身。'
@@ -972,7 +972,11 @@
   function renderHud() {
     var node = q('hud-values');
     if (!node) return;
-    node.innerHTML = '<span class="hud-pill hud-level"><small>等级</small><b>Lv.' + state.level + '</b></span>' +
+    var xp = Math.max(0, Math.floor(numberOf(state.xp, 0)));
+    var xpNext = Math.max(1, Math.floor(numberOf(state.xpNext, 70)));
+    var xpPercent = Math.max(0, Math.min(100, Math.round(xp / xpNext * 100)));
+    node.innerHTML = '<span class="hud-pill hud-level" title="升级进度 ' + xpPercent + '%（' + xp + ' / ' + xpNext + ' 经验）"><small>等级</small><b>Lv.' + state.level + '</b>' +
+      '<span class="hud-level-bar" role="progressbar" aria-label="升级进度" aria-valuenow="' + xp + '" aria-valuemin="0" aria-valuemax="' + xpNext + '"><i style="width:' + xpPercent + '%"></i></span></span>' +
       '<span class="hud-pill hud-jade"><small>暖玉</small><b>◆ ' + state.jade + '</b></span>' +
       '<button id="energy-pill" class="hud-pill energy hud-energy" type="button" aria-label="体力中心"><small>体力</small><b>⚡ ' + state.energy + '/' + state.maxEnergy + '</b></button>' +
       (state.cleanTools ? '<span class="hud-pill hud-tools"><small>净化</small><b>刷 ' + state.cleanTools + '</b></span>' : '');

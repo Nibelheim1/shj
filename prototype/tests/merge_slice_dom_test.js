@@ -124,6 +124,18 @@ function cardCount(root, selectors) {
 
   await new Promise(function (resolve) { setTimeout(resolve, 30); });
 
+  check('等级框带升级经验条，订单素材图标放大标记', function () {
+    const levelPill = W.document.querySelector('.hud-pill.hud-level');
+    expect(levelPill, '等级框存在');
+    const bar = levelPill && levelPill.querySelector('[role="progressbar"]');
+    expect(bar, '等级框内存在升级进度条');
+    expect(bar && Number(bar.getAttribute('aria-valuemax')) > 0, '进度条有升级阈值');
+    expect(bar && bar.querySelector('i'), '进度条有填充元素');
+    const orderNeed = W.document.querySelector('#merge-view .order-need');
+    expect(orderNeed, '订单中渲染出素材需求图标');
+    expect(orderNeed && orderNeed.querySelector('img'), '订单素材图标为图片形式');
+  });
+
   check('主要视图至少包含合成、庭院、图鉴三页', function () {
     const rootViews = views();
     expect(rootViews.length >= 3, '视图数量=' + rootViews.length);
