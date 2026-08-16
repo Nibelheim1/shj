@@ -1398,7 +1398,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
         mainline: true,
         beastId: next.id,
         prerequisite: { type: 'transformation', beastId: state.transformedOrder && state.transformedOrder.length ? state.transformedOrder[state.transformedOrder.length - 1] : null },
-        title: next.name + '的来信',
+        title: next.name + '信',
         symptom: '和' + previous.name + '一起' + gift.careLabel + '，把「' + primaryName + '」与「' + supportName + '」收进药匣——这是' + next.name + '收到的第一份邀请。',
         requirements: arrivalReq,
         rewards: rewardsFor('story', arrivalReq, state),
@@ -1629,7 +1629,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       // Keep the historical `arrival` kind for migrated saves and tooling;
       // the stable v6 contract is expressed by the fixed `recruit` slot.
       slot: 'recruit', kind: 'arrival', v6Type: 'recruit', beastId: next.id, mainline: true,
-      title: next.name + '循着' + previous.name + '的礼物来了',
+      title: next.name + '来了',
       symptom: '和' + previous.name + '一起' + gift.careLabel + '，备好' + getItemName(gift.family, tier) + '与' + getItemName(gift.family, supportTier) + '，让新伙伴安心踏进庭院。',
       requirements: requirements,
       giftChain: { from: previous.id, to: next.id, care: gift.care, family: gift.family, note: gift.note },

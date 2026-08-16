@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAt": "2026-08-16T11:44:08.985Z",
-  "totalBytes": 9847757,
+  "generatedAt": "2026-08-16T12:04:25.738Z",
+  "totalBytes": 9847715,
   "files": [
     {
       "path": "assets/art/buildings/clinic_lv1.webp",
@@ -1656,8 +1656,8 @@
     {
       "path": "js/merge/core.js",
       "bundle": "boot",
-      "bytes": 180496,
-      "sha256": "b30d1e9d2ed6979bdd2f06de1b9c077d68e6ba922ee7bb3cfc2bb78e617a18eb"
+      "bytes": 180454,
+      "sha256": "4eefad7470b26a0b3ee0601adcf405b9cf473b6efec32cf01dde88789e80f1f1"
     },
     {
       "path": "js/merge/courtyard-scene.js",
