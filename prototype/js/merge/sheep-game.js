@@ -4,7 +4,8 @@
  * Rules (same family as the popular 3-tile clearing games):
  *   - Tiles are stacked in several layers.
  *   - Only uncovered top tiles can be tapped.
- *   - Tapped tiles enter a seven-slot tray; three identical icons clear.
+ *   - Tapped tiles enter a configurable bottom tray (six slots in the H5
+ *     difficulty profiles); three identical icons clear.
  *   - The tray filling up with no triple ends the run with a score settlement.
  *   - Clearing the whole tower gives the best performance grade.
  *
@@ -30,23 +31,23 @@
 
   var DIFFICULTIES = {
     easy: {
-      cols: 3, rows: 3, layers: 1, typeCount: 6, tilesPerType: 3, slots: 6,
+      cols: 3, rows: 3, layers: 3, typeCount: 7, tilesPerType: 3, slots: 6,
       overlap: 0.10, timeLimit: 70, scoreTarget: 900, failPerfCap: 0.58, comboWindow: 2.2
     },
     normal: {
-      cols: 4, rows: 4, layers: 2, typeCount: 7, tilesPerType: 6, slots: 6,
-      overlap: 0.16, timeLimit: 80, scoreTarget: 1900, failPerfCap: 0.72, comboWindow: 1.9
+      cols: 4, rows: 4, layers: 3, typeCount: 8, tilesPerType: 6, slots: 6,
+      overlap: 0.16, timeLimit: 85, scoreTarget: 1900, failPerfCap: 0.72, comboWindow: 1.9
     },
     hard: {
-      cols: 5, rows: 5, layers: 3, typeCount: 8, tilesPerType: 6, slots: 6,
-      overlap: 0.22, timeLimit: 90, scoreTarget: 3100, failPerfCap: 0.84, comboWindow: 1.4
+      cols: 5, rows: 5, layers: 3, typeCount: 9, tilesPerType: 6, slots: 6,
+      overlap: 0.22, timeLimit: 95, scoreTarget: 3100, failPerfCap: 0.84, comboWindow: 1.4
     },
     master: {
-      cols: 6, rows: 6, layers: 4, typeCount: 9, tilesPerType: 6, slots: 6,
-      overlap: 0.28, timeLimit: 100, scoreTarget: 4600, failPerfCap: 0.84, comboWindow: 1.0
+      cols: 6, rows: 6, layers: 3, typeCount: 10, tilesPerType: 6, slots: 6,
+      overlap: 0.28, timeLimit: 105, scoreTarget: 4600, failPerfCap: 0.84, comboWindow: 1.0
     },
     challenge: {
-      cols: 7, rows: 7, layers: 5, typeCount: 10, tilesPerType: 6, slots: 6,
+      cols: 7, rows: 7, layers: 4, typeCount: 10, tilesPerType: 6, slots: 6,
       overlap: 0.32, timeLimit: 150, scoreTarget: 6400, failPerfCap: 0.84, comboWindow: 1.2
     }
   };
@@ -184,47 +185,46 @@
   };
 
   Game.prototype._initBoard = function () {
-    /* Generate the tower in triple groups.  Each group of three identical
-       tiles is stacked contiguously in one cell, so the exposed top of every
-       stack always leads to a completable triple; this keeps every generated
-       board free of hard dead-ends while preserving the layered look. */
-    var groups = [], t, g, i;
+    /* 每个三连组的三张牌铺到“当前最浅”的三个不同塔位上，深度均衡。
+       同组深度基本一致：清完上层后同组会一起露头，不会产生死局；
+       但塔顶不再天然同色自清，玩家必须用托盘凑三消。 */
+    var groups = [], t, g;
     for (t = 0; t < this.typeCount; t++) {
-      for (g = 0; g < this.tilesPerType / 3; g++) groups.push([t, t, t]);
+      for (g = 0; g < this.tilesPerType / 3; g++) groups.push(t);
     }
     shuffleArray(groups, this.rng);
     var cells = [];
-    for (var r = 0; r < this.rows; r++) for (var c = 0; c < this.cols; c++) cells.push({ r: r, c: c });
-    shuffleArray(cells, this.rng);
-    var remaining = groups.length;
-    var stacks = [];
-    for (i = 0; i < cells.length && remaining > 0; i++) {
-      var maxGroups = Math.max(1, Math.min(Math.ceil(this.layers / 3), remaining));
-      var count = Math.min(maxGroups, remaining);
-      stacks.push({ r: cells[i].r, c: cells[i].c, groups: count });
-      remaining -= count;
-    }
-    if (remaining > 0 && stacks.length) stacks[stacks.length - 1].groups += remaining;
-    var cursor = 0, uid = 1;
-    this.tiles = [];
-    for (i = 0; i < stacks.length; i++) {
-      for (var gi = 0; gi < stacks[i].groups; gi++) {
-        var group = groups[cursor++];
-        for (var k = 0; k < group.length; k++) {
-          var layer = gi * 3 + k;
-          this.tiles.push({
-            uid: uid++,
-            type: group[k],
-            r: stacks[i].r,
-            c: stacks[i].c,
-            layer: layer,
-            cx: stacks[i].c + 0.06 + 0.1 * this.rng(),
-            cy: stacks[i].r + 0.06 + 0.1 * this.rng(),
-            removed: false
-          });
-        }
+    for (var r = 0; r < this.rows; r++) for (var c = 0; c < this.cols; c++) cells.push({ r: r, c: c, depth: 0 });
+    var tiles = [];
+    var uid = 1;
+    var maxDepth = 0;
+    for (var gi = 0; gi < groups.length; gi++) {
+      var sorted = cells.slice().sort(function (a, b) {
+        if (a.depth !== b.depth) return a.depth - b.depth;
+        if (a.r !== b.r) return a.r - b.r;
+        return a.c - b.c;
+      });
+      var chosen = sorted.slice(0, 3);
+      for (var k = 0; k < 3; k++) {
+        var cell = chosen[k];
+        tiles.push({
+          uid: uid++,
+          type: groups[gi],
+          r: cell.r,
+          c: cell.c,
+          layer: cell.depth,
+          cx: cell.c + 0.06 + 0.1 * this.rng(),
+          cy: cell.r + 0.06 + 0.1 * this.rng(),
+          removed: false
+        });
+        cell.depth++;
+        if (cell.depth > maxDepth) maxDepth = cell.depth;
       }
     }
+    this.tiles = tiles;
+    /* 实际牌堆深度可能超过配置（例如 7 种 × 3 张铺在 9 格上），
+       布局层数跟随真实深度，避免上层牌超出画布。 */
+    if (maxDepth > this.layers) this.layers = maxDepth;
   };
 
   Game.prototype._remainingTiles = function () {

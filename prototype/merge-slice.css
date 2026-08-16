@@ -1074,9 +1074,31 @@ body{min-block-size:100svh;}
 .order-target-progress { box-shadow:inset 0 1px 2px #68442d18; }
 .order-target-slot { box-shadow:inset 0 1px 2px #68442d14; }
 
-/* —— 第三轮：委托卡底部对齐、完成态、NPC 巡游范围 —— */
+/* —— 第五轮：配方柜入棋盘、订单栏降高、生成器格修复 —— */
+.merge-tools > #recipe-cabinet { display:none; }
+.merge-cell.recipe-cabinet-cell { background:linear-gradient(150deg,#fff3d8,#ffe9cf); border:2px dashed #c8874d88; cursor:pointer; }
+.merge-cell.recipe-cabinet-cell .recipe-cabinet-cell-icon { font-size:20px; line-height:1; filter:drop-shadow(0 2px 2px #68442d22); }
+.merge-cell.recipe-cabinet-cell em { position:static; padding:2px 3px; border-radius:6px; background:#c8874d22; color:#9b612c; font-size:6px; font-weight:900; }
+.recipe-cabinet-modal .recipe-cabinet-host { min-height:0; }
+.recipe-cabinet-in-modal { margin-top:8px; padding:0; border:0; background:transparent; box-shadow:none; }
+.recipe-cabinet-modal .recipe-cabinet-list { grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; margin-top:8px; }
+.recipe-cabinet-modal .recipe-cabinet-item { min-height:48px; border-radius:11px; }
+.recipe-cabinet-modal .recipe-workbench { margin-top:9px; }
+.care-jump-in-modal { margin-top:8px; border-color:#7fae86; background:#eef6e9; color:#527a56; }
+
+/* 订单栏降高：卡片不再承载照料按钮后，压缩最小高度与进度行 */
+#merge-view .order-card { min-height:96px; }
+#merge-view .order-card .gift-progress { min-height:0; padding:3px 5px; font-size:7px; line-height:1.25; }
+
+/* 生成器格：中性底 + 绿色只做描边，去掉绿色 drop-shadow；标签移到立绘下方 */
+#merge-view .merge-cell.generator-tile { background:#fffaf0f0; border:1px solid #9bc79b99; box-shadow:inset 0 0 0 2px #dcefd8,0 1px 2px #68442d0c; }
+#merge-view .merge-cell.generator-tile img { width:88%; height:74%; margin-top:2px; object-fit:contain; filter:none; }
+#merge-view .merge-cell.generator-tile em { position:absolute; left:2px; right:2px; bottom:2px; max-width:none; padding:1px 2px; border-radius:5px; background:#eef5e9f2; color:#557a50; font-size:6px; line-height:1.15; }
+#merge-view .merge-cell.generator-tile b { right:2px; top:2px; background:#5c745f; }
+#merge-view .merge-cell.generator-tile.generator-locked { background:#f0e9df; border-color:#c9b9a4; box-shadow:inset 0 0 0 2px #e4dccb; }
 .sect-building-visual.missing-art { display:grid; place-items:center; border:2px dashed #a6ae9b; border-radius:18px; background:linear-gradient(160deg,#f6f8f3,#dde2d6)!important; font-size:30px; color:#9aa68f; }
 .sect-building-visual.missing-art .fog-tag { position:absolute; left:50%; bottom:10px; transform:translateX(-50%); padding:2px 8px; border-radius:99px; background:#57503fd9; color:#fff8e8; font-size:8px; font-weight:900; white-space:nowrap; }
+/* —— 第三轮：委托卡底部对齐、完成态、NPC 巡游范围 —— */
 .order-list { align-items:stretch; }
 #merge-view .order-card { position:relative; }
 #merge-view .order-card .deliver-btn,

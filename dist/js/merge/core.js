@@ -18,6 +18,10 @@
   if (!DATA) throw new Error('MERGE_DATA is required before MergeCore');
 
   var TOTAL = DATA.board.totalCells;
+/* 棋盘最后一格固定为配方柜入口：不参与放置、合成与扩建。 */
+var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
+  ? clamp(Math.floor(number(DATA.board.recipeCabinetIndex, TOTAL - 1)), 0, TOTAL - 1)
+  : TOTAL - 1;
   var TIER_CAP = DATA.board.tierCap;
   var OFFLINE_CAP_MS = 8 * 60 * 60 * 1000;
   var DAY_MS = 24 * 60 * 60 * 1000;
@@ -1241,6 +1245,7 @@
     state.lastSeenAt = number(raw.lastSeenAt, now);
     state.lastEnergyTick = number(raw.lastEnergyTick, state.lastSeenAt);
     ensureOrders(state, Math.random);
+    migrateRecipeCabinetSlot(state);
     depositPendingRewards(state);
     syncLegacyAliases(state);
     return state;
@@ -2089,8 +2094,24 @@
 
   function firstFreeGridIndex(state) {
     var limit = Math.min(state.grid.length, clamp(number(state.unlockedCells, DATA.board.startUnlockedCells), 0, TOTAL));
-    for (var index = 0; index < limit; index++) if (state.grid[index] == null) return index;
+    for (var index = 0; index < limit; index++) {
+      if (index === RECIPE_CABINET_INDEX) continue;
+      if (state.grid[index] == null) return index;
+    }
     return -1;
+  }
+
+  /* 旧档可能在配方柜格上存有素材：迁移到最近空格或待入盘队列，不丢资产。 */
+  function migrateRecipeCabinetSlot(state) {
+    if (!state || !state.grid || state.grid[RECIPE_CABINET_INDEX] == null) return;
+    var item = state.grid[RECIPE_CABINET_INDEX];
+    state.grid[RECIPE_CABINET_INDEX] = null;
+    var target = firstFreeGridIndex(state);
+    if (target >= 0) state.grid[target] = item;
+    else {
+      if (!Array.isArray(state.pendingRewards)) state.pendingRewards = [];
+      state.pendingRewards.push(item);
+    }
   }
 
   function depositPendingRewards(state) {
@@ -2560,6 +2581,7 @@
 
   function recycleItem(state, gridIndex, confirmed) {
     gridIndex = Math.floor(number(gridIndex, -1));
+    if (gridIndex === RECIPE_CABINET_INDEX) return { ok: false, reason: 'protected-item', events: [], rewards: null };
     if (gridIndex < 0 || gridIndex >= state.unlockedCells) return { ok: false, reason: 'invalid-cell', events: [], rewards: null };
     var item = state.grid[gridIndex];
     if (!item) return { ok: false, reason: 'empty', events: [], rewards: null };
@@ -2672,6 +2694,7 @@
   function mergeItems(state, fromIndex, toIndex, now, rng) {
     var from = state.grid[fromIndex];
     var to = state.grid[toIndex];
+    if (fromIndex === RECIPE_CABINET_INDEX || toIndex === RECIPE_CABINET_INDEX) return { ok: false, reason: 'not-match' };
     if (!from || !to) return { ok: false, reason: 'not-items' };
     now = number(now, Date.now());
     var producerMerge = false;
@@ -2736,6 +2759,7 @@
     if (fromIndex < 0 || toIndex < 0 || fromIndex >= state.grid.length || toIndex >= state.grid.length) {
       return { ok: false, reason: 'invalid-cell' };
     }
+    if (fromIndex === RECIPE_CABINET_INDEX || toIndex === RECIPE_CABINET_INDEX) return { ok: false, reason: 'locked-cell' };
     if (fromIndex === toIndex) return { ok: false, reason: 'same-cell' };
     if (fromIndex >= state.unlockedCells || toIndex >= state.unlockedCells) return { ok: false, reason: 'locked-cell' };
     var item = state.grid[fromIndex];
@@ -3453,7 +3477,7 @@
   }
 
   function unlockCell(state) {
-    if (state.unlockedCells >= TOTAL) return { ok: false, reason: 'all-unlocked' };
+    if (state.unlockedCells >= TOTAL - 1) return { ok: false, reason: 'all-unlocked' };
     var cost = unlockCellCost(state);
     if (state.jade < cost) return { ok: false, reason: 'jade', cost: cost };
     state.jade -= cost;
@@ -3573,6 +3597,7 @@
     getItemName: getItemName,
     makeItem: makeItem,
     countItems: countItems,
+    recipeCabinetIndex: RECIPE_CABINET_INDEX,
     careGiftInfo: careGiftInfo,
     careRouteForBeast: careRouteForBeast,
     giftChain: function (state, beastId) {

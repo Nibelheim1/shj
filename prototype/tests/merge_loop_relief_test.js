@@ -184,5 +184,29 @@ console.log('== D. 离线储备（charges）实装 ==');
   ok(!r4.ok && r4.reason === 'energy', '储备耗尽且体力 0 时恢复拒绝（reason=' + r4.reason + '）');
 }
 
+console.log('== E. 配方柜专属格 ==');
+{
+  const s = fresh();
+  const cabinet = Core.recipeCabinetIndex;
+  ok(typeof cabinet === 'number' && cabinet >= 0 && cabinet < s.grid.length, '配方柜格索引合法（' + cabinet + '）');
+  ok(s.grid[cabinet] == null, '新档配方柜格为空');
+
+  // 旧档在配方柜格上的素材应迁移到最近空格
+  const raw = fresh();
+  for (let i = 0; i < raw.unlockedCells; i++) raw.grid[i] = null;
+  raw.grid[cabinet] = Core.makeItem('tool', 2);
+  const migrated = Core.normalize(raw, NOW, '2026-08-15');
+  ok(migrated.grid[cabinet] == null, '旧档配方柜格素材被迁出');
+  ok(migrated.grid[0] != null && migrated.grid[0].family === 'tool' && migrated.grid[0].tier === 2, '迁移到最早空格（索引 0）');
+
+  // 满盘时迁入待入盘队列
+  const full = fresh();
+  for (let i = 0; i < full.unlockedCells; i++) if (i !== cabinet) full.grid[i] = full.grid[i] || Core.makeItem('herb', 1);
+  full.grid[cabinet] = Core.makeItem('groom', 3, 'qiongqi');
+  const queued = Core.normalize(full, NOW, '2026-08-15');
+  ok(queued.grid[cabinet] == null, '满盘旧档配方柜格仍被迁出');
+  ok(queued.pendingRewards.some(function (item) { return item && item.family === 'groom' && item.tier === 3; }), '迁出素材进入待入盘队列');
+}
+
 console.log(fails === 0 ? 'ALL PASS' : fails + ' FAIL');
 if (fails) process.exitCode = 1;

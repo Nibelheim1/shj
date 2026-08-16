@@ -41,6 +41,7 @@
   var sectNpcTimer = null;
   var codexPage = 1;
   var CODEX_PAGE_SIZE = 6;
+  var recipeCabinetAnchor = null;
 
   function q(id) { return document ? document.getElementById(id) : null; }
 
@@ -589,7 +590,7 @@
       title: '委托面板',
       intro: '游戏的主线、修缮、医案、访客与七日旅程都收在这里。',
       what: '五个目标槽固定保留五类委托；点卡片打开详情，点“交付”把素材交出去；点目标条可以收起/展开列表。',
-      needs: '每张委托都会列出需要的素材或配方成品；部分礼物要求来自指定神兽的陪伴（如“穷奇礼”），需要与对应神兽一起小游戏获得。',
+      needs: '每张委托都会列出需要的素材或配方成品；部分礼物要求来自指定神兽的陪伴（如“穷奇的礼物”），需要与对应神兽一起小游戏获得。',
       use: '交付后获得暖玉、经验、体力或部件，并推进疗愈、宗门修缮与神兽来信。每天的委托有免费刷新次数，刷新不会让已有进度丢失。',
       tip: '长按委托里的素材图标，能直接看到它的完整合成路线和材料来源。'
     },
@@ -877,7 +878,7 @@
     {
       title: '庭院照料与小游戏',
       html: '<article class="how-to-play-item"><b>⑧ 梳洗台 · 消消乐</b><span>滑动相邻图标交换；3 连消除，4 连造条纹块，L/T 形造炸弹，5 连造彩石。带 ×/2 的毛结要贴着消除逐层解开。至少 3 次有效交换后，超时也有保底奖励。</span></article>' +
-        '<article class="how-to-play-item"><b>⑨ 嬉游亭 · 羊了个羊</b><span>点击多层玩具塔上“露头”的牌收入七格槽，3 张相同自动消除；槽满凑不出三张即结束。至少消除 4 组后，超时也按表现发素材；清空全塔获得最高表现。</span></article>' +
+        '<article class="how-to-play-item"><b>⑨ 嬉游亭 · 羊了个羊</b><span>点击多层玩具塔上“露头”的牌收入六格槽，3 张相同自动消除；槽满凑不出三张即结束。至少消除 4 组后，超时也按表现发素材；清空全塔获得最高表现。</span></article>' +
         '<article class="how-to-play-item"><b>⑩ 有效照料与奖励</b><span>普通难度（轻松/标准/困难/大师）会推进好感、疗愈、经验和主线故事；挑战模式固定 5 体力、只按分数发素材。每日每设施前三局发普通素材，之后可继续练习。</span></article>' +
         '<article class="how-to-play-item"><b>⑪ 设施与岗位</b><span>四栋设施用暖玉升级立即生效；神兽蜕变后自动上岗（离线最多结算 8 小时），每日目标与七日约定在庭院页领取。</span></article>'
     },
@@ -954,8 +955,20 @@
     }
   }
 
+  function restoreRecipeCabinet() {
+    var section = q('recipe-cabinet');
+    if (!section) return;
+    var tools = document.querySelector('.merge-tools');
+    if (tools && section.parentNode !== tools) {
+      section.classList.remove('recipe-cabinet-in-modal');
+      if (recipeCabinetAnchor && recipeCabinetAnchor.parentNode === tools) tools.insertBefore(section, recipeCabinetAnchor);
+      else tools.appendChild(section);
+    }
+  }
+
   function closeModal() {
     stopCareGame();
+    restoreRecipeCabinet();
     var rootNode = q('modal-root');
     if (rootNode) rootNode.innerHTML = '';
   }
@@ -1075,7 +1088,7 @@
     var item = Core.makeItem(need.family, need.tier, need.sourceBeast);
     var sourceBeast = need.sourceBeast ? beastDef(need.sourceBeast) : null;
     var sourceTitle = sourceBeast ? '需由' + sourceBeast.name + '的陪伴礼物获得；长按查看 ' + esc(item.name) + ' 合成路线' : '长按查看 ' + esc(item.name) + ' 合成路线';
-    var sourceBadge = sourceBeast ? '<em class="gift-source">' + esc(sourceBeast.name) + '礼</em>' : '';
+    var sourceBadge = sourceBeast ? '<em class="gift-source">' + esc(sourceBeast.name) + '</em>' : '';
     return '<span class="order-need ' + (have >= need.count ? 'ready' : '') + '" data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托需求" title="' + sourceTitle + '">' +
       '<img src="' + esc(itemPath(item)) + '" alt="' + esc(item.name) + '" />' + sourceBadge + '<b>' + have + '/' + need.count + '</b></span>';
   }
@@ -1159,7 +1172,7 @@
       if (order.giftChain && order.giftChain.note) {
         needsMarkup += '<div class="care-gate-hint gift-chain-note">' + esc(order.giftChain.note) + '</div>';
       }
-      /* 礼物委托：直达照料入口 + 礼物素材进度可视化。 */
+      /* 礼物委托：卡片只显示进度，照料直达入口放进订单详情弹窗。 */
       var giftNeed = !complete && requirements.filter(function (need) {
         return need.sourceBeast && countNeed(need) < need.count;
       })[0] || null;
@@ -1167,10 +1180,9 @@
         var giftBeast = beastDef(giftNeed.sourceBeast);
         var giftInfo = careGiftForDisplay(giftNeed.sourceBeast);
         var giftStats = giftItemStats(giftNeed.family, giftNeed.sourceBeast);
-        needsMarkup += '<div class="care-gate-hint gift-progress">「' + esc(giftBeast.name) + '礼」现有 ' + giftStats.count + ' 件' +
+        needsMarkup += '<div class="care-gate-hint gift-progress">「' + esc(giftBeast.name) + '」的礼物 · 现有 ' + giftStats.count + ' 件' +
           (giftStats.maxTier ? ' · 最高 ' + giftStats.maxTier + ' 阶' : '') +
-          ' · ' + esc(giftInfo.careLabel) + '可获得</div>';
-        needsMarkup += '<button class="deliver-btn care-jump" data-go-care="' + esc(giftNeed.sourceBeast) + '" type="button">去' + esc(giftInfo.careLabel) + '拿礼物</button>';
+          ' · 点开委托可直达' + esc(giftInfo.careLabel) + '</div>';
       }
       var actionMarkup = '<button class="deliver-btn" data-deliver="' + esc(order.id) + '" type="button" ' + (ready && !complete ? '' : 'disabled') + '>' + (complete ? '今日已完成' : '交付 · ' + rewardBits.join(' · ')) + '</button>';
       return '<article class="order-card ' + (mainline ? 'main-order ' : '') + (ready ? 'ready ' : '') + (!reachable ? 'unreachable' : '') + '" data-order-id="' + esc(order.id) + '" data-help="order-card" title="点击查看详情，长按查看委托卡说明">' +
@@ -1202,12 +1214,20 @@
     var board = q('merge-board');
     if (!board) return;
     var cells = [];
+    var cabinetIndex = Core.recipeCabinetIndex != null ? Core.recipeCabinetIndex : (DATA.board.recipeCabinetIndex != null ? DATA.board.recipeCabinetIndex : DATA.board.totalCells - 1);
     for (var index = 0; index < DATA.board.totalCells; index++) {
       var unlocked = index < state.unlockedCells;
       var item = state.grid[index] || null;
       var classes = ['merge-cell'];
       var content = '';
       var label = '空格';
+      if (index === cabinetIndex) {
+        classes.push('recipe-cabinet-cell');
+        label = '配方柜：查看成品与配方台';
+        content = '<span class="recipe-cabinet-cell-icon" aria-hidden="true">🍱</span><em>配方柜</em>';
+        cells.push('<button class="' + classes.join(' ') + '" data-grid-index="' + index + '" data-recipe-cabinet type="button" aria-label="' + esc(label) + '">' + content + '</button>');
+        continue;
+      }
       if (!unlocked) {
         classes.push('locked');
         var unlockCost = Core.unlockCellCost ? Core.unlockCellCost(state) : 18;
@@ -1235,7 +1255,7 @@
       } else if (item) {
         if (selectedIndex === index) classes.push('selected');
         label = itemName(item) + ' ' + item.tier + '阶' + (item.giftSource ? '，' + beastDef(item.giftSource).name + '的陪伴礼物' : '');
-        content = '<img src="' + esc(itemPath(item)) + '" alt="" /><b>' + item.tier + '</b>' + (item.giftSource ? '<em class="gift-source">' + esc(beastDef(item.giftSource).name) + '礼</em>' : '');
+        content = '<img src="' + esc(itemPath(item)) + '" alt="" /><b>' + item.tier + '</b>' + (item.giftSource ? '<em class="gift-source">' + esc(beastDef(item.giftSource).name) + '</em>' : '');
       }
       var longPress = item && item.kind === 'generator' ? ' data-longpress-generator="' + esc(item.family) + '"' : item && (!item.kind || item.kind === 'generator_part') ? ' data-longpress-family="' + esc(item.family) + '" data-longpress-tier="' + item.tier + '" data-longpress-source="' + (item.kind === 'generator_part' ? '生产器部件' : '合成棋盘') + '"' : '';
       cells.push('<button class="' + classes.join(' ') + '" data-grid-index="' + index + '"' + longPress + ' role="gridcell" type="button" aria-label="' + esc(label) + '">' + content + '</button>');
@@ -2206,6 +2226,8 @@
   }
 
   function handleGrid(index) {
+    var cabinetIndex = Core.recipeCabinetIndex != null ? Core.recipeCabinetIndex : (DATA.board.recipeCabinetIndex != null ? DATA.board.recipeCabinetIndex : DATA.board.totalCells - 1);
+    if (index === cabinetIndex) { openRecipeCabinet(); return; }
     var item = state.grid[index];
     if (index >= state.unlockedCells) {
       mutate(Core.unlockCell(state), '疗愈所扩建了一格');
@@ -2322,6 +2344,26 @@
     return result;
   }
 
+  function openRecipeCabinet() {
+    renderMergeTools();
+    var section = q('recipe-cabinet');
+    var modal = modalShell('<span class="eyebrow">配方柜 · 成品与配方台</span><h2>把材料变成疗愈成品</h2>' +
+      '<p class="task-symptom">制作完成的配方会收进柜子；配方台列出的配方在材料齐全时可以直接制作，制作不消耗体力。</p>' +
+      '<div class="recipe-cabinet-host"></div>', 'task-modal recipe-cabinet-modal');
+    if (!modal) return;
+    var host = modal.querySelector('.recipe-cabinet-host');
+    if (section && host) {
+      recipeCabinetAnchor = section.nextElementSibling;
+      host.appendChild(section);
+      section.classList.add('recipe-cabinet-in-modal');
+      var workbench = q('recipe-workbench');
+      var tableBtn = q('recipe-table-open');
+      if (workbench) { workbench.hidden = false; workbench.dataset.state = 'open'; }
+      if (tableBtn) { tableBtn.setAttribute('aria-expanded', 'true'); tableBtn.textContent = '收起配方台'; }
+      playSfx('click');
+    }
+  }
+
   function openOrderDetails(id) {
     var order = orderById(id);
     if (!order) return;
@@ -2338,16 +2380,27 @@
     var roll = rerollInfo();
     var rerollAvailable = roll.remaining > 0;
     var orderAffection = Core.affectionRewardForOrder(order);
+    var giftNeed = (order.requirements || []).filter(function (need) {
+      return need.sourceBeast && countNeed(need) < need.count;
+    })[0] || null;
+    var giftBeast = giftNeed ? beastDef(giftNeed.sourceBeast) : null;
+    var giftCare = giftNeed ? careGiftForDisplay(giftNeed.sourceBeast) : null;
+    var careJumpMarkup = giftNeed && giftBeast && giftCare
+      ? '<button class="modal-secondary care-jump-in-modal" data-modal-care="' + esc(giftNeed.sourceBeast) + '" type="button">去' + esc(giftCare.careLabel) + ' · 收集' + esc(giftBeast.name) + '的礼物</button>'
+      : '';
     var modal = modalShell('<span class="eyebrow">' + kindLabel(order.kind) + '委托</span><h2>' + esc(order.title) + '</h2><p class="task-symptom">' + esc(order.symptom || '') + '</p>' +
       (order.mainline ? '<div class="order-prerequisite"><b>主线前置</b><span>' + esc(prerequisiteText(order)) + '</span></div>' : '') +
       '<div class="task-needs">' + order.requirements.map(function (need) {
         var item = Core.makeItem(need.family, need.tier);
-        return '<div class="task-need-row" data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托详情"><img src="' + esc(itemPath(item)) + '" alt="" /><span><strong>' + esc(item.name) + '</strong><small>' + esc(familyDef(need.family).name) + ' · ' + need.tier + '阶 · 来源：' + esc(sourceLabelForFamily(need.family)) + '</small></span><b>' + countNeed(need) + '/' + need.count + '</b></div>';
+        return '<div class="task-need-row" data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托详情"><img src="' + esc(itemPath(item)) + '" alt="" /><span><strong>' + esc(item.name) + '</strong><small>' + esc(familyDef(need.family).name) + ' · ' + need.tier + '阶 · 来源：' + esc(sourceLabelForNeed(need)) + '</small></span><b>' + countNeed(need) + '/' + need.count + '</b></div>';
       }).join('') + '</div><div class="task-source-note">同类同阶二合一；每种物品都标明了具体来源，小游戏材料需要在对应设施中获得。委托每日自动刷新，刷新页面不会改变槽位；手动刷新消耗今日次数。</div>' +
+      careJumpMarkup +
       '<div class="task-reward">完成奖励：◆' + (order.rewards.jade || 0) + ' · 经验 ' + (order.rewards.xp || 0) + (orderAffection ? ' · 好感 +' + orderAffection : '') + '</div>' +
       '<button class="modal-action" data-modal-deliver type="button" ' + (can ? '' : 'disabled') + '>' + (can ? '立即交付' : '素材尚未齐全') + '</button>' +
       ((order.slot === 'supply' || order.slot === 'care') ? '<button class="modal-secondary" data-reroll="' + order.slot + '" type="button" ' + (rerollAvailable ? '' : 'disabled') + '>免费刷新 ' + roll.remaining + '/' + roll.max + '</button>' : ''), 'task-modal');
     if (!modal) return;
+    var modalCare = modal.querySelector('[data-modal-care]');
+    if (modalCare) modalCare.addEventListener('click', function () { goCareAndPulse(modalCare.dataset.modalCare); });
     var deliverButton = modal.querySelector('[data-modal-deliver]');
     if (deliverButton) deliverButton.addEventListener('click', function () { deliver(id); });
     var reroll = modal.querySelector('[data-reroll]');

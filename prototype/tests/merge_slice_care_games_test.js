@@ -46,17 +46,17 @@ function touchTile(game, tile, rect) {
 }
 
 function clearOneTriple(game, rect) {
+  /* 新塔形：同种三张分散在不同塔位，按“露头同种凑三消”推进。 */
   const legal = game.listLegalTiles();
   assert.ok(legal.length > 0, '羊了个羊始终存在露头牌');
-  const tile = legal[0];
-  for (let n = 0; n < 3; n++) {
-    const top = game.listLegalTiles().find(function (candidate) {
-      return candidate.r === tile.r && candidate.c === tile.c;
-    });
-    assert.ok(top, '同一组三张牌会依次露出');
-    assert.strictEqual(touchTile(game, top, rect), true);
-  }
-  return tile;
+  const counts = {};
+  legal.forEach(function (tile) { counts[tile.type] = (counts[tile.type] || 0) + 1; });
+  const pickType = Object.keys(counts).map(Number).filter(function (type) { return counts[type] >= 3; })[0];
+  assert.ok(pickType != null, '露头牌中存在可凑齐的同种三张');
+  legal.filter(function (tile) { return tile.type === pickType; }).slice(0, 3).forEach(function (tile) {
+    assert.strictEqual(touchTile(game, tile, rect), true);
+  });
+  return pickType;
 }
 
 function clearTriples(game, count) {
@@ -64,11 +64,91 @@ function clearTriples(game, count) {
   for (let n = 0; n < count && !game.finished; n++) clearOneTriple(game, rect);
 }
 
+function clearByBestGreedy(game, label) {
+  let guard = 0;
+  while (!game.finished && guard++ <= game.totalTriples) {
+    const legal = game.listLegalTiles();
+    assert.ok(legal.length > 0, label + ' 最优贪心清塔中始终有露头牌');
+    const counts = {};
+    legal.forEach(function (tile) { counts[tile.type] = (counts[tile.type] || 0) + 1; });
+    const best = Object.keys(counts).map(Number).sort(function (a, b) { return counts[b] - counts[a]; })[0];
+    const copies = legal.filter(function (tile) { return tile.type === best; });
+    assert.strictEqual(copies.length, 3, label + ' 最优贪心每次恰好露头三张同种');
+    copies.forEach(function (tile) { assert.strictEqual(touchTile(game, tile, sheepRect(game)), true); });
+  }
+}
+
+/* 清盘走公开触摸入口。 */
+function clearSheepBoardViaTouch(game, label) {
+  /* 优先用无回溯贪心：不产生中途失败，onDone 只触发一次。
+     贪心不可行时退回记忆化 DFS（仅用于可解性验证）。 */
+  let greedyOk = true;
+  try { clearByBestGreedy(game, label); } catch (error) { greedyOk = false; }
+  if (!greedyOk) {
+    /* 贪心在某步卡住会留下中间状态；直接重建一盘等价棋局再 DFS。 */
+    const fresh = new SheepGame.Game('PLAY', {
+      difficulty: game.difficulty, rng: game.rng, overlap: game.overlap, timeLimit: game.timeLimit,
+      onDone: game.opts.onDone, onCancel: game.opts.onCancel, onEvent: game.onEvent
+    });
+    assert.strictEqual(solveSheepTower(fresh), true, label + ' 清盘可走公开触摸入口');
+    Object.assign(game, fresh);
+  }
+}
+
+/* 记忆化 DFS：新塔形下验证“公开触摸入口必然可清盘”。 */
+function solveSheepTower(game, maxNodes) {
+  maxNodes = maxNodes || 60000;
+  const memo = new Set();
+  let nodes = 0;
+  function removedSnapshot() { return game.tiles.map(function (tile) { return tile.removed; }); }
+  function restoreRemoved(snapshot) { game.tiles.forEach(function (tile, index) { tile.removed = snapshot[index]; }); }
+  function key() {
+    let bits = '';
+    game.tiles.forEach(function (tile) { bits += tile.removed ? '1' : '0'; });
+    return bits + '|' + game.slot.map(function (tile) { return tile.type; }).join(',');
+  }
+  function dfs() {
+    if (game.finished) return game.triplesCleared >= game.totalTriples && game.slot.length === 0;
+    if (game.failed) return false;
+    if (++nodes > maxNodes) return false;
+    const stateKey = key();
+    if (memo.has(stateKey)) return false;
+    memo.add(stateKey);
+    const legal = game.listLegalTiles();
+    if (!legal.length) return false;
+    const types = Array.from(new Set(legal.map(function (tile) { return tile.type; })))
+      .sort(function (a, b) {
+        const ca = legal.filter(function (tile) { return tile.type === a; }).length;
+        const cb = legal.filter(function (tile) { return tile.type === b; }).length;
+        return cb - ca;
+      });
+    for (const type of types) {
+      const removed = removedSnapshot();
+      const slot = game.slot.slice();
+      const failed = game.failed, finished = game.finished, triples = game.triplesCleared;
+      const score = game.score, combo = game.combo, maxCombo = game.maxCombo, perf = game.perf;
+      const taps = game.taps, autoShuffles = game.autoShuffles, elapsed = game.elapsed, timeLeft = game.timeLeft, phase = game.phase;
+      let ok = true;
+      const copies = legal.filter(function (tile) { return tile.type === type; });
+      for (const tile of copies) {
+        if (!touchTile(game, tile, sheepRect(game))) { ok = false; break; }
+      }
+      if (ok && dfs()) return true;
+      restoreRemoved(removed);
+      game.slot = slot; game.failed = failed; game.finished = finished; game.triplesCleared = triples;
+      game.score = score; game.combo = combo; game.maxCombo = maxCombo; game.perf = perf;
+      game.taps = taps; game.autoShuffles = autoShuffles; game.elapsed = elapsed; game.timeLeft = timeLeft; game.phase = phase;
+    }
+    return false;
+  }
+  return dfs();
+}
+
 const DIFFICULTY_DIMENSIONS = {
-  easy: { match3: [6, 6, 5], sheep: [3, 3, 1, 6, 6] },
-  normal: { match3: [6, 6, 6], sheep: [4, 4, 2, 7, 14] },
-  hard: { match3: [6, 7, 6], sheep: [5, 5, 3, 8, 16] },
-  master: { match3: [7, 8, 6], sheep: [6, 6, 4, 9, 18] }
+  easy: { match3: [6, 6, 5], sheep: [3, 3, 3, 7, 7] },
+  normal: { match3: [6, 6, 6], sheep: [4, 4, 3, 8, 16] },
+  hard: { match3: [6, 7, 6], sheep: [5, 5, 3, 9, 18] },
+  master: { match3: [7, 8, 6], sheep: [6, 6, 3, 10, 20] }
 };
 
 function runDifficultyProfileChecks(Match3) {
@@ -137,8 +217,8 @@ function runSheepGameChecks() {
   assert.strictEqual(game.rows, 5, '羊了个羊塔基高 5');
   assert.strictEqual(game.layers, 3, '羊了个羊共 3 层');
   assert.strictEqual(game.maxSlots, 6, '底部槽收窄为 6 格');
-  assert.strictEqual(game.totalTriples, 16, '羊了个羊共 16 组三连');
-  assert.strictEqual(game.tiles.filter(function (tile) { return !tile.removed; }).length, 48, '塔内共 48 张牌');
+  assert.strictEqual(game.totalTriples, 18, '羊了个羊共 18 组三连');
+  assert.strictEqual(game.tiles.filter(function (tile) { return !tile.removed; }).length, 54, '塔内共 54 张牌');
   assert.ok(game.hasLegalMove(), '初盘有露头牌');
 
   const rect = sheepRect(game);
@@ -183,12 +263,12 @@ function runSheepGameChecks() {
   assert.ok(scored.perf >= 0.4, '困难档高分失败按得分匹配 B 档以上表现');
 
   /* 清盘走公开触摸入口。 */
-  while (!game.finished) clearOneTriple(game, rect);
+  clearSheepBoardViaTouch(game, '清盘');
   assert.strictEqual(doneCount, 1, '清盘只触发一次 onDone');
   assert.ok(doneSummary, '清盘回调收到结果');
   assert.ok(doneSummary.perf >= 0.85, '清盘表现分达到 mastery 门槛');
-  assert.strictEqual(doneSummary.summary.triplesCleared, 16, '清盘摘要为 16 组');
-  assert.strictEqual(doneSummary.summary.validActions, 16, '清盘摘要含有效消除组数');
+  assert.strictEqual(doneSummary.summary.triplesCleared, 18, '清盘摘要为 18 组');
+  assert.strictEqual(doneSummary.summary.validActions, 18, '清盘摘要含有效消除组数');
   assert.strictEqual(doneSummary.summary.difficulty, 'hard', '羊了个羊摘要包含 difficulty');
   assert.ok(doneSummary.summary.score > 0, '羊了个羊产生分数');
 
@@ -235,11 +315,11 @@ function runSheepGameChecks() {
 
   const challenge = new SheepGame.Game('PLAY', { difficulty: 'challenge', rng: deterministicRng() });
   assert.deepStrictEqual([challenge.cols, challenge.rows, challenge.layers, challenge.totalTriples, challenge.timeLimit],
-    [7, 7, 5, 20, 150], '挑战模式独立塔基、层数与时长');
+    [7, 7, 4, 20, 150], '挑战模式独立塔基、层数与时长');
   assert.strictEqual(challenge.maxSlots, 6, '挑战模式同样使用 6 格槽');
   assert.ok(challenge.failPerfCap >= 0.84, '挑战模式高分失败也可匹配高表现');
 
-  console.log('  PASS  SheepGame 5×5 3 层 16 组、三消/槽满/高分失败/清盘/超时/取消/挑战');
+  console.log('  PASS  SheepGame 5×5 3 层 18 组、三消/槽满/高分失败/清盘/超时/取消/挑战');
 }
 
 function loadMatch3(constantRandom) {
