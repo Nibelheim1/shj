@@ -19,7 +19,7 @@ var HOW_TO_PLAY_PAGES = [
       title: '把它的心也梳顺',
       html: '<article class="how-to-play-item"><b>⑧ 梳洗台 · 消消乐</b><span>滑动相邻图标交换，三连消除；四连成条纹，L/T 形成炸弹，五连成彩石。贴着 ×/2 的毛结消除，一层层解开。有效交换 3 次以上，超时也有保底。</span></article>' +
         '<article class="how-to-play-item"><b>⑨ 嬉游亭 · 叠塔牌</b><span>点玩具塔上"露头"的牌收进五格槽，三张相同自动消去；槽满凑不出就结束。消 4 组以上，超时也按表现发素材；清空整座塔最漂亮。</span></article>' +
-        '<article class="how-to-play-item"><b>⑩ 有效照料与奖励</b><span>普通难度（轻松/标准/困难/大师）推进好感、疗愈、阅历和主线故事；挑战模式固定 5 点灵力，只按表现发素材。每天每设施前三局发普通素材，之后还能继续陪它。</span></article>' +
+        '<article class="how-to-play-item"><b>⑩ 有效照料与奖励</b><span>普通难度（轻松/标准/困难/大师）推进好感、疗愈、阅历和主线故事；挑战模式固定 5 点灵力，只按表现发素材。每次有效照料都能获得普通素材，不设每日场数上限。</span></article>' +
         '<article class="how-to-play-item"><b>⑪ 设施与岗位</b><span>四栋设施用暖玉升级，立刻生效。神兽蜕变后自动上岗，离线最多结算 8 小时；每日目标与七日约定在庭院页领取。</span></article>' +
         '<div class="how-to-play-note">输了这局也不要紧，它只记得你来过。</div>'
     },

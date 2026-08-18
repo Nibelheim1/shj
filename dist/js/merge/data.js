@@ -910,6 +910,70 @@
     '松鼠轻药囊', '小鹿晨露水', '白鹤远绷带', '山雀暖巢草', '獾叔耐磨具',
     '兔子梳毛礼', '穿山甲药包', '狸猫晚灯油', '雨燕风草叶', '小熊登山补'
   ], ['herb', 'tool'], 3);
+  /* 山海访客不是匿名材料单，而是循着宗门灯火上门的短篇来客。
+     两个回应方向只给等价的小回礼，选择负责塑造故事，不制造最优解焦虑。 */
+  var visitors = [
+    {
+      id: 'squirrel', name: '松鼠客', role: '雪岭跑信人', title: '迟到的药囊', art: 'assets/art/npc/squirrel.webp',
+      arrival: '它抱着一只比自己还大的空药囊，在山门前急得尾巴直抖。',
+      request: '雪岭的小松鼠染了风寒。它想带一份山中物资赶在落雪前回去。',
+      delivered: '药囊终于鼓了起来。松鼠客松开一直攥紧的小爪子。',
+      choices: [
+        { id: 'rest', label: '先让它烤暖爪子', reward: { energy: 3 }, outcome: '炉边的热气把雪水蒸成白雾。它第一次发现，赶路也可以先歇一口气。' },
+        { id: 'escort', label: '请穷奇护送一程', reward: { jade: 8 }, outcome: '穷奇把药囊背到肩上。松鼠客一路回头挥爪，直到山路拐弯。' }
+      ]
+    },
+    {
+      id: 'deer', name: '小鹿', role: '溪谷采露人', title: '打翻的晨露', art: 'assets/art/npc/deer.webp',
+      arrival: '小鹿护着一只裂了缝的露水瓶，蹄印从溪谷一直湿到门前。',
+      request: '它答应给卧病的祖母带回晨露，却在过石桥时摔碎了瓶子。',
+      delivered: '新装好的物资在瓶中轻轻晃动，小鹿终于敢抬头看你。',
+      choices: [
+        { id: 'listen', label: '陪它把担心说完', reward: { energy: 3 }, outcome: '说到最后，小鹿的声音不再发抖。原来有人听着，回家的路就没那么长。' },
+        { id: 'map', label: '画一条安全近路', reward: { jade: 8 }, outcome: '你在叶片上画出避开急流的小径。小鹿把地图贴在胸前，认真道了三次谢。' }
+      ]
+    },
+    {
+      id: 'sparrow', name: '山雀', role: '风口守巢者', title: '被风吹散的家', art: 'assets/art/npc/sparrow.webp',
+      arrival: '山雀衔着一根湿羽毛落在门环上，身后还追着几片破碎的旧巢。',
+      request: '昨夜山风掀开了屋顶。它想带些结实物资回去，让幼鸟今晚有地方睡。',
+      delivered: '山雀把物资一件件系紧，胸口的小绒毛也跟着蓬松起来。',
+      choices: [
+        { id: 'nest', label: '一起编好第一圈巢', reward: { energy: 3 }, outcome: '第一圈草茎在你们手中扣紧。山雀说，剩下的它已经敢自己完成了。' },
+        { id: 'wind', label: '送一枚避风门牌', reward: { jade: 8 }, outcome: '小小门牌在风里稳稳垂着。山雀绕着它飞了一圈，把最亮的羽毛留作回礼。' }
+      ]
+    },
+    {
+      id: 'badger', name: '獾叔', role: '山道修桥匠', title: '没修完的木桥', art: 'assets/art/npc/badger.webp',
+      arrival: '獾叔拖着磨钝的工具箱进门，袖口还沾着河滩的泥。',
+      request: '通往集市的小桥只差最后一截，桥那头还有几户人家等着过河。',
+      delivered: '新物资落进工具箱，发出让老匠人安心的清脆声。',
+      choices: [
+        { id: 'tea', label: '装一壶热茶再开工', reward: { energy: 3 }, outcome: '獾叔喝完热茶，慢慢直起腰。他说桥要结实，修桥的人也得先站稳。' },
+        { id: 'team', label: '请宗门弟子搭把手', reward: { jade: 8 }, outcome: '几双手一起抬起木梁。黄昏前，桥上的第一串脚步声已经响了起来。' }
+      ]
+    },
+    {
+      id: 'rabbit', name: '兔灯', role: '夜路引灯人', title: '借来的一点光', art: 'assets/art/npc/rabbit.webp',
+      arrival: '兔灯抱着一盏熄灭的小灯，耳朵上还挂着夜路的露珠。',
+      request: '山下有群晚归的孩子认不清岔路，它想把这盏灯重新点亮。',
+      delivered: '灯芯吃饱了物资，暖黄的光一下映亮兔灯的眼睛。',
+      choices: [
+        { id: 'light', label: '陪它试亮每一盏灯', reward: { energy: 3 }, outcome: '一盏、两盏、三盏。兔灯记住了每处黑暗，也记住了该把光放在哪里。' },
+        { id: 'bell', label: '再系一枚引路铃', reward: { jade: 8 }, outcome: '看不清灯时，还能循着铃声走。兔灯摇了摇耳朵，带着两种光出发了。' }
+      ]
+    },
+    {
+      id: 'aluan', name: '阿鸾', role: '南山传书使', title: '没有署名的回信', art: 'assets/art/npc/aluan.webp',
+      arrival: '阿鸾把一封没有署名的信压在翅下，绕着山门飞了两圈才落下。',
+      request: '写信的人只说“我很好”，可纸上有泪痕。阿鸾想带些东西和一句真正的问候回去。',
+      delivered: '物资包好后，阿鸾仍守着那封信，等你替空白处添一句话。',
+      choices: [
+        { id: 'reply', label: '写下“这里一直留灯”', reward: { energy: 3 }, outcome: '墨迹干透时，阿鸾轻轻啄了啄信角。它知道这次带回去的不只是物资。' },
+        { id: 'token', label: '放入一枚宗门叶签', reward: { jade: 8 }, outcome: '叶签上只有山门的方向。若哪天想回来，那个人不必再解释自己为何出发。' }
+      ]
+    }
+  ];
   var firstReleaseOrderTemplates = volumeOneOrderTemplates.concat(volumeTwoOrderTemplates, medicalOrderTemplates, visitorOrderTemplates);
 
   var order = {
@@ -993,10 +1057,10 @@
 
   /* H5 照料小游戏与主棋盘共享的唯一奖励表。奖励数组表示依次掉落的素材阶位。 */
   var careGames = {
-    /* Ordinary care rewards keep the three-runs-per-facility daily guardrail.
-     * Challenge mode is instead bounded by five-point energy cost and a
-     * six-item score cap, so its material economy stays independent. */
-    rewardRunsUnlimited: false,
+    /* Every qualified ordinary care round can now grant materials.  Keep the
+     * numeric field as a legacy fallback for older integrations, but the
+     * explicit flag is authoritative and removes the daily facility cap. */
+    rewardRunsUnlimited: true,
     rewardRunsPerFacility: 3,
     /* Both care games and beast-specific commissions share this daily cap. */
     affectionDailyCap: 100,
@@ -1134,7 +1198,7 @@
         stageBonuses: [
           stageBonus(1, '梳洗局 A 评级奖励 +5%', 'minigame.bonusChance', { family: 'groom', add: 0.05 }),
           stageBonus(2, '梳洗局 S 评级奖励 +5%', 'minigame.bonusChance', { family: 'groom', add: 0.05 }),
-          stageBonus(3, '梳洗普通奖励每日 +1 局', 'minigame.extraRuns', { family: 'groom', add: 1 })
+          stageBonus(3, '梳洗局奖励加成（不限次数）', 'minigame.extraRuns', { family: 'groom', add: 1 })
         ],
         stages: [
           { order: { title: '理清旧竹席', text: '先把落满灰的竹席收好，给尾巴们腾出舒展的地方。', requirements: [requirement('build', 2, 1), requirement('groom', 2, 1)], reward: { jade: 45, xp: 25 } } },
@@ -1939,6 +2003,7 @@
       ]
     },
     order: order,
+    visitors: visitors,
     recipes: recipes,
     specials: specials,
     beasts: beasts,

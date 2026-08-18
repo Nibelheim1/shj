@@ -106,7 +106,7 @@ function run() {
   const originalRandom = Math.random;
   Math.random = RNG;
   try {
-    check('小游戏跳过/低操作不产出，超时有效操作有保底且每日每设施最多三局', () => {
+    check('小游戏跳过/低操作不产出，超时有效操作有保底且有效照料不受每日场数限制', () => {
       ['groom', 'play'].forEach((type) => {
         const state = fresh();
         emptyBoard(state);
@@ -150,27 +150,25 @@ function run() {
           type + ' timeout floor tiers');
         assert.ok(timeout.rewardCount > 0, type + ' timeout reward count');
 
-        /* Two more qualified runs are allowed; the fourth is practice only. */
+        /* Qualified runs continue to grant materials after the former cap. */
         for (let runIndex = 0; runIndex < 2; runIndex += 1) {
           const rewarded = careRun(state, type, 'complete', 0.6, required);
           assert.strictEqual(rewarded.rewarded, true, type + ' qualified run #' + (runIndex + 2));
           assert.ok(rewarded.rewardCount > 0, type + ' qualified run material');
         }
-        assert.strictEqual(state.daily.careRewards[type], 3, type + ' daily reward cap');
+        assert.strictEqual(state.daily.careRewards[type], 3, type + ' reward counter after three runs');
         const afterThree = {
           dailyCare: state.daily.care,
           count: entry.careCount,
           bond: entry.bond
         };
         const fourth = careRun(state, type, 'mastery', 1, required);
-        assert.strictEqual(fourth.noReward, true, type + ' fourth qualified run is capped');
-        assert.strictEqual(fourth.rewardLimited, true, type + ' fourth run cap marker');
-        assert.strictEqual(fourth.rewardCount, 0, type + ' fourth run reward count');
-        assert.deepStrictEqual({
-          dailyCare: state.daily.care,
-          count: entry.careCount,
-          bond: entry.bond
-        }, afterThree, type + ' capped run must not advance care');
+        assert.strictEqual(fourth.rewarded, true, type + ' fourth qualified run remains rewarded');
+        assert.strictEqual(fourth.rewardLimited, undefined, type + ' fourth run has no cap marker');
+        assert.ok(fourth.rewardCount > 0, type + ' fourth run reward count');
+        assert.ok(state.daily.careRewards[type] === 4, type + ' reward counter continues');
+        assert.ok(state.daily.care > afterThree.dailyCare, type + ' fourth run advances daily care');
+        assert.ok(entry.careCount > afterThree.count, type + ' fourth run advances beast care');
       });
     });
 
@@ -278,6 +276,18 @@ function run() {
         seedOrder(state, supply);
         const result = Core.deliverOrder(state, supply.id, RNG, now + 1000);
         assert.strictEqual(result.ok, true, 'day ' + day + ' visitor order should deliver');
+        const encounter = result.visitorEncounter || (state.visitors && state.visitors.pending);
+        expect(encounter, 'day ' + day + ' visitor delivery should open a response');
+        const visitor = Core.visitorDefinition(encounter.visitorId);
+        expect(visitor && visitor.choices && visitor.choices[0],
+          'day ' + day + ' visitor response should have a valid choice');
+        const response = Core.resolveVisitorEncounter(
+          state,
+          encounter.id,
+          visitor.choices[0].id,
+          now + 2000
+        );
+        assert.strictEqual(response.ok, true, 'day ' + day + ' visitor response should resolve');
         delivered += 1;
         assert.strictEqual(state.completedOrders, completedBeforeDailyLoop + delivered,
           'completed order counter should advance once per day');

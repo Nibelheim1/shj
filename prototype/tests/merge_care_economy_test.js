@@ -91,7 +91,7 @@ check('配置含四档难度、双游戏尺寸、玩法规则和统一奖励表'
     DATA.careGames.difficulties.master.groom.icons.length === 6 &&
     new Set(DATA.careGames.difficulties.master.groom.icons.map(function (name) { return name.replace(/_\d+$/, ''); })).size === 6,
     '消消乐大师档配置 6 张跨系列图标');
-  assert.strictEqual(DATA.careGames.rewardRunsPerFacility, 3);
+  assert.strictEqual(DATA.careGames.rewardRunsUnlimited, true);
 });
 
 check('难度按故事和设施等级解锁', function () {
@@ -133,15 +133,19 @@ check('标准、困难与大师档奖励映射到对应合成阶位', function (
   assert.deepStrictEqual(tiers(run(master, 'master', 0.9, 3, 'mastery')), [3, 2]);
 });
 
-check('每设施每日前三局发素材，第四局只记练习且不增长数值', function () {
+check('有效照料不受每日场数限制，连续完成仍发素材并推进成长', function () {
   const state = fresh('easy');
   for (let index = 0; index < 3; index++) assert.strictEqual(run(state, 'easy', 0.5, 3).rewarded, true);
   const entry = state.beastCases.qiongqi;
   const before = { care: state.daily.care, count: entry.careCount, bond: entry.bond };
   const fourth = run(state, 'easy', 0.9, 3, 'mastery');
-  assert.strictEqual(fourth.rewardLimited, true);
-  assert.strictEqual(fourth.practice, true);
-  assert.deepStrictEqual({ care: state.daily.care, count: entry.careCount, bond: entry.bond }, before);
+  assert.strictEqual(fourth.rewarded, true);
+  assert.strictEqual(fourth.rewardLimited, undefined);
+  assert.ok(fourth.rewardCount > 0);
+  assert.ok(state.daily.care > before.care);
+  assert.ok(entry.careCount > before.count);
+  assert.ok(entry.bond >= before.bond);
+  assert.strictEqual(state.daily.careRewards.groom, 4);
   assert.strictEqual(state.daily.careHistory.groom.length, 4);
 });
 

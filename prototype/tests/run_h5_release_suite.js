@@ -33,6 +33,7 @@ const TESTS = [
   'prototype/tests/h5_daily_retention_v8_test.js',
   'prototype/tests/h5_save_recovery_v8_test.js',
   'prototype/tests/h5_analytics_privacy_v8_test.js',
+  'prototype/tests/h5_visitor_experience_v9_test.js',
   'prototype/tests/h5_browser_resilience_v8_test.js'
 ];
 

@@ -332,6 +332,38 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     return DATA.beasts.find(function (beast) { return beast.id === id; }) || null;
   }
 
+  function visitorDefinition(id) {
+    return (DATA.visitors || []).find(function (visitor) { return visitor && visitor.id === id; }) || null;
+  }
+
+  function freshVisitorState() {
+    return { met: {}, history: [], pending: null, lastVisitorId: null };
+  }
+
+  function normalizeVisitorState(raw) {
+    raw = raw && typeof raw === 'object' ? raw : {};
+    var met = {};
+    Object.keys(raw.met && typeof raw.met === 'object' ? raw.met : {}).forEach(function (id) {
+      if (visitorDefinition(id)) met[id] = Math.max(0, Math.floor(number(raw.met[id], 0)));
+    });
+    var history = (Array.isArray(raw.history) ? raw.history : []).filter(function (entry) {
+      return entry && visitorDefinition(entry.visitorId);
+    }).slice(-20).map(function (entry) {
+      return {
+        id: String(entry.id || ''), visitorId: entry.visitorId, choiceId: String(entry.choiceId || ''),
+        choiceLabel: String(entry.choiceLabel || ''), outcome: String(entry.outcome || ''),
+        at: number(entry.at, Date.now()), reward: clone(entry.reward || {})
+      };
+    });
+    var pending = raw.pending && visitorDefinition(raw.pending.visitorId) ? {
+      id: String(raw.pending.id || ('visitor-encounter-' + raw.pending.visitorId)),
+      orderId: String(raw.pending.orderId || ''), visitorId: raw.pending.visitorId,
+      createdAt: number(raw.pending.createdAt, Date.now()), baseRewards: clone(raw.pending.baseRewards || {})
+    } : null;
+    var lastVisitorId = visitorDefinition(raw.lastVisitorId) ? raw.lastVisitorId : (history.length ? history[history.length - 1].visitorId : null);
+    return { met: met, history: history, pending: pending, lastVisitorId: lastVisitorId };
+  }
+
   /* 陪伴闭环：神兽 + 游戏类型 → 实际掉落的素材族。
      gift.care 是它“能送出成长礼物”的那款游戏；另一款游戏只会掉落普通小礼。 */
   function careRouteForBeast(beastId, careType) {
@@ -821,6 +853,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       firstStoryCompleted: false,
       activeOrders: [],
       visitorRefreshAt: now + number(DATA.order && DATA.order.visitorRefreshMs, 3 * 60 * 60 * 1000),
+      visitors: freshVisitorState(),
       orderSerial: 0,
       facilities: {
         clinic: { level: 1 },
@@ -1279,6 +1312,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     recoverPermanentGenerators(state, now);
     state.noviceSupply = Math.max(0, Math.floor(number(raw.noviceSupply, number(raw.version, 0) < 7 ? 0 : base.noviceSupply)));
     state.visitorRefreshAt = number(raw.visitorRefreshAt, now + number(DATA.order && DATA.order.visitorRefreshMs, 3 * 60 * 60 * 1000));
+    state.visitors = normalizeVisitorState(raw.visitors || raw.visitorBook);
     state.products = Object.assign({}, base.products, raw.products || {});
     Object.keys(state.products).forEach(function (id) { state.products[id] = Math.max(0, Math.floor(number(state.products[id], 0))); });
     state.special = Object.assign({}, base.special, raw.special || {});
@@ -1974,14 +2008,29 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
 
   function makeVisitorOrder(state, rng, now) {
     var order = makeSupplyOrder(state, rng);
+    var visitors = DATA.visitors || [];
+    var visitor = visitors.length ? visitors[Math.floor(randomUnit(rng) * visitors.length)] : null;
     order.slot = 'visitor';
     order.kind = 'visitor';
     order.boundAt = number(now, Date.now());
     var refreshMs = Math.max(60 * 1000, number(DATA.order && DATA.order.visitorRefreshMs, 3 * 60 * 60 * 1000) + stageBonusSum(state, 'order.refreshMs', 'add'));
     order.refreshAt = order.boundAt + refreshMs;
-    order.title = '山海访客';
-    order.symptom = '远道而来的小客人想带一份山中物资继续赶路。';
+    order.visitorId = visitor && visitor.id || null;
+    order.title = visitor ? visitor.name + '来访' : '山海访客';
+    order.symptom = visitor ? visitor.request : '远道而来的小客人想带一份山中物资继续赶路。';
+    order.deliveryText = visitor ? visitor.delivered : '来客接过物资，终于放下了赶路时一直悬着的心。';
     return order;
+  }
+
+  function makeVisitorResponseOrder(state) {
+    var pending = state && state.visitors && state.visitors.pending;
+    var visitor = pending && visitorDefinition(pending.visitorId);
+    if (!pending || !visitor) return null;
+    return normalizeOrder({
+      id: 'visitor-response-' + pending.id, slot: 'visitor', kind: 'visitor_response', status: 'OPEN',
+      visitorId: visitor.id, encounterId: pending.id, title: '回应' + visitor.name,
+      symptom: visitor.delivered + ' 物资已经备好，它正在等你说一句话。', requirements: [], rewards: {}, permanent: true
+    });
   }
 
   function makeJourneyOrder(state, rng) {
@@ -2048,7 +2097,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     else if (!bySlot.medical || bySlot.medical.kind === 'growth_complete' || bySlot.medical.status === 'LOCKED' || !isOrderReachable(state, bySlot.medical)) bySlot.medical = makeMedicalOrder(state, rng);
     var now = number(state.lastSeenAt, Date.now());
     if (!visitorOpen) bySlot.visitor = lockedSlot('visitor', '访客未开', '完成第一段故事后，山门才会迎来访客。');
-    else if (!bySlot.visitor || bySlot.visitor.status === 'LOCKED' || number(bySlot.visitor.refreshAt, 0) <= now || !isOrderReachable(state, bySlot.visitor)) bySlot.visitor = makeVisitorOrder(state, rng, now);
+    else if (state.visitors && state.visitors.pending) bySlot.visitor = makeVisitorResponseOrder(state);
+    else if (!bySlot.visitor || bySlot.visitor.kind === 'visitor_response' || bySlot.visitor.status === 'LOCKED' || number(bySlot.visitor.refreshAt, 0) <= now || !isOrderReachable(state, bySlot.visitor)) bySlot.visitor = makeVisitorOrder(state, rng, now);
     if (!journeyOpen) bySlot.journey = lockedSlot('journey', '旅程未开', '第一只神兽蜕变后开放。');
     else if (!bySlot.journey || bySlot.journey.status === 'LOCKED' || bySlot.journey.boundDate !== state.daily.date || !isOrderReachable(state, bySlot.journey)) bySlot.journey = makeJourneyOrder(state, rng);
     state.activeOrders = [bySlot.main, bySlot.renovation, bySlot.medical, bySlot.visitor, bySlot.journey];
@@ -2162,7 +2212,9 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       toStage: toStage,
       stageName: current.stageName,
       text: current.order.deliveryText || stageLine,
-      bonusText: stageBonus ? stageBonus.text : null
+      bonusText: stageBonus ? stageBonus.text : null,
+      reward: clone(reward),
+      cellsUnlocked: cellsUnlocked
     };
     var change = recordWorldChange(state, worldEvent);
     var actOneDone = sectTotalDone(state) >= sectTotalTarget(state);
@@ -2349,7 +2401,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     /* A care gate is a signpost into the no-energy interaction, never a
        material turn-in. Otherwise players could repeatedly submit it without
        advancing the treatment node. */
-    if (order.kind === 'care_gate') return false;
+    if (order.kind === 'care_gate' || order.kind === 'visitor_response') return false;
     var materialReady = (order.requirements || []).every(function (need) {
       return countItems(state, need.family, need.tier, need.sourceBeast) >= need.count;
     });
@@ -2362,6 +2414,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     if (order && order.kind === 'care_gate') {
       return !!(order.beastId && isYardBeastAvailable(state, order.beastId));
     }
+    if (order && order.kind === 'visitor_response') return !!(state.visitors && state.visitors.pending);
     if (!order || !Array.isArray(order.requirements)) return false;
     var itemsReachable = order.requirements.every(function (need) {
       return resolveItemAvailability(state, need).status === 'available';
@@ -2617,6 +2670,53 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     return 0;
   }
 
+  function prepareVisitorEncounter(state, order, now) {
+    var visitor = visitorDefinition(order && order.visitorId) || (DATA.visitors || [])[0];
+    if (!visitor) return null;
+    state.visitors = normalizeVisitorState(state.visitors);
+    if (!state.visitors.pending) {
+      state.visitors.pending = {
+        id: 'visitor-encounter-' + String(order.id || state.orderSerial || Date.now()),
+        orderId: String(order.id || ''), visitorId: visitor.id,
+        createdAt: number(now, Date.now()), baseRewards: clone(order.rewards || {})
+      };
+    }
+    return clone(state.visitors.pending);
+  }
+
+  function resolveVisitorEncounter(state, encounterId, choiceId, now) {
+    var ledger = state && state.visitors;
+    var pending = ledger && ledger.pending;
+    if (!pending || String(pending.id) !== String(encounterId)) return { ok: false, reason: 'visitor-encounter-not-found' };
+    var visitor = visitorDefinition(pending.visitorId);
+    var choice = visitor && (visitor.choices || []).find(function (entry) { return entry && entry.id === choiceId; });
+    if (!visitor || !choice) return { ok: false, reason: 'visitor-choice-not-found' };
+    var reward = clone(choice.reward || {});
+    var previousLevel = state.level;
+    state.jade += Math.max(0, Math.floor(number(reward.jade, 0)));
+    state.energy += Math.max(0, Math.floor(number(reward.energy, 0)));
+    var levelsGained = gainXp(state, Math.max(0, Math.floor(number(reward.xp, 0))));
+    var record = {
+      id: pending.id, visitorId: visitor.id, choiceId: choice.id, choiceLabel: choice.label,
+      outcome: choice.outcome, reward: reward, at: number(now, Date.now())
+    };
+    ledger.history = Array.isArray(ledger.history) ? ledger.history : [];
+    ledger.history.push(record);
+    ledger.history = ledger.history.slice(-20);
+    ledger.met = ledger.met && typeof ledger.met === 'object' ? ledger.met : {};
+    ledger.met[visitor.id] = Math.max(0, Math.floor(number(ledger.met[visitor.id], 0))) + 1;
+    ledger.lastVisitorId = visitor.id;
+    ledger.pending = null;
+    syncLegacyAliases(state);
+    return {
+      ok: true, encounterId: record.id, visitorId: visitor.id, visitorName: visitor.name,
+      visitorTitle: visitor.title, choiceId: choice.id, choiceLabel: choice.label,
+      outcome: choice.outcome, reward: reward, baseRewards: clone(pending.baseRewards || {}),
+      historyCount: ledger.history.length, levelsGained: levelsGained,
+      previousLevel: previousLevel, level: state.level
+    };
+  }
+
   function deliverOrder(state, orderId, rng, now) {
     if (!Array.isArray(state.activeOrders)) state.activeOrders = [];
     /* Contract tests and migration repair may inject a valid permanent order.
@@ -2635,6 +2735,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       return { ok: true, order: clone(order), rewards: clone(renovationResult.reward || {}), renovation: renovationResult, events: [{ type: 'renovation_stage', areaId: renovationResult.areaId, stageIndex: renovationResult.stageIndex }], reward: clone(renovationResult.reward || {}) };
     }
     if (order.kind === 'care_gate') return { ok: false, reason: 'care-required' };
+    if (order.kind === 'visitor_response') return { ok: false, reason: 'visitor-response-required' };
     if (!canDeliver(state, order)) return { ok: false, reason: 'requirements', missing: missingRequirements(state, order) };
     order.requirements.forEach(function (need) { consumeRequirement(state, need); });
     if (order.productNeed) state.products[order.productNeed.productId] -= number(order.productNeed.count, 1);
@@ -2657,6 +2758,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var acquiredBeastId = null;
     var acquiredLevel = null;
     var affectionGained = 0;
+    var visitorEncounter = null;
 
     if (order.kind === 'growth') {
       var growthEntry = state.beastCases[order.beastId];
@@ -2687,6 +2789,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       }
     } else if (order.kind === 'supply' || order.kind === 'visitor') {
       state.daily.supplyCompleted = Math.min(3, state.daily.supplyCompleted + 1);
+      if (order.kind === 'visitor') visitorEncounter = prepareVisitorEncounter(state, order, now);
     } else if (order.kind === 'journey') {
       state.journey = state.journey || { day: 1, claimed: [], suggestionsSeen: [] };
       if (state.journey.claimed.indexOf(state.daily.date) < 0) state.journey.claimed.push(state.daily.date);
@@ -2726,6 +2829,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       ok: true, order: order, rewards: clone(rewards), transformed: transformed,
       acquired: !!acquiredBeastId, acquiredBeastId: acquiredBeastId, acquiredLevel: acquiredLevel,
       revealEvents: clone(revealEvents), autoLevels: clone(autoLevelResult.events || []),
+      visitorEncounter: clone(visitorEncounter),
       affectionGained: affectionGained,
       levelsGained: levelsGained, level: state.level, previousLevel: previousLevel
     };
@@ -3029,6 +3133,17 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var progress = chapterProgress(state);
     var main = orders.find(function (order) { return order && order.slot === 'main'; });
     var renovationCard = orders.find(function (order) { return order && order.slot === 'renovation'; });
+    var pendingVisitor = state.visitors && state.visitors.pending;
+    if (pendingVisitor) {
+      var waitingVisitor = visitorDefinition(pendingVisitor.visitorId);
+      return {
+        type: 'visitor_response', order: orders.find(function (order) { return order && order.slot === 'visitor'; }),
+        page: 'merge-view', action: 'visitor-response', encounterId: pendingVisitor.id,
+        text: '回应来访的' + (waitingVisitor ? waitingVisitor.name : '山海来客'),
+        detail: '物资已经交到它手中；听完故事并作出回应，领取来客回礼。',
+        progress: { current: 1, target: 1, label: '山海访客 · 等待回应' }, chapter: progress
+      };
+    }
     var result;
     if (progress.phase === 'transition') {
       result = { type: 'transition', order: main, page: 'sect-view', action: 'acknowledge-transition', text: '查看本卷衔接演出', detail: progress.pendingTransition && progress.pendingTransition.title };
@@ -4028,6 +4143,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     sortOrderCards: sortOrderCards,
     moveBoardItem: moveBoardItem,
     deliverOrder: deliverOrder,
+    resolveVisitorEncounter: resolveVisitorEncounter,
+    visitorDefinition: visitorDefinition,
     affectionRewardForOrder: affectionRewardForOrder,
     recordCare: recordCare,
     beginCare: beginCare,

@@ -73,6 +73,10 @@
     return DATA.beasts.find(function (beast) { return beast.id === id; }) || DATA.beasts[0];
   }
 
+  function visitorDef(id) {
+    return (DATA.visitors || []).find(function (visitor) { return visitor && visitor.id === id; }) || null;
+  }
+
   function caseForId(id) {
     id = id || 'qiongqi';
     return { id: id, definition: beastDef(id), entry: state.beastCases[id] };
@@ -1075,6 +1079,8 @@ var MODULE_HELP = {
     });
     var main = q('slice-main');
     if (main) main.scrollTop = 0;
+    /* 宗门舆图与访客立绘按需渲染，未进入宗门页时不占首屏传输。 */
+    if (viewId === 'sect-view') renderSect();
   }
 
   function overallProgress() {
@@ -1140,7 +1146,8 @@ var MODULE_HELP = {
     var labels = {
       'deliver-order': '去交付', 'deliver-renovation': '交付修缮', merge: '去合成', generator: '去产出', care: '去庭院照料',
       'unlock-area': '去开放区域', 'open-recipe': '打开配方', 'acknowledge-transformation': '查看蜕变',
-      'claim-job': '领取岗位', 'acknowledge-job': '确认岗位', 'acknowledge-transition': '查看演出', 'show-ending': '查看终章', 'show-source': '查看线索'
+      'claim-job': '领取岗位', 'acknowledge-job': '确认岗位', 'acknowledge-transition': '查看演出', 'show-ending': '查看终章', 'show-source': '查看线索',
+      'visitor-response': '回应访客'
     };
     var action = hint && hint.action || 'show-objective';
     var progress = hint && hint.progress && hint.progress.label ? '<span class="next-action-progress">' + esc(hint.progress.label) + '</span>' : '';
@@ -1178,11 +1185,11 @@ var MODULE_HELP = {
       return;
     }
     if (action === 'deliver-order') { deliver(button.dataset.objectiveOrder); return; }
+    if (action === 'visitor-response') { showPendingVisitorEncounter(); return; }
     if (action === 'deliver-renovation') {
       var reno = Core.deliverRenovation(state);
       if (mutate(reno, reno.deliveryText || '修缮完成', null, 'order')) {
-        if (reno.worldEvent) showWorldChange(reno.worldEvent);
-        if (reno.acquiredBeastId && Core.peekBeastReveal(state)) showPendingBeastReveal();
+        showRenovationFeedback(reno);
       }
       return;
     }
@@ -1232,7 +1239,7 @@ var MODULE_HELP = {
 
   function kindLabel(kind) {
     return {
-      main: '卷章', renovation: '修缮', medical: '医案', visitor: '访客', journey: '旅程',
+      main: '卷章', renovation: '修缮', medical: '医案', visitor: '访客', visitor_response: '访客', journey: '旅程',
       recruit: '灯信', recruit_complete: '灯信', growth: '成长', growth_complete: '成长', supply: '补给', supply_complete: '补给'
     }[kind] || '委托';
   }
@@ -1297,7 +1304,9 @@ var MODULE_HELP = {
     var cardOrders = Core.sortOrderCards ? Core.sortOrderCards(orders) : orders.slice();
     list.innerHTML = cardOrders.map(function (order) {
       var careGate = order.kind === 'care_gate';
-      var ready = careGate ? false : Core.canDeliver(state, order);
+      var visitorResponse = order.kind === 'visitor_response';
+      var visitor = visitorDef(order.visitorId);
+      var ready = visitorResponse || (!careGate && Core.canDeliver(state, order));
       var reachable = Core.isOrderReachable(state, order);
       var requirements = order.requirements || [];
       var mainline = order.mainline === true || order.kind === 'recruit';
@@ -1324,9 +1333,11 @@ var MODULE_HELP = {
       var kindChip = '<span class="order-kind">' + kindLabel(order.slot || order.kind) + '</span>' + (mainline ? '<span class="mainline-badge">主线</span>' : '');
       var actionMarkup = careGate
         ? '<button class="deliver-btn" data-care-gate="' + esc(order.id) + '" type="button">去庭院照料</button>'
+        : visitorResponse
+          ? '<button class="deliver-btn visitor-response-btn" data-visitor-response type="button">听完故事并回应</button>'
         : '<button class="deliver-btn" data-deliver="' + esc(order.id) + '" type="button" ' + (ready && !complete ? '' : 'disabled') + '>' + (complete ? '已完成' : '交付 · ' + rewardBits.join(' · ')) + '</button>';
-      return '<article class="order-card ' + (mainline ? 'main-order ' : '') + (ready ? 'ready ' : '') + (!reachable ? 'unreachable ' : '') + (order.status === 'LOCKED' && !mainline ? 'locked-system ' : '') + '" data-order-id="' + esc(order.id) + '" data-help="order-card" title="点击查看详情，长按查看委托卡说明">' +
-        '<div class="order-head">' + kindChip + '<strong>' + esc(order.title) + '</strong></div>' +
+      return '<article class="order-card ' + (mainline ? 'main-order ' : '') + (visitor ? 'visitor-order ' : '') + (ready ? 'ready ' : '') + (!reachable ? 'unreachable ' : '') + (order.status === 'LOCKED' && !mainline ? 'locked-system ' : '') + '" data-order-id="' + esc(order.id) + '" data-help="order-card" title="点击查看详情，长按查看委托卡说明">' +
+        '<div class="order-head">' + kindChip + (visitor ? '<img class="order-visitor-avatar" src="' + esc(visitor.art) + '" alt="" />' : '') + '<strong>' + esc(order.title) + '</strong></div>' +
         needsMarkup +
         actionMarkup +
         '</article>';
@@ -1336,7 +1347,7 @@ var MODULE_HELP = {
     Array.prototype.forEach.call(slots, function (slot, index) {
       var order = orders[index];
       var complete = order && (order.status === 'COMPLETE' || /_complete$/.test(order.kind || ''));
-      var ready = order && !complete && order.kind !== 'care_gate' && Core.canDeliver(state, order);
+      var ready = order && !complete && (order.kind === 'visitor_response' || order.kind !== 'care_gate' && Core.canDeliver(state, order));
       if (ready || complete) readyCount++;
       slot.dataset.slotState = complete ? 'done' : ready ? 'ready' : order ? 'open' : 'empty';
       slot.title = order ? order.title : '等待目标';
@@ -1930,11 +1941,14 @@ var MODULE_HELP = {
   function renderSectNpcs() {
     var rootNode = q('sect-map-npcs');
     if (!rootNode) return;
+    var ledger = state.visitors || { met: {}, lastVisitorId: null };
     rootNode.innerHTML = SECT_NPCS.map(function (npc, index) {
       /* NPC 只在中下段的山路上散步，避免漂在顶部建筑上被误读为浮窗。 */
       var left = 10 + ((index * 23) % 80);
       var top = 52 + ((index * 17) % 34);
-      return '<img class="map-npc" data-map-npc="' + esc(npc.id) + '" src="assets/art/npc/' + esc(npc.id) + '.webp" alt="' + esc(npc.name) + '在散步" style="left:' + left + '%;top:' + top + '%" />';
+      var known = Number(ledger.met && ledger.met[npc.id]) > 0;
+      var recent = ledger.lastVisitorId === npc.id;
+      return '<img class="map-npc' + (known ? ' known-visitor' : '') + (recent ? ' recent-visitor' : '') + '" data-map-npc="' + esc(npc.id) + '" src="assets/art/npc/' + esc(npc.id) + '.webp" alt="' + esc(npc.name) + (recent ? '刚刚来访，正在山门散步' : '在散步') + '" style="left:' + left + '%;top:' + top + '%" />';
     }).join('');
   }
 
@@ -2015,9 +2029,16 @@ var MODULE_HELP = {
     var note = q('sect-map-note');
     if (note) {
       var unlockable = view.nodes.find(function (status) { return status && status.locked && status.canUnlock; });
-      note.textContent = unlockable
+      var pendingVisitor = state.visitors && state.visitors.pending;
+      var latestVisitor = state.visitors && visitorDef(state.visitors.lastVisitorId);
+      var noteText = pendingVisitor
+        ? (visitorDef(pendingVisitor.visitorId) || { name: '山海来客' }).name + '已经收到物资，正在山门等你的回应。'
+        : unlockable
         ? '灵雾正在松动：' + unlockable.name + '已可以解锁，点击查看。'
-        : '交付修缮委托后，这里会立刻变亮；小访客们会在山径上自己散步。';
+        : latestVisitor
+          ? latestVisitor.name + '刚从这里启程。你们的相遇已经留在访客簿。'
+          : '交付修缮委托后，这里会立刻变亮；第一段故事完成后，山海访客会循着灯火到来。';
+      note.innerHTML = '<span>' + esc(noteText) + '</span><button type="button" data-open-visitor-book>访客簿 · ' + ((state.visitors && state.visitors.history || []).length) + ' 段</button>';
     }
   }
 
@@ -2073,45 +2094,76 @@ var MODULE_HELP = {
     if (hotspots) hotspots.innerHTML = '';
   }
 
-  function showWorldChange(event) {
+  function focusRenovatedArea(areaId) {
+    sectAreaSelection = areaId || sectAreaSelection;
+    switchView('sect-view');
+    renderSect();
+    root.setTimeout(function () {
+      var mapNode = document.querySelector('[data-area-node="' + sectAreaSelection + '"]');
+      var building = document.querySelector('.sect-building-hotspot[data-area="' + sectAreaSelection + '"]');
+      [mapNode, building].forEach(function (node) {
+        if (!node) return;
+        node.classList.remove('world-change-focus');
+        void node.offsetWidth;
+        node.classList.add('world-change-focus');
+      });
+      var mapStage = q('sect-map-stage');
+      if (mapStage && mapStage.scrollIntoView) mapStage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+  }
+
+  function showWorldChange(event, afterClose) {
     var rootNode = q('world-change-root');
-    if (!rootNode || !event) return;
+    if (!rootNode || !event) return null;
     if (worldChangeTimer) root.clearTimeout(worldChangeTimer);
     var status = Core.areaStatus ? Core.areaStatus(state, event.areaId) : null;
-    var fromArt = null;
-    var toArt = null;
-    if (status && status.art) {
-      fromArt = status.art[Math.max(0, Math.min(3, event.fromStage || 0))] || null;
-      toArt = status.art[Math.max(0, Math.min(3, event.toStage || 0))] || null;
+    var fromStage = Math.max(0, Math.min(3, Number(event.fromStage) || 0));
+    var toStage = Math.max(0, Math.min(3, Number(event.toStage) || 0));
+    var stageNames = DATA.sect && DATA.sect.stageNames || ['荒废', '清理', '修补', '焕新'];
+    var fromArt = status && status.art && status.art[fromStage] || null;
+    var toArt = status && status.art && status.art[toStage] || null;
+    function changeFrame(art, label) {
+      var visual = art
+        ? '<div class="change-thumb" style="background-image:url(\'' + esc(String(art).replace(/'/g, '')) + '\')"></div>'
+        : '<div class="change-thumb"><i>' + esc(status && status.icon || '⛩') + '</i></div>';
+      return '<div class="change-frame">' + visual + '<span>' + esc(label) + '</span></div>';
     }
-    var fromMarkup = fromArt
-      ? '<div class="change-thumb" style="background-image:url(\'' + esc(String(fromArt).replace(/'/g, '')) + '\')"></div>'
-      : '<div class="change-thumb"><i>' + esc(status && status.icon || '⛩') + '</i></div>';
-    var toMarkup = toArt
-      ? '<div class="change-thumb" style="background-image:url(\'' + esc(String(toArt).replace(/'/g, '')) + '\')"></div>'
-      : '<div class="change-thumb"><i>' + esc(status && status.icon || '⛩') + '</i></div>';
-    rootNode.innerHTML = '<section class="world-change-card" role="status">' + fromMarkup +
-      '<span class="change-arrow">→</span>' + toMarkup +
-      '<div class="change-copy"><b>' + esc(event.areaName || '') + ' · ' + esc(event.stageName || '焕新') + '</b>' +
-      '<small>' + esc(event.text || '宗门又变好了一点。') + '</small>' +
-      (event.bonusText ? '<small>永久加成：' + esc(event.bonusText) + '</small>' : '') +
-      '<button class="change-go" type="button" data-go-map>去看看</button></div></section>';
+    var rewardText = event.reward && Object.keys(event.reward).length ? rewardDescription(event.reward, 0) : '';
+    var milestone = toStage >= 3 ? '整片区域已经焕新' : '第 ' + toStage + '/3 段修缮完成';
+    rootNode.innerHTML = '<div class="world-change-backdrop"><section class="world-change-card" role="dialog" aria-modal="true" aria-labelledby="world-change-title">' +
+      '<span class="eyebrow">修缮完成 · 世界即时变化</span><h2 id="world-change-title">' + esc(event.areaName || '宗门') + '亮起来了</h2>' +
+      '<div class="world-change-compare">' + changeFrame(fromArt, stageNames[fromStage] || '从前') + '<span class="change-arrow" aria-hidden="true">→</span>' + changeFrame(toArt, stageNames[toStage] || '现在') + '</div>' +
+      '<div class="change-copy"><b>' + esc(milestone) + '</b><p>' + esc(event.text || '宗门又变好了一点。') + '</p>' +
+      (event.bonusText ? '<small>永久生效：' + esc(event.bonusText) + '</small>' : '') +
+      (rewardText ? '<small>本次获得：' + esc(rewardText) + '</small>' : '') + '</div>' +
+      '<div class="world-change-actions"><button class="change-go" type="button" data-go-map>在地图中查看</button><button class="change-stay" type="button" data-change-continue>继续当前目标</button></div>' +
+      '</section></div>';
+    function finish(goMap) {
+      rootNode.innerHTML = '';
+      if (goMap) focusRenovatedArea(event.areaId);
+      scheduleTutorialPrompt(180);
+      if (typeof afterClose === 'function') root.setTimeout(afterClose, goMap ? 360 : 60);
+    }
     var go = rootNode.querySelector('[data-go-map]');
-    if (go) go.addEventListener('click', function () {
-      hideWorldChange();
-      switchView('sect-view');
-      renderSect();
-    });
-    worldChangeTimer = root.setTimeout(hideWorldChange, 4500);
+    var stay = rootNode.querySelector('[data-change-continue]');
+    if (go) go.addEventListener('click', function () { finish(true); });
+    if (stay) stay.addEventListener('click', function () { finish(false); });
+    return rootNode.querySelector('.world-change-card');
   }
 
   function hideWorldChange() {
     var rootNode = q('world-change-root');
-    if (!rootNode) return;
-    var card = rootNode.querySelector('.world-change-card');
-    if (!card) { rootNode.innerHTML = ''; return; }
-    card.classList.add('leaving');
-    root.setTimeout(function () { rootNode.innerHTML = ''; }, 320);
+    if (rootNode) rootNode.innerHTML = '';
+  }
+
+  function showRenovationFeedback(result) {
+    if (!result || !result.ok) return null;
+    function followUp() {
+      if ((result.acquiredBeastId || result.revealEvents && result.revealEvents.length) && Core.peekBeastReveal && Core.peekBeastReveal(state)) showPendingBeastReveal();
+    }
+    if (result.worldEvent) return showWorldChange(result.worldEvent, followUp);
+    followUp();
+    return null;
   }
 
   function showAreaCeremony(areaId, mode, result) {
@@ -2345,7 +2397,8 @@ var MODULE_HELP = {
   function showTutorialStepPrompt() {
     var step = currentTutorialPrompt();
     var modalRoot = q('modal-root');
-    if (!step || step.key === tutorialPromptedStep || (modalRoot && modalRoot.children.length)) return null;
+    var changeRoot = q('world-change-root');
+    if (!step || step.key === tutorialPromptedStep || (modalRoot && modalRoot.children.length) || (changeRoot && changeRoot.children.length)) return null;
     var modal = modalShell(
       '<div class="tutorial-step-card">' +
         '<span class="tutorial-step-count">新手指引 ' + step.index + '/5</span>' +
@@ -2420,7 +2473,6 @@ var MODULE_HELP = {
     renderMergeTools();
     renderStorage();
     renderYard();
-    renderSect();
     renderCodex();
     renderProgress();
     renderFeatureVisibility();
@@ -2718,6 +2770,79 @@ var MODULE_HELP = {
     }
   }
 
+  function focusRecentVisitor(visitorId) {
+    sectAreaSelection = 'gate';
+    switchView('sect-view');
+    renderSect();
+    root.setTimeout(function () {
+      var npc = document.querySelector('[data-map-npc="' + esc(visitorId) + '"]');
+      if (npc) {
+        npc.classList.remove('recent-visitor');
+        void npc.offsetWidth;
+        npc.classList.add('recent-visitor');
+      }
+      var mapStage = q('sect-map-stage');
+      if (mapStage && mapStage.scrollIntoView) mapStage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+  }
+
+  function showVisitorOutcome(result) {
+    if (!result || !result.ok) return null;
+    var visitor = visitorDef(result.visitorId);
+    if (!visitor) return null;
+    var modal = modalShell('<div class="visitor-outcome-card"><span class="eyebrow">访客簿 · 故事已记下</span>' +
+      '<div class="visitor-outcome-head"><img src="' + esc(visitor.art) + '" alt="' + esc(visitor.name) + '" /><div><h2>' + esc(visitor.name) + '准备启程</h2><span>' + esc(result.choiceLabel) + '</span></div></div>' +
+      '<p class="visitor-outcome-line">' + esc(result.outcome) + '</p>' +
+      '<div class="visitor-reward-stack"><span>备物奖励：' + esc(rewardDescription(result.baseRewards, 0)) + '</span><b>回应回礼：' + esc(rewardDescription(result.reward, 0)) + '</b></div>' +
+      '<small>这段相遇已经收入访客簿；以后再见，它会记得你这次的回应。</small>' +
+      '<div class="visitor-outcome-actions"><button class="modal-action" data-visitor-go-map type="button">陪它走到山门</button><button class="modal-secondary" data-visitor-finish type="button">继续手头的事</button></div></div>',
+      'task-modal visitor-outcome-modal');
+    if (!modal) return null;
+    var goMap = modal.querySelector('[data-visitor-go-map]');
+    var finish = modal.querySelector('[data-visitor-finish]');
+    if (goMap) goMap.addEventListener('click', function () { closeModal(); focusRecentVisitor(visitor.id); });
+    if (finish) finish.addEventListener('click', closeModal);
+    return modal;
+  }
+
+  function showPendingVisitorEncounter() {
+    var pending = state.visitors && state.visitors.pending;
+    var visitor = pending && visitorDef(pending.visitorId);
+    if (!pending || !visitor) return null;
+    var choices = (visitor.choices || []).map(function (choice) {
+      return '<button class="visitor-choice" data-visitor-choice="' + esc(choice.id) + '" type="button"><span>' + esc(choice.label) + '</span><small>即时回礼 · ' + esc(rewardDescription(choice.reward, 0)) + '</small></button>';
+    }).join('');
+    var modal = modalShell('<div class="visitor-encounter-card"><span class="eyebrow">山海访客 · 回应会被记住</span>' +
+      '<div class="visitor-encounter-head"><img src="' + esc(visitor.art) + '" alt="' + esc(visitor.name) + '" /><div><small>' + esc(visitor.role) + '</small><h2>' + esc(visitor.name) + '</h2><span>' + esc(visitor.title) + '</span></div></div>' +
+      '<p class="visitor-quote">“' + esc(visitor.delivered) + '”</p><strong class="visitor-question">临行前，你想怎样回应？</strong>' +
+      '<div class="visitor-choice-list">' + choices + '</div><button class="modal-secondary" data-close-modal type="button">稍后再回应 · 访客会在这里等你</button></div>',
+      'task-modal visitor-encounter-modal');
+    if (!modal) return null;
+    modal.addEventListener('click', function (event) {
+      var button = event.target.closest('[data-visitor-choice]');
+      if (!button) return;
+      var result = Core.resolveVisitorEncounter(state, pending.id, button.dataset.visitorChoice, Date.now());
+      if (!mutate(result, visitor.name + '留下回礼，故事已收入访客簿', null, 'order')) return;
+      closeModal();
+      showVisitorOutcome(result);
+    });
+    return modal;
+  }
+
+  function openVisitorBook() {
+    var ledger = state.visitors || { history: [], met: {} };
+    var history = (ledger.history || []).slice().reverse();
+    var rows = history.length ? history.map(function (entry) {
+      var visitor = visitorDef(entry.visitorId);
+      if (!visitor) return '';
+      return '<article class="visitor-book-entry"><img src="' + esc(visitor.art) + '" alt="" /><div><strong>' + esc(visitor.name + ' · ' + visitor.title) + '</strong><small>' + esc(entry.choiceLabel) + '</small><p>' + esc(entry.outcome) + '</p></div></article>';
+    }).join('') : '<p class="visitor-book-empty">完成第一段故事后，山门会迎来第一位访客。备好它需要的物资，再当面回应，故事就会留在这里。</p>';
+    return modalShell('<span class="eyebrow">宗门纪事 · 山海访客</span><h2>每个敲门的人，都带着一小段山海</h2>' +
+      '<p>访客是循着修缮后灯火而来的旅人。它们会求助、送信或歇脚；你的回应决定故事结尾与即时回礼。</p>' +
+      '<div class="visitor-book-summary"><b>已相遇 ' + Object.keys(ledger.met || {}).length + '/' + (DATA.visitors || []).length + ' 位</b><span>已记录 ' + history.length + ' 段故事</span></div><div class="visitor-book-list">' + rows + '</div>',
+      'task-modal visitor-book-modal');
+  }
+
   function deliver(id) {
     var result = Core.deliverOrder(state, id, Math.random, Date.now());
     var message = result && result.order && result.order.deliveryText ? result.order.deliveryText : '委托完成 · 新进展已记录';
@@ -2725,7 +2850,9 @@ var MODULE_HELP = {
     if (!message && result && result.levelsGained) message += ' · 升级 Lv.' + result.level + '，灵力上限 +' + result.levelsGained;
     if (!mutate(result, message, null, 'order')) return result;
     closeModal();
-    if (result.revealEvents && result.revealEvents.length) root.setTimeout(showPendingBeastReveal, 120);
+    if (result.renovation) showRenovationFeedback(result.renovation);
+    else if (result.visitorEncounter) root.setTimeout(showPendingVisitorEncounter, 100);
+    else if (result.revealEvents && result.revealEvents.length) root.setTimeout(showPendingBeastReveal, 120);
     else if (result.transformed || state.pendingTransformation) root.setTimeout(showTransformation, 120);
     return result;
   }
@@ -2753,6 +2880,7 @@ var MODULE_HELP = {
   function openOrderDetails(id) {
     var order = orderById(id);
     if (!order) return;
+    if (order.kind === 'visitor_response') { showPendingVisitorEncounter(); return; }
     if (order.kind === 'care_gate') {
       var gateBeast = beastDef(order.beastId);
       var gateModal = modalShell('<span class="eyebrow">伙伴的照料心愿</span><h2>' + esc(order.title) + '</h2><p class="task-symptom">' + esc(order.symptom || '') + '</p>' +
@@ -2789,7 +2917,12 @@ var MODULE_HELP = {
     if (order.giftChain && order.giftChain.note) {
       giftNoteMarkup = '<div class="care-gate-hint gift-chain-note">' + esc(order.giftChain.note) + '</div>';
     }
+    var visitor = order.kind === 'visitor' ? visitorDef(order.visitorId) : null;
+    var metCount = visitor && state.visitors && state.visitors.met ? Number(state.visitors.met[visitor.id]) || 0 : 0;
+    var visitorMarkup = visitor ? '<div class="visitor-request-head"><img src="' + esc(visitor.art) + '" alt="' + esc(visitor.name) + '" /><div><span>山海访客 · ' + esc(visitor.role) + '</span><strong>' + esc(visitor.name) + '</strong><small>' + (metCount ? '曾来过 ' + metCount + ' 次，这次又带来了新故事' : '第一次循着山门灯火而来') + '</small></div></div>' +
+      '<p class="visitor-arrival">“' + esc(visitor.arrival) + '”</p><div class="visitor-system-note"><b>山海访客是什么？</b><span>它们是修缮山门后前来求助、送信或歇脚的山海旅人。备好物资后还要当面回应；你的选择会改变结尾与小回礼，并记入访客簿。</span></div>' : '';
     var modal = modalShell('<span class="eyebrow">' + kindLabel(order.kind) + '委托</span><h2>' + esc(order.title) + '</h2><p class="task-symptom">' + esc(order.symptom || '') + '</p>' +
+      visitorMarkup +
       (order.mainline ? '<div class="order-prerequisite"><b>主线前置</b><span>' + esc(prerequisiteText(order)) + '</span></div>' : '') +
       '<div class="task-needs">' + order.requirements.map(function (need) {
         var item = Core.makeItem(need.family, need.tier);
@@ -2800,8 +2933,8 @@ var MODULE_HELP = {
       giftNoteMarkup +
       productHintMarkup +
       '<div class="task-reward">完成奖励：' + esc(rewardDescription(order.rewards, orderAffection)) + '</div>' +
-      '<button class="modal-action" data-modal-deliver type="button" ' + (can ? '' : 'disabled') + '>' + (can ? '立即交付' : '素材尚未齐全') + '</button>' +
-      ((order.slot === 'supply' || order.slot === 'care') ? '<button class="modal-secondary" data-reroll="' + order.slot + '" type="button" ' + (rerollAvailable ? '' : 'disabled') + '>免费刷新 ' + roll.remaining + '/' + roll.max + '</button>' : ''), 'task-modal');
+      '<button class="modal-action" data-modal-deliver type="button" ' + (can ? '' : 'disabled') + '>' + (can ? (visitor ? '交给' + esc(visitor.name) + '，听听后续' : '立即交付') : '素材尚未齐全') + '</button>' +
+      ((order.slot === 'supply' || order.slot === 'care') ? '<button class="modal-secondary" data-reroll="' + order.slot + '" type="button" ' + (rerollAvailable ? '' : 'disabled') + '>免费刷新 ' + roll.remaining + '/' + roll.max + '</button>' : ''), 'task-modal' + (visitor ? ' visitor-order-modal' : ''));
     if (!modal) return;
     var modalCare = modal.querySelector('[data-modal-care]');
     if (modalCare) modalCare.addEventListener('click', function () { goCareAndPulse(modalCare.dataset.modalCare); });
@@ -3497,7 +3630,7 @@ var MODULE_HELP = {
   }
 
   function bindEvents() {
-    var mutationSelector = '[data-grid-index],[data-deliver],[data-deliver-reno],[data-craft-recipe],[data-recycle-index],[data-care-difficulty],[data-claim-job],[data-claim-weekly],[data-facility],[data-unlock-area],[data-yard-beast],[data-select-form],[data-background-buy],[data-background-select],[data-storage-index],#claim-yard-goal,#storage-upgrade';
+    var mutationSelector = '[data-grid-index],[data-deliver],[data-deliver-reno],[data-visitor-choice],[data-craft-recipe],[data-recycle-index],[data-care-difficulty],[data-claim-job],[data-claim-weekly],[data-facility],[data-unlock-area],[data-yard-beast],[data-select-form],[data-background-buy],[data-background-select],[data-storage-index],#claim-yard-goal,#storage-upgrade';
     function stopReadOnlyMutation(event) {
       if (!readOnlyNewerSave || !event.target.closest(mutationSelector)) return;
       event.preventDefault();
@@ -3549,6 +3682,8 @@ var MODULE_HELP = {
     });
     q('order-list').addEventListener('click', function (event) {
       if (consumeSuppressedClick()) return;
+      var visitorResponse = event.target.closest('[data-visitor-response]');
+      if (visitorResponse) { event.stopPropagation(); showPendingVisitorEncounter(); return; }
       var careGateButton = event.target.closest('[data-care-gate]');
       if (careGateButton) { event.stopPropagation(); focusCareGate(orderById(careGateButton.dataset.careGate)); return; }
       var careJumpButton = event.target.closest('[data-go-care]');
@@ -3616,6 +3751,7 @@ var MODULE_HELP = {
     });
     q('sect-view').addEventListener('click', function (event) {
       if (event.target.closest('[data-show-transition]')) { showChapterTransition(); return; }
+      if (event.target.closest('[data-open-visitor-book]')) { openVisitorBook(); return; }
       var areaButton = event.target.closest('[data-action="select-sect-area"], .sect-building-hotspot[data-area]');
       if (areaButton && areaButton.dataset.area) {
         var status = Core.areaStatus ? Core.areaStatus(state, areaButton.dataset.area) : null;
@@ -3651,10 +3787,7 @@ var MODULE_HELP = {
       var result = Core.deliverRenovation ? Core.deliverRenovation(state) : { ok: false, reason: 'unavailable' };
       var renoMessage = result.deliveryText || (result.actOneDone ? '幕一完成 · 宗门焕然一新，去医馆迎接穷奇' : '修缮完成 · ' + (result.areaName || '宗门') + '又亮了一点');
       if (mutate(result, renoMessage, null, 'order')) {
-        if (result.worldEvent) showWorldChange(result.worldEvent);
-        if (result.areaStage >= 3) showAreaCeremony(result.areaId, 'stage3', result);
-        if (result.acquiredBeastId && Core.peekBeastReveal && Core.peekBeastReveal(state)) root.setTimeout(showPendingBeastReveal, 80);
-        if (result.actOneDone) { renderSect(); switchView('sect-view'); }
+        showRenovationFeedback(result);
       }
     });
     q('item-info-root').addEventListener('click', function (event) {
@@ -3786,6 +3919,7 @@ var MODULE_HELP = {
     if (!state.welcomeSeen) root.setTimeout(showWelcomeGuide, 30);
     else if (Core.peekBeastReveal && Core.peekBeastReveal(state)) root.setTimeout(showPendingBeastReveal, 30);
     else if (state.pendingTransformation) root.setTimeout(showTransformation, 30);
+    else if (state.visitors && state.visitors.pending) root.setTimeout(showPendingVisitorEncounter, 30);
     else if (offline.elapsedMs >= 5 * 60 * 1000) root.setTimeout(function () { showOffline(offline); }, 30);
     return state;
   }
@@ -3823,6 +3957,9 @@ var MODULE_HELP = {
     runYardAutonomy: runYardAutonomy,
     showTransformation: showTransformation,
     showBeastMilestone: showBeastMilestone,
-    showWelcomeGuide: showWelcomeGuide
+    showWelcomeGuide: showWelcomeGuide,
+    showPendingVisitorEncounter: showPendingVisitorEncounter,
+    openVisitorBook: openVisitorBook,
+    showWorldChange: showWorldChange
   };
 }));

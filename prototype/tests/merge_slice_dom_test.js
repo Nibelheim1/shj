@@ -200,6 +200,40 @@ function cardCount(root, selectors) {
     if (prev) prev.click();
   });
 
+  check('修缮完成使用可停留的前后对比窗口，并提供地图定位', function () {
+    const state = W.MergeUI.state();
+    const status = W.MergeCore.areaStatus(state, 'gate');
+    W.MergeUI.showWorldChange({
+      areaId: 'gate', areaName: '山门', fromStage: 0, toStage: 1,
+      text: '旧石阶被扫净，山门重新透进了光。', reward: { jade: 12, xp: 8 }
+    });
+    const dialog = W.document.querySelector('#world-change-root [role="dialog"]');
+    expect(dialog, '变化窗口为模态对话框');
+    expect(dialog.querySelectorAll('.change-frame').length === 2, '同时展示修缮前后两种状态');
+    expect(dialog.querySelector('[data-go-map]') && dialog.querySelector('[data-change-continue]'), '提供地图查看和继续目标两个明确动作');
+    expect(status.art[0] && status.art[1], '山门存在前后阶段图');
+    dialog.querySelector('[data-change-continue]').click();
+    expect(!W.document.querySelector('#world-change-root [role="dialog"]'), '玩家确认后窗口才关闭');
+  });
+
+  check('山海访客交付后有双选回应、即时结局并写入访客簿', function () {
+    const state = W.MergeUI.state();
+    state.visitors.pending = {
+      id: 'dom-visitor-1', orderId: 'dom-order', visitorId: 'squirrel',
+      createdAt: Date.now(), baseRewards: { jade: 16, xp: 10 }
+    };
+    W.MergeUI.render();
+    W.MergeUI.showPendingVisitorEncounter();
+    const encounter = W.document.querySelector('#modal-root .visitor-encounter-modal');
+    expect(encounter, '访客回应弹窗出现');
+    expect(encounter.querySelectorAll('[data-visitor-choice]').length === 2, '访客提供两个故事回应');
+    encounter.querySelector('[data-visitor-choice]').click();
+    expect(W.document.querySelector('#modal-root .visitor-outcome-modal'), '选择后立即展示故事结局与回礼');
+    expect(state.visitors.history.some(function (entry) { return entry.id === 'dom-visitor-1'; }), '回应已写入访客簿');
+    const finish = W.document.querySelector('#modal-root [data-visitor-finish]');
+    if (finish) finish.click();
+  });
+
   check('底部导航包含三个可切换 tab 且目标存在', function () {
     const tabs = allTabs();
     expect(tabs.length >= 3, 'tab 数量=' + tabs.length);
