@@ -28,7 +28,7 @@
   // 特殊块类型
   var SP = { NONE: 0, LINE_H: 1, LINE_V: 2, BOMB: 3, RAINBOW: 4 };
 
-  // 跨系列图标池：与羊了个羊/连连看共用。每个系列只取一张基础图标，
+  // 跨系列图标池：与玩具塔/旧版连线原型共用。每个系列只取一张基础图标，
   // 颜色与造型差异明显，避免同色系混淆；需要更多图标时再补高等级图。
   var TIER1_ICONS = ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08'];
   var SETS = {

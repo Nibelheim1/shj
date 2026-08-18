@@ -46,7 +46,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     if (!state) return 0;
     var expected = energyCapForLevel(state.level);
     state.maxEnergy = expected;
-    state.energy = clamp(number(state.energy, 0), 0, state.maxEnergy);
+    /* 奖励灵力可以超过上限；上限只约束自然恢复，不吞掉已到账奖励。 */
+    state.energy = Math.max(0, number(state.energy, 0));
     return state.maxEnergy;
   }
 
@@ -730,22 +731,12 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
   function freshBoard(now) {
     var grid = new Array(TOTAL).fill(null);
     [
-      [0, 'herb', 1], [1, 'herb', 1], [2, 'tool', 1], [3, 'tool', 1],
-      [4, 'herb', 2], [5, 'herb', 1], [6, 'tool', 1], [7, 'herb', 1],
-      [10, 'herb', 1], [11, 'tool', 1], [14, 'herb', 1], [16, 'tool', 2]
+      /* 首局只摆首次山门修缮所需：两枚 T1 带玩家完成首次合成。 */
+      [0, 'herb', 1], [1, 'herb', 1]
     ].forEach(function (entry) { grid[entry[0]] = makeItem(entry[1], entry[2]); });
-    [8, 9, 18, 32].forEach(function (index) {
-      grid[index] = { kind: 'obstacle', tier: 1, name: '藤蔓障碍' };
-    });
-    [13, 22, 34].forEach(function (index) {
-      grid[index] = { kind: 'sealed', tier: 1, name: '封印格' };
-    });
+    grid[8] = { kind: 'obstacle', tier: 1, name: '藤蔓障碍' };
     grid[23] = makeGenerator('herb', 1, now, null, 0, true);
     grid[26] = makeGenerator('tool', 1, now, null, 0, true);
-    grid[30] = makeGeneratorPart('herb', 1);
-    grid[31] = makeGeneratorPart('herb', 1);
-    grid[33] = makeGeneratorPart('tool', 1);
-    grid[35] = makeGeneratorPart('tool', 1);
     return grid;
   }
 
@@ -804,7 +795,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var jobs = {};
     DATA.beasts.forEach(function (beast, index) {
       cases[beast.id] = makeCase(beast.id, index === 0);
-      codex[beast.id] = { discovered: index === 0, transformed: false, seenStage: 0 };
+      codex[beast.id] = { discovered: false, transformed: false, seenStage: 0 };
       jobs[beast.id] = {
         unlocked: beast.id === 'qiongqi',
         stored: beast.id === 'qiongqi' ? 1 : 0,
@@ -849,13 +840,15 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       jobs: jobs,
       daily: freshDaily(date),
       signIn: { daysClaimed: 0, lastClaimDate: null, completed: false, claimedDates: [] },
+      dailyRewards: { claimedDates: [] },
+      sevenDayPromise: { daysClaimed: 0, claimedDates: [], completed: false },
       growthOrders: {},
       growthCounters: {},
       careTransactions: {},
       challengeBest: { groom: 0, play: 0 },
       beastRevealQueue: [],
       seenBeastReveals: {},
-      migrations: { v6FacilityRefund: true },
+      migrations: { v6FacilityRefund: true, v8TutorialBoard: true, v8PermanentGeneratorRecovery: [] },
       weekly: freshWeekly(now),
       products: (DATA.recipes || []).reduce(function (result, recipe) { result[recipe.id] = 0; return result; }, {}),
       special: {
@@ -870,15 +863,31 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       endingUnlocked: false,
       sagaComplete: false,
       nextChapter: '卷二 · 九尾狐篇',
-      chapter: { volume: 1 },
+      chapter: {
+        volume: 1,
+        completedVolumes: [],
+        jobAcknowledgedVolumes: [],
+        pendingTransition: null,
+        migrationRepairs: []
+      },
       sect: freshSect(),
       tutorialSeen: false,
+      tutorial: {
+        welcome: false,
+        objectiveOpened: false,
+        generated: false,
+        merged: false,
+        playOpened: false,
+        playRewarded: false,
+        playMerged: false,
+        firstRepair: false,
+        completed: false
+      },
       /* Fresh saves show the dedicated Qiongqi welcome once. Existing saves
        * are treated as already welcomed during normalization below. */
       welcomeSeen: false,
       analytics: []
     };
-    revealEvent(state, 'acquire', 'qiongqi', 1);
     syncEnergyCap(state);
     ensureOrders(state, Math.random);
     state.orders = state.activeOrders;
@@ -1134,10 +1143,11 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     });
     if (number(raw.version, 0) >= 6) {
       state.maxEnergy = ENERGY_CAP;
-      state.energy = clamp(number(raw.energy, base.energy), 0, ENERGY_CAP);
+      state.energy = Math.max(0, number(raw.energy, base.energy));
     }
     syncEnergyCap(state);
     state.tutorialSeen = !!raw.tutorialSeen;
+    state.tutorial = Object.assign({}, base.tutorial, raw.tutorial || {});
     state.welcomeSeen = raw.welcomeSeen == null ? true : !!raw.welcomeSeen;
     state.jade = Math.max(0, number(raw.jade, base.jade));
     state.pendingRewards = Array.isArray(raw.pendingRewards) ? raw.pendingRewards.map(function (item) { return normalizeItem(item, now); }).filter(Boolean) : [];
@@ -1161,9 +1171,33 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     state.jobs = Object.assign(clone(base.jobs), raw.jobs || {});
     var chapterVolume = clamp(Math.floor(number(raw.chapter && raw.chapter.volume, 1)), 1, 12);
     if (number(raw.version, 0) < 7 && state.beastCases.qiongqi && state.beastCases.qiongqi.transformed) chapterVolume = Math.max(2, chapterVolume);
-    state.chapter = Object.assign({ volume: 1 }, raw.chapter || {});
+    state.chapter = Object.assign({}, base.chapter, raw.chapter || {});
     state.chapter.volume = chapterVolume;
+    state.chapter.completedVolumes = Array.isArray(state.chapter.completedVolumes) ? state.chapter.completedVolumes.map(function (volume) {
+      return clamp(Math.floor(number(volume, 0)), 1, 12);
+    }).filter(function (volume, index, list) { return list.indexOf(volume) === index; }) : [];
+    state.chapter.jobAcknowledgedVolumes = Array.isArray(state.chapter.jobAcknowledgedVolumes) ? state.chapter.jobAcknowledgedVolumes.map(function (volume) {
+      return clamp(Math.floor(number(volume, 0)), 1, 12);
+    }).filter(function (volume, index, list) { return list.indexOf(volume) === index; }) : [];
+    state.chapter.pendingTransition = state.chapter.pendingTransition && typeof state.chapter.pendingTransition === 'object'
+      ? clone(state.chapter.pendingTransition) : null;
+    state.chapter.migrationRepairs = Array.isArray(state.chapter.migrationRepairs) ? state.chapter.migrationRepairs.map(function (volume) {
+      return clamp(Math.floor(number(volume, 0)), 1, 12);
+    }).filter(function (volume, index, list) { return list.indexOf(volume) === index; }) : [];
     state.sect = normalizeSect(raw.sect, chapterVolume);
+    if (number(raw.version, 0) < 8) {
+      var skippedRepairs = [];
+      for (var legacyChapter = 1; legacyChapter <= chapterVolume; legacyChapter++) {
+        var legacyTarget = sectAreas(legacyChapter).reduce(function (sum, area) { return sum + (area.stages || []).length; }, 0);
+        var legacyDone = sectAreas(legacyChapter).reduce(function (sum, area) { return sum + sectStageCount(state, area.id); }, 0);
+        if (legacyDone < legacyTarget) skippedRepairs.push(legacyChapter);
+      }
+      if (skippedRepairs.length) {
+        state.chapter.migrationRepairs = skippedRepairs;
+        state.chapter.volume = skippedRepairs[0];
+        chapterVolume = state.chapter.volume;
+      }
+    }
     ensureStorageCapacity(state);
     autoUnlockVolumeAreas(state);
     /* 符箓/珍宝从对应卷章起改为可解锁生成器；老档若已迎来梼杌/烛龙，
@@ -1196,6 +1230,27 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     state.signIn.daysClaimed = clamp(Math.floor(number(state.signIn.daysClaimed, 0)), 0, 7);
     state.signIn.claimedDates = Array.isArray(state.signIn.claimedDates) ? state.signIn.claimedDates.slice(0, 7) : [];
     state.signIn.completed = state.signIn.daysClaimed >= 7 || !!state.signIn.completed;
+    state.dailyRewards = Object.assign({}, base.dailyRewards, raw.dailyRewards || {});
+    state.dailyRewards.claimedDates = Array.isArray(state.dailyRewards.claimedDates)
+      ? state.dailyRewards.claimedDates.filter(function (claimedDate, index, list) { return typeof claimedDate === 'string' && list.indexOf(claimedDate) === index; }).slice(-120)
+      : [];
+    if (raw.daily && raw.daily.claimed && raw.daily.date && state.dailyRewards.claimedDates.indexOf(raw.daily.date) < 0) {
+      state.dailyRewards.claimedDates.push(raw.daily.date);
+    }
+    state.sevenDayPromise = Object.assign({}, base.sevenDayPromise, raw.sevenDayPromise || {
+      daysClaimed: state.signIn.daysClaimed,
+      claimedDates: state.signIn.claimedDates,
+      completed: state.signIn.completed
+    });
+    state.sevenDayPromise.daysClaimed = clamp(Math.floor(number(state.sevenDayPromise.daysClaimed, 0)), 0, 7);
+    state.sevenDayPromise.claimedDates = Array.isArray(state.sevenDayPromise.claimedDates)
+      ? state.sevenDayPromise.claimedDates.filter(function (claimedDate, index, list) { return typeof claimedDate === 'string' && list.indexOf(claimedDate) === index; }).slice(0, 7)
+      : [];
+    state.sevenDayPromise.completed = state.sevenDayPromise.daysClaimed >= 7 || !!state.sevenDayPromise.completed;
+    /* signIn 作为旧 UI 兼容镜像，不再决定每日基础奖励能否领取。 */
+    state.signIn.daysClaimed = state.sevenDayPromise.daysClaimed;
+    state.signIn.claimedDates = state.sevenDayPromise.claimedDates.slice();
+    state.signIn.completed = state.sevenDayPromise.completed;
     if (state.signIn.completed && state.jobs.jiuweihu) state.jobs.jiuweihu.unlocked = true;
     state.growthOrders = raw.growthOrders && typeof raw.growthOrders === 'object' ? clone(raw.growthOrders) : {};
     state.growthCounters = raw.growthCounters && typeof raw.growthCounters === 'object' ? clone(raw.growthCounters) : {};
@@ -1207,6 +1262,21 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     state.seenBeastReveals = raw.seenBeastReveals && typeof raw.seenBeastReveals === 'object' ? clone(raw.seenBeastReveals) : {};
     if (!Array.isArray(raw.beastRevealQueue) && !(raw.seenBeastReveals && typeof raw.seenBeastReveals === 'object')) seedHistoricalBeastReveals(state);
     state.migrations = Object.assign({}, base.migrations, raw.migrations || {});
+    if (number(raw.version, 0) < 8 && !(raw.migrations && raw.migrations.v8ObstacleBrushes)) {
+      var remainingVines = (state.grid || []).filter(function (item) { return item && item.kind === 'obstacle'; }).length;
+      state.cleanTools = Math.max(Math.max(0, Math.floor(number(state.cleanTools, 0))), remainingVines);
+      state.migrations.v8ObstacleBrushes = true;
+      state.migrations.v8ObstacleBrushCount = remainingVines;
+    }
+    if (number(raw.version, 0) < 8 && !(raw.migrations && raw.migrations.v8LockedCellRecovery)) {
+      for (var lockedIndex = Math.max(0, state.unlockedCells); lockedIndex < state.grid.length; lockedIndex++) {
+        if (lockedIndex === RECIPE_CABINET_INDEX || !state.grid[lockedIndex]) continue;
+        state.pendingRewards.push(state.grid[lockedIndex]);
+        state.grid[lockedIndex] = null;
+      }
+      state.migrations.v8LockedCellRecovery = true;
+    }
+    recoverPermanentGenerators(state, now);
     state.noviceSupply = Math.max(0, Math.floor(number(raw.noviceSupply, number(raw.version, 0) < 7 ? 0 : base.noviceSupply)));
     state.visitorRefreshAt = number(raw.visitorRefreshAt, now + number(DATA.order && DATA.order.visitorRefreshMs, 3 * 60 * 60 * 1000));
     state.products = Object.assign({}, base.products, raw.products || {});
@@ -1340,9 +1410,11 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
   }
 
   function makeStoryOrder(state) {
+    var progress = chapterProgress(state);
+    if (!progress.firstRepairDone || progress.phase === 'repair_completion' || progress.phase === 'transformation' || progress.phase === 'job' || progress.phase === 'transition' || progress.phase === 'complete') return null;
     var current = activeCase(state);
     var definition = current && beastDefinition(current.id);
-    if (current && definition && current.storyProgress < definition.storySteps.length) {
+    if (progress.phase === 'story_and_repair' && current && definition && current.id === progress.beastId && current.storyProgress < definition.storySteps.length) {
       var stepIndex = current.storyProgress;
       var step = definition.storySteps[stepIndex];
       var reqs = step.requirements.map(normalizeRequirement);
@@ -1362,7 +1434,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
         permanent: true
       });
     }
-    if (current && definition && !current.careDone) {
+    if (progress.phase === 'care' && current && definition && current.id === progress.beastId && !current.careDone) {
       var currentGift = careGiftInfo(definition);
       return normalizeOrder({
         id: current.id + '-care-gate',
@@ -1378,7 +1450,9 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
         permanent: true
       });
     }
-    var next = firstLockedBeast(state);
+    if (progress.phase !== 'arrival') return null;
+    var next = beastDefinition(progress.beastId);
+    if (next && state.beastCases && state.beastCases[next.id] && state.beastCases[next.id].status !== 'locked') next = null;
     if (next) {
       var previous = previousBeastDefinition(next.id);
       if (!previous) previous = beastDefinition(state.transformedOrder && state.transformedOrder.length ? state.transformedOrder[state.transformedOrder.length - 1] : 'qiongqi');
@@ -1406,6 +1480,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
         permanent: true
       });
     }
+    if (!next) return null;
     var memoryFamily = FAMILY_IDS[(state.completedOrders || 0) % FAMILY_IDS.length];
     var memorySupport = FAMILY_IDS.find(function (family) { return family !== memoryFamily; }) || 'herb';
     var memoryReq = [
@@ -1444,14 +1519,122 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     });
   }
 
+  function careFeatureUnlocked(state, careType) {
+    if (careType === 'play') return sectStageCount(state, 'gate') >= 1;
+    if (careType === 'groom') {
+      var fox = state && state.beastCases && state.beastCases.jiuweihu;
+      return currentChapterVolume(state) >= 2 && !!(fox && fox.status !== 'locked');
+    }
+    return false;
+  }
+
+  function careSourcesForFamily(state, family) {
+    var sources = [];
+    DATA.beasts.forEach(function (beast) {
+      if (!isYardBeastAvailable(state, beast.id)) return;
+      ['play', 'groom'].forEach(function (careType) {
+        if (careRouteForBeast(beast.id, careType).family !== family) return;
+        sources.push({
+          kind: 'care', beastId: beast.id, careType: careType, page: 'yard',
+          action: 'care:' + careType,
+          label: careType === 'play' ? '嬉游亭·玩具塔陪玩' : '梳洗台梳洗',
+          unlocked: careFeatureUnlocked(state, careType)
+        });
+      });
+    });
+    return sources;
+  }
+
+  /* 委托生成、可达性、来源帮助与“下一步”的唯一物品解析器。
+     status 是稳定机器值，availability 是玩家可见的三态文案。 */
+  function resolveItemAvailability(state, requirement, seenProducts) {
+    requirement = requirement || {};
+    function available(extra) {
+      return Object.assign({ status: 'available', availability: '现在可得', sources: [], unlockConditions: [] }, extra || {});
+    }
+    function locked(conditions, extra) {
+      return Object.assign({ status: 'locked', availability: '满足条件后可得', sources: [], unlockConditions: conditions || [] }, extra || {});
+    }
+    function unavailable(reason, extra) {
+      return Object.assign({ status: 'unavailable', availability: '不可获得', reason: reason, sources: [], unlockConditions: [] }, extra || {});
+    }
+
+    var productId = requirement.productId || requirement.kind === 'product' && requirement.id;
+    if (productId) {
+      var recipe = recipeDefinition(productId);
+      if (!recipe || recipe.visible === false || recipe.released === false) return unavailable('unreleased-recipe', { productId: productId });
+      if (number(state.products && state.products[productId], 0) >= Math.max(1, number(requirement.count, 1))) {
+        return available({ productId: productId, sources: [{ kind: 'owned', page: 'recipes', label: '已制作成品' }], action: { page: 'recipes', action: 'open-recipe', id: productId } });
+      }
+      seenProducts = seenProducts || {};
+      if (seenProducts[productId]) return unavailable('recipe-cycle', { productId: productId });
+      seenProducts[productId] = true;
+      var inputResults = (recipe.inputs || []).map(function (need) { return resolveItemAvailability(state, need, seenProducts); });
+      delete seenProducts[productId];
+      if (!recipeUnlocked(state, productId)) {
+        return locked(['进入卷' + Math.max(1, Math.floor(number(recipe.volume, 1)))], {
+          productId: productId, inputs: inputResults, sources: [{ kind: 'recipe', page: 'recipes', label: '配方柜·' + recipe.name }]
+        });
+      }
+      if (inputResults.some(function (result) { return result.status === 'unavailable'; })) return unavailable('recipe-input-unavailable', { productId: productId, inputs: inputResults });
+      if (inputResults.some(function (result) { return result.status !== 'available'; })) return locked(['先解锁配方所需素材来源'], { productId: productId, inputs: inputResults });
+      return available({ productId: productId, inputs: inputResults, sources: [{ kind: 'recipe', page: 'recipes', label: '配方柜·' + recipe.name }], action: { page: 'recipes', action: 'open-recipe', id: productId } });
+    }
+
+    if (requirement.kind === 'generator' || requirement.generatorNeed) {
+      var generatorNeed = requirement.generatorNeed || requirement;
+      var generatorFamily = generatorNeed.family;
+      var minLevel = Math.max(1, Math.floor(number(generatorNeed.minLevel, 1)));
+      var generatorCount = Math.max(1, Math.floor(number(generatorNeed.count, 1)));
+      var usableGenerators = [state.grid, state.storage && state.storage.items, state.pendingRewards].reduce(function (sum, list) {
+        return sum + (list || []).filter(function (item) {
+          return item && item.kind === 'generator' && item.family === generatorFamily && number(item.level, 1) >= minLevel &&
+            (item.permanent !== false || number(item.lifetime, item.charges) > 0);
+        }).length;
+      }, 0);
+      if (usableGenerators >= generatorCount) return available({ family: generatorFamily, sources: [{ kind: 'generator', page: 'board', label: '棋盘生成器' }], action: { page: 'board', action: 'generator', family: generatorFamily } });
+      if (producerChain(generatorFamily) && hasPermanentGenerator(state, generatorFamily)) {
+        return available({ family: generatorFamily, sources: [{ kind: 'generator-parts', page: 'board', label: '常驻生成器掉落部件，合成高产生成器' }], action: { page: 'board', action: 'generator', family: generatorFamily } });
+      }
+      return unavailable('generator-source-missing', { family: generatorFamily });
+    }
+
+    var family = requirement.family;
+    var definition = familyDefinition(family);
+    if (!definition) return unavailable('unknown-family', { family: family });
+    var tier = clamp(Math.floor(number(requirement.tier, 1)), 1, familyTierCap(family));
+    var count = Math.max(1, Math.floor(number(requirement.count, 1)));
+    if (countItems(state, family, tier) >= count) {
+      return available({ family: family, tier: tier, sources: [{ kind: 'owned', page: 'board', label: '棋盘、储物或待领取区' }], action: { page: 'board', action: 'locate-item', family: family, tier: tier } });
+    }
+
+    var careSources = careSourcesForFamily(state, family);
+    if (GAME_SOURCE_FAMILIES[family] || careSources.length) {
+      var openCare = careSources.find(function (source) { return source.unlocked; });
+      if (openCare) return available({ family: family, tier: tier, sources: careSources, action: { page: 'yard', action: 'care', careType: openCare.careType, beastId: openCare.beastId } });
+      if (careSources.length) {
+        var conditions = careSources.some(function (source) { return source.careType === 'play'; })
+          ? ['先完成山门首次修缮'] : ['迎接九尾狐后开放梳洗'];
+        return locked(conditions, { family: family, tier: tier, sources: careSources });
+      }
+      return locked(['先获得能带回该类礼物的神兽'], { family: family, tier: tier });
+    }
+
+    if (hasPermanentGenerator(state, family)) {
+      return available({ family: family, tier: tier, sources: [{ kind: 'generator', page: 'board', label: GENERATOR_NAMES[family] || definition.name + '生成器' }], action: { page: 'board', action: 'generator', family: family } });
+    }
+    var activeFrom = Math.max(1, Math.floor(number(definition.activeFromVolume, 1)));
+    if (currentChapterVolume(state) < activeFrom || (state.unlockedGenerators || []).indexOf(family) < 0) {
+      return locked(['进入卷' + activeFrom + '并完成对应产线引导'], { family: family, tier: tier, sources: [{ kind: 'generator', page: 'board', label: GENERATOR_NAMES[family] || definition.name + '生成器' }] });
+    }
+    return unavailable('permanent-generator-missing', { family: family, tier: tier, sources: [{ kind: 'generator', page: 'board', label: GENERATOR_NAMES[family] || definition.name + '生成器' }] });
+  }
+
   function maxReachableTier(state, family, sourceBeast) {
     /* Mini-game materials are only reachable when an available resident can
        actually reward that game.  Materials no longer distinguish which
        resident produced them, so any reachable source unlocks the tier. */
-    if (!familyActiveForState(state, family)) return 0;
-    if (GAME_SOURCE_FAMILIES[family]) return hasCareSource(state, family) ? familyTierCap(family) : 0;
-    if (state.unlockedGenerators.indexOf(family) >= 0) return familyTierCap(family);
-    if (hasGiftFamilySource(state, family)) return familyTierCap(family);
+    if (resolveItemAvailability(state, { family: family, tier: 1, count: 1 }).status === 'available') return familyTierCap(family);
     var best = 0;
     [state.grid, state.storage && state.storage.items].forEach(function (list) {
       (list || []).forEach(function (item) {
@@ -1491,8 +1674,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var allowGameSources = preferredList.length > 0;
     preferredList.concat(state.unlockedGenerators || []).forEach(function (family) {
       if (!familyDefinition(family)) return;
-      var available = (state.unlockedGenerators || []).indexOf(family) >= 0 ||
-        (allowGameSources && GAME_SOURCE_FAMILIES[family] && preferredList.indexOf(family) >= 0 && hasCareSource(state, family));
+      var available = resolveItemAvailability(state, { family: family, tier: 1, count: 1 }).status === 'available' &&
+        (!GAME_SOURCE_FAMILIES[family] || allowGameSources && preferredList.indexOf(family) >= 0);
       if (available && pool.indexOf(family) < 0) pool.push(family);
     });
     /* A fresh account always has herb/tool available; this fallback also
@@ -1501,8 +1684,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     if (pool.length < 2) {
       FAMILY_IDS.forEach(function (family) {
         if (pool.length >= 2 || pool.indexOf(family) >= 0) return;
-        if (!familyActiveForState(state, family)) return;
-        if (GAME_SOURCE_FAMILIES[family] && !(allowGameSources && hasCareSource(state, family))) return;
+        if (resolveItemAvailability(state, { family: family, tier: 1, count: 1 }).status !== 'available') return;
+        if (GAME_SOURCE_FAMILIES[family] && !allowGameSources) return;
         pool.push(family);
       });
     }
@@ -1732,7 +1915,26 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
   }
 
   function makeMainOrder(state) {
-    var order = makeRecruitOrder(state);
+    var progress = chapterProgress(state);
+    var signposts = {
+      first_repair: { kind: 'first_repair_gate', title: '先修山门', symptom: '完成本卷第一段修缮，才会打开第一段故事。' },
+      repair_completion: { kind: 'repair_gate', title: '补完修缮', symptom: '故事已经记下，还需完成本卷全部修缮才能进入照料。' },
+      transformation: { kind: 'transformation_gate', title: '见证蜕变', symptom: '这段陪伴已有回应，先确认神兽的新形态。' },
+      job: { kind: 'job_gate', title: '领取首次岗位产出', symptom: '蜕变后的神兽已找到宗门岗位，领取或确认后才进入下一卷。' },
+      transition: { kind: 'transition_gate', title: '本卷完成', symptom: '查看衔接演出，然后开始下一卷。' },
+      complete: { kind: 'chapter_complete', title: '山海长卷已成', symptom: '十二位伙伴和宗门的灯火都已齐备。', status: 'COMPLETE' }
+    };
+    var config = signposts[progress.phase];
+    var order = config ? normalizeOrder({
+      id: 'chapter-' + progress.volume + '-' + progress.phase,
+      slot: 'main', kind: config.kind, status: config.status || 'LOCKED', mainline: true,
+      beastId: progress.beastId, title: config.title, symptom: config.symptom,
+      requirements: [], rewards: {}, permanent: true
+    }) : makeRecruitOrder(state);
+    if (!order) order = normalizeOrder({
+      id: 'chapter-' + progress.volume + '-wait', slot: 'main', kind: 'chapter_wait', status: 'LOCKED', mainline: true,
+      beastId: progress.beastId, title: progress.phaseName, symptom: '按当前目标继续推进。', requirements: [], rewards: {}
+    });
     order.slot = 'main';
     order.mainline = true;
     return order;
@@ -1740,10 +1942,20 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
 
   function makeRenovationOrder(state) {
     var current = currentRenovation(state);
-    if (!current) return normalizeOrder({
-      id: 'renovation-volume-' + currentChapterVolume(state) + '-complete', slot: 'renovation', kind: 'renovation_complete', status: 'COMPLETE',
-      title: '本卷已修完', symptom: '宗门焕然一新，接下来去照顾新住客吧。', requirements: [], rewards: {}
-    });
+    if (!current) {
+      var volume = currentChapterVolume(state);
+      var lockedArea = sectAreas(volume).find(function (area) { return !isAreaUnlocked(state, area.id) && sectStageCount(state, area.id) < (area.stages || []).length; });
+      if (lockedArea && sectTotalDone(state, volume) < sectTotalTarget(state, volume)) {
+        return normalizeOrder({
+          id: 'renovation-unlock-' + lockedArea.id, slot: 'renovation', kind: 'area_unlock_gate', status: 'LOCKED', mainline: true,
+          areaId: lockedArea.id, title: '开放「' + lockedArea.name + '」', symptom: areaLockHint(state, lockedArea), requirements: [], rewards: {}
+        });
+      }
+      return normalizeOrder({
+        id: 'renovation-volume-' + volume + '-complete', slot: 'renovation', kind: 'renovation_complete', status: 'COMPLETE',
+        title: '本卷已修完', symptom: '宗门焕然一新，接下来去照顾新住客吧。', requirements: [], rewards: {}
+      });
+    }
     return normalizeOrder({
       id: 'renovation-' + current.areaId + '-' + (current.stageIndex + 1),
       slot: 'renovation', kind: 'renovation', mainline: true,
@@ -1811,6 +2023,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
 
   function ensureOrders(state, rng) {
     if (!state || typeof state !== 'object') return [];
+    /* 委托生成前先自愈正式产线，保证“已解锁”始终对应一个真实永久来源。 */
+    recoverPermanentGenerators(state, Date.now());
     rng = typeof rng === 'function' ? rng : Math.random;
     var old = Array.isArray(state.activeOrders) ? state.activeOrders.filter(Boolean) : [];
     var bySlot = {};
@@ -1821,12 +2035,22 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       if (['main', 'renovation', 'medical', 'visitor', 'journey'].indexOf(bucket) < 0) return;
       if (!bySlot[bucket]) bySlot[bucket] = normalizeOrder(Object.assign({}, order, { slot: bucket }));
     });
-    if (!bySlot.main || bySlot.main.kind === 'recruit_complete' && firstLockedBeast(state)) bySlot.main = makeMainOrder(state);
-    if (!bySlot.renovation || bySlot.renovation.kind === 'renovation_complete' && currentRenovation(state)) bySlot.renovation = makeRenovationOrder(state);
-    if (!bySlot.medical || bySlot.medical.kind === 'growth_complete') bySlot.medical = makeMedicalOrder(state, rng);
+    function lockedSlot(slot, title, symptom) {
+      return normalizeOrder({ id: slot + '-locked', slot: slot, kind: slot + '_locked', status: 'LOCKED', title: title, symptom: symptom, requirements: [], rewards: {} });
+    }
+    /* 卷章与修缮卡永远从当前状态机重建，不保留能绕过门槛的旧卡。 */
+    bySlot.main = makeMainOrder(state);
+    bySlot.renovation = makeRenovationOrder(state);
+    var medicalOpen = sectStageCount(state, 'clinic') >= 1;
+    var visitorOpen = !!state.firstStoryCompleted || BEAST_IDS.some(function (id) { return number(state.beastCases && state.beastCases[id] && state.beastCases[id].storyProgress, 0) >= 1; });
+    var journeyOpen = (state.transformedOrder || []).length >= 1;
+    if (!medicalOpen) bySlot.medical = lockedSlot('medical', '医案未开', '完成医馆首段修缮后开放。');
+    else if (!bySlot.medical || bySlot.medical.kind === 'growth_complete' || bySlot.medical.status === 'LOCKED' || !isOrderReachable(state, bySlot.medical)) bySlot.medical = makeMedicalOrder(state, rng);
     var now = number(state.lastSeenAt, Date.now());
-    if (!bySlot.visitor || number(bySlot.visitor.refreshAt, 0) <= now) bySlot.visitor = makeVisitorOrder(state, rng, now);
-    if (!bySlot.journey || bySlot.journey.boundDate !== state.daily.date) bySlot.journey = makeJourneyOrder(state, rng);
+    if (!visitorOpen) bySlot.visitor = lockedSlot('visitor', '访客未开', '完成第一段故事后，山门才会迎来访客。');
+    else if (!bySlot.visitor || bySlot.visitor.status === 'LOCKED' || number(bySlot.visitor.refreshAt, 0) <= now || !isOrderReachable(state, bySlot.visitor)) bySlot.visitor = makeVisitorOrder(state, rng, now);
+    if (!journeyOpen) bySlot.journey = lockedSlot('journey', '旅程未开', '第一只神兽蜕变后开放。');
+    else if (!bySlot.journey || bySlot.journey.status === 'LOCKED' || bySlot.journey.boundDate !== state.daily.date || !isOrderReachable(state, bySlot.journey)) bySlot.journey = makeJourneyOrder(state, rng);
     state.activeOrders = [bySlot.main, bySlot.renovation, bySlot.medical, bySlot.visitor, bySlot.journey];
     state.orders = state.activeOrders;
     return state.activeOrders;
@@ -1852,14 +2076,14 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
   function sectTotalDone(state, volume) {
     volume = volume == null ? currentChapterVolume(state) : volume;
     return sectAreas(volume).reduce(function (sum, area) {
-      return isAreaUnlocked(state, area.id) ? sum + sectStageCount(state, area.id) : sum;
+      return sum + sectStageCount(state, area.id);
     }, 0);
   }
 
   function sectTotalTarget(state, volume) {
     volume = volume == null ? currentChapterVolume(state) : volume;
     return sectAreas(volume).reduce(function (sum, area) {
-      return isAreaUnlocked(state, area.id) ? sum + (area.stages ? area.stages.length : 0) : sum;
+      return sum + (area.stages ? area.stages.length : 0);
     }, 0);
   }
 
@@ -1867,12 +2091,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
   function currentRenovation(state) {
     var volume = currentChapterVolume(state);
     var areas = sectAreas(volume);
-    var target = areas.reduce(function (sum, area) {
-      return isAreaUnlocked(state, area.id) ? sum + (area.stages ? area.stages.length : 0) : sum;
-    }, 0);
-    var done = areas.reduce(function (sum, area) {
-      return isAreaUnlocked(state, area.id) ? sum + sectStageCount(state, area.id) : sum;
-    }, 0);
+    var target = areas.reduce(function (sum, area) { return sum + (area.stages ? area.stages.length : 0); }, 0);
+    var done = areas.reduce(function (sum, area) { return sum + sectStageCount(state, area.id); }, 0);
     if (done >= target) return null;
     for (var i = 0; i < areas.length; i++) {
       var area = areas[i];
@@ -1946,6 +2166,18 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     };
     var change = recordWorldChange(state, worldEvent);
     var actOneDone = sectTotalDone(state) >= sectTotalTarget(state);
+    state.tutorial = Object.assign({}, state.tutorial || {});
+    if (currentChapterVolume(state) === 1 && !state.tutorial.firstRepair) state.tutorial.firstRepair = true;
+    var acquiredBeastId = null;
+    var acquisitionReveal = null;
+    if (currentChapterVolume(state) === 1 && current.areaId === 'gate' && fromStage === 0 && state.codex && state.codex.qiongqi && !state.codex.qiongqi.discovered) {
+      state.codex.qiongqi.discovered = true;
+      acquiredBeastId = 'qiongqi';
+      acquisitionReveal = revealEvent(state, 'acquire', 'qiongqi', 1);
+    }
+    if (actOneDone && state.chapter && Array.isArray(state.chapter.migrationRepairs)) {
+      state.chapter.migrationRepairs = state.chapter.migrationRepairs.filter(function (volume) { return volume !== currentChapterVolume(state); });
+    }
     syncLegacyAliases(state);
     return {
       ok: true,
@@ -1963,6 +2195,9 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       worldEvent: clone(change),
       worldChange: clone(change),
       stageBonus: clone(stageBonus)
+      , acquired: !!acquiredBeastId
+      , acquiredBeastId: acquiredBeastId
+      , revealEvents: acquisitionReveal ? [clone(acquisitionReveal)] : []
     };
   }
 
@@ -1973,31 +2208,69 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     return { areaId: areaId, stage: stage, state: (DATA.sect.stageNames || [])[stage] || String(stage), art: area.art && area.art[stage] || null };
   }
 
-  /* 卷章五幕进度（卷一·穷奇篇）：
-     幕一 修缮（9 段）→ 幕二 收容（修缮毕，待建档医案）→ 幕三 疗愈（医案推进）
-     → 幕四 焕新（蜕变）→ 幕五 上岗（领取岗位产出）。 */
+  /* v8 唯一卷章状态机：首修 → 故事/修缮并行 → 照料 → 蜕变确认
+     → 首次岗位 → 转卷确认。无区域卷把首修与修缮视为自动满足。 */
   function chapterProgress(state) {
     var done = sectTotalDone(state);
     var target = sectTotalTarget(state);
     var volume = currentChapterVolume(state);
     var volumeConfig = (DATA.sect.volumes || []).find(function (item) { return item.volume === volume; }) || { beastId: 'qiongqi' };
     var entry = state.beastCases && state.beastCases[volumeConfig.beastId];
-    var jobClaimed = !!(state.jobs && state.jobs[volumeConfig.beastId] && state.jobs[volumeConfig.beastId].lastClaimAt);
-    var actNames = ['修缮', '收容', '疗愈', '焕新', '上岗'];
-    var act = 1;
-    if (done >= target) act = 2;
-    if (act >= 2 && entry && entry.storyProgress >= 1) act = 3;
-    if (act >= 3 && entry && entry.transformed) act = 4;
-    if (act >= 4 && jobClaimed) act = 5;
+    state.chapter = Object.assign({ completedVolumes: [], jobAcknowledgedVolumes: [], pendingTransition: null, migrationRepairs: [] }, state.chapter || {});
+    var completedVolumes = Array.isArray(state.chapter.completedVolumes) ? state.chapter.completedVolumes : [];
+    var jobVolumes = Array.isArray(state.chapter.jobAcknowledgedVolumes) ? state.chapter.jobAcknowledgedVolumes : [];
+    var firstRepairDone = target === 0 || done > 0;
+    var arrivalDone = volume === 1 || !!(entry && entry.status !== 'locked');
+    var storiesDone = !!(entry && entry.storyProgress >= 3);
+    var renovationComplete = target === 0 || done >= target;
+    var careDone = !!(entry && entry.careDone);
+    var transformed = !!(entry && entry.transformed);
+    var jobAcknowledged = jobVolumes.indexOf(volume) >= 0;
+    var chapterDone = completedVolumes.indexOf(volume) >= 0;
+    var migrationRepair = Array.isArray(state.chapter.migrationRepairs) && state.chapter.migrationRepairs.indexOf(volume) >= 0 && !renovationComplete;
+    var phase = 'first_repair';
+    if (state.chapter.pendingTransition) phase = 'transition';
+    else if (chapterDone) phase = 'complete';
+    else if (!firstRepairDone) phase = 'first_repair';
+    else if (migrationRepair) phase = 'repair_completion';
+    else if (!arrivalDone) phase = 'arrival';
+    else if (!storiesDone) phase = 'story_and_repair';
+    else if (!renovationComplete) phase = 'repair_completion';
+    else if (!careDone || !transformed) phase = 'care';
+    else if (entry && entry.pendingTransformation) phase = 'transformation';
+    else if (!jobAcknowledged) phase = 'job';
+    else phase = 'complete';
+    var phaseNames = {
+      first_repair: '首次山门修缮', arrival: '迎接新住客', story_and_repair: '故事与本卷修缮',
+      repair_completion: '补完本卷修缮', care: '去庭院照料', transformation: '确认蜕变',
+      job: '领取首次岗位产出', transition: '查看转卷演出', complete: '本卷完成'
+    };
+    var milestoneIndex = phase === 'first_repair' ? 0
+      : phase === 'arrival' || phase === 'story_and_repair' || phase === 'repair_completion' ? 1
+      : phase === 'care' ? 2
+      : phase === 'transformation' ? 3
+      : phase === 'job' ? 4 : 5;
     return {
-      act: act,
-      actName: actNames[act - 1],
-      actNames: actNames,
+      phase: phase,
+      phaseName: phaseNames[phase],
+      act: ['first_repair', 'arrival', 'story_and_repair', 'repair_completion', 'care', 'transformation', 'job', 'transition', 'complete'].indexOf(phase) + 1,
+      actName: phaseNames[phase],
+      milestones: ['首次修缮', '故事与本卷修缮', '庭院照料', '神兽蜕变', '首次岗位', '本卷完成'],
+      milestoneIndex: milestoneIndex,
       volume: volume,
       beastId: volumeConfig.beastId,
       renovationDone: done,
       renovationTarget: target,
-      chapterDone: act >= 5
+      firstRepairDone: firstRepairDone,
+      arrivalDone: arrivalDone,
+      storiesDone: storiesDone,
+      renovationComplete: renovationComplete,
+      careDone: careDone,
+      transformed: transformed,
+      jobAcknowledged: jobAcknowledged,
+      chapterDone: chapterDone,
+      pendingTransition: clone(state.chapter.pendingTransition),
+      completedVolumes: completedVolumes.slice()
     };
   }
 
@@ -2019,7 +2292,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
 
   function recipeUnlocked(state, recipeId) {
     var recipe = recipeDefinition(recipeId);
-    if (!recipe) return false;
+    if (!recipe || recipe.visible === false || recipe.released === false) return false;
     return currentChapterVolume(state) >= Math.max(1, Math.floor(number(recipe.volume, 1)));
   }
 
@@ -2057,9 +2330,22 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     return count >= Math.max(1, Math.floor(number(need.count, 1)));
   }
 
+  function chapterAllowsOrder(state, order) {
+    if (!order || !order.mainline && order.slot !== 'main') return true;
+    var progress = chapterProgress(state);
+    if (order.kind === 'story') {
+      var entry = state.beastCases && state.beastCases[order.beastId];
+      return progress.phase === 'story_and_repair' && order.beastId === progress.beastId &&
+        entry && number(order.storyStep, 0) === number(entry.storyProgress, 0) + 1;
+    }
+    if (order.kind === 'arrival') return progress.phase === 'arrival' && order.beastId === progress.beastId;
+    return true;
+  }
+
   function canDeliver(state, order) {
     if (!order) return false;
-    if (order.status === 'COMPLETE' || /_complete$/.test(order.kind || '')) return false;
+    if (order.status === 'COMPLETE' || order.status === 'LOCKED' || /_complete$/.test(order.kind || '')) return false;
+    if (!chapterAllowsOrder(state, order)) return false;
     /* A care gate is a signpost into the no-energy interaction, never a
        material turn-in. Otherwise players could repeatedly submit it without
        advancing the treatment node. */
@@ -2078,10 +2364,11 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     }
     if (!order || !Array.isArray(order.requirements)) return false;
     var itemsReachable = order.requirements.every(function (need) {
-      return maxReachableTier(state, need.family, need.sourceBeast) >= need.tier;
+      return resolveItemAvailability(state, need).status === 'available';
     });
-    var generatorReachable = !order.generatorNeed || !!producerChain(order.generatorNeed.family);
-    return itemsReachable && generatorReachable && (!order.productNeed || recipeUnlocked(state, order.productNeed.productId));
+    var generatorReachable = !order.generatorNeed || resolveItemAvailability(state, { generatorNeed: order.generatorNeed }).status === 'available';
+    var productReachable = !order.productNeed || resolveItemAvailability(state, order.productNeed).status === 'available';
+    return itemsReachable && generatorReachable && productReachable;
   }
 
   function firstFreeGridIndex(state) {
@@ -2154,23 +2441,55 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     return leveled;
   }
 
-  function unlockGenerator(state, family) {
-    if (GAME_SOURCE_FAMILIES[family]) return false;
-    if (!family || state.unlockedGenerators.indexOf(family) >= 0) return false;
-    state.unlockedGenerators.push(family);
-    var exists = state.grid.some(function (item) { return item && item.kind === 'generator' && item.family === family; });
-    if (!exists) {
-      var chain = producerChain(family);
-      if (chain) {
-        queueItem(state, makeGeneratorPart(family, 4));
-        queueItem(state, makeGeneratorPart(family, 4));
-      } else {
-        var index = firstFreeGridIndex(state);
-        if (index >= 0) state.grid[index] = makeGenerator(family, 1, Date.now(), null, 0, true);
-        else state.pendingRewards.push(makeGenerator(family, 1, Date.now(), null, 0, true));
-      }
+  function hasPermanentGenerator(state, family) {
+    var found = false;
+    [state && state.grid, state && state.storage && state.storage.items, state && state.pendingRewards].forEach(function (list) {
+      (list || []).forEach(function (item) {
+        if (item && item.kind === 'generator' && item.family === family && item.permanent !== false) found = true;
+      });
+    });
+    return found;
+  }
+
+  function ensurePermanentGenerator(state, family, now, recordMigration) {
+    if (!state || GAME_SOURCE_FAMILIES[family] || !isPermanentGeneratorFamily(family)) return false;
+    if (hasPermanentGenerator(state, family)) return false;
+    queueItem(state, makeGenerator(family, 1, number(now, Date.now()), null, 0, true));
+    if (recordMigration) {
+      state.migrations = state.migrations || {};
+      var recovered = Array.isArray(state.migrations.v8PermanentGeneratorRecovery)
+        ? state.migrations.v8PermanentGeneratorRecovery : [];
+      if (recovered.indexOf(family) < 0) recovered.push(family);
+      state.migrations.v8PermanentGeneratorRecovery = recovered;
     }
     return true;
+  }
+
+  function recoverPermanentGenerators(state, now) {
+    (state.unlockedGenerators || []).forEach(function (family) {
+      ensurePermanentGenerator(state, family, now, true);
+    });
+  }
+
+  function unlockGenerator(state, family) {
+    if (!state || GAME_SOURCE_FAMILIES[family] || !familyDefinition(family)) return false;
+    state.unlockedGenerators = Array.isArray(state.unlockedGenerators) ? state.unlockedGenerators : [];
+    var newlyUnlocked = state.unlockedGenerators.indexOf(family) < 0;
+    if (newlyUnlocked) state.unlockedGenerators.push(family);
+    var granted = ensurePermanentGenerator(state, family, Date.now(), false);
+    return newlyUnlocked || granted;
+  }
+
+  function grantGeneratorPartPair(state, family, tier) {
+    if (!producerChain(family)) return { ok: false, reason: 'producer-chain-missing' };
+    state.tutorial = Object.assign({}, state.tutorial || {});
+    var key = 'generatorParts:' + family;
+    if (state.tutorial[key]) return { ok: false, reason: 'already-granted' };
+    tier = clamp(Math.floor(number(tier, 1)), 1, 4);
+    var parts = [makeGeneratorPart(family, tier), makeGeneratorPart(family, tier)];
+    parts.forEach(function (part) { queueItem(state, part); });
+    state.tutorial[key] = true;
+    return { ok: true, family: family, tier: tier, items: clone(parts), pending: state.pendingRewards.length };
   }
 
   function autoUnlockVolumeAreas(state) {
@@ -2198,6 +2517,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
   function maybeTransform(state, beastId) {
     var entry = state.beastCases && state.beastCases[beastId];
     if (!entry || entry.transformed || entry.storyProgress < 3 || !entry.careDone) return false;
+    var progress = chapterProgress(state);
+    if (progress.beastId !== beastId || !progress.renovationComplete || !progress.storiesDone) return false;
     entry.transformed = true;
     entry.pendingTransformation = true;
     entry.status = 'transformed';
@@ -2212,11 +2533,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       state.codex[beastId].seenStage = 3;
     }
     if (state.activeCaseId === beastId) state.activeCaseId = null;
-    var beastVolume = (DATA.sect && DATA.sect.volumes || []).find(function (entry) { return entry.beastId === beastId; });
-    if (beastVolume) {
-      state.chapter = Object.assign({}, state.chapter || {}, { volume: Math.max(beastVolume.volume + 1, currentChapterVolume(state)) });
-      autoUnlockVolumeAreas(state);
-    }
+    if (state.jobs && state.jobs[beastId]) state.jobs[beastId].unlocked = true;
     unlockNextGenerator(state, beastId);
     /* 前三兽（穷奇/九尾狐/饕餮）完成即解锁现有卷一~卷三结局；
        十二兽全部蜕变后额外标记山海长卷完成。 */
@@ -2231,16 +2548,14 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     if (!definition || !entry) return { ok: false, reason: 'unknown-beast' };
     if (entry.transformed) return { ok: true, alreadyActive: true, beastId: beastId };
     if (state.activeCaseId === beastId && entry.status === 'active') return { ok: true, alreadyActive: true, beastId: beastId };
+    var volumeConfig = (DATA.sect && DATA.sect.volumes || []).find(function (volumeEntry) { return volumeEntry.beastId === beastId; });
+    if (volumeConfig && volumeConfig.volume !== currentChapterVolume(state)) return { ok: false, reason: 'chapter-mismatch', expectedVolume: volumeConfig.volume };
     if (state.activeCaseId && state.beastCases[state.activeCaseId] && !state.beastCases[state.activeCaseId].transformed) {
       state.beastCases[state.activeCaseId].status = 'waiting';
     }
     entry.status = 'active';
     state.activeCaseId = beastId;
     state.yardBeastId = beastId;
-    var volumeConfig = (DATA.sect && DATA.sect.volumes || []).find(function (entry) { return entry.beastId === beastId; });
-    if (volumeConfig) {
-      state.chapter = Object.assign({}, state.chapter || {}, { volume: Math.max(volumeConfig.volume, currentChapterVolume(state)) });
-    }
     if (beastId === 'jiuweihu') unlockGenerator(state, 'build');
     if (beastId === 'taotie') unlockGenerator(state, 'food');
     if (beastId === 'taowu') unlockGenerator(state, 'charm');
@@ -2325,7 +2640,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     if (order.productNeed) state.products[order.productNeed.productId] -= number(order.productNeed.count, 1);
     var rewards = order.rewards || {};
     state.jade += Math.max(0, number(rewards.jade, 0));
-    if (rewards.energy) state.energy = Math.min(state.maxEnergy, state.energy + Math.max(0, Math.floor(number(rewards.energy, 0))));
+    if (rewards.energy) state.energy += Math.max(0, Math.floor(number(rewards.energy, 0)));
     (rewards.generatorParts || []).forEach(function (part) {
       if (part && part.family && part.tier) queueItem(state, makeGeneratorPart(part.family, part.tier));
     });
@@ -2476,8 +2791,12 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       found.item.lifetime = Math.max(0, Math.floor(number(found.item.lifetime, 0)) - 1);
     }
     queueItem(state, item);
+    state.tutorial = Object.assign({}, state.tutorial || {});
+    if (!state.tutorial.generated) state.tutorial.generated = true;
     var drops = [item];
     var partDrop = null;
+    var partDrops = [];
+    var partPairGranted = false;
     if (isPermanent) {
       var partChain = producerChain(family);
       if (partChain) {
@@ -2490,6 +2809,15 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
           partDrop = makeGeneratorPart(family, partTier);
           found.item.partPity = 0;
           queueItem(state, partDrop);
+          partDrops.push(partDrop);
+          var pairKey = 'generatorParts:' + family;
+          if (!state.tutorial[pairKey]) {
+            var pairedPart = makeGeneratorPart(family, partTier);
+            queueItem(state, pairedPart);
+            partDrops.push(pairedPart);
+            state.tutorial[pairKey] = true;
+            partPairGranted = true;
+          }
         }
       }
       var taotie = state.beastCases.taotie;
@@ -2529,10 +2857,12 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       generatorLevel: generatorLevel, rolledTier: rolledTier, dropTable: clone(dropTable),
       partDropChance: isPermanent && producerChain(family) ? effectiveGeneratorPartChance(state, family, generatorLevel) : 0,
       partDrop: clone(partDrop),
+      partDrops: clone(partDrops),
+      partPairGranted: partPairGranted,
       expired: expired,
       comfortParts: clone(comfortParts),
-      events: (partDrop ? [{ type: 'generator_part_drop', item: clone(partDrop) }] : []).concat(expired ? [{ type: 'generator_expired', family: family, level: generatorLevel, comfortParts: clone(comfortParts) }] : []),
-      rewards: { items: clone(drops.concat(partDrop ? [partDrop] : []).concat(comfortParts)) }
+      events: (partDrop ? [{ type: 'generator_part_drop', item: clone(partDrop), items: clone(partDrops) }] : []).concat(expired ? [{ type: 'generator_expired', family: family, level: generatorLevel, comfortParts: clone(comfortParts) }] : []),
+      rewards: { items: clone(drops.concat(partDrops).concat(comfortParts)) }
     };
   }
 
@@ -2646,51 +2976,98 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     });
   }
 
-  function nextActionHint(state, orders, activeBeastId) {
-    orders = orders && orders.length ? orders : ensureOrders(state, Math.random);
-    function isOpen(order) {
-      return order && order.status !== 'COMPLETE' && !/_complete$/.test(order.kind || '') && order.kind !== 'care_gate';
-    }
-    var open = orders.filter(isOpen);
-    var deliverable = open.filter(function (order) { return canDeliver(state, order); })[0];
-    if (deliverable) return { type: 'deliver', order: deliverable, text: '素材已备齐，交付「' + deliverable.title + '」领取奖励' };
-    var mergeCandidate = null;
-    open.forEach(function (order) {
-      if (mergeCandidate) return;
-      (order.requirements || []).forEach(function (need) {
-        if (mergeCandidate || !need || !need.family) return;
-        var have = countItems(state, need.family, need.tier, need.sourceBeast);
-        if (have >= number(need.count, 1)) return;
-        if (number(need.tier, 1) > 1 && countItems(state, need.family, need.tier - 1, need.sourceBeast) >= 2) {
-          mergeCandidate = { type: 'merge', order: order, family: need.family, tier: need.tier, text: '再合成一次「' + getItemName(need.family, need.tier) + '」就能交付「' + order.title + '」' };
-        }
-      });
-    });
-    if (mergeCandidate) return mergeCandidate;
-    for (var orderIndex = 0; orderIndex < open.length; orderIndex++) {
-      var needs = open[orderIndex].requirements || [];
-      for (var needIndex = 0; needIndex < needs.length; needIndex++) {
-        var need = needs[needIndex];
-        if (!need || !need.family) continue;
-        /* 梳妆/陪玩素材只能来自庭院小游戏：缺口时提示去对应设施。 */
-        if (need.family !== 'groom' && need.family !== 'play') continue;
-        if (countItems(state, need.family, need.tier) >= number(need.count, 1)) continue;
-        var careType = need.family;
-        var careLabel = careType === 'groom' ? '梳洗' : '陪玩';
-        return { type: 'care', order: open[orderIndex], careType: careType, text: '去庭院' + careLabel + '收集「' + getItemName(need.family, need.tier) + '」，这是交付委托的关键素材' };
+  function objectiveForOrder(state, order, deliveryPage, deliveryAction, deliveryReady) {
+    if (!order) return null;
+    var ready = deliveryReady == null ? canDeliver(state, order) : !!deliveryReady;
+    if (ready) return {
+      type: 'deliver', order: order, page: deliveryPage, action: deliveryAction,
+      text: '素材已备齐，交付「' + order.title + '」', detail: order.symptom || order.text || ''
+    };
+    var needs = order.requirements || [];
+    for (var index = 0; index < needs.length; index++) {
+      var need = needs[index];
+      if (countItems(state, need.family, need.tier) >= number(need.count, 1)) continue;
+      if (number(need.tier, 1) > 1 && countItems(state, need.family, need.tier - 1) >= 2) {
+        return {
+          type: 'merge', order: order, family: need.family, tier: need.tier, page: 'merge-view', action: 'merge',
+          text: '合成「' + getItemName(need.family, need.tier) + '」', detail: '两枚同阶素材可合成一枚更高阶素材。'
+        };
       }
+      var route = resolveItemAvailability(state, need);
+      var routeAction = route.action || {};
+      if (routeAction.action === 'care') {
+        return {
+          type: 'care', order: order, family: need.family, tier: need.tier,
+          careType: routeAction.careType, beastId: routeAction.beastId, page: 'yard-view', action: 'care', availability: route,
+          text: '去嬉游亭陪玩，带回「' + getItemName(need.family, need.tier) + '」', detail: route.availability
+        };
+      }
+      if (route.status === 'available') {
+        return {
+          type: 'generate', order: order, family: need.family, tier: need.tier, page: 'merge-view', action: 'generator', availability: route,
+          text: '从「' + ((route.sources[0] && route.sources[0].label) || '素材来源') + '」收集' + getItemName(need.family, need.tier), detail: '可通过重复产出与合成达到所需阶位。'
+        };
+      }
+      return {
+        type: 'blocked', order: order, family: need.family, tier: need.tier,
+        page: routeAction.page === 'yard' ? 'yard-view' : 'sect-view', action: routeAction.action || 'show-source', availability: route,
+        text: route.availability + '：' + getItemName(need.family, need.tier), detail: (route.unlockConditions || []).join('；') || route.reason
+      };
     }
-    var beastId = activeBeastId || state.activeCaseId || (DATA.beasts[0] && DATA.beasts[0].id);
-    if (beastId && canLevelUpBeast(state, beastId).ok) {
-      return { type: 'levelup', beastId: beastId, text: (beastDefinition(beastId) || { name: '住客' }).name + '正在迎来新变化' };
+    if (order.productNeed) {
+      var productRoute = resolveItemAvailability(state, order.productNeed);
+      return {
+        type: productRoute.status === 'available' ? 'recipe' : 'blocked', order: order, page: 'merge-view', action: 'open-recipe', availability: productRoute,
+        text: '制作「' + ((recipeDefinition(order.productNeed.productId) || {}).name || order.productNeed.productId) + '」', detail: productRoute.availability
+      };
     }
+    return { type: 'order', order: order, page: deliveryPage, action: deliveryAction, text: '推进「' + order.title + '」', detail: order.symptom || '' };
+  }
+
+  function getCurrentObjective(state) {
+    var orders = ensureOrders(state, Math.random);
     var progress = chapterProgress(state);
-    var reno = progress && progress.act === 1 ? currentRenovation(state) : null;
-    if (reno && reno.order) {
-      return { type: 'renovation', order: reno.order, areaName: reno.area.name, text: '下一步：' + reno.area.name + ' · ' + reno.order.title, detail: reno.order.text };
+    var main = orders.find(function (order) { return order && order.slot === 'main'; });
+    var renovationCard = orders.find(function (order) { return order && order.slot === 'renovation'; });
+    var result;
+    if (progress.phase === 'transition') {
+      result = { type: 'transition', order: main, page: 'sect-view', action: 'acknowledge-transition', text: '查看本卷衔接演出', detail: progress.pendingTransition && progress.pendingTransition.title };
+    } else if (progress.phase === 'first_repair' || progress.phase === 'repair_completion') {
+      var renovation = currentRenovation(state);
+      if (renovation) {
+        var renovationOrder = normalizeOrder({
+          id: 'renovation-' + renovation.areaId + '-' + (renovation.stageIndex + 1), kind: 'renovation', slot: 'renovation',
+          title: renovation.order.title, symptom: renovation.order.text, requirements: renovation.order.requirements || [], productNeed: renovation.order.productNeed || null
+        });
+        result = objectiveForOrder(state, renovationOrder, 'sect-view', 'deliver-renovation', canDeliverRenovation(state));
+        result.areaId = renovation.areaId;
+        result.areaName = renovation.area.name;
+      } else if (renovationCard && renovationCard.kind === 'area_unlock_gate') {
+        result = { type: 'unlock-area', order: renovationCard, page: 'sect-view', action: 'unlock-area', areaId: renovationCard.areaId, text: renovationCard.title, detail: renovationCard.symptom };
+      }
+    } else if (progress.phase === 'care') {
+      result = { type: 'care', order: main, beastId: progress.beastId, careType: main && main.requirements && main.requirements[0] && main.requirements[0].family || 'play', page: 'yard-view', action: 'care', text: '去庭院照料', detail: '完成一局有效陪玩，回应这段陪伴。' };
+    } else if (progress.phase === 'transformation') {
+      result = { type: 'transformation', order: main, beastId: progress.beastId, page: 'sect-view', action: 'acknowledge-transformation', text: '见证神兽蜕变', detail: '确认新形态后开放岗位。' };
+    } else if (progress.phase === 'job') {
+      result = { type: 'job', order: main, beastId: progress.beastId, page: 'sect-view', action: progress.beastId === 'qiongqi' ? 'claim-job' : 'acknowledge-job', text: '领取首次岗位产出', detail: '完成后才能进入下一卷。' };
+    } else if (progress.phase === 'complete') {
+      result = { type: 'complete', order: main, page: 'sect-view', action: 'show-ending', text: state.sagaComplete ? '山海终章已完成' : '本卷完成', detail: '宗门的入口与记忆都会永久保留。' };
+    } else {
+      result = objectiveForOrder(state, main, 'sect-view', 'deliver-order');
     }
-    var fallback = open[0] || orders[0];
-    return { type: 'order', order: fallback, text: fallback ? '推进「' + fallback.title + '」' : '继续合成与交付', detail: fallback && (fallback.symptom || '合成并交付需要的素材。') };
+    if (!result) result = { type: 'order', order: main, page: 'sect-view', action: 'show-objective', text: progress.phaseName, detail: '' };
+    result.progress = {
+      current: progress.phase === 'story_and_repair' ? number(state.beastCases[progress.beastId] && state.beastCases[progress.beastId].storyProgress, 0) : progress.renovationDone,
+      target: progress.phase === 'story_and_repair' ? 3 : progress.renovationTarget,
+      label: progress.phase === 'story_and_repair' ? number(state.beastCases[progress.beastId] && state.beastCases[progress.beastId].storyProgress, 0) + '/3 段故事' : progress.renovationDone + '/' + progress.renovationTarget + ' 修缮'
+    };
+    result.chapter = progress;
+    return result;
+  }
+
+  function nextActionHint(state, orders, activeBeastId) {
+    return getCurrentObjective(state);
   }
 
   function mergeItems(state, fromIndex, toIndex, now, rng) {
@@ -2704,16 +3081,17 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     if (from.kind === 'generator_part' || to.kind === 'generator_part') {
       if (from.kind !== 'generator_part' || to.kind !== 'generator_part' || from.family !== to.family || from.tier !== to.tier) return { ok: false, reason: 'not-match' };
       if (!producerChain(from.family)) return { ok: false, reason: 'producer-chain-missing' };
-      state.grid[fromIndex] = null;
       if (from.tier >= 4) {
         var consumableCount = (state.grid || []).filter(function (item) {
           return item && item.kind === 'generator' && item.family === from.family && item.permanent === false;
         }).length;
         var consumableMax = Math.max(1, Math.floor(number(DATA.generators && DATA.generators.consumableMaxPerFamily, 2)));
         if (consumableCount >= consumableMax) return { ok: false, reason: 'generator-cap' };
+        state.grid[fromIndex] = null;
         state.grid[toIndex] = makeGenerator(from.family, 1, now, null, 0, false);
         producerEvent = { type: 'generator_created', family: from.family, level: 1, permanent: false };
       } else {
+        state.grid[fromIndex] = null;
         state.grid[toIndex] = makeGeneratorPart(from.family, from.tier + 1);
         producerEvent = { type: 'generator_part_merged', family: from.family, tier: from.tier + 1 };
       }
@@ -2744,6 +3122,9 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     if (from.family !== to.family || from.tier !== to.tier) return { ok: false, reason: 'not-match' };
     if (from.tier >= familyTierCap(from.family)) return { ok: false, reason: 'tier-cap' };
     var mergedSource = from.giftSource && from.giftSource === to.giftSource ? from.giftSource : null;
+    state.tutorial = Object.assign({}, state.tutorial || {});
+    if (!state.tutorial.merged) state.tutorial.merged = true;
+    if (state.tutorial.playRewarded && from.tier === 1 && (from.family === 'groom' || from.family === 'play')) state.tutorial.playMerged = true;
     state.grid[fromIndex] = null;
     state.grid[toIndex] = mergedSource ? makeItem(to.family, to.tier + 1, mergedSource) : makeItem(to.family, to.tier + 1);
     state.daily.merges++;
@@ -2791,6 +3172,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var entry = state.beastCases && state.beastCases[beastId];
     var definition = beastDefinition(beastId);
     if (!entry || !definition || !isYardBeastAvailable(state, beastId)) return { ok: false, reason: 'beast-locked' };
+    if (!careFeatureUnlocked(state, careType)) return { ok: false, reason: 'feature-locked', feature: careType };
     if (!careDifficultyUnlocked(state, difficulty, careType)) return { ok: false, reason: 'difficulty-locked', difficulty: difficulty };
     var cost = Math.max(1, Math.floor(number(CARE_COSTS[difficulty], 1)));
     if (state.energy < cost) return { ok: false, reason: 'energy', cost: cost, energy: state.energy };
@@ -2800,6 +3182,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     state.careSerial = serial;
     var token = { id: 'care-' + serial, type: careType, difficulty: difficulty, beastId: beastId, cost: cost };
     state.careTransactions[token.id] = { token: clone(token), status: 'started' };
+    state.tutorial = Object.assign({}, state.tutorial || {});
+    if (careType === 'play') state.tutorial.playOpened = true;
     return { ok: true, token: token, cost: cost, energy: state.energy };
   }
 
@@ -2810,7 +3194,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     transaction.status = 'refunded';
     var cost = Math.max(0, number(transaction.token && transaction.token.cost, 0));
     var before = state.energy;
-    state.energy = Math.min(state.maxEnergy, state.energy + cost);
+    state.energy += cost;
     return { ok: true, refunded: state.energy - before, cost: cost, energy: state.energy };
   }
 
@@ -2962,6 +3346,11 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var giftRoute = careRouteForBeast(beastId, careType);
     var difficultyConfig = DATA.careGames.difficulties[difficulty];
     var tiers = (difficultyConfig.rewards[grade] || difficultyConfig.rewards.floor || [1]).slice();
+    state.tutorial = Object.assign({}, state.tutorial || {});
+    if (careType === 'play' && beastId === 'qiongqi' && !state.tutorial.playRewarded) {
+      tiers = [1, 1];
+      state.tutorial.playRewarded = true;
+    }
     if (difficulty === 'master' && grade === 'S') {
       if (state.daily.masteryFirst[careType]) tiers = (difficultyConfig.rewards.repeatS || [3, 2]).slice();
       state.daily.masteryFirst[careType] = true;
@@ -2977,7 +3366,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       rewardItems.push(rewardItem);
     });
     state.daily.careRewards[careType] = used + 1;
-    var firstCare = !entry.careDone;
+    var mainProgress = chapterProgress(state);
+    var firstCare = qualified && !entry.careDone && mainProgress.phase === 'care' && mainProgress.beastId === beastId;
     entry.careCount++;
     if (firstCare) {
       entry.careDone = true;
@@ -3104,6 +3494,47 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     return candidate || supplyFamily(state, Math.random);
   }
 
+  function unlockGeneratorsForVolume(state, volume) {
+    FAMILY_IDS.forEach(function (family) {
+      if (GAME_SOURCE_FAMILIES[family]) return;
+      var definition = familyDefinition(family);
+      if (definition && Math.max(1, Math.floor(number(definition.activeFromVolume, 1))) <= volume) unlockGenerator(state, family);
+    });
+  }
+
+  function completeChapterJob(state, beastId, now) {
+    var progress = chapterProgress(state);
+    if (progress.beastId !== beastId) return { ok: false, reason: 'wrong-chapter-job', expectedBeastId: progress.beastId };
+    if (progress.jobAcknowledged) return { ok: false, reason: 'job-already-acknowledged' };
+    if (progress.phase !== 'job') return { ok: false, reason: 'chapter-gate', phase: progress.phase };
+    var fromVolume = progress.volume;
+    var toVolume = Math.min((DATA.sect && DATA.sect.volumes || []).length || 12, fromVolume + 1);
+    state.chapter.jobAcknowledgedVolumes.push(fromVolume);
+    if (state.chapter.completedVolumes.indexOf(fromVolume) < 0) state.chapter.completedVolumes.push(fromVolume);
+    state.chapter.completedVolumes.sort(function (a, b) { return a - b; });
+    if (state.jobs && state.jobs[beastId]) state.jobs[beastId].lastClaimAt = number(now, Date.now());
+    state.firstArcComplete = [1, 2, 3].every(function (volume) { return state.chapter.completedVolumes.indexOf(volume) >= 0; });
+    state.endingUnlocked = state.firstArcComplete;
+    state.sagaComplete = state.chapter.completedVolumes.length >= (DATA.sect && DATA.sect.volumes || []).length;
+    var volumeConfig = (DATA.sect && DATA.sect.volumes || []).find(function (item) { return item.volume === toVolume; });
+    var transition = {
+      id: 'chapter-transition-' + fromVolume,
+      fromVolume: fromVolume,
+      toVolume: toVolume,
+      beastId: beastId,
+      nextBeastId: volumeConfig && volumeConfig.beastId || null,
+      title: fromVolume === toVolume ? '山海长卷完成' : '卷' + fromVolume + '已完成·启程卷' + toVolume,
+      at: number(now, Date.now())
+    };
+    state.chapter.pendingTransition = transition;
+    state.chapter.volume = toVolume;
+    unlockGeneratorsForVolume(state, toVolume);
+    autoUnlockVolumeAreas(state);
+    state.activeOrders = [];
+    ensureOrders(state, Math.random);
+    return { ok: true, beastId: beastId, chapterTransition: clone(transition), completedVolume: fromVolume, volume: toVolume };
+  }
+
   function claimJob(state, beastId, now) {
     var job = state.jobs && state.jobs[beastId];
     if (!job) return { ok: false, reason: 'unknown-job' };
@@ -3120,7 +3551,31 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     job.stored = 0;
     job.lastClaimAt = number(now, Date.now());
     var deposited = depositPendingRewards(state);
-    return { ok: true, items: clone(items), deposited: deposited, pending: state.pendingRewards.length };
+    var chapterResult = chapterProgress(state).phase === 'job' ? completeChapterJob(state, beastId, now) : null;
+    return {
+      ok: true, items: clone(items), deposited: deposited, pending: state.pendingRewards.length,
+      chapterTransition: chapterResult && chapterResult.ok ? chapterResult.chapterTransition : null,
+      completedVolume: chapterResult && chapterResult.ok ? chapterResult.completedVolume : null
+    };
+  }
+
+  function acknowledgeJob(state, beastId, now) {
+    var job = state.jobs && state.jobs[beastId];
+    if (!job) return { ok: false, reason: 'unknown-job' };
+    if (beastId === 'qiongqi') return { ok: false, reason: 'claim-job-required' };
+    job.unlocked = true;
+    var result = completeChapterJob(state, beastId, now);
+    if (!result.ok) return result;
+    return result;
+  }
+
+  function acknowledgeChapterTransition(state) {
+    if (!state.chapter || !state.chapter.pendingTransition) return { ok: false, reason: 'no-transition' };
+    var transition = clone(state.chapter.pendingTransition);
+    state.chapter.pendingTransition = null;
+    state.activeOrders = [];
+    ensureOrders(state, Math.random);
+    return { ok: true, transition: transition, volume: currentChapterVolume(state) };
   }
 
   function claimFacility(state, family) {
@@ -3150,28 +3605,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
   }
 
   function applyMissedInteractionDecay(state, nextDate) {
-    if (!state.daily || !state.daily.date) return {};
-    var previousDay = calendarDayNumber(state.daily.date);
-    var nextDay = calendarDayNumber(nextDate);
-    var elapsedDays = isFinite(previousDay) && isFinite(nextDay) ? nextDay - previousDay : 1;
-    if (elapsedDays <= 0) return {};
-    var lost = {};
-    BEAST_IDS.forEach(function (beastId) {
-      if (!isYardBeastAvailable(state, beastId)) return;
-      /* Assess the recorded day, then each elapsed calendar day with no
-         possible recorded activity.  This keeps a multi-day absence honest
-         without penalising residents the player has not met. */
-      var missedDays = elapsedDays - (hasBeastInteraction(state, beastId) ? 1 : 0);
-      if (missedDays <= 0) return;
-      var entry = state.beastCases[beastId];
-      var amount = Math.min(Math.max(0, number(entry.affection, 0)), missedDays * 10);
-      if (!amount) return;
-      entry.affection -= amount;
-      entry.trust = entry.affection;
-      entry.bond = clamp(1 + Math.floor(entry.affection / 20), 1, 5);
-      lost[beastId] = amount;
-    });
-    return lost;
+    /* v8 起好感只增不减；离线回访只结算正向岗位产出。 */
+    return {};
   }
 
   function ensureDaily(state, date, now, rng) {
@@ -3210,58 +3645,90 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     if (!weeklyComplete(state)) return { ok: false, reason: 'incomplete' };
     state.weekly.claimed = true;
     state.jade += 120;
-    state.energy = Math.min(state.maxEnergy, state.energy + 15);
+    state.energy += 15;
     var item = makeItem(targetedSupplyFamily(state), 3);
     queueItem(state, item);
     return { ok: true, jade: 120, energy: 15, rewardItem: clone(item) };
   }
 
   function claimDaily(state) {
-    if (state.daily.claimed) return { ok: false, reason: 'claimed' };
-    if (!dailyComplete(state)) return { ok: false, reason: 'incomplete' };
-    state.daily.claimed = true;
-    state.signIn = state.signIn || { daysClaimed: 0, lastClaimDate: null, completed: false, claimedDates: [] };
-    if (state.signIn.completed || state.signIn.daysClaimed >= 7) return { ok: false, reason: 'sign-in-complete' };
+    /* 先完成所有校验，之后才修改任何状态。 */
+    if (!state || !state.daily) return { ok: false, reason: 'missing-daily' };
     var date = state.daily.date;
-    if (state.signIn.claimedDates.indexOf(date) >= 0) return { ok: false, reason: 'claimed-date' };
-    var day = state.signIn.daysClaimed + 1;
-    var reward = clone(DATA.signIn && DATA.signIn.days && DATA.signIn.days[day - 1]);
-    if (!reward) return { ok: false, reason: 'sign-in-complete' };
-    var granted = { ok: true, day: day, jade: 0, energy: 0, items: [], background: null };
-    if (reward.energy) {
-      var beforeEnergy = state.energy;
-      state.energy = Math.min(state.maxEnergy, state.energy + reward.energy);
-      granted.energy = state.energy - beforeEnergy;
-    }
-    if (reward.jade) { state.jade += reward.jade; granted.jade = reward.jade; }
-    (reward.items || []).forEach(function (itemReward) {
-      for (var count = 0; count < number(itemReward.count, 1); count++) {
-        var item = makeItem(itemReward.family, itemReward.tier);
-        queueItem(state, item); granted.items.push(item);
+    var dailyRewards = state.dailyRewards && typeof state.dailyRewards === 'object' ? clone(state.dailyRewards) : { claimedDates: [] };
+    dailyRewards.claimedDates = Array.isArray(dailyRewards.claimedDates) ? dailyRewards.claimedDates : [];
+    if (state.daily.claimed || dailyRewards.claimedDates.indexOf(date) >= 0) return { ok: false, reason: 'claimed' };
+    if (!dailyComplete(state)) return { ok: false, reason: 'incomplete' };
+
+    var templates = DATA.dailyObjectives && DATA.dailyObjectives.templates || [];
+    var baseReward = templates.reduce(function (total, task) {
+      total.jade += Math.max(0, Math.floor(number(task && task.reward && task.reward.jade, 0)));
+      total.xp += Math.max(0, Math.floor(number(task && task.reward && task.reward.xp, 0)));
+      return total;
+    }, { jade: 0, xp: 0, energy: 0, items: [] });
+    var promise = state.sevenDayPromise || { daysClaimed: 0, claimedDates: [], completed: false };
+    promise.daysClaimed = clamp(Math.floor(number(promise.daysClaimed, 0)), 0, 7);
+    promise.claimedDates = Array.isArray(promise.claimedDates) ? promise.claimedDates : [];
+    var bonusDay = promise.daysClaimed < 7 && promise.claimedDates.indexOf(date) < 0 ? promise.daysClaimed + 1 : 0;
+    var reward = bonusDay ? clone(DATA.signIn && DATA.signIn.days && DATA.signIn.days[bonusDay - 1]) : null;
+    var sevenDayBonus = reward ? { day: bonusDay, jade: 0, energy: 0, items: [], background: null } : null;
+    var before = { jade: state.jade, energy: state.energy, xp: state.xp };
+
+    state.daily.claimed = true;
+    dailyRewards.claimedDates.push(date);
+    state.dailyRewards = dailyRewards;
+    state.jade += baseReward.jade;
+    gainXp(state, baseReward.xp);
+    if (reward) {
+      if (reward.energy) { state.energy += Math.max(0, number(reward.energy, 0)); sevenDayBonus.energy = Math.max(0, number(reward.energy, 0)); }
+      if (reward.jade) { state.jade += reward.jade; sevenDayBonus.jade = reward.jade; }
+      (reward.items || []).forEach(function (itemReward) {
+        for (var count = 0; count < number(itemReward.count, 1); count++) {
+          var item = makeItem(itemReward.family, itemReward.tier);
+          queueItem(state, item);
+          sevenDayBonus.items.push(item);
+        }
+      });
+      if (reward.selectedPreferredTier) {
+        var definition = beastDefinition(state.yardBeastId || state.activeCaseId) || DATA.beasts[0];
+        var preferred = definition.preferredCare || definition.careTypes[0] || 'herb';
+        var preferredItem = makeItem(preferred, reward.selectedPreferredTier);
+        queueItem(state, preferredItem);
+        sevenDayBonus.items.push(preferredItem);
       }
-    });
-    if (reward.selectedPreferredTier) {
-      var definition = beastDefinition(state.yardBeastId || state.activeCaseId) || DATA.beasts[0];
-      var preferred = definition.preferredCare || definition.careTypes[0] || 'herb';
-      var preferredItem = makeItem(preferred, reward.selectedPreferredTier);
-      queueItem(state, preferredItem); granted.items.push(preferredItem);
+      if (reward.background) {
+        ensureBackgroundState(state);
+        if (state.backgrounds.owned.indexOf(reward.background) < 0) state.backgrounds.owned.push(reward.background);
+        sevenDayBonus.background = reward.background;
+      }
+      promise.daysClaimed = bonusDay;
+      promise.claimedDates.push(date);
+      promise.completed = bonusDay >= 7;
     }
-    if (reward.background) {
-      ensureBackgroundState(state);
-      if (state.backgrounds.owned.indexOf(reward.background) < 0) state.backgrounds.owned.push(reward.background);
-      granted.background = reward.background;
-    }
-    state.signIn.daysClaimed = day;
-    state.signIn.lastClaimDate = date;
-    state.signIn.claimedDates.push(date);
-    state.signIn.completed = day >= 7;
-    if (day >= 7) {
+    state.sevenDayPromise = promise;
+    state.signIn = state.signIn || {};
+    state.signIn.daysClaimed = promise.daysClaimed;
+    state.signIn.claimedDates = promise.claimedDates.slice();
+    state.signIn.lastClaimDate = promise.claimedDates.length ? promise.claimedDates[promise.claimedDates.length - 1] : null;
+    state.signIn.completed = promise.completed;
+    if (promise.completed) {
       state.journey = state.journey || {};
       state.journey.welcomeJobUnlocked = true;
       if (state.jobs && state.jobs.jiuweihu) state.jobs.jiuweihu.unlocked = true;
-      granted.job = 'jiuweihu-welcome';
+      if (sevenDayBonus) sevenDayBonus.job = 'jiuweihu-welcome';
     }
-    return granted;
+    return {
+      ok: true,
+      date: date,
+      day: bonusDay || null,
+      baseReward: clone(baseReward),
+      sevenDayBonus: clone(sevenDayBonus),
+      actual: { jade: state.jade - before.jade, energy: state.energy - before.energy, xp: baseReward.xp },
+      jade: state.jade - before.jade,
+      energy: state.energy - before.energy,
+      xp: baseReward.xp,
+      items: sevenDayBonus ? clone(sevenDayBonus.items) : []
+    };
   }
 
   function upgradeFacility(state, facilityId) {
@@ -3556,6 +4023,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     recycleLowestPreview: recycleLowestPreview,
     generatorEfficiency: generatorEfficiency,
     nextActionHint: nextActionHint,
+    getCurrentObjective: getCurrentObjective,
+    resolveItemAvailability: resolveItemAvailability,
     sortOrderCards: sortOrderCards,
     moveBoardItem: moveBoardItem,
     deliverOrder: deliverOrder,
@@ -3567,6 +4036,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     recommendCareDifficulty: recommendCareDifficulty,
     advanceTime: advanceTime,
     claimJob: claimJob,
+    acknowledgeJob: acknowledgeJob,
+    acknowledgeChapterTransition: acknowledgeChapterTransition,
     claimFacility: claimFacility,
     ensureDaily: ensureDaily,
     ensureWeekly: ensureWeekly,
@@ -3608,6 +4079,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       return previous ? careGiftInfo(previous) : null;
     },
     makeGeneratorPart: makeGeneratorPart,
+    grantGeneratorPartPair: grantGeneratorPartPair,
     recipeUnlocked: recipeUnlocked,
     canCraftRecipe: canCraftRecipe,
     craftRecipe: craftRecipe,

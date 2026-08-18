@@ -1,5 +1,5 @@
 /*
- * sheep-game.js - a dependency-free "羊了个羊"-style tile tower engine.
+ * sheep-game.js - a dependency-free toy-tower tile engine.
  *
  * Rules (same family as the popular 3-tile clearing games):
  *   - Tiles are stacked in several layers.
@@ -738,7 +738,7 @@
     ctx.fillStyle = '#7A3751';
     ctx.font = '700 16px sans-serif';
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    if (ctx.fillText) ctx.fillText('羊了个羊 · 玩具塔', 12, 20);
+    if (ctx.fillText) ctx.fillText('陪玩 · 玩具塔', 12, 20);
     ctx.font = '700 12px sans-serif';
     ctx.textAlign = 'right';
     if (ctx.fillText) ctx.fillText('分数 ' + this.score + ' · ' + this.triplesCleared + '/' + this.totalTriples + ' 组', width - 12, 20);
@@ -760,7 +760,7 @@
       this._drawTile(ctx, sorted[i], rect);
     }
 
-    /* 底部七格槽 */
+    /* 底部五格槽 */
     for (i = 0; i < this.maxSlots; i++) {
       var slotX = 8 + i * ((width - 16) / this.maxSlots);
       var slotW = (width - 16) / this.maxSlots - 3;

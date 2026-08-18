@@ -460,6 +460,7 @@ function printScenario(report, scenario) {
     for (const entry of scenarioFailures) {
       console.log(`  - ${entry.check}: ${entry.message}`);
       if (entry.details && entry.check.startsWith('HTTP')) console.log(`    ${entry.details.url}`);
+      if (entry.details && entry.check.startsWith('horizontal-edge')) console.log('    ' + JSON.stringify(entry.details));
     }
   } else {
     console.log('  layout, touch targets, orientation, and browser diagnostics: pass');
@@ -536,14 +537,23 @@ async function run() {
           checkLayout(report, scenario, 'initial', initialLayout, orientation);
           checkButtons(report, scenario, 'initial', await evaluateVisibleButtons(page));
 
-          // The formal entry opens a welcome card followed by the paginated
-          // gameplay guide. Close both before visiting each persistent view.
+          // The formal entry uses one welcome card. Close it, then stage the
+          // first gate repair so the viewport pass can inspect systems that
+          // are intentionally hidden before their onboarding milestone.
           for (let sheet = 0; sheet < 3; sheet += 1) {
             const closeButton = page.locator('#modal-root [data-close-modal]').first();
             if (!(await closeButton.isVisible().catch(() => false))) break;
             await closeButton.click();
             await page.waitForTimeout(140);
           }
+          await page.evaluate(() => {
+            const api = window.MergeUI;
+            const state = api && api.state && api.state();
+            if (!state) return;
+            state.sect.stages.gate = Math.max(1, Number(state.sect.stages.gate || 0));
+            state.codex.qiongqi.discovered = true;
+            api.render();
+          });
 
           for (const viewId of ['merge-view', 'yard-view', 'codex-view']) {
             const navButton = page.locator(`.nav-button[data-view="${viewId}"]`).first();

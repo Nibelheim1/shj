@@ -102,7 +102,7 @@
     },
     groom: {
       id: 'groom', name: '梳妆', icon: '🪮', path: 'groom', color: '#b596d0',
-      activeFromVolume: 1, items: ['梳子', '毛刷', '蝴蝶结', '小花', '剪刀', '九尾手镜', '云缎披风', '九尾宝镜']
+      activeFromVolume: 2, items: ['梳子', '毛刷', '蝴蝶结', '小花', '剪刀', '九尾手镜', '云缎披风', '九尾宝镜']
     },
     play: {
       id: 'play', name: '陪玩', icon: '🎐', path: 'play', color: '#df91a5',
@@ -717,7 +717,8 @@
       id: 'kunpeng',
       name: '鲲鹏',
       unlockFamily: 'herb',
-      unlockTier: 9,
+      /* 入场礼物来自上一只神兽的 groom 路线，不得超过该家族 T8 上限。 */
+      unlockTier: 8,
       careTypes: ['groom', 'play'],
       careRoutes: {
         groom: { family: 'groom', label: '梳洗时蹭落的云海水汽' },
@@ -809,7 +810,7 @@
     beast.gift.note = giftNotes[beast.id] || beast.gift.note;
     beast.careRoutes = {
       groom: { family: 'groom', label: '梳洗台消消乐奖励 · 梳妆系列素材' },
-      play: { family: 'play', label: '嬉游亭羊了个羊奖励 · 玩具系列素材' }
+      play: { family: 'play', label: '嬉游亭陪玩 · 玩具塔奖励素材' }
     };
     if (!Array.isArray(beast.storySteps)) return;
     beast.storySteps.forEach(function (step) {
@@ -929,15 +930,15 @@
   };
 
   var recipes = [
-    { id: 'PROD_SOOTHE', name: '安神药包', volume: 1, inputs: [requirement('herb', 3, 1), requirement('tool', 3, 1)], use: '穷奇疗愈与卷一医案', art: 'assets/art/recipes/prod_soothe.webp', brief: '把宁神草与小药炉收进软布包，让不安的心在药香里慢慢安顿下来。' },
-    { id: 'PROD_BED', name: '灵木床', volume: 2, inputs: [requirement('build', 4, 1), requirement('groom', 3, 1)], use: '九尾狐静室与卷二修缮', art: 'assets/art/recipes/prod_bed.webp', brief: '用方石做床脚、软梳作铺面，搭一张能让尾巴都舒展开的灵木小床。' },
+    { id: 'PROD_SOOTHE', name: '安神药包', volume: 1, inputs: [requirement('herb', 3, 1), requirement('tool', 3, 1)], use: '穷奇疗愈与卷一医案', art: 'assets/art/recipes/prod_soothe.webp', brief: '把宁神草与清露膏收进软布包，让不安的心在清润药香里慢慢安顿下来。' },
+    { id: 'PROD_BED', name: '灵木床', volume: 2, inputs: [requirement('build', 4, 1), requirement('groom', 3, 1)], use: '九尾狐静室与卷二修缮', art: 'assets/art/recipes/prod_bed.webp', brief: '用方石做床脚、蝴蝶结编成柔软铺面，搭一张能让尾巴都舒展开的灵木小床。' },
     { id: 'PROD_MEAL', name: '疗愈餐', volume: 3, inputs: [requirement('food', 6, 1), requirement('herb', 4, 1)], use: '饕餮卷医案', art: 'assets/art/recipes/prod_meal.webp', brief: '把最受欢迎的山海小食与暖阳花一起装盘，吃饱了才有力气继续疗愈。' },
     { id: 'PROD_CLEAR', name: '清心丹', volume: 3, inputs: [requirement('tool', 6, 1), requirement('herb', 6, 1)], use: '焦虑类医案', art: 'assets/art/recipes/prod_clear.webp', brief: '医馆印记配上舒神叶，在青玉药罐里炼成一粒让呼吸慢下来的清心丹。' },
     { id: 'PROD_GARDEN', name: '药圃阵盘', volume: 4, inputs: [requirement('herb', 5, 1), requirement('build', 3, 1)], use: '百草园区域信物', art: 'assets/art/recipes/prod_garden.webp', brief: '把花蜜露和原木摆成聚灵阵，百草园的新区域会顺着阵盘自己生长。' },
     { id: 'PROD_FLAME', name: '丹火令', volume: 5, inputs: [requirement('tool', 5, 1), requirement('build', 3, 1)], use: '丹房区域信物', art: 'assets/art/recipes/prod_flame.webp', brief: '银针刻令、原木作柄，点起丹房久违的炉火。' },
     { id: 'PROD_HEARTH', name: '百草暖炉', volume: 8, inputs: [requirement('build', 7, 1), requirement('herb', 5, 1)], use: '暖房修缮', art: 'assets/art/recipes/prod_hearth.webp', brief: '桐油木架托着花蜜露，让暖房里四季都像春天。' },
     { id: 'PROD_ARRAY', name: '聚灵阵图', volume: 10, inputs: [requirement('build', 8, 1), requirement('charm', 3, 1)], use: '后期区域焕新', art: 'assets/art/recipes/prod_array.webp', brief: '金丝楠上铺开桃木牌阵，薄薄的灵气重新聚回宗门。' },
-    { id: 'PROD_REVIVE', name: '九转还魂露', volume: 11, inputs: [requirement('herb', 8, 1), requirement('tool', 7, 1)], use: '重症医案', art: 'assets/art/recipes/prod_revive.webp', brief: '九节灵参浸入青玉药罐，九转之后凝出能唤回生机的露水。' },
+    { id: 'PROD_REVIVE', name: '九转还魂露', volume: 11, visible: false, released: false, inputs: [requirement('herb', 8, 1), requirement('tool', 7, 1)], use: '暂未开放', art: 'assets/art/recipes/prod_revive.webp', brief: '该配方尚未接入正式消费场景，暂不对玩家展示。' },
     { id: 'PROD_BOAT', name: '云海渡舟', volume: 12, inputs: [requirement('treasure', 6, 1), requirement('build', 7, 1)], use: '云海修缮', art: 'assets/art/recipes/prod_boat.webp', brief: '避尘珠嵌在桐油小舟上，渡云海也渡晚归的旅人。' }
   ];
 
@@ -1376,7 +1377,10 @@
       toName: next.name,
       care: gift.care || 'play',
       family: gift.family,
-      tier: Math.max(1, Math.floor(Number(next.unlockTier) || 6)),
+      tier: Math.min(
+        families[gift.family] && families[gift.family].items.length || 1,
+        Math.max(1, Math.floor(Number(next.unlockTier) || 6))
+      ),
       item: gift.item || (families[gift.family] && families[gift.family].items[Math.min(5, families[gift.family].items.length - 1)]),
       note: gift.note || (beast.name + '把陪伴时攒下的心意，收进' + next.name + '的信物里。')
     };
@@ -1826,8 +1830,28 @@
   }
   attachNarrativeCopy();
 
+  /* 正式物品约束：每一阶都声明来源，并且要么进入委托/配方/修缮，
+     要么显式作为高阶终局收藏。运行时来源可达性仍由 core 的统一解析器判定。 */
+  var formalItems = [];
+  Object.keys(families).forEach(function (familyId) {
+    var family = families[familyId];
+    var careFamily = familyId === 'groom' || familyId === 'play';
+    family.items.forEach(function (name, index) {
+      var tier = index + 1;
+      formalItems.push({
+        id: familyId + '-t' + tier,
+        family: familyId,
+        tier: tier,
+        name: name,
+        sources: [{ kind: careFamily ? 'care' : 'generator', family: familyId }],
+        uses: tier <= 8 ? [{ kind: 'order-pool', label: '卷章、修缮与日常委托' }] : [],
+        terminalCollectible: tier > 8
+      });
+    });
+  });
+
   return {
-    version: 7,
+    version: 8,
     sect: sect,
     board: {
       cols: 7,
@@ -1842,6 +1866,7 @@
       recipeCabinetIndex: 48
     },
     families: families,
+    formalItems: formalItems,
     backgrounds: backgrounds,
     audio: audio,
     economy: {
@@ -1859,7 +1884,7 @@
       upgradeMode: 'resource',
       /* 常驻生成器在线点击只消耗灵力，不再被储能硬卡；charges 仅作为
          离线储备上限展示。合成出来的造物生成器使用有限次数，用完消散。 */
-      permanentFamilies: ['herb', 'tool', 'food', 'charm', 'treasure'],
+      permanentFamilies: ['herb', 'tool', 'food', 'build', 'charm', 'treasure'],
       consumableMaxPerFamily: 2,
       consumableUses: [10, 20, 30],
       partDropPity: 15,

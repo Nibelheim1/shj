@@ -121,16 +121,26 @@ console.log('== B. “下一步”动态提示优先级 ==');
     console.log('  SKIP  找不到可注入的合成缺口，跳过第 2 档');
   }
 
-  // 3) 庭院素材：清空棋盘后无任何可交付/可合成素材，梳妆/陪玩缺口必须提示 care
+  // 3) 庭院素材必须在首修后才开放，并统一导航到穷奇的嬉游亭陪玩路线。
   const s3 = fresh();
   for (let i = 0; i < s3.grid.length; i++) s3.grid[i] = null;
   let orders3 = Core.ensureOrders(s3, () => 0.4);
+  ok(!orders3.some((order) => (order.requirements || []).some((need) => need.family === 'groom' || need.family === 'play')),
+    '未完成首次山门修缮时不提前展示庭院素材委托');
+  const firstRepair = Core.currentRenovation(s3);
+  let cursor = 0;
+  for (const need of firstRepair.order.requirements || []) {
+    for (let count = 0; count < need.count; count++) s3.grid[cursor++] = Core.makeItem(need.family, need.tier);
+  }
+  ok(Core.deliverRenovation(s3, NOW).ok, '首次山门修缮可由公开 API 完成');
+  for (let i = 0; i < s3.grid.length; i++) s3.grid[i] = null;
+  orders3 = Core.ensureOrders(s3, () => 0.4);
   const careOrder = orders3.find((order) => (order.requirements || []).some((need) => need.family === 'groom' || need.family === 'play'));
-  ok(!!careOrder, '新档存在需要庭院素材的主线委托');
+  ok(!!careOrder, '首次山门修缮后开放需要陪玩产物的第一段故事');
   if (careOrder) {
-    const careNeed = careOrder.requirements.find((need) => need.family === 'groom' || need.family === 'play');
     const hint3 = Core.nextActionHint(s3, orders3, 'qiongqi');
-    ok(hint3.type === 'care' && hint3.careType === careNeed.family, '庭院素材缺口时提示去对应设施（' + hint3.type + '/' + hint3.careType + '）');
+    ok(hint3.type === 'care' && hint3.careType === 'play' && /嬉游亭/.test(hint3.text),
+      '穷奇首局路线统一提示去嬉游亭陪玩（' + hint3.type + '/' + hint3.careType + '）');
   }
 
   // 4) 修缮兜底：卷一仍在且无可推进委托时，应落回修缮
@@ -197,7 +207,11 @@ console.log('== E. 配方柜专属格 ==');
   raw.grid[cabinet] = Core.makeItem('tool', 2);
   const migrated = Core.normalize(raw, NOW, '2026-08-15');
   ok(migrated.grid[cabinet] == null, '旧档配方柜格素材被迁出');
-  ok(migrated.grid[0] != null && migrated.grid[0].family === 'tool' && migrated.grid[0].tier === 2, '迁移到最早空格（索引 0）');
+  const migratedIndex = migrated.grid.findIndex(function (entry) {
+    return entry && entry.kind !== 'generator' && entry.family === 'tool' && entry.tier === 2;
+  });
+  ok(migratedIndex >= 0 && migratedIndex < migrated.unlockedCells, '迁移素材进入已开放棋盘且不丢失');
+  ok(migrated.grid.slice(0, migratedIndex).every(Boolean), '永久生成器幂等补发后，迁移素材占用其后的最早空格');
 
   // 满盘时迁入待入盘队列
   const full = fresh();

@@ -53,6 +53,24 @@ check('常驻生成器按资源升级：暖玉+灵力，无需第二台', functi
   expect(info.upgradeMode === 'resource' && info.nextCost.jade === 420, '下一级仍是资源升级');
 });
 
+check('首次生成器部件教学成对发放，后续掉落恢复单件', function () {
+  const state = fresh();
+  const herb = generator(state, 'herb');
+  state.grid = state.grid.map((item) => item === herb ? item : null);
+  herb.partPity = Number(DATA.generators.partDropPity) - 1;
+  herb.lastProducedAt = 0;
+  const first = Core.generate(state, 'herb', () => 0.5, NOW + 2000);
+  expect(first.ok === true && first.partPairGranted === true, '首次部件掉落必须标记成对教学');
+  expect(first.partDrops.length === 2 && first.partDrops.every((part) => part.kind === 'generator_part' && part.family === 'herb' && part.tier === 1),
+    '首次发放两枚同族同阶部件，可立即亲手合成');
+
+  herb.partPity = Number(DATA.generators.partDropPity) - 1;
+  herb.lastProducedAt = 0;
+  const later = Core.generate(state, 'herb', () => 0.5, NOW + 4000);
+  expect(later.ok === true && later.partPairGranted === false && later.partDrops.length === 1,
+    '同一部件族的后续掉落只发正常单件，不重复教学奖励');
+});
+
 check('Lv4/Lv5 升级受宗门前置与信物门控', function () {
   const state = fresh();
   state.level = 12;
@@ -99,6 +117,9 @@ check('高难度成长委托要求配方成品，rank>=7 且在场上时要求�
   const state = fresh();
   state.level = 24;
   state.chapter.volume = 4;
+  state.sect.stages.gate = 1;
+  state.sect.stages.clinic = 1; // v8：医馆首次修缮后才开放医案槽。
+  state.unlockedGenerators.push('build', 'food');
   Core.ensureDaily(state, '2025-01-01', NOW);
   state.growthOrders = {};
   state.activeOrders = [];

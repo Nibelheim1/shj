@@ -7,9 +7,8 @@ const dist = path.join(root, 'dist');
 const ART_SOURCE = path.join(root, 'prototype', 'assets', 'art');
 const ART_TARGET = path.join(dist, 'assets', 'art');
 
-// The merge slice currently ships three beasts (相柳 removed from the cast in
-// the 2026-08 erratum).  Keep this list in one place so adding another stage
-// asset never turns into a qiongqi-only special case.
+// The formal journey ships all twelve beasts. Keep this list in one place so
+// adding another form asset never turns into a qiongqi-only special case.
 const BEAST_IDS = ['qiongqi', 'jiuweihu', 'taotie', 'dijiang', 'bifang', 'baize', 'taowu', 'zhulong', 'pixiu', 'qilin', 'fenghuang', 'kunpeng'];
 
 function toPosix(value) {
@@ -121,12 +120,24 @@ function rewriteArtPath(content, sourceRelative, targetRelative) {
     .replace(new RegExp(escapedMarker, 'g'), targetArtPath);
 }
 
+function compactCssForRelease(content) {
+  return content
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
 function writeTextAsset(sourceRelative, targetRelative) {
   const content = readRequired(sourceRelative, targetRelative);
   const rewritten = rewriteArtPath(content, sourceRelative, targetRelative);
+  const prepared = path.extname(targetRelative).toLowerCase() === '.css'
+    ? compactCssForRelease(rewritten)
+    : rewritten;
   const target = path.join(dist, targetRelative);
   fs.mkdirSync(path.dirname(target), { recursive: true });
-  fs.writeFileSync(target, rewritten, 'utf8');
+  fs.writeFileSync(target, prepared, 'utf8');
 }
 
 function copyReferencedScripts(html, entryRelative) {
@@ -250,6 +261,9 @@ const RELEASE_SCENES = new Set([
 ]);
 copyDirectoryIfPresent('prototype/assets/art/scenes', 'assets/art/scenes', (relativeFile) => RELEASE_SCENES.has(toPosix(relativeFile)));
 copyDirectoryIfPresent('prototype/assets/audio', 'assets/audio');
+copyFileIfPresent('prototype/manifest.webmanifest', 'manifest.webmanifest');
+copyDirectoryIfPresent('prototype/assets/icons', 'assets/icons', (relativeFile) => ['.png', '.svg'].includes(path.extname(relativeFile).toLowerCase()));
+copyDirectoryIfPresent('prototype/assets/share', 'assets/share', (relativeFile) => ['.png', '.webp', '.svg'].includes(path.extname(relativeFile).toLowerCase()));
 // v7 keeps its reviewed restoration stages, expanded merge icons and limited
 // scene in one versioned tree. Preserve that exact relative path in dist so
 // the source manifest can also serve as the deployment contract.

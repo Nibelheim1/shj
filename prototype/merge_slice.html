@@ -3,7 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <link rel="icon" href="data:," />
+  <meta name="theme-color" content="#fff1df" />
+  <meta name="description" content="修缮栖霞宗，陪伴十二只小神兽走完故事、照料、蜕变与岗位旅程。" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="小动物山海经 · 栖霞宗" />
+  <meta property="og:description" content="修缮宗门，陪伴十二只小神兽慢慢找回力量。" />
+  <meta property="og:image" content="assets/share/share-card.svg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="小动物山海经 · 栖霞宗" />
+  <meta name="twitter:description" content="修缮宗门，陪伴十二只小神兽慢慢找回力量。" />
+  <meta name="twitter:image" content="assets/share/share-card.svg" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/app-icon-192.png" />
+  <link rel="apple-touch-icon" href="assets/icons/app-icon-192.png" />
   <title>栖霞宗 · 小动物山海经</title>
   <link rel="stylesheet" href="merge-slice.css" />
 </head>
@@ -14,7 +26,7 @@
     <div id="hud-values" class="hud-values"></div>
     <button id="how-to-play-open" class="icon-button help-button" type="button" aria-label="打开玩法说明" title="玩法说明">?</button>
     <button id="audio-toggle" class="icon-button audio-toggle" type="button" aria-label="开启音效" aria-pressed="true">🔊</button>
-    <button id="reset-btn" class="icon-button" type="button" aria-label="重置进度">↺</button>
+    <button id="settings-open" class="icon-button" type="button" aria-label="打开设置">⚙</button>
   </header>
 
   <main id="slice-main">
@@ -27,7 +39,7 @@
       <aside id="next-action" class="next-action" aria-live="polite"></aside>
 
       <section class="order-panel" aria-labelledby="orders-title" data-help="orders" title="长按查看：委托面板说明">
-        <div class="section-title-row"><div><span class="eyebrow">五条目标 · 各有去处</span><h2 id="orders-title">主线、修缮、医案、访客与旅程</h2></div><span class="small-note">点目标条收起委托 · 长按看说明</span></div>
+        <div class="section-title-row"><div><span class="eyebrow">五条目标 · 各有去处</span><h2 id="orders-title">卷章、修缮、医案、访客与旅程</h2></div><span class="small-note">点目标条收起委托 · 点素材看来源</span></div>
         <div id="order-target-bar" class="order-target-bar" data-order-target-bar data-state="expanded">
           <button id="order-target-toggle" class="order-target-toggle" data-action="toggle-orders" type="button" aria-expanded="true" aria-controls="order-drawer" aria-label="订单目标">
             <span class="order-target-icon" aria-hidden="true">◎</span>
@@ -90,8 +102,8 @@
         <div class="scene-layer scene-buildings" data-scene-node="buildings">
           <button class="scene-building" data-scene-node="building" data-node-id="clinic" data-hotspot="clinic" data-help="yard-clinic" style="--scene-x:25;--scene-y:48" type="button" aria-label="进入医馆" title="长按查看：医馆说明"><span class="building-sprite" aria-hidden="true"><img src="assets/art/buildings/clinic_lv1.webp" alt="" /></span><b class="building-name">医馆</b><small>查看疗愈</small><span class="building-level-badge" data-building-level>Lv1</span><i class="world-state-bubble">疗愈 +8</i></button>
           <button class="scene-building" data-scene-node="building" data-node-id="herb" data-hotspot="herb" data-help="yard-herb" style="--scene-x:22;--scene-y:82" type="button" aria-label="访问百草园" title="长按查看：百草园说明"><span class="building-sprite" aria-hidden="true"><img src="assets/art/buildings/herb_lv1.webp" alt="" /></span><b class="building-name">百草园</b><small>查看生产</small><span class="building-level-badge" data-building-level>Lv1</span><i class="world-state-bubble" data-building-bubble="herb">生产中</i></button>
-          <button class="scene-building" data-scene-node="building" data-node-id="groom" data-care="groom" data-help="yard-groom" style="--scene-x:80;--scene-y:80" type="button" aria-label="打开梳洗台消消乐" title="长按查看：梳洗台说明"><span class="building-sprite" aria-hidden="true"><img src="assets/art/buildings/groom_lv1.webp" alt="" /></span><b class="building-name">梳洗台</b><small>普通奖励每日3局</small><span class="building-level-badge" data-building-level>Lv1</span><i class="world-state-bubble" data-building-bubble="groom">3局奖励</i></button>
-          <button class="scene-building" data-scene-node="building" data-node-id="play" data-care="play" data-help="yard-play" style="--scene-x:78;--scene-y:48" type="button" aria-label="打开嬉游亭羊了个羊" title="长按查看：嬉游亭说明"><span class="building-sprite" aria-hidden="true"><img src="assets/art/buildings/play_lv1.webp" alt="" /></span><b class="building-name">嬉游亭</b><small>普通奖励每日3局</small><span class="building-level-badge" data-building-level>Lv1</span><i class="world-state-bubble" data-building-bubble="play">3局奖励</i></button>
+          <button class="scene-building" data-scene-node="building" data-node-id="groom" data-care="groom" data-help="yard-groom" style="--scene-x:80;--scene-y:80" type="button" aria-label="打开梳洗台" title="长按查看：梳洗台说明"><span class="building-sprite" aria-hidden="true"><img src="assets/art/buildings/groom_lv1.webp" alt="" /></span><b class="building-name">梳洗台</b><small>今日剩余奖励 3/3 次</small><span class="building-level-badge" data-building-level>Lv1</span><i class="world-state-bubble" data-building-bubble="groom">3/3 次</i></button>
+          <button class="scene-building" data-scene-node="building" data-node-id="play" data-care="play" data-help="yard-play" style="--scene-x:78;--scene-y:48" type="button" aria-label="去嬉游亭陪玩玩具塔" title="长按查看：嬉游亭说明"><span class="building-sprite" aria-hidden="true"><img src="assets/art/buildings/play_lv1.webp" alt="" /></span><b class="building-name">嬉游亭</b><small>今日剩余奖励 3/3 次</small><span class="building-level-badge" data-building-level>Lv1</span><i class="world-state-bubble" data-building-bubble="play">3/3 次</i></button>
         </div>
         <button id="yard-character" class="yard-character scene-character" data-scene-node="character" data-node-id="resident" data-help="yard-resident" style="--scene-x:50;--scene-y:90" type="button" aria-label="查看当前异兽反应" title="长按查看：庭院住客说明"><img id="yard-beast" alt="当前异兽" /><span id="yard-beast-sprite" class="yard-beast-sprite" aria-hidden="true" hidden></span></button>
         <div class="yard-speech world-speech" id="yard-speech" data-scene-node="speech">“先慢慢来，我们不赶时间。”</div>
@@ -100,7 +112,7 @@
       </div>
 
       <section class="yard-goal-panel" aria-labelledby="yard-goal-title" data-help="daily-goals" title="长按查看：每日目标与七日约定说明">
-        <div class="section-title-row"><div><span class="eyebrow">每日承诺 · 可持续推进</span><h2 id="yard-goal-title">今天也留下一点温柔</h2></div><span id="yard-goal-reward" class="small-note">全完成得灵力、暖玉与定向素材</span></div>
+        <div class="section-title-row"><div><span class="eyebrow">每日目标 · 每天均可领取</span><h2 id="yard-goal-title">今天也留下一点温柔</h2></div><span id="yard-goal-reward" class="small-note">每日：暖玉 80 · 宗门阅历 33</span></div>
         <div id="yard-goals" class="yard-goals"></div>
         <div id="sign-in-track" class="sign-in-track" aria-label="七日约定奖励进度"></div>
         <button id="claim-yard-goal" class="goal-claim" type="button" aria-label="领取每日目标奖励">领取今日奖励</button>
@@ -142,7 +154,7 @@
         <div class="sect-scene-hud" aria-live="polite">
           <div><span class="eyebrow">宗门场景</span><h2 id="sect-scene-title" data-current-area-label>山门</h2></div>
           <span id="sect-scene-stage" class="sect-stage-badge" data-stage-label data-stage="ruined">荒废</span>
-          <span id="sect-scene-progress" class="sect-scene-progress" data-scene-progress>0 / 9</span>
+          <span id="sect-scene-progress" class="sect-scene-progress" data-scene-progress>0 / 6</span>
         </div>
         <div id="sect-building-layer" class="sect-building-layer" data-scene-node="buildings" data-current-area="gate" data-stage="ruined" aria-live="polite">
           <button class="sect-building-hotspot" data-scene-node="building" data-area="gate" data-stage="ruined" data-state="ruined" type="button" aria-label="山门建筑" aria-current="true">
@@ -180,7 +192,7 @@
         <p id="sect-note">……</p>
       </section>
       <section class="sect-card" aria-labelledby="sect-acts-title" data-help="sect-acts" title="长按查看：五幕卷章说明">
-        <div class="section-title-row"><div><span class="eyebrow">五幕卷章</span><h2 id="sect-acts-title">幕一 · 修缮</h2></div><span id="sect-reno-progress" class="small-note">修缮度 0/9</span></div>
+        <div class="section-title-row"><div><span class="eyebrow">卷章里程碑</span><h2 id="sect-acts-title">首次山门修缮</h2></div><span id="sect-reno-progress" class="small-note">修缮度 0/6</span></div>
         <div id="sect-acts" class="sect-acts"></div>
       </section>
       <section class="sect-card" aria-labelledby="sect-areas-title" data-help="sect-areas" title="长按查看：宗门版图说明">
@@ -230,10 +242,9 @@
   window.AUDIO_ASSET_ROOT = 'assets/audio/';
 }());
 </script>
-<script src="js/merge/match3.js"></script>
-<script src="js/merge/sheep-game.js"></script>
 <script src="js/merge/audio.js"></script>
 <script src="js/merge/save-store.js"></script>
+<script src="js/merge/analytics.js"></script>
 <script src="js/merge/courtyard-scene.js"></script>
 <script src="js/merge/ui.js"></script>
 <script src="merge-slice.js"></script>

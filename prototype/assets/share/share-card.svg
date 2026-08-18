@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">小动物山海经·栖霞宗</title>
+  <desc id="desc">修缮宗门，陪伴十二只小神兽慢慢找回力量。</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff4df"/><stop offset="1" stop-color="#e7c59f"/></linearGradient>
+    <linearGradient id="mount" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#6f8f78"/><stop offset="1" stop-color="#37564b"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#39271c" flood-opacity=".22"/></filter>
+  </defs>
+  <rect width="1200" height="630" rx="40" fill="url(#sky)"/>
+  <circle cx="1010" cy="120" r="68" fill="#f4b85e" opacity=".82"/>
+  <path d="M0 410 180 245l126 112 130-177 174 200 145-140 225 190 120-92 120 92v200H0Z" fill="#789884" opacity=".45"/>
+  <path d="M0 490 230 310l155 130 170-205 190 220 180-155 275 205v125H0Z" fill="url(#mount)"/>
+  <g transform="translate(770 250)" filter="url(#shadow)">
+    <path d="M70 190h250v30H70zM102 55h186v22H102zM125 75h140l28 115H98z" fill="#7e4636"/>
+    <path d="m82 52 113-42 113 42-14 17-99-30-99 30zM96 118h198l30 25H66z" fill="#b66045"/>
+    <path d="M142 100h106v90H142z" fill="#f1d29c"/><path d="M184 100h22v90h-22z" fill="#75493b"/>
+    <circle cx="195" cy="146" r="7" fill="#e6a84c"/>
+  </g>
+  <g transform="translate(760 388)" filter="url(#shadow)">
+    <ellipse cx="85" cy="95" rx="78" ry="62" fill="#d88d54"/>
+    <path d="M31 48 17 3l45 30M138 49l17-45-47 30" fill="#d88d54" stroke="#8b4f3c" stroke-width="9" stroke-linejoin="round"/>
+    <ellipse cx="58" cy="84" rx="9" ry="12" fill="#3d302a"/><ellipse cx="112" cy="84" rx="9" ry="12" fill="#3d302a"/>
+    <path d="M75 103q10 10 20 0" fill="none" stroke="#57382f" stroke-width="7" stroke-linecap="round"/>
+    <path d="M18 72-8 60M21 91-10 92M151 72l27-13M149 91l31 2" stroke="#8b4f3c" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  <g fill="#49382f">
+    <text x="88" y="152" font-size="34" font-family="system-ui,'Microsoft YaHei',sans-serif" letter-spacing="6">栖霞宗·十二盏灯</text>
+    <text x="82" y="260" font-size="76" font-weight="700" font-family="system-ui,'Microsoft YaHei',sans-serif">小动物山海经</text>
+    <text x="88" y="329" font-size="34" font-family="system-ui,'Microsoft YaHei',sans-serif">修缮宗门，陪伴小神兽慢慢找回力量</text>
+  </g>
+  <g transform="translate(88 390)" font-family="system-ui,'Microsoft YaHei',sans-serif" font-size="25" fill="#fff8e8">
+    <rect width="560" height="84" rx="42" fill="#805847" opacity=".94"/>
+    <text x="36" y="52">合成 · 修缮 · 故事 · 陪玩 · 蜕变</text>
+  </g>
+</svg>

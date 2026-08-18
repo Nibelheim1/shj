@@ -33,7 +33,7 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const DIST_ROOT = path.join(REPO_ROOT, 'dist');
 const BUILD_SCRIPT = path.join(REPO_ROOT, 'build-dist.js');
 const VIEWPORT = { width: 390, height: 844 };
-const INITIAL_TRANSFER_LIMIT = 5 * 1024 * 1024;
+const INITIAL_TRANSFER_LIMIT = Math.floor(1.5 * 1024 * 1024);
 const DIST_TOTAL_LIMIT = 10 * 1024 * 1024;
 const RESOURCE_LIMIT = 1 * 1024 * 1024;
 const WAIT_AFTER_LOAD_MS = 250;
@@ -303,8 +303,7 @@ async function run() {
       };
       const mark = () => {
         if (window.__h5FirstInteractiveAt != null) return;
-        if (window.MergeSlice && visible(document.querySelector('.nav-button[data-view="yard-view"]')) &&
-          document.querySelector('#merge-board [data-grid-index]')) {
+        if (window.MergeSlice && document.querySelector('#merge-board [data-grid-index]')) {
           window.__h5FirstInteractiveAt = performance.now();
         }
       };
@@ -432,17 +431,25 @@ async function run() {
       const response = diagnostics.responses.find((entry) => entry.url === request.url);
       return total + Math.max(0, Number(response && response.contentLength) || 0);
     }, 0);
-    check('first-screen transfer <= 5 MiB', initialTransferBytes <= INITIAL_TRANSFER_LIMIT,
+    check('first-screen transfer <= 1.5 MiB', initialTransferBytes <= INITIAL_TRANSFER_LIMIT,
       `${formatBytes(initialTransferBytes)} (${initialTransferBytes} bytes)`);
 
-    // The first-run flow shows a welcome card followed by the paginated
-    // gameplay guide.  Closing both is part of the real first-screen flow.
+    // The v8 first-run flow has one welcome card and then the current goal.
     for (let sheet = 0; sheet < 3; sheet += 1) {
       const closeButton = page.locator('#modal-root [data-close-modal]').first();
       if (!(await closeButton.isVisible().catch(() => false))) break;
       await closeButton.click();
       await page.waitForTimeout(140);
     }
+
+    // Stage the exact formal unlock boundary before measuring the courtyard:
+    // the yard and play pavilion appear only after the first gate repair.
+    await page.evaluate(() => {
+      const state = window.MergeUI.state();
+      state.sect.stages.gate = Math.max(1, Number(state.sect.stages.gate || 0));
+      if (state.codex && state.codex.qiongqi) state.codex.qiongqi.discovered = true;
+      window.MergeUI.render();
+    });
 
     const yardNav = page.locator('.nav-button[data-view="yard-view"]').first();
     const yardNavVisible = await yardNav.isVisible().catch(() => false);
@@ -474,6 +481,8 @@ async function run() {
           id: element.dataset.nodeId || '',
           visible: visible(element),
           disabled: !!element.disabled,
+          featureLocked: element.dataset.featureLocked || '',
+          fogged: element.classList.contains('feature-fog'),
           image: absolute(element.querySelector('img') && element.querySelector('img').src)
         })),
         background: absolute(backgroundMatch ? backgroundMatch[1] : ''),
@@ -500,13 +509,16 @@ async function run() {
     check('yard uses the building-free interactive background', /bg_courtyard_buildingfree(?:[_-]|\.)/i.test(courtyard.background),
       courtyard.background || 'background missing');
     const visibleBuildings = courtyard.buildings.filter((building) => building.visible && !building.disabled);
-    check('courtyard buildings visible after tab switch', visibleBuildings.length > 0 && visibleBuildings.length === courtyard.buildings.length,
-      `${visibleBuildings.length}/${courtyard.buildings.length} visible and enabled`);
+    const expectedVisible = ['clinic', 'herb', 'play', 'groom'];
+    const groomPlaceholder = visibleBuildings.find((building) => building.id === 'groom');
+    check('current buildings visible and future groom facility uses a fog placeholder', expectedVisible.every((id) => visibleBuildings.some((building) => building.id === id)) &&
+      !!groomPlaceholder && groomPlaceholder.featureLocked === 'groom' && groomPlaceholder.fogged,
+      `${visibleBuildings.map((building) => building.id).join(', ') || 'none'} visible`);
     // Check the live hit target at each building's centre without dispatching a
     // click. Sequential trial clicks are unsuitable here: Playwright treats an
     // authored aria-disabled state as disabled and may scroll an already
     // visible scene while probing later locators, creating false negatives.
-    for (const building of courtyard.buildings) {
+    for (const building of visibleBuildings) {
       const hitTest = await page.evaluate((id) => {
         const element = document.querySelector(`#yard-view .scene-building[data-node-id="${id}"]`);
         if (!element) return { ok: false, reason: 'missing' };
@@ -563,7 +575,7 @@ async function run() {
     herbSceneState ? `${herbSceneState.levelLabel}; state=${herbSceneState.state}; locked=${herbSceneState.locked}` : 'building missing');
     await showYard();
 
-    for (const id of ['groom', 'play']) {
+    for (const id of ['play']) {
       await page.locator(`.scene-building[data-node-id="${id}"]`).click({ force: true });
       const difficultyVisible = await page.locator('#modal-root [data-care-difficulty]').first().isVisible().catch(() => false);
       check(`courtyard route ${id} -> difficulty selector`, difficultyVisible,

@@ -129,7 +129,8 @@
     this.keys = {
       A: configuredKeys.A || configuredKeys.a || options.slotAKey || (this.key + ':A'),
       B: configuredKeys.B || configuredKeys.b || options.slotBKey || (this.key + ':B'),
-      pointer: configuredKeys.pointer || configuredKeys.POINTER || options.pointerKey || (this.key + ':pointer')
+      pointer: configuredKeys.pointer || configuredKeys.POINTER || options.pointerKey || (this.key + ':pointer'),
+      history: configuredKeys.history || options.historyKey || (this.key + ':history')
     };
     this.keys.a = this.keys.A;
     this.keys.b = this.keys.B;
@@ -150,6 +151,8 @@
     this.dbName = options.dbName || (this.key + ':mirror');
     this.dbStore = options.dbStore || DEFAULT_DB_STORE;
     this.dbRecord = options.dbRecord || DEFAULT_DB_RECORD;
+    this.dbHistoryRecord = options.dbHistoryRecord || 'recent-backups';
+    this.backupLimit = Math.max(3, Math.floor(numberOr(options.backupLimit, 3)));
     this.mirrorAdapter = options.mirror && typeof options.mirror === 'object' ? options.mirror : null;
     this.lastLoad = null;
     this.lastSave = null;
@@ -297,6 +300,30 @@
     if (a.ok) revisions.push(numberOr(a.record.revision, 0));
     if (b.ok) revisions.push(numberOr(b.record.revision, 0));
     return revisions.length ? Math.max.apply(Math, revisions) : 0;
+  };
+
+  SaveStore.prototype._readLocalHistory = function () {
+    var raw = this._getItem(this.keys.history);
+    if (!raw) return [];
+    var records;
+    try { records = JSON.parse(raw); } catch (error) { return []; }
+    if (!Array.isArray(records)) return [];
+    var self = this;
+    return records.map(function (record) { return self._decodeRecord(record, null, 'history'); })
+      .filter(function (result) { return result.ok; });
+  };
+
+  SaveStore.prototype._appendLocalHistory = function (record) {
+    var records = this._readLocalHistory().map(function (result) { return result.record; });
+    records.push(record);
+    var seen = {};
+    records = records.sort(function (a, b) { return numberOr(b.revision, 0) - numberOr(a.revision, 0); }).filter(function (item) {
+      var key = String(item.revision) + ':' + String(item.checksum || item.sum || '');
+      if (seen[key]) return false;
+      seen[key] = true;
+      return true;
+    }).slice(0, this.backupLimit);
+    return this._setItem(this.keys.history, JSON.stringify(records));
   };
 
   SaveStore.prototype._pickRecord = function () {
@@ -510,7 +537,8 @@
       status: 'saved',
       slot: target,
       record: record,
-      readOnly: false
+      readOnly: false,
+      backupHistory: this._appendLocalHistory(record)
     };
     this.readOnly = false;
     this.lastSave = saved;
@@ -527,9 +555,94 @@
     return !!detailed.ok;
   };
 
+  SaveStore.prototype.exportJSON = function (value) {
+    if (arguments.length === 0) value = this.load();
+    return JSON.stringify({
+      format: 'shj-h5-save-export',
+      formatVersion: 1,
+      exportedAt: this.clock(),
+      data: value
+    });
+  };
+
+  SaveStore.prototype.importJSON = function (text, options) {
+    options = options || {};
+    var envelope;
+    try { envelope = typeof text === 'string' ? JSON.parse(text) : cloneRecord(text); } catch (error) {
+      return { ok: false, reason: 'parse-error', error: error };
+    }
+    if (!envelope || envelope.format !== 'shj-h5-save-export' || Number(envelope.formatVersion) !== 1 || !envelope.data || typeof envelope.data !== 'object') {
+      return { ok: false, reason: 'invalid-export' };
+    }
+    var required = own(envelope.data, 'version') ? envelope.data.version : this.schema;
+    if (versionCompare(required, this.readerVersion) > 0) {
+      return {
+        ok: false,
+        status: 'read-only',
+        reason: 'newer-reader',
+        readOnly: true,
+        requiredReaderVersion: required,
+        data: envelope.data
+      };
+    }
+    var saved = this.saveDetailed(envelope.data, options);
+    if (!saved.ok) return saved;
+    return { ok: true, status: 'imported', slot: saved.slot, record: saved.record, data: envelope.data };
+  };
+
+  SaveStore.prototype.listBackups = function () {
+    var candidates = this._readLocalHistory().concat([this._readSlot('A'), this._readSlot('B')]).filter(function (result) { return result && result.ok; });
+    var seen = {};
+    return candidates.sort(function (a, b) { return numberOr(b.record.revision, 0) - numberOr(a.record.revision, 0); }).filter(function (result) {
+      var key = String(result.record.revision) + ':' + String(result.record.checksum || result.record.sum || '');
+      if (seen[key]) return false;
+      seen[key] = true;
+      return true;
+    }).slice(0, this.backupLimit).map(function (result) {
+      var sum = result.record.checksum || result.record.sum || '';
+      return {
+        id: 'backup:' + String(result.record.revision) + ':' + String(sum),
+        revision: numberOr(result.record.revision, 0),
+        savedAt: numberOr(result.record.savedAt, 0),
+        schema: result.record.schema,
+        data: result.data,
+        source: result.source,
+        record: result.record
+      };
+    });
+  };
+
+  SaveStore.prototype.listBackupsAsync = function () {
+    var local = this.listBackups();
+    if (this.mirrorAdapter || !this.mirrorAvailable()) return Promise.resolve(local);
+    var self = this;
+    return this._mirrorCall('load', null, this.dbHistoryRecord).then(function (records) {
+      if (!Array.isArray(records)) return local;
+      var decoded = records.map(function (record) { return self._decodeRecord(record, null, 'indexeddb-history'); }).filter(function (result) { return result.ok; });
+      var all = local.concat(decoded.map(function (result) {
+        var sum = result.record.checksum || result.record.sum || '';
+        return { id: 'backup:' + result.record.revision + ':' + sum, revision: numberOr(result.record.revision, 0), savedAt: numberOr(result.record.savedAt, 0), schema: result.record.schema, data: result.data, source: result.source, record: result.record };
+      }));
+      var seen = {};
+      return all.sort(function (a, b) { return b.revision - a.revision; }).filter(function (entry) {
+        if (seen[entry.id]) return false;
+        seen[entry.id] = true;
+        return true;
+      }).slice(0, self.backupLimit);
+    }, function () { return local; });
+  };
+
+  SaveStore.prototype.restoreBackup = function (id) {
+    var selected = this.listBackups().find(function (backup) { return backup.id === id; });
+    if (!selected) return { ok: false, reason: 'backup-not-found' };
+    var saved = this.saveDetailed(selected.data);
+    if (!saved.ok) return saved;
+    return { ok: true, status: 'restored', restoredFrom: id, revision: saved.record.revision, data: selected.data };
+  };
+
   SaveStore.prototype.remove = function () {
     var ok = true;
-    ['A', 'B', 'pointer'].forEach(function (name) {
+    ['A', 'B', 'pointer', 'history'].forEach(function (name) {
       if (!this._removeItem(this.keys[name])) ok = false;
     }, this);
     this.lastLoad = null;
@@ -587,15 +700,16 @@
     });
   };
 
-  SaveStore.prototype._mirrorCall = function (method, value) {
+  SaveStore.prototype._mirrorCall = function (method, value, recordKey) {
     var adapter = this.mirrorAdapter;
+    recordKey = recordKey || this.dbRecord;
     if (adapter) {
       var fn = adapter[method] ||
         (method === 'save' ? adapter.put : (method === 'load' ? adapter.get : adapter.delete));
       if (typeof fn !== 'function') return Promise.resolve(false);
       try {
-        return Promise.resolve(fn.call(adapter, value, this.dbRecord)).then(function (result) {
-          return result !== false;
+        return Promise.resolve(fn.call(adapter, value, recordKey)).then(function (result) {
+          return method === 'load' ? result : result !== false;
         }, function () { return false; });
       } catch (error) {
         return Promise.resolve(false);
@@ -607,12 +721,12 @@
       return new Promise(function (resolve) {
         var transaction;
         try {
-          transaction = db.transaction(self.dbStore, method === 'save' ? 'readwrite' : 'readonly');
+          transaction = db.transaction(self.dbStore, method === 'load' ? 'readonly' : 'readwrite');
           var objectStore = transaction.objectStore(self.dbStore);
           var request;
-          if (method === 'save') request = objectStore.put(value, self.dbRecord);
-          else if (method === 'load') request = objectStore.get(self.dbRecord);
-          else request = objectStore.delete(self.dbRecord);
+          if (method === 'save') request = objectStore.put(value, recordKey);
+          else if (method === 'load') request = objectStore.get(recordKey);
+          else request = objectStore.delete(recordKey);
           request.onsuccess = function () { resolve(method === 'load' ? request.result : true); };
           request.onerror = function () { resolve(false); };
           transaction.onabort = function () { resolve(false); };
@@ -633,7 +747,23 @@
     var made = valueOrRecord && valueOrRecord.data && valueOrRecord.checksum ?
       { record: valueOrRecord } : this._makeRecord(valueOrRecord, {});
     if (made.error) return Promise.resolve(false);
-    return this._mirrorCall('save', made.record);
+    var self = this;
+    return this._mirrorCall('save', made.record).then(function (saved) {
+      if (!saved || self.mirrorAdapter) return !!saved;
+      return self._mirrorCall('load', null, self.dbHistoryRecord).then(function (records) {
+        records = Array.isArray(records) ? records : [];
+        records.push(made.record);
+        var seen = {};
+        records = records.sort(function (a, b) { return numberOr(b && b.revision, 0) - numberOr(a && a.revision, 0); }).filter(function (record) {
+          if (!record || typeof record !== 'object') return false;
+          var key = String(record.revision) + ':' + String(record.checksum || record.sum || '');
+          if (seen[key]) return false;
+          seen[key] = true;
+          return true;
+        }).slice(0, self.backupLimit);
+        return self._mirrorCall('save', records, self.dbHistoryRecord).then(function () { return true; }, function () { return true; });
+      }, function () { return true; });
+    });
   };
 
   SaveStore.prototype.loadMirrorDetailed = function () {
@@ -674,7 +804,11 @@
   };
 
   SaveStore.prototype.removeMirror = function () {
-    return this._mirrorCall('remove').then(function (result) { return result === true; }, function () { return false; });
+    var self = this;
+    return this._mirrorCall('remove').then(function (result) {
+      if (self.mirrorAdapter) return result === true;
+      return self._mirrorCall('remove', null, self.dbHistoryRecord).then(function () { return result === true; }, function () { return result === true; });
+    }, function () { return false; });
   };
 
   SaveStore.prototype.saveAsync = function (value, options) {
@@ -736,6 +870,7 @@
   }
   ['save', 'saveDetailed', 'load', 'loadDetailed', 'hasSave', 'remove', 'reset', 'clear', 'status',
     'read', 'readDetailed', 'getLastLoad', 'write',
+    'exportJSON', 'importJSON', 'listBackups', 'listBackupsAsync', 'restoreBackup',
     'saveAsync', 'loadAsync', 'loadAsyncDetailed', 'removeAsync', 'resetAsync', 'saveMirror',
     'loadMirror', 'loadMirrorDetailed', 'removeMirror', 'mirrorSave', 'mirrorLoad', 'mirrorLoadDetailed',
     'mirrorRemove', 'mirrorAvailable', 'isMirrorAvailable'].forEach(function (name) {

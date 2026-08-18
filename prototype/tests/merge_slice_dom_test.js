@@ -29,6 +29,7 @@ const dom = new JSDOM(withoutScripts, {
   virtualConsole
 });
 const W = dom.window;
+let vmContext = null;
 /* jsdom has no real canvas. Keep the care-game smoke deterministic by
  * providing the context methods needed during resize; RAF is a no-op so the
  * engines do not enter their rendering loop in this DOM test. */
@@ -91,6 +92,7 @@ function cardCount(root, selectors) {
   check('merge_slice.html 脚本全部可加载并执行', function () {
     expect(scriptSources.length > 0, 'HTML 至少包含一个脚本入口');
     const ctx = dom.getInternalVMContext();
+    vmContext = ctx;
     scriptSources.forEach(function (source) {
       const file = source.split('?')[0].replace(/^\.\//, '');
       const scriptPath = path.resolve(ROOT, file);
@@ -101,7 +103,7 @@ function cardCount(root, selectors) {
     W.document.dispatchEvent(new W.Event('DOMContentLoaded'));
   });
 
-  check('庭院入口只保留梳洗台/亭子小游戏并按 match3→sheep-game→ui 加载', function () {
+  check('庭院只保留梳洗台/嬉游亭，小游戏引擎不进入首屏脚本', function () {
     expect(!W.document.querySelector('#care-groom, #care-play'), '不应残留旧的独立照料按钮 id');
     expect(!W.document.querySelector('.care-beat, #care-beats, [data-rhythm], [data-beat]'), '不应残留节奏点击按钮');
     expect(!W.document.querySelector('#spirit-bubble-rack, #chest-dock'), '灵泡与宝箱模块应已移除');
@@ -111,12 +113,14 @@ function cardCount(root, selectors) {
       '照料入口类型不重复');
     expect(careButtons.some(function (button) { return button.dataset.care === 'groom'; }), '梳洗台入口存在');
     expect(careButtons.some(function (button) { return button.dataset.care === 'play'; }), '亭子入口存在');
+    const lockedGroom = careButtons.find(function (button) { return button.dataset.care === 'groom'; });
+    expect(lockedGroom && !lockedGroom.hidden && lockedGroom.classList.contains('feature-fog'), '梳洗台解锁前以灵雾占位而非直接消失');
     expect(W.document.querySelectorAll('[data-help]').length >= 12, '主要模块都带有长按说明入口');
     const sourceNames = scriptSources.map(function (source) { return source.split('?')[0].replace(/^\.\//, ''); });
     const match3Index = sourceNames.findIndex(function (source) { return /(?:^|\/)match3\.js$/.test(source); });
     const sheepIndex = sourceNames.findIndex(function (source) { return /(?:^|\/)sheep-game\.js$/.test(source); });
     const uiIndex = sourceNames.findIndex(function (source) { return /(?:^|\/)ui\.js$/.test(source); });
-    expect(match3Index >= 0 && sheepIndex > match3Index && uiIndex > sheepIndex, '小游戏脚本顺序正确');
+    expect(match3Index < 0 && sheepIndex < 0 && uiIndex >= 0, '两种小游戏应由 UI 按需加载，不阻塞首屏');
     expect(W.document.getElementById('care-game-root'), '全屏照料游戏根节点存在');
     expect(W.document.getElementById('storage-open'), '药房/暂存区入口存在');
     expect(W.document.querySelector('.yard-quickbar'), '庭院快捷入口存在');
@@ -131,10 +135,25 @@ function cardCount(root, selectors) {
     expect(bar, '等级框内存在升级进度条');
     expect(bar && Number(bar.getAttribute('aria-valuemax')) > 0, '进度条有升级阈值');
     expect(bar && bar.querySelector('i'), '进度条有填充元素');
+    expect(bar && /\d+\/\d+/.test(bar.textContent || ''), '进度条直接显示 xx/xx 文字进度');
     const orderNeed = W.document.querySelector('#merge-view .order-need');
     expect(orderNeed, '订单中渲染出素材需求图标');
     expect(orderNeed && orderNeed.querySelector('img'), '订单素材图标为图片形式');
+    expect(orderNeed && !(orderNeed.textContent || '').includes('来源与用途'), '素材下方不再堆叠来源说明文字');
+    expect(orderNeed && orderNeed.querySelector('.order-need-info'), '素材仍保留可点击的信息角标');
   });
+
+  const welcomeStart = W.document.querySelector('#modal-root [data-welcome-start]');
+  if (welcomeStart) welcomeStart.click();
+  await new Promise(function (resolve) { setTimeout(resolve, 160); });
+  check('开局每一步使用独立弹窗提示', function () {
+    const prompt = W.document.querySelector('#modal-root .tutorial-step-modal');
+    expect(prompt, '欢迎页后立即出现第一步教学弹窗');
+    expect(/1\/5/.test(prompt.textContent || ''), '教学弹窗显示 1/5 进度');
+    expect(prompt.querySelector('[data-tutorial-step-go]'), '教学弹窗提供明确前往按钮');
+  });
+  const tutorialGo = W.document.querySelector('#modal-root [data-tutorial-step-go]');
+  if (tutorialGo) tutorialGo.click();
 
   check('主要视图至少包含合成、庭院、图鉴三页', function () {
     const rootViews = views();
@@ -196,16 +215,13 @@ function cardCount(root, selectors) {
     tabs.slice(0, 3).forEach(function (tab) { tab.click(); });
   });
 
-  check('玩法说明可翻页，模块与配方长按说明可打开', function () {
+  check('玩法说明合并为一页，模块与配方说明可打开', function () {
     expect(W.MergeUI && W.MergeUI.openHowToPlay, '玩法说明 API 存在');
     W.MergeUI.openHowToPlay();
     const howToModal = W.document.querySelector('#modal-root .how-to-play-modal');
     expect(howToModal, '点击帮助按钮打开玩法说明');
-    const pageLabel = howToModal && howToModal.querySelector('[data-how-to-page-label]');
-    expect(pageLabel && /1 \/ 4/.test(pageLabel.textContent || ''), '玩法说明分为四页');
-    const next = howToModal && howToModal.querySelector('[data-how-to-next]');
-    if (next) next.click();
-    expect(pageLabel && /2 \/ 4/.test(pageLabel.textContent || ''), '玩法说明可以翻到下一页');
+    expect(!howToModal.querySelector('[data-how-to-page-label], [data-how-to-next]'), '不再显示四页翻页器');
+    expect(/当前目标|获取方法|玩具塔/.test(howToModal.textContent || ''), '单页说明包含行动导航、物品获取和小游戏规则');
     const howToClose = howToModal && howToModal.querySelector('[data-how-to-play-close]');
     if (howToClose) howToClose.click();
     W.MergeUI.openModuleHelp('recipes');
@@ -248,6 +264,8 @@ function cardCount(root, selectors) {
     } else {
       expect((catalog.textContent || '').trim().length > 0, '图鉴卡片含本地化名称或说明');
     }
+    const lockedPortrait = catalog.querySelector('.codex-card.locked .codex-silhouette img');
+    expect(lockedPortrait, '未结识神兽使用真实立绘的暗色剪影而非空白占位');
   });
 
   check('切换主要 tab 后无运行时异常', function () {
@@ -256,10 +274,15 @@ function cardCount(root, selectors) {
   });
 
   check('点击梳洗台打开消消乐并结算照料', function () {
+    vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/merge/match3.js'), 'utf8'), vmContext, { filename: 'js/merge/match3.js' });
     const groomButton = W.document.querySelector('[data-care="groom"]');
     const gameRoot = W.document.getElementById('care-game-root');
     expect(groomButton && gameRoot && W.MergeUI, '梳洗台、游戏根节点和 UI API 均存在');
     const stateBefore = W.MergeUI.state();
+    stateBefore.chapter.volume = 2;
+    stateBefore.beastCases.jiuweihu.status = 'active';
+    stateBefore.sect.stages.gate = Math.max(1, Number(stateBefore.sect.stages.gate || 0));
+    W.MergeUI.render();
     const beforeCareCount = stateBefore.beastCases.qiongqi.careCount;
     groomButton.click();
     const easy = W.document.querySelector('#modal-root [data-care-difficulty="easy"]');
@@ -272,7 +295,7 @@ function cardCount(root, selectors) {
     expect(result && result.ok, '完成照料结算成功');
     const stateAfter = W.MergeUI.state();
     expect(stateAfter.beastCases.qiongqi.careCount === beforeCareCount + 1, '照料次数增加');
-    expect(stateAfter.beastCases.qiongqi.careDone, '照料状态已记录');
+    expect(stateAfter.beastCases.qiongqi.careCount === beforeCareCount + 1, '早期试玩会记录互动，但不会绕过卷章照料门槛');
     const reward = result.rewardItem;
     const rewardVisible = stateAfter.pendingRewards.concat(stateAfter.grid).some(function (item) {
       return item && item.family === reward.family && item.tier === reward.tier;
@@ -283,19 +306,25 @@ function cardCount(root, selectors) {
     if (continueButton) continueButton.click();
   });
 
-  check('穷奇支持时点击亭子打开羊了个羊', function () {
+  check('穷奇支持时点击嬉游亭打开玩具塔', function () {
+    vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/merge/sheep-game.js'), 'utf8'), vmContext, { filename: 'js/merge/sheep-game.js' });
     const definition = W.MERGE_DATA && W.MERGE_DATA.beasts && W.MERGE_DATA.beasts.find(function (beast) { return beast.id === 'qiongqi'; });
     if (!definition || definition.careTypes.indexOf('play') < 0) return;
     const playButton = W.document.querySelector('[data-care="play"]');
     const gameRoot = W.document.getElementById('care-game-root');
     expect(playButton && gameRoot, '亭子入口和游戏根节点存在');
+    const playState = W.MergeUI.state();
+    playState.chapter.volume = 1;
+    playState.yardBeastId = 'qiongqi';
+    playState.sect.stages.gate = Math.max(1, Number(playState.sect.stages.gate || 0));
+    W.MergeUI.render();
     playButton.click();
     const easy = W.document.querySelector('#modal-root [data-care-difficulty="easy"]');
     expect(easy, '亭子先展示难度和奖励选择');
     easy.click();
     expect(gameRoot.classList.contains('is-open') || gameRoot.getAttribute('aria-hidden') === 'false', '点击亭子后游戏层打开');
     expect(gameRoot.querySelector('canvas#care-game-canvas'), '亭子打开 canvas');
-    expect(gameRoot.querySelector('.sheep-shell'), '亭子进入羊了个羊');
+    expect(gameRoot.querySelector('.sheep-shell'), '亭子进入玩具塔');
     /* End the session so the test does not retain a live care loop. */
     if (W.MergeUI && W.MergeUI.finishCare) W.MergeUI.finishCare('skip');
   });

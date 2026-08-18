@@ -29,7 +29,8 @@ const REQUIRED = [
   'createFresh', 'normalize', 'ensureOrders', 'generate', 'mergeItems',
   'deliverOrder', 'recordCare', 'advanceTime', 'claimJob', 'ensureDaily',
   'upgradeFacility', 'moveToStorage', 'moveFromStorage',
-  'selectBackground', 'purchaseBackground'
+  'selectBackground', 'purchaseBackground', 'currentRenovation',
+  'deliverRenovation', 'acknowledgeTransformation', 'acknowledgeChapterTransition'
 ];
 
 let failures = 0;
@@ -90,6 +91,27 @@ function seedRequirements(state, reqs) {
   reqs.forEach(function (need) {
     for (let n = 0; n < need.count; n++) state.grid[index++] = item(need.family, need.tier, need.sourceBeast);
   });
+}
+function craftProduct(state, productNeed) {
+  if (!productNeed) return;
+  const recipe = (dataRoot().recipes || []).find(function (entry) { return entry.id === productNeed.productId; });
+  expect(recipe, '存在修缮成品配方 ' + productNeed.productId);
+  for (let count = 0; count < Number(productNeed.count || 1); count++) {
+    seedRequirements(state, recipe.inputs || []);
+    resultOk(Core.craftRecipe(state, recipe.id), '制作修缮成品 ' + recipe.id);
+  }
+}
+function completeCurrentVolumeRepairs(state) {
+  let guard = 20;
+  while (guard-- > 0) {
+    const current = Core.currentRenovation(state);
+    if (!current) return;
+    craftProduct(state, current.order.productNeed);
+    seedRequirements(state, current.order.requirements || []);
+    resultOk(Core.deliverRenovation(state, NOW + guard), '完成本卷修缮 ' + current.areaId + '#' + (current.stageIndex + 1));
+    Core.ensureOrders(state, deterministicRng);
+  }
+  expect(false, '本卷修缮应在有限步骤内完成');
 }
 function storyOrder(state, id, step) {
   const def = beastDefinition(id);
@@ -226,8 +248,8 @@ check('energy=0 仍可合成', function () {
   expect(merged.length === 1 && merged[0].family === 'herb' && merged[0].tier === 2, '两件 1 阶合成一件 2 阶');
 });
 
-check('energy=0 仍可完成照料，重复照料不能绕过故事门槛', function () {
-  BEASTS.forEach(function (id) {
+check('energy=0 仍可完成照料，重复照料不能绕过故事与修缮门槛', function () {
+  ['qiongqi'].forEach(function (id) {
     const before = fresh();
     before.energy = 0;
     ensureActiveCase(before, id);
@@ -242,6 +264,7 @@ check('energy=0 仍可完成照料，重复照料不能绕过故事门槛', func
     const progressed = fresh();
     progressed.energy = 0;
     ensureActiveCase(progressed, id);
+    completeCurrentVolumeRepairs(progressed);
     // 以三份真实 storyStep 订单推进故事，避免把 storyProgress 直接写满。
     for (let step = 1; step <= 3; step++) {
       const order = storyOrder(progressed, id, step);
@@ -257,14 +280,15 @@ check('energy=0 仍可完成照料，重复照料不能绕过故事门槛', func
     }
     const cared = Core.recordCare(progressed, careType, { outcome: 'complete', beastId: id }, NOW + 4);
     resultOk(cared, id + ' 完成一次照料');
-    expect(isTransformed(progressed, id), id + ' 三故事+一次照料后进入蜕变状态');
+    expect(isTransformed(progressed, id), id + ' 本卷修缮+三故事+一次照料后进入待蜕变状态');
     expect(progressed.energy === 0, id + ' 照料不依赖灵力');
   });
 });
 
-check('首兽蜕变后交付 arrival 信物会激活下一只异兽', function () {
+check('首兽按蜕变、首次岗位、转卷顺序完成后才出现下一兽 arrival', function () {
   const state = fresh();
   ensureActiveCase(state, 'qiongqi');
+  completeCurrentVolumeRepairs(state);
   const definition = beastDefinition('qiongqi');
   for (let step = 1; step <= 3; step++) {
     const story = definition.storySteps[step - 1];
@@ -275,10 +299,20 @@ check('首兽蜕变后交付 arrival 信物会激活下一只异兽', function (
     resultOk(Core.deliverOrder(state, order.id, deterministicRng, NOW + step), '穷奇故事 #' + step + ' 交付');
   }
   resultOk(Core.recordCare(state, definition.careTypes[0], { outcome: 'complete', beastId: 'qiongqi' }, NOW + 4), '穷奇照料完成');
+  resultOk(Core.acknowledgeTransformation(state, 'qiongqi'), '确认穷奇蜕变');
+  resultOk(Core.claimJob(state, 'qiongqi', NOW + 5), '领取穷奇首次岗位产出');
+  expect(state.chapter && state.chapter.pendingTransition, '首次岗位后必须先产生卷章衔接演出');
+  resultOk(Core.acknowledgeChapterTransition(state), '确认卷一至卷二衔接演出');
+  const nextFirstRepair = Core.currentRenovation(state);
+  expect(nextFirstRepair && Number(nextFirstRepair.area.volume) === 2 && Number(nextFirstRepair.stageIndex) === 0,
+    '卷二先停在首次修缮，不能直接跳到新兽 arrival');
+  seedRequirements(state, nextFirstRepair.order.requirements || []);
+  resultOk(Core.deliverRenovation(state, NOW + 6), '完成卷二首次修缮');
+  Core.ensureOrders(state, deterministicRng);
   const arrival = state.activeOrders.find(function (order) { return order && order.kind === 'arrival'; });
-  expect(arrival && arrival.beastId === 'jiuweihu', '首兽完成后生成九尾狐 arrival 订单');
+  expect(arrival && arrival.beastId === 'jiuweihu', '完成岗位、转卷与新卷首修后生成九尾狐 arrival 订单');
   seedRequirements(state, arrival.requirements);
-  resultOk(Core.deliverOrder(state, arrival.id, deterministicRng, NOW + 5), 'arrival 信物交付');
+  resultOk(Core.deliverOrder(state, arrival.id, deterministicRng, NOW + 7), 'arrival 信物交付');
   expect(state.beastCases['jiuweihu'] && state.beastCases['jiuweihu'].status === 'active', 'arrival 交付激活九尾狐病例');
   expect(state.activeCaseId === 'jiuweihu', '当前病例切换到九尾狐');
 });

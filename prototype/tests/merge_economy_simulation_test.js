@@ -59,10 +59,16 @@ function seedOrder(state, order) {
   (order.requirements || []).forEach((need) => {
     for (let count = 0; count < need.count; count += 1) {
       expect(cursor < state.unlockedCells, 'order seed exceeds unlocked board cells');
-      state.grid[cursor] = Core.makeItem(need.family, need.tier);
+      state.grid[cursor] = Core.makeItem(need.family, need.tier, need.sourceBeast);
       cursor += 1;
     }
   });
+  if (order.productNeed) {
+    state.products[order.productNeed.productId] = Math.max(
+      Number(state.products[order.productNeed.productId] || 0),
+      Number(order.productNeed.count || 1)
+    );
+  }
 }
 
 function careValue(items) {
@@ -136,8 +142,11 @@ function run() {
         const timeout = careRun(state, type, 'timeout', 0, required);
         assert.strictEqual(timeout.rewarded, true, type + ' valid timeout receives floor reward');
         assert.strictEqual(timeout.grade, 'floor', type + ' timeout grade');
+        const expectedFloor = type === 'play'
+          ? [1, 1] /* 首次嬉游亭教学保底两枚 T1，供玩家亲手合成 T2。 */
+          : DATA.careGames.difficulties.easy.rewards.floor;
         assert.deepStrictEqual(timeout.rewardItems.map((item) => item.tier),
-          DATA.careGames.difficulties.easy.rewards.floor,
+          expectedFloor,
           type + ' timeout floor tiers');
         assert.ok(timeout.rewardCount > 0, type + ' timeout reward count');
 
@@ -240,6 +249,18 @@ function run() {
 
     check('三十日订单槽位始终可达且每天至少能完成一单', () => {
       const state = fresh();
+      /* 正式首局先完成山门首修与第一段故事，访客槽才会开放。 */
+      const firstRepair = Core.currentRenovation(state);
+      seedOrder(state, firstRepair.order);
+      assert.strictEqual(Core.deliverRenovation(state, BASE + 1).ok, true, 'first gate repair should complete');
+      Core.ensureOrders(state, RNG);
+      const firstStory = state.activeOrders.find((order) => order.kind === 'story' && order.storyStep === 1);
+      expect(firstStory, 'first story should open after first gate repair');
+      seedOrder(state, firstStory);
+      assert.strictEqual(Core.deliverOrder(state, firstStory.id, RNG, BASE + 2).ok, true, 'first story should complete');
+      Core.ensureOrders(state, RNG);
+      const completedBeforeDailyLoop = Number(state.completedOrders || 0);
+      const totalBeforeDailyLoop = Number(state.totalOrders || 0);
       let delivered = 0;
       for (let day = 1; day <= 30; day += 1) {
         const now = BASE + (day - 1) * DAY;
@@ -252,13 +273,13 @@ function run() {
             'day ' + day + ' order ' + order.id + ' must be reachable');
         });
 
-        const supply = state.activeOrders.find((order) => order.slot === 'visitor' || order.slot === 'supply');
+        const supply = state.activeOrders.find((order) => order.slot === 'visitor' && order.status === 'OPEN');
         expect(supply, 'day ' + day + ' visitor supply slot');
         seedOrder(state, supply);
         const result = Core.deliverOrder(state, supply.id, RNG, now + 1000);
         assert.strictEqual(result.ok, true, 'day ' + day + ' visitor order should deliver');
         delivered += 1;
-        assert.strictEqual(state.completedOrders, delivered,
+        assert.strictEqual(state.completedOrders, completedBeforeDailyLoop + delivered,
           'completed order counter should advance once per day');
         Core.ensureOrders(state, RNG);
         state.activeOrders.forEach((order) => {
@@ -267,7 +288,7 @@ function run() {
         });
       }
       assert.strictEqual(delivered, 30, 'thirty-day simulation should complete 30 supply orders');
-      assert.strictEqual(state.totalOrders, 30, 'total order counter should match deliveries');
+      assert.strictEqual(state.totalOrders, totalBeforeDailyLoop + 30, 'total order counter should match deliveries');
     });
 
     check('零灵力时仍有可执行合成动作', () => {

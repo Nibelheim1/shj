@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAt": "2026-08-16T13:23:37.404Z",
-  "totalBytes": 9877452,
+  "generatedAt": "2026-08-18T12:55:01.961Z",
+  "totalBytes": 10068930,
   "files": [
     {
       "path": "assets/art/buildings/clinic_lv1.webp",
@@ -1642,10 +1642,40 @@
       "sha256": "22bd40757a519c3e561c2143da775c36328e46273c7cab02d6f22982395fb5e5"
     },
     {
+      "path": "assets/icons/app-icon-192.png",
+      "bundle": "boot",
+      "bytes": 11985,
+      "sha256": "0f15b6568ef9a3f78af59564dcf7787e1c143c99ba7ab5cf540e364cad552438"
+    },
+    {
+      "path": "assets/icons/app-icon-512.png",
+      "bundle": "boot",
+      "bytes": 79968,
+      "sha256": "d47541232fd4536496dad89595ea246532e9e8a53af26a5e9be588df0992a220"
+    },
+    {
+      "path": "assets/icons/app-icon.svg",
+      "bundle": "boot",
+      "bytes": 903,
+      "sha256": "553d62483d96e84b25fdf9bd85b33a037d00be67856a63a1319b0a480daabbbe"
+    },
+    {
+      "path": "assets/share/share-card.svg",
+      "bundle": "boot",
+      "bytes": 2784,
+      "sha256": "1c5bc61c9c143e66017c03c911c4683ee01e706a15dc3bb31d754cd0c212c46e"
+    },
+    {
       "path": "index.html",
       "bundle": "boot",
-      "bytes": 23417,
-      "sha256": "fd2175ca1b67d01d477db3e58ec75c5f8995c877773c1e836020714956616c30"
+      "bytes": 24575,
+      "sha256": "3826d8a4e5470fa3033f0a3646ec8485eb5bec9964590b67ff854122f72bb3a5"
+    },
+    {
+      "path": "js/merge/analytics.js",
+      "bundle": "boot",
+      "bytes": 5386,
+      "sha256": "5c89baddfac2aef31c7384dfe1b2a6cd157aa046599c0f925574b2206101249a"
     },
     {
       "path": "js/merge/audio.js",
@@ -1656,8 +1686,8 @@
     {
       "path": "js/merge/core.js",
       "bundle": "boot",
-      "bytes": 180624,
-      "sha256": "a0449679ab67a73023263d25792680d771b96cd52df429adeee6274c85e27ef5"
+      "bytes": 215250,
+      "sha256": "31762da9ecf897dcae30b0a2c57baba1e22d8526dcb42f2fc3d2bee4218fcc86"
     },
     {
       "path": "js/merge/courtyard-scene.js",
@@ -1668,38 +1698,44 @@
     {
       "path": "js/merge/data.js",
       "bundle": "boot",
-      "bytes": 119279,
-      "sha256": "f2f97308ac9f5aaa1b34aa4a3deaf79b5cd5412cf636995a4a37edb106841eb7"
+      "bytes": 122309,
+      "sha256": "caa92b8aa1aee0fd9a25d7bd7fa6c26ede174b49d42dce7be5783adfbbf060e5"
     },
     {
       "path": "js/merge/match3.js",
       "bundle": "boot",
-      "bytes": 69156,
-      "sha256": "f29668b26daa0bf102717528951d53549fed22460491917fad2cd7a444218e2c"
+      "bytes": 70895,
+      "sha256": "cfbb8621dd0206d82fd0cc4b92ea1806fe9eb55a52de32ce7374143bfaf3b984"
     },
     {
       "path": "js/merge/save-store.js",
       "bundle": "boot",
-      "bytes": 28668,
-      "sha256": "3b25bdbc882b4703e0abe6d0951721f53515519ede82a9dc8eb7417d31da69e6"
+      "bytes": 36008,
+      "sha256": "51a8fce5037fd527f860a15699a75ea0cf52bb36e871ef463e8031d769f2be9d"
     },
     {
       "path": "js/merge/sheep-game.js",
       "bundle": "boot",
-      "bytes": 32428,
-      "sha256": "e8be293cc7af044003408585aba04fe8eee08ca71a951e333cc793a935253ea1"
+      "bytes": 33206,
+      "sha256": "59bd2150b40659775f5bd4ea4080924f397dcaaeb9b5b406d4c1a2ae1606abaf"
     },
     {
       "path": "js/merge/ui.js",
       "bundle": "boot",
-      "bytes": 202669,
-      "sha256": "323bcfad7d1a2ac67e24fd6fff0c4f90684a2540e04188456bfb38ee5b613356"
+      "bytes": 237772,
+      "sha256": "b2b2c7c848a8354263e47bb3176086d0b0c4ab08e2ca9ac59347a6aefa3465c8"
+    },
+    {
+      "path": "manifest.webmanifest",
+      "bundle": "boot",
+      "bytes": 683,
+      "sha256": "a8ab8df0aea0a323b7bcbc4bddbce1adced82520c02ab5f4c6c14a49bffcd2c1"
     },
     {
       "path": "merge-slice.css",
       "bundle": "boot",
-      "bytes": 127000,
-      "sha256": "0bc68cc8cf6942d2bf8186a19a9ab7d01c4f15e703947b1d65433616a5fbac19"
+      "bytes": 132995,
+      "sha256": "f0ace94ec9285c1b26904adf33e128b0f85d11053bf40c07afc41564ef33844e"
     },
     {
       "path": "merge-slice.js",

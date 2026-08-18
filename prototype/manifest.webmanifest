@@ -1,0 +1,16 @@
+{
+  "name": "小动物山海经 · 栖霞宗",
+  "short_name": "小动物山海经",
+  "description": "修缮宗门，陪伴十二只小神兽慢慢找回力量。",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fff1df",
+  "theme_color": "#fff1df",
+  "icons": [
+    { "src": "assets/icons/app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "assets/icons/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "assets/icons/app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

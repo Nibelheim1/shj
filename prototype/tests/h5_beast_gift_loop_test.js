@@ -48,7 +48,52 @@ function deliver(state, order, now) {
   return ok(Core.deliverOrder(state, order.id, RNG, now || NOW), '交付订单');
 }
 
+function volumeForBeast(beastId) {
+  return (DATA.sect.volumes || []).find((volume) => volume.beastId === beastId);
+}
+
+function openVolumeAreas(state, volume) {
+  let changed = true;
+  let guard = 20;
+  while (changed && guard-- > 0) {
+    changed = false;
+    (DATA.sect.areas || []).filter((area) => Number(area.volume) === Number(volume)).forEach((area) => {
+      const status = Core.areaStatus(state, area.id);
+      if (!status || !status.locked) return;
+      const unlock = area.unlock || {};
+      if (unlock.productId) {
+        state.products[unlock.productId] = Math.max(
+          Number(state.products[unlock.productId] || 0),
+          Number(unlock.productCount || 1)
+        );
+      }
+      if (Core.canUnlockArea(state, area.id)) {
+        ok(Core.unlockArea(state, area.id, NOW + guard), '开放区域 ' + area.id);
+        changed = true;
+      }
+    });
+  }
+}
+
+function repairOne(state, volume, now) {
+  openVolumeAreas(state, volume);
+  const current = Core.currentRenovation(state);
+  expect(current && Number(current.area.volume) === Number(volume), '卷' + volume + ' 应存在当前修缮');
+  seedOrder(state, current.order);
+  if (current.order.productNeed && current.order.productNeed.productId) {
+    state.products[current.order.productNeed.productId] = Math.max(
+      Number(state.products[current.order.productNeed.productId] || 0),
+      Number(current.order.productNeed.count || 1)
+    );
+  }
+  ok(Core.deliverRenovation(state, now || NOW), '交付卷' + volume + '修缮');
+  Core.ensureOrders(state, RNG);
+}
+
 function finishChapter(state, beastId, now) {
+  const volume = volumeForBeast(beastId);
+  expect(volume && Number(state.chapter.volume) === Number(volume.volume), beastId + ' 必须按卷章顺序推进');
+  if (!Core.chapterProgress(state).firstRepairDone) repairOne(state, volume.volume, now);
   if (beastId !== 'qiongqi' && state.activeCaseId !== beastId) {
     const arrival = state.activeOrders.find((order) => order && order.kind === 'arrival' && order.beastId === beastId);
     expect(arrival, beastId + ' 应生成来信订单');
@@ -56,19 +101,46 @@ function finishChapter(state, beastId, now) {
     expect(state.activeCaseId === beastId, beastId + ' 交付来信后应激活');
   }
   for (let step = 1; step <= 3; step += 1) {
+    Core.ensureOrders(state, RNG);
     const story = state.activeOrders.find((order) => order && order.kind === 'story' && order.beastId === beastId && Number(order.storyStep) === step);
     expect(story, beastId + ' 应生成故事 #' + step);
     deliver(state, story, now + step);
   }
+  let repairGuard = 60;
+  while (repairGuard-- > 0) {
+    openVolumeAreas(state, volume.volume);
+    if (!Core.currentRenovation(state)) break;
+    repairOne(state, volume.volume, now + 10 + repairGuard);
+  }
+  expect(!Core.currentRenovation(state), beastId + ' 照料前必须完成本卷全部修缮');
+  Core.ensureOrders(state, RNG);
   const care = ok(Core.recordCare(state, Core.careGiftInfo(beastId).care, {
     outcome: 'complete', beastId: beastId, difficulty: 'easy', game: { validActions: 5, perf: 0.6 }
   }, now + 4), beastId + ' 完成礼物照料');
   expect(care.transformed === true, beastId + ' 三故事+照料后蜕变');
   if (state.beastCases[beastId].pendingTransformation) ok(Core.acknowledgeTransformation(state, beastId), '确认蜕变');
+  const job = beastId === 'qiongqi'
+    ? Core.claimJob(state, beastId, now + 80)
+    : Core.acknowledgeJob(state, beastId, now + 80);
+  ok(job, beastId + ' 首次岗位领取');
+  expect(state.chapter.pendingTransition, beastId + ' 首次岗位后产生卷章衔接演出');
+  ok(Core.acknowledgeChapterTransition(state), beastId + ' 确认卷章衔接演出');
+  const nextVolume = Number(volume.volume) + 1;
+  if (nextVolume <= DATA.sect.volumes.length) {
+    repairOne(state, nextVolume, now + 90);
+    Core.ensureOrders(state, RNG);
+  }
 }
 
 function findGrowth(state, beastId) {
-  const order = state.activeOrders.find((entry) => entry && entry.kind === 'growth' && entry.beastId === beastId);
+  Core.ensureOrders(state, RNG);
+  let order = state.activeOrders.find((entry) => entry && entry.kind === 'growth' && entry.beastId === beastId);
+  const other = state.activeOrders.find((entry) => entry && entry.kind === 'growth' && entry.beastId !== beastId);
+  if (!order && other) {
+    deliver(state, other, NOW + 95);
+    Core.ensureOrders(state, RNG);
+    order = state.activeOrders.find((entry) => entry && entry.kind === 'growth' && entry.beastId === beastId);
+  }
   expect(order, beastId + ' 应生成成长委托');
   return order;
 }

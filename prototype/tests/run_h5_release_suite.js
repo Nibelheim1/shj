@@ -26,7 +26,14 @@ const TESTS = [
   'prototype/tests/h5_save_integration_fault_test.js',
   'prototype/tests/h5_asset_release_gate_test.js',
   'prototype/tests/h5_viewport_gate_test.js',
-  'prototype/tests/h5_performance_budget_test.js'
+  'prototype/tests/h5_performance_budget_test.js',
+  'prototype/tests/h5_chapter_journey_v8_test.js',
+  'prototype/tests/h5_item_source_invariant_v8_test.js',
+  'prototype/tests/merge_generator_redesign_test.js',
+  'prototype/tests/h5_daily_retention_v8_test.js',
+  'prototype/tests/h5_save_recovery_v8_test.js',
+  'prototype/tests/h5_analytics_privacy_v8_test.js',
+  'prototype/tests/h5_browser_resilience_v8_test.js'
 ];
 
 for (const test of TESTS) {

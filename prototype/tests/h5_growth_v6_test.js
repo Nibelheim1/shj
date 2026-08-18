@@ -151,6 +151,54 @@ function deliver(state, order, now) {
   return Core.deliverOrder(state, order.id, seeded(7), now || NOW);
 }
 
+function deliverCurrentRepair(state, now) {
+  const current = Core.currentRenovation(state);
+  expect(current && current.order, 'current chapter must expose a renovation order');
+  clearFixtureMaterials(state);
+  fillOrder(state, current.order);
+  if (current.order.productNeed && current.order.productNeed.productId) {
+    state.products[current.order.productNeed.productId] = Math.max(
+      Number(state.products[current.order.productNeed.productId] || 0),
+      Number(current.order.productNeed.count || 1)
+    );
+  }
+  const result = Core.deliverRenovation(state, now || NOW);
+  expect(result && result.ok === true, 'renovation delivery must succeed');
+  Core.ensureOrders(state, seeded(9));
+  return result;
+}
+
+function unlockFirstCare(state) {
+  if (Number(state.sect.stages.gate || 0) >= 1) return null;
+  return deliverCurrentRepair(state, NOW + 1);
+}
+
+function unlockMedical(state) {
+  let guard = 10;
+  while (Number(state.sect.stages.clinic || 0) < 1 && guard-- > 0) {
+    deliverCurrentRepair(state, NOW + (10 - guard));
+  }
+  expect(Number(state.sect.stages.clinic || 0) >= 1, 'medical orders must open after clinic first repair');
+}
+
+function migratedFoxState() {
+  const raw = fresh();
+  raw.version = 7;
+  raw.chapter.volume = 2;
+  raw.chapter.completedVolumes = [1];
+  raw.sect.stages.gate = 3;
+  raw.sect.stages.clinic = 3;
+  raw.sect.stages.forecourt = 1;
+  raw.beastCases.qiongqi.status = 'transformed';
+  raw.beastCases.qiongqi.transformed = true;
+  raw.beastCases.jiuweihu.status = 'active';
+  raw.codex.qiongqi.discovered = true;
+  raw.codex.jiuweihu.discovered = true;
+  raw.activeCaseId = 'jiuweihu';
+  raw.yardBeastId = 'jiuweihu';
+  return Core.normalize(clone(raw), NOW, DATE);
+}
+
 function beginCare(state, type, difficulty, beastId) {
   expect(typeof Core.beginCare === 'function',
     'Core.beginCare(state,type,difficulty,beastId) must be public in v6');
@@ -229,6 +277,7 @@ check('三兽统一 level/exp/affection/heal/form/story 字段', function () {
 
 check('三门槛：affection + heal + bound-beast exp 缺一不可', function () {
   const state = fresh();
+  unlockMedical(state);
   const id = 'qiongqi';
   const required = growthRequirements(id, 2);
   expect(required && required.affection != null && required.heal != null && required.exp != null,
@@ -237,7 +286,7 @@ check('三门槛：affection + heal + bound-beast exp 缺一不可', function ()
   const initial = Core.canLevelUpBeast(state, id);
   expect(!resultOk(initial), 'level-up must be blocked before all three thresholds');
 
-  const careType = (DATA.beasts.find((beast) => beast.id === id).careTypes || ['groom'])[0];
+  const careType = 'play';
   finishCare(state, careType, 'easy', id);
   const afterCare = Core.canLevelUpBeast(state, id);
   expect(!resultOk(afterCare), 'care alone must not bypass bound-beast XP threshold');
@@ -276,7 +325,8 @@ check('三门槛：affection + heal + bound-beast exp 缺一不可', function ()
 
 check('beginCare 扣灵力；refundCare 只退一次；记录结算继续有效', function () {
   const state = fresh();
-  const type = (DATA.beasts.find((beast) => beast.id === 'qiongqi').careTypes || ['groom'])[0];
+  unlockFirstCare(state);
+  const type = 'play';
   const before = Number(state.energy);
   const started = beginCare(state, type, 'easy', 'qiongqi');
   expect(started.ok === true && started.token && Number(started.cost) > 0, 'beginCare must return cost/token');
@@ -302,6 +352,7 @@ check('beginCare 扣灵力；refundCare 只退一次；记录结算继续有效'
 
 check('故事交付幂等：重复交付不重复推进/发奖', function () {
   const state = fresh();
+  unlockFirstCare(state);
   expect(typeof Core.ensureOrders === 'function', 'Core.ensureOrders must be public');
   Core.ensureOrders(state, seeded(17));
   const recruit = findOrder(state, 'recruit') || findOrder(state, 'story');
@@ -326,12 +377,8 @@ check('低形态切换限制：未升级不能切换到高形态', function () {
 });
 
 check('growth 任务绑定兽；切换展示兽不刷新；XP 不串兽/不入全局', function () {
-  const state = fresh();
-  /* Story-first saves expose no arrival order yet. Use the public arrival
-   * boundary directly rather than treating a story delivery as acquisition. */
-  expect(typeof Core.activateCase === 'function', 'Core.activateCase must be public');
-  const arrival = Core.activateCase(state, 'jiuweihu', NOW + 3);
-  expect(resultOk(arrival), 'public arrival boundary must leave a second resident selectable');
+  /* v8 不允许 activateCase 绕过卷章；这里用迁移后的合法双住客旧档验证绑定。 */
+  const state = migratedFoxState();
   const growth = ensureGrowthOrder(state);
   const bound = growth.beastId;
   const other = BEAST_IDS.find((id) => id !== bound && entry(state, id) && entry(state, id).status !== 'locked');
@@ -353,12 +400,7 @@ check('growth 任务绑定兽；切换展示兽不刷新；XP 不串兽/不入�
 });
 
 check('九尾狐可通过公开接口在 14 个活跃日内完成五级成长', function () {
-  const state = fresh();
-  /* The mainline may be story-first; use the public arrival boundary for this
-   * deterministic growth-path check instead of requiring a particular order. */
-  expect(typeof Core.activateCase === 'function', 'Core.activateCase must be public');
-  const arrival = Core.activateCase(state, 'jiuweihu', NOW);
-  expect(resultOk(arrival), 'public arrival boundary must introduce jiuweihu');
+  const state = migratedFoxState();
   expect(resultOk(Core.selectYardBeast(state, 'jiuweihu')), 'arrived fox must be selectable');
 
   let reachedLevelFiveOn = null;
@@ -400,9 +442,16 @@ check('神兽获得/升级均进入可消费的全屏演出队列，存档重载
   }, NOW, DATE);
   expect(revealQueue(oldSave).length === 0,
     'normalizing an existing save without reveal history must not invent a historical acquire演出');
+  expect(revealQueue(state).length === 0,
+    'fresh save must not pretend qiongqi was acquired before the first gate repair');
+  const acquisitionResult = unlockFirstCare(state);
   const initial = revealQueue(state).filter((event) => event && event.type === 'acquire' && event.beastId === 'qiongqi');
-  expect(initial.length === 1, 'fresh save must queue exactly one initial qiongqi acquire reveal');
+  expect(initial.length === 1, 'first gate repair must queue exactly one qiongqi acquire reveal');
   assertRevealEvent(initial[0], 'acquire');
+  expect(Array.isArray(acquisitionResult.revealEvents), 'first gate repair result must expose revealEvents');
+  const returnedAcquisition = acquisitionResult.revealEvents.find((event) => event && event.type === 'acquire' && event.beastId === 'qiongqi');
+  expect(returnedAcquisition && returnedAcquisition.id === initial[0].id,
+    'repair result and durable reveal queue must expose the same acquisition event');
   expect(typeof Core.peekBeastReveal === 'function', 'Core.peekBeastReveal must be public');
   expect(typeof Core.acknowledgeBeastReveal === 'function', 'Core.acknowledgeBeastReveal must be public');
   const pendingBeforeReload = clone(revealQueue(state));
@@ -418,28 +467,6 @@ check('神兽获得/升级均进入可消费的全屏演出队列，存档重载
   const reloadedConsumed = Core.normalize(clone(reloadedPending), NOW, DATE);
   expect(!revealQueue(reloadedConsumed).some((event) => event && event.id === peeked.id),
     'consumed reveal must stay consumed after save reload');
-
-  /* The public recruit boundary must return the same event payload that was
-     queued for the full-screen presenter. */
-  Core.ensureOrders(state, seeded(31));
-  const recruit = findOrder(state, 'recruit');
-  let acquisitionResult;
-  if (recruit && recruit.beastId) {
-    clearFixtureMaterials(state);
-    acquisitionResult = deliver(state, recruit, NOW + 2);
-  } else {
-    /* Story-first saves expose the public arrival/switch boundary only after
-       the intro chain; activateCase is the same public acquisition boundary
-       and keeps this queue contract independent from story pacing. */
-    expect(typeof Core.activateCase === 'function', 'Core.activateCase must be public for acquisition boundary');
-    acquisitionResult = Core.activateCase(state, 'jiuweihu', NOW + 2);
-  }
-  expect(Array.isArray(acquisitionResult.revealEvents), 'acquisition result must expose revealEvents');
-  const acquisition = acquisitionResult.revealEvents.find((event) => event && event.type === 'acquire' && event.beastId);
-  expect(acquisition, 'recruit delivery must return an acquire reveal event');
-  assertRevealEvent(acquisition, 'acquire');
-  expect(revealQueue(state).some((event) => event && event.id === acquisition.id),
-    'acquisition reveal must also be durable in state.beastRevealQueue');
 });
 
 check('一次结算跨越多个三项门槛时自动逐级升级，且每级演出只触发一次', function () {

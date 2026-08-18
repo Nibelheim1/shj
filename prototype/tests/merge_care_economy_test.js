@@ -33,9 +33,19 @@ function challengeRewardValue(result) {
   }, 0);
 }
 
+function unlockCareFeature(state, careType) {
+  if (careType === 'play') {
+    state.sect.stages.gate = Math.max(1, Number(state.sect.stages.gate || 0));
+    return;
+  }
+  state.chapter.volume = Math.max(2, Number(state.chapter.volume || 1));
+  state.beastCases.jiuweihu.status = 'active';
+}
+
 function runChallenge(score, validActions, outcome, careType) {
   careType = careType || 'groom';
   const state = fresh('challenge');
+  unlockCareFeature(state, careType);
   const before = {
     affection: state.beastCases.qiongqi.affection,
     heal: state.beastCases.qiongqi.heal,
@@ -156,7 +166,7 @@ check('周目标需要跨系统推进且只可领取一次', function () {
   assert.strictEqual(Core.claimWeekly(state).ok, false);
 });
 
-check('challenge 独立入口：所有设施可进入、灵力成本固定为 5 且时长超过 master', function () {
+check('challenge 独立难度：设施按剧情开放后均可进入、成本固定为 5 且时长超过 master', function () {
   const challenge = DATA.careGames && DATA.careGames.difficulties && DATA.careGames.difficulties.challenge;
   assert.ok(challenge, 'DATA.careGames.difficulties.challenge must be public');
   assert.ok(challenge.groom && challenge.play, 'challenge must configure both care games');
@@ -167,9 +177,17 @@ check('challenge 独立入口：所有设施可进入、灵力成本固定为 5 
   const state = fresh('easy');
   assert.strictEqual(Core.careDifficultyUnlocked(state, 'challenge'), true,
     'challenge is an independent entry and must not require a facility level');
-  const started = Core.beginCare(state, 'groom', 'challenge', 'qiongqi');
-  assert.strictEqual(started.ok, true);
-  assert.strictEqual(Number(started.cost), 5, 'challenge care must cost exactly five energy');
+  assert.strictEqual(Core.beginCare(state, 'groom', 'challenge', 'qiongqi').reason, 'feature-locked',
+    'independent challenge difficulty must not bypass staged feature onboarding');
+  unlockCareFeature(state, 'groom');
+  const groomStarted = Core.beginCare(state, 'groom', 'challenge', 'qiongqi');
+  assert.strictEqual(groomStarted.ok, true);
+  assert.strictEqual(Number(groomStarted.cost), 5, 'challenge groom must cost exactly five energy');
+  const playState = fresh('easy');
+  unlockCareFeature(playState, 'play');
+  const playStarted = Core.beginCare(playState, 'play', 'challenge', 'qiongqi');
+  assert.strictEqual(playStarted.ok, true);
+  assert.strictEqual(Number(playStarted.cost), 5, 'challenge play must cost exactly five energy');
 });
 
 check('challenge 只按分数给合成素材：分数单调、奖励封顶且不改好感/疗愈/经验', function () {
@@ -219,7 +237,7 @@ check('challenge 跳过或无有效操作不得奖励', function () {
   assert.strictEqual(challengeRewardValue(noAction.result), 0, 'challenge with no valid operations must grant no synthesis material');
 });
 
-check('challenge 羊了个羊的分数阈值单调、封顶并走神兽礼物路线', function () {
+check('challenge 玩具塔的分数阈值单调、封顶并走神兽礼物路线', function () {
   const scores = [0, 900, 2200, 4200, 100000];
   const values = scores.map(function (score) {
     const runResult = runChallenge(score, 10, 'complete', 'play');

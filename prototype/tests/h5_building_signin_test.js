@@ -169,7 +169,7 @@ check('v5 建筑存档迁移到四栋 v6，并产生可审计退款', function (
     'old paid building levels must produce an auditable jade/refund amount');
 });
 
-check('七日签到：漏签不重置、重复领取幂等、D7背景一次、无D8', function () {
+check('每日目标与七日约定分离：漏签不重置、D7背景一次、D8后每日继续', function () {
   const state = fresh();
   const info = signInState(state);
   expect(info && Object.prototype.hasOwnProperty.call(info, 'claimedDates'),
@@ -204,10 +204,15 @@ check('七日签到：漏签不重置、重复领取幂等、D7背景一次、�
     'repeating the seventh milestone must not duplicate the limited background');
 
   const d9 = claimDay(state, 9);
-  expect(!ok(d9), 'there must be no eighth sign-in reward');
-  expect(Number(signInState(state).daysClaimed) === 7, 'sign-in must stop at seven cumulative claims');
+  expect(ok(d9), 'daily objective reward must remain claimable after the seven-day promise');
+  expect(d9.sevenDayBonus == null, 'there must be no eighth seven-day bonus');
+  expect(d9.actual && Number(d9.actual.jade) === 80 && Number(d9.actual.xp) === 33,
+    'post-promise daily reward must still grant jade 80 and sect XP 33');
+  expect(Number(signInState(state).daysClaimed) === 7, 'seven-day promise progress must stop at seven cumulative claims');
   expect(!signInDates(state).some((value) => String(value).includes('2025-01-09') || Number(value) === 9),
-    'a post-completion date must never be recorded');
+    'post-completion dates must not be recorded as extra seven-day milestones');
+  expect(state.dailyRewards.claimedDates.includes('2025-01-09'),
+    'post-completion date must be recorded in the independent daily reward history');
 });
 
 console.log('\n== building/sign-in result ==');

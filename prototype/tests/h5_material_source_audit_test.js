@@ -30,6 +30,12 @@ function reachable(state, family) {
 }
 
 function activate(state, beastId) {
+  /* 本文件只隔离审计各卷素材来源；完整转卷门槛由
+     h5_chapter_journey_v8_test 逐节点验证。 */
+  const volume = (DATA.sect.volumes || []).find((entry) => entry.beastId === beastId);
+  expect(volume, beastId + ' 应存在卷章配置');
+  state.chapter.volume = Number(volume.volume);
+  if (Number(volume.volume) >= 1) state.sect.stages.gate = Math.max(1, Number(state.sect.stages.gate || 0));
   const result = Core.activateCase(state, beastId, NOW);
   expect(result && result.ok === true, beastId + ' 应可激活（用于推进卷章）');
 }
@@ -56,7 +62,7 @@ check('嬉游亭所有神兽的陪玩路线统一为玩具系列', function () {
 
 check('八个素材族的 activeFromVolume 与产线解锁卷章一致', function () {
   const expected = {
-    herb: 1, tool: 1, food: 3, build: 2, groom: 1, play: 1, charm: 7, treasure: 8
+    herb: 1, tool: 1, food: 3, build: 2, groom: 2, play: 1, charm: 7, treasure: 8
   };
   Object.keys(expected).forEach(function (family) {
     expect(DATA.families[family], '存在素材族 ' + family);
@@ -107,6 +113,7 @@ check('老档迁移：已入伙梼杌/烛龙的存档会补发符箓/珍宝产�
   const raw = Core.createFresh(NOW, '2025-01-01');
   activate(raw, 'taowu');
   activate(raw, 'zhulong');
+  raw.version = 7;
   raw.unlockedGenerators = ['herb', 'tool'];
   const normalized = Core.normalize(JSON.parse(JSON.stringify(raw)), NOW, '2025-01-01');
   expect(normalized.unlockedGenerators.indexOf('charm') >= 0, '迁移补发 charm 产线');

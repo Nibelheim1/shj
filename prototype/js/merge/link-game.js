@@ -1,5 +1,5 @@
 /*
- * link-game.js - a small, dependency-free "连连看" engine for the merge slice.
+ * link-game.js - a legacy dependency-free tile-link prototype (not used by the formal play route).
  *
  * The engine deliberately owns only deterministic game state and canvas input.
  * The host can call update/draw from the same loop as Match3 and use the
@@ -23,7 +23,7 @@
   var TIME_PICKUP_SECONDS = 5;
   var TIME_PICKUP_LIFE = 4.5;
   /* 跨系列图标池：每个系列取一张基础图标避免同色混淆；不足 10 张时再
-     从同系列补高等级图标。羊了个羊与连连看共用此池。 */
+     从同系列补高等级图标。旧版连线原型与玩具塔共用此池。 */
   var NAMES = ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08'];
   var SYMBOLS = ['🍎', '🌿', '🧪', '🍚', '🪵', '🪮', '🧿', '🪸', '🎏', '⚙️'];
   var DEFAULT_ASSET_ROOT = 'assets/art/match3/';
@@ -488,7 +488,7 @@
 
   /* Two cells may be joined when they show the same icon and are unlocked.
    * Special and locked blocks keep their permanent pair identity, but ordinary
-   * blocks are classic 连连看: any two identical ordinary icons may connect,
+   * blocks use the legacy tile-link rule: any two identical ordinary icons may connect,
    * even when they were born in different pairs.  The board is re-paired after
    * such a cross-match (see _rebuildSolutionPairs), so no singleton is stranded. */
   Game.prototype._matchCompatible = function (a, b) {
@@ -1514,7 +1514,7 @@
     ctx.fillStyle = '#FFF8FA';
     ctx.font = '700 18px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    if (ctx.fillText) ctx.fillText('陪玩 · 连连看', W / 2, 22);
+    if (ctx.fillText) ctx.fillText('旧版陪玩连线（未启用）', W / 2, 22);
     ctx.font = '500 11px sans-serif';
     ctx.fillStyle = 'rgba(255,239,245,0.82)';
     var turnText = this.maxTurns === 0 ? '直线连线' : ('最多 ' + this.maxTurns + ' 次转弯');
