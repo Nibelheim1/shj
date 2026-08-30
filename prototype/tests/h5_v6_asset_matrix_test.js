@@ -180,20 +180,20 @@ function expectedMatrix() {
       buildings.push({ key: id + ':lv' + level, relative: relAsset(value), transparent: true });
     }
   });
-  const fox = [];
-  const atlases = [];
-  const foxDefinition = (DATA.beasts || []).find((beast) => beast.id === 'jiuweihu');
-  const levels = foxDefinition && Array.isArray(foxDefinition.levels) ? foxDefinition.levels : [];
-  for (let index = 0; index < 5; index += 1) {
-    const level = levels[index] || {};
-    fox.push({ key: 'jiuweihu:lv' + (index + 1), relative: relAsset(level.portrait || ('assets/art/characters/jiuweihu_lv' + (index + 1) + '.webp')), transparent: true });
-    atlases.push({ key: 'jiuweihu:atlas' + (index + 1), relative: relAsset(level.atlas || ('assets/art/characters/jiuweihu_lv' + (index + 1) + '_atlas.webp')), transparent: true });
-  }
+  const publicPortraits = [];
+  const publishedVolumeCount = Number(DATA.release && DATA.release.publishedVolumeCount || 0);
+  (DATA.beasts || []).filter((beast, index) => Number(beast.volumeNumber || index + 1) <= publishedVolumeCount).forEach((beast) => {
+    const levels = Array.isArray(beast.levels) ? beast.levels : [];
+    for (let index = 0; index < 5; index += 1) {
+      const level = levels[index] || {};
+      publicPortraits.push({ key: beast.id + ':lv' + (index + 1), relative: relAsset(level.portrait || (`assets/art/characters/${beast.id}_lv${index + 1}.webp`)), transparent: true });
+    }
+  });
   const day7 = DATA.signIn && Array.isArray(DATA.signIn.days) && DATA.signIn.days.find((day) => Number(day.day) === 7);
   const backgroundId = day7 && day7.background;
   const background = (DATA.backgrounds || []).find((value) => value.id === backgroundId);
-  const limited = background ? [{ key: 'background:' + background.id, relative: relSceneAsset(background.file), transparent: false }] : [];
-  return { icons, buildings, fox, atlases, limited };
+  const limited = background ? [{ key: 'background:' + background.id, relative: relSceneAsset(background.assetPath || background.file), transparent: false }] : [];
+  return { icons, buildings, publicPortraits, limited };
 }
 
 function assertMatrixFiles(entries, label) {
@@ -228,20 +228,19 @@ function assertMatrixFiles(entries, label) {
 console.log('\n== H5 v6 asset matrix/release contract ==');
 const matrix = expectedMatrix();
 
-check('资产矩阵数量固定：48图标 + 12建筑 + 5狐立绘 + 5图集 + 1限定背景', function () {
-  expect(matrix.icons.length === 48, 'icon matrix must contain 48 entries');
+check('资产矩阵数量固定：54图标 + 12建筑 + 60张十二卷立绘 + 1限定背景', function () {
+  expect(matrix.icons.length === 54, 'icon matrix must contain 54 entries');
   expect(matrix.buildings.length === 12, 'building matrix must contain 12 entries');
-  expect(matrix.fox.length === 5, 'fox portrait matrix must contain 5 entries');
-  expect(matrix.atlases.length === 5, 'fox atlas matrix must contain 5 entries');
+  expect(matrix.publicPortraits.length === 60, 'release portrait matrix must contain 60 entries');
   expect(matrix.limited.length === 1, 'sign-in limited background must be declared');
-  const all = [].concat(matrix.icons, matrix.buildings, matrix.fox, matrix.atlases, matrix.limited);
+  const all = [].concat(matrix.icons, matrix.buildings, matrix.publicPortraits, matrix.limited);
   expect(new Set(all.map((entry) => entry.relative)).size === all.length, 'asset matrix paths must be unique');
 });
 
 check('源文件/ dist 文件均存在、WebP、<=1MiB、透明资源 alpha 有效', function () {
   const issues = [];
-  [[matrix.icons, '48 icons'], [matrix.buildings, '12 buildings'],
-    [matrix.fox, '5 fox portraits'], [matrix.atlases, '5 fox atlases'],
+  [[matrix.icons, '54 icons'], [matrix.buildings, '12 buildings'],
+    [matrix.publicPortraits, '60 release portraits'],
     [matrix.limited, 'limited background']].forEach(([entries, label]) => {
     try { assertMatrixFiles(entries, label); } catch (error) { issues.push(error.message); }
   });
@@ -255,11 +254,8 @@ check('现有构建脚本能带入矩阵，且入口引用无源/dist 404', func
   expect(/prototype\/assets\/art\/match3/.test(build), 'build must copy match3 assets');
   expect(/prototype\/assets\/art\/buildings/.test(build), 'build must copy building assets');
   expect(/prototype\/assets\/art\/characters/.test(build), 'build must copy character assets');
-  /* Character lv/atlas and sign-in background files are not in the legacy
-   * four-beast s0..s3 loop; the builder must explicitly copy or recursively
-   * include them or dist will 404 despite a valid source matrix. */
-  expect(/jiuweihu_lv|copyDirectoryIfPresent\(['"]prototype\/assets\/art\/characters/.test(build),
-    'build must include v6 fox portrait/atlas assets');
+  expect(/RELEASE_BEAST_IDS|copyDirectoryIfPresent\(['"]prototype\/assets\/art\/characters/.test(build),
+    'build must include all release character portraits');
   expect(/fox-lantern|RELEASE_SCENES/.test(build),
     'build must include the sign-in limited background');
 

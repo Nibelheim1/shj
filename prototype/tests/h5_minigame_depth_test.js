@@ -175,89 +175,30 @@ function sheepRect(game) {
 
 function touchTile(game, tile) {
   const rect = sheepRect(game);
-  const overlap = Number(game.overlap) || 0;
-  const box = {
-    x: rect.x + tile.cx * rect.cell + tile.layer * rect.cell * overlap,
-    y: rect.y + tile.cy * rect.cell + tile.layer * rect.cell * overlap * 0.65,
-    w: rect.cell,
-    h: rect.cell
-  };
+  const box = game._tileRect(tile, rect);
   return game.onTouchStart(box.x + box.w / 2, box.y + box.h / 2, rect);
 }
 
-function clearSheepTriple(game, label) {
-  /* 新塔形下同种牌分散在三个塔位：按同种凑三消，而不是固定清同一塔。 */
-  const legal = game.listLegalTiles();
-  assert.ok(legal.length > 0, label + ' 清塔过程中始终有露头牌');
-  const counts = {};
-  legal.forEach(function (tile) { counts[tile.type] = (counts[tile.type] || 0) + 1; });
-  const pickType = Object.keys(counts).map(Number).sort(function (a, b) { return counts[b] - counts[a]; })[0];
-  const copies = legal.filter(function (tile) { return tile.type === pickType; }).slice(0, 3);
-  copies.forEach(function (tile) { assert.strictEqual(touchTile(game, tile), true); });
-}
-
-/* 记忆化 DFS：验证任意生成塔都存在真实触摸解，避免依赖某个贪心策略。 */
-function solveSheepTower(game, label, maxNodes) {
-  maxNodes = maxNodes || 60000;
-  const memo = new Set();
-  let nodes = 0;
-  function snapshotRemoved() { return game.tiles.map(function (tile) { return tile.removed; }); }
-  function restoreRemoved(snapshot) { game.tiles.forEach(function (tile, index) { tile.removed = snapshot[index]; }); }
-  function stateKey() {
-    let bits = '';
-    game.tiles.forEach(function (tile) { bits += tile.removed ? '1' : '0'; });
-    return bits + '|' + game.slot.map(function (tile) { return tile.type; }).join(',');
+function playProofUntil(game, targetTriples, label) {
+  const order = game.getSolution();
+  for (const uid of order) {
+    if (game.finished || game.triplesCleared >= targetTriples) break;
+    const tile = game.tiles.find(function (entry) { return entry.uid === uid; });
+    assert.ok(tile, label + ' 证明路径中的牌存在 #' + uid);
+    assert.strictEqual(touchTile(game, tile), true, label + ' 证明路径通过真实触摸入口 #' + uid);
   }
-  function dfs() {
-    if (game.finished) return game.triplesCleared >= game.totalTriples && game.slot.length === 0;
-    if (game.failed) return false;
-    if (++nodes > maxNodes) return false;
-    const key = stateKey();
-    if (memo.has(key)) return false;
-    memo.add(key);
-    const legal = game.listLegalTiles();
-    if (!legal.length) return false;
-    const types = Array.from(new Set(legal.map(function (tile) { return tile.type; })))
-      .sort(function (a, b) {
-        const ca = legal.filter(function (tile) { return tile.type === a; }).length;
-        const cb = legal.filter(function (tile) { return tile.type === b; }).length;
-        return cb - ca;
-      });
-    for (const type of types) {
-      const removed = snapshotRemoved();
-      const slot = game.slot.slice();
-      const failed = game.failed, finished = game.finished, triples = game.triplesCleared;
-      const score = game.score, combo = game.combo, maxCombo = game.maxCombo, perf = game.perf;
-      const taps = game.taps, autoShuffles = game.autoShuffles, elapsed = game.elapsed, timeLeft = game.timeLeft, phase = game.phase;
-      let ok = true;
-      const copies = legal.filter(function (tile) { return tile.type === type; });
-      for (const tile of copies) {
-        if (!touchTile(game, tile)) { ok = false; break; }
-      }
-      if (ok && dfs()) return true;
-      restoreRemoved(removed);
-      game.slot = slot; game.failed = failed; game.finished = finished; game.triplesCleared = triples;
-      game.score = score; game.combo = combo; game.maxCombo = maxCombo; game.perf = perf;
-      game.taps = taps; game.autoShuffles = autoShuffles; game.elapsed = elapsed; game.timeLeft = timeLeft; game.phase = phase;
-    }
-    return false;
-  }
-  return dfs();
 }
 
 function clearSheepTower(game, label) {
-  assert.strictEqual(solveSheepTower(game, label), true, label + ' 真实触摸可清塔');
+  const proof = game.validateSolution(game.getSolution());
+  assert.strictEqual(proof.ok, true, label + ' 生成后证明校验通过');
+  assert.ok(proof.maxSlots <= 4, label + ' 证明路径最多占四格');
+  playProofUntil(game, game.totalTriples, label);
+  assert.strictEqual(game.finished, true, label + ' 真实触摸可清塔');
 }
 
 function clearOneSheepTriple(game, label) {
-  const legal = game.listLegalTiles();
-  const counts = {};
-  legal.forEach(function (tile) { counts[tile.type] = (counts[tile.type] || 0) + 1; });
-  const pickType = Object.keys(counts).map(Number).filter(function (type) { return counts[type] >= 3; })[0];
-  assert.ok(pickType != null, label + ' 露头牌中存在可凑齐的三张同种牌');
-  legal.filter(function (tile) { return tile.type === pickType; }).slice(0, 3).forEach(function (tile) {
-    assert.strictEqual(touchTile(game, tile), true);
-  });
+  playProofUntil(game, game.triplesCleared + 1, label);
 }
 
 function runSheepDepth() {
@@ -273,8 +214,8 @@ function runSheepDepth() {
       layers: profile.layers,
       typeCount: profile.typeCount,
       tilesPerType: profile.tilesPerType,
-      hangPerLayer: profile.hangPerLayer,
-      mountain: profile.mountain,
+      reserveStacks: profile.reserveStacks,
+      slots: profile.slots,
       scoreTarget: profile.scoreTarget,
       failPerfCap: profile.failPerfCap,
       comboWindow: profile.comboWindow
@@ -289,21 +230,23 @@ function runSheepDepth() {
         assert.strictEqual(counts[type] % 3, 0, difficulty + ' 每种玩具数量为 3 的倍数 #' + seed);
       });
       assert.ok(game.hasLegalMove(), difficulty + ' 初盘必有露头牌 #' + seed);
-      assert.ok(game.listLegalTiles().length <= profile.cols * profile.rows,
-        difficulty + ' 露头不超过塔基格数 #' + seed);
+      assert.ok(game.listLegalTiles().length <= profile.cols * profile.rows + profile.reserveStacks,
+        difficulty + ' 露头由主牌顶层与四组副牌组成 #' + seed);
+      assert.strictEqual(game.solutionValidated, true, difficulty + ' 生成时完成可解校验 #' + seed);
+      assert.ok(game.validateSolution(game.getSolution()).ok, difficulty + ' 证明可重复验证 #' + seed);
+      assert.ok(game.solutionMaxSlots <= 4, difficulty + ' 证明路径为第五格保留余量 #' + seed);
       assert.strictEqual(game.useHint(), true, difficulty + ' 存在可用提示 #' + seed);
       assert.ok(game.hint && !game.hint.removed, difficulty + ' 提示指向未消除露头牌');
-      if (difficulty === 'easy') {
-        assert.ok(game.listLegalTiles().length >= 6, difficulty + ' 轻松档开局露头充足（' + game.listLegalTiles().length + '）#' + seed);
-      } else {
-        assert.ok(game.listLegalTiles().length < 15, difficulty + ' 窄基座露头显著减少（' + game.listLegalTiles().length + '）#' + seed);
-      }
+      assert.ok(game.listLegalTiles().length >= profile.reserveStacks,
+        difficulty + ' 四组副牌始终各有一张露头 #' + seed);
     }
   });
   assert.strictEqual(signatures.size, STANDARD_LEVELS.length, 'Sheep 四个标准档规则不能只改变棋盘尺寸');
 
-  /* 只有最低难度保证可清塔：其余档位不保证可解（主理人拍板）。 */
-  const easyClear = new SheepGame.Game('PLAY', { difficulty: 'easy', rng: seeded(900), timeLimit: 999, overlap: 0 });
+  /* 生成器提供可回放证明；不是靠三组送分帽制造“假可玩”。 */
+  const easyClear = new SheepGame.Game('PLAY', {
+    difficulty: 'easy', rng: seeded(900), timeLimit: 999
+  });
   clearSheepTower(easyClear, 'easy');
   assert.strictEqual(easyClear.finished, true, 'easy 真实触摸可清塔');
   assert.strictEqual(easyClear.triplesCleared, easyClear.totalTriples, 'easy 清除全部三连组');
@@ -311,6 +254,7 @@ function runSheepDepth() {
   assert.ok(easyClear.perf >= 0.85, 'easy 清塔表现达到 mastery');
 
   const fail = new SheepGame.Game('PLAY', { difficulty: 'hard', rng: seeded(55), timeLimit: 999 });
+  fail.toolRemaining = { move: 0, undo: 0, shuffle: 0 };
   let failGuard = 0;
   while (!fail.finished && failGuard++ < 60) {
     const legal = fail.listLegalTiles();
@@ -324,40 +268,31 @@ function runSheepDepth() {
   assert.strictEqual(fail.failed, true, '五格槽满且无三连时失败');
   assert.ok(fail.perf < 0.4, '低分失败只给低档表现');
 
-  /* 高分失败：优先消除露头最多的同款，困难档尽力消除后结算。 */
-  const scored = new SheepGame.Game('PLAY', { difficulty: 'hard', rng: seeded(66), timeLimit: 999, overlap: 0 });
-  let scoredGuard = 0;
-  while (!scored.finished && scoredGuard++ < 80) {
-    const legal = scored.listLegalTiles();
-    if (!legal.length) break;
-    const counts = {};
-    legal.forEach(function (tile) { counts[tile.type] = (counts[tile.type] || 0) + 1; });
-    const best = Object.keys(counts).map(Number).sort(function (a, b) { return counts[b] - counts[a]; })[0];
-    legal.filter(function (tile) { return tile.type === best; }).forEach(function (tile) {
-      if (!scored.finished) assert.strictEqual(touchTile(scored, tile), true);
-    });
-  }
-  if (!scored.finished) scored.finish(true);
+  /* 沿证明路线推进后提前结算，仍按真实进度给中档表现。 */
+  const scored = new SheepGame.Game('PLAY', { difficulty: 'hard', rng: seeded(66), timeLimit: 999 });
+  playProofUntil(scored, 12, '高分中途局');
+  scored.finish(true);
   assert.ok(scored.triplesCleared >= 2, '困难档高分失败至少消除 2 组（' + scored.triplesCleared + '）');
-  assert.ok(scored.score > 1000, '困难档高分失败仍有可观得分（' + scored.score + '）');
-  assert.ok(scored.perf >= 0.5, '困难档高分失败按得分匹配 B 档以上表现（' + scored.perf + '）');
+  assert.ok(scored.score > 1000, '困难档高进度结算仍有可观得分（' + scored.score + '）');
+  assert.ok(scored.perf >= 0.5, '困难档高进度按得分匹配 B 档以上表现（' + scored.perf + '）');
 
   const constant = new SheepGame.Game('PLAY', { difficulty: 'master', rng: function () { return 0; }, overlap: 0 });
   assert.strictEqual(liveTiles(constant).length, constant.totalTiles, '极端 RNG 仍生成完整塔');
   assert.ok(constant.hasLegalMove(), '极端 RNG 仍有露头牌');
-  assert.ok(constant.listLegalTiles().length < 15, '极端 RNG 大师档露头保持稀少（' + constant.listLegalTiles().length + '）');
+  assert.strictEqual(constant.solutionValidated, true, '极端 RNG 大师档仍通过生成证明');
 
   const timeout = new SheepGame.Game('PLAY', { difficulty: 'easy', rng: seeded(77), timeLimit: 3 });
-  clearSheepTriple(timeout, '超时局');
+  clearOneSheepTriple(timeout, '超时局');
   timeout.update(3.01);
-  assert.strictEqual(timeout.finished, true, '倒计时结束自动结算');
+  assert.strictEqual(timeout.finished, false, '原版式玩法不因倒计时强制结束');
   assert.strictEqual(timeout.triplesCleared, 1, '超时保留真实三消进度');
+  timeout.finish(true);
   assert.ok(timeout.perf < 0.85, '未清塔不能拿 mastery 表现');
 
   const eventGame = new SheepGame.Game('PLAY', { difficulty: 'easy', rng: seeded(800) });
   const sheepEvents = [];
   eventGame.onEvent = function (name) { sheepEvents.push(name); };
-  clearSheepTriple(eventGame, '事件局');
+  clearOneSheepTriple(eventGame, '事件局');
   assert.ok(sheepEvents.indexOf('swap') >= 0 && sheepEvents.indexOf('match') >= 0, '羊了个羊发出 swap/match 事件');
   const eventSummary = eventGame._summary();
   assert.deepStrictEqual(Array.from(eventSummary.icons), eventGame.icons.slice(0, eventGame.typeCount),
@@ -365,7 +300,7 @@ function runSheepDepth() {
   const iconFamilies = new Set(eventSummary.icons.map(function (name) { return name.replace(/_\d+$/, ''); }));
   assert.ok(iconFamilies.size >= 5, '素材覆盖多个系列，避免同色系混淆');
 
-  console.log('  PASS  Sheep 800 固定种子、露头判定、槽满失败、高分失败奖励、清塔、超时与已有素材');
+  console.log('  PASS  Sheep 800 固定种子、生成证明、真实遮挡、五格死局、清塔与无强制倒计时');
 }
 
 runMatch3Depth();

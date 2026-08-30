@@ -16,6 +16,7 @@
   var MIN_VERSION_KEY = 'shj-merge-slice-min-reader';
   var state = null;
   var initialized = false;
+  var initPromise = null;
   var selectedIndex = null;
   var activeView = 'merge-view';
   var toastTimer = null;
@@ -28,9 +29,14 @@
   var courtyardScene = null;
   var readOnlyNewerSave = false;
   var readOnlyRawSave = null;
+  var saveProtectionReason = null;
+  var saveRevision = 0;
+  var lastCommittedStateRaw = null;
   var migrationSource = null;
   var longPressState = null;
   var boardDragState = null;
+  var boardDragGhost = null;
+  var boardMotionFeedback = null;
   var suppressClickUntil = 0;
   var LONG_PRESS_MS = 520;
   var yardAutonomyTimer = null;
@@ -41,12 +47,23 @@
   var foxSpriteKey = '';
   var foxActionIndex = 0;
   var sectAreaSelection = 'gate';
+  var sectSceneVisible = false;
   var sectNpcTimer = null;
   var codexPage = 1;
   var CODEX_PAGE_SIZE = 6;
   var recipeCabinetAnchor = null;
   var tutorialPromptedStep = null;
   var tutorialPromptTimer = null;
+  var yardSelection = { kind: 'resident', id: 'resident' };
+  var yardSpeechTimer = null;
+  var yardActionTimer = null;
+  var yardCgFrameTimer = null;
+  var yardActionSerial = 0;
+  var yardActionIndex = 0;
+  var yardActiveAction = null;
+  var yardActionPreloads = {};
+  var modalState = null;
+  var modalEscapeHandler = null;
 
   function q(id) { return document ? document.getElementById(id) : null; }
 
@@ -71,6 +88,36 @@
 
   function beastDef(id) {
     return DATA.beasts.find(function (beast) { return beast.id === id; }) || DATA.beasts[0];
+  }
+
+  function uiIcon(id, className) {
+    var safeId = String(id || 'info').toLowerCase().replace(/[^a-z0-9-]/g, '') || 'info';
+    var safeClass = String(className || '').replace(/[^a-zA-Z0-9 _-]/g, '');
+    var reference = 'assets/icons/ui-icons.svg#' + safeId;
+    return '<svg class="ui-icon' + (safeClass ? ' ' + safeClass : '') + '" aria-hidden="true" focusable="false"><use href="' + reference + '" xlink:href="' + reference + '"></use></svg>';
+  }
+
+  function compactNumber(value) {
+    var number = Math.max(0, Math.floor(Number(value) || 0));
+    if (number < 10000) return String(number);
+    var short = Math.round(number / 1000) / 10;
+    return String(short).replace(/\.0$/, '') + '万';
+  }
+
+  function areaDefinitionById(areaId) {
+    return (DATA.sect && DATA.sect.areas || []).find(function (area) { return area.id === areaId; }) || null;
+  }
+
+  function areaIconId(statusOrArea) {
+    var source = statusOrArea || {};
+    var definition = source.areaId ? areaDefinitionById(source.areaId) : source.id ? areaDefinitionById(source.id) : null;
+    return source.iconId || definition && definition.iconId || 'area-gate';
+  }
+
+  function toyTowerSeed(difficulty, timestamp) {
+    /* 同一天、同一难度使用完全相同的塔。失败后重进仍能记牌复盘，
+       次日再统一换题，避免每次重试都输给新的随机数。 */
+    return 'toy-tower:' + today(timestamp) + ':' + String(difficulty || 'easy');
   }
 
   function visitorDef(id) {
@@ -162,10 +209,27 @@
     }
     var family = item && familyDef(item.family);
     if (!family) return '';
-    var useV7 = item.family === 'build' ||
-      ((item.family === 'herb' || item.family === 'tool' || item.family === 'groom' || item.family === 'play') && Number(item.tier) >= 7);
+    var useV7 = (item.family === 'build' || item.family === 'herb' || item.family === 'tool' || item.family === 'groom' || item.family === 'play') && Number(item.tier) >= 7;
     if (useV7) return 'assets/art/v7/match3/' + family.path + '_' + String(item.tier).padStart(2, '0') + '.webp';
     return (root.MATCH3_ASSET_ROOT || 'assets/art/match3/') + family.path + '_' + String(item.tier).padStart(2, '0') + '.webp';
+  }
+
+  function handleMaterialImageError(event) {
+    var image = event && event.target;
+    if (!image || String(image.tagName || '').toLowerCase() !== 'img' || image.dataset.assetFallback === 'true') return;
+    var holder = image.closest && image.closest('[data-longpress-family],[data-longpress-generator],[data-project-need-family]');
+    if (!holder) return;
+    var familyId = holder.getAttribute('data-longpress-family') || holder.getAttribute('data-longpress-generator') || holder.getAttribute('data-project-need-family');
+    var family = familyDef(familyId);
+    image.dataset.assetFallback = 'true';
+    image.hidden = true;
+    holder.classList.add('has-material-fallback');
+    if (holder.querySelector('.material-asset-fallback')) return;
+    var fallback = document.createElement('span');
+    fallback.className = 'material-asset-fallback';
+    fallback.setAttribute('aria-hidden', 'true');
+    fallback.innerHTML = uiIcon(family && family.iconId || 'info');
+    holder.insertBefore(fallback, image.nextSibling);
   }
 
   function beastLevelConfig(definition, entry) {
@@ -233,6 +297,213 @@
       drawFrame(frame);
     }, 180);
     foxActionTimer = root.setInterval(chooseAction, 2600);
+  }
+
+  function yardActionsFor(definition) {
+    return definition && Array.isArray(definition.yardActions)
+      ? definition.yardActions.filter(function (action) { return action && action.id && action.atlas; })
+      : [];
+  }
+
+  function yardActionFor(definition, actionId) {
+    return yardActionsFor(definition).find(function (action) { return action.id === actionId; }) || null;
+  }
+
+  function preloadYardActionAtlases(definition) {
+    if (!root.Image) return;
+    yardActionsFor(definition).forEach(function (action, index) {
+      var source = characterAssetPath(action.atlas);
+      if (!source || yardActionPreloads[source]) return;
+      var record = { state: 'scheduled', image: null };
+      yardActionPreloads[source] = record;
+      root.setTimeout(function () {
+        if (yardActionPreloads[source] !== record || record.state !== 'scheduled') return;
+        var image = new root.Image();
+        image.decoding = 'async';
+        record.state = 'loading';
+        record.image = image;
+        image.onload = function () { record.state = 'ready'; };
+        image.onerror = function () {
+          record.state = 'error';
+          handleYardActionAtlasError(source);
+        };
+        image.src = source;
+      }, 120 + index * 220);
+    });
+  }
+
+  function resetYardActionSprite() {
+    var image = q('yard-beast');
+    var sprite = q('yard-beast-sprite');
+    if (image) {
+      image.hidden = false;
+      image.removeAttribute('data-yard-action-art');
+    }
+    if (!sprite) return;
+    sprite.hidden = true;
+    sprite.removeAttribute('data-yard-atlas');
+    sprite.style.backgroundImage = '';
+    sprite.style.backgroundSize = '';
+    sprite.style.backgroundPosition = '';
+  }
+
+  function setYardResidentArt(display) {
+    if (!display || !display.definition || !display.entry) return;
+    var image = q('yard-beast');
+    var character = q('yard-character');
+    resetYardActionSprite();
+    if (image) {
+      image.src = characterAssetPath(beastArt(display.definition, display.entry));
+      image.alt = display.definition.name + ' · Lv' + display.entry.activeFormLevel;
+    }
+    var copy = q('yard-copy');
+    if (copy && !yardActiveAction) copy.textContent = display.definition.name + '正在庭院里休息';
+    if (character) {
+      character.classList.remove('is-yard-action');
+      character.removeAttribute('data-yard-action');
+      character.setAttribute('aria-label', '点击与' + display.definition.name + '互动，长按查看说明');
+    }
+    syncYardBeastSprite(display.definition, display.entry);
+  }
+
+  function clearYardAction(restoreArt) {
+    if (yardActionTimer) root.clearTimeout(yardActionTimer);
+    if (yardCgFrameTimer) root.clearInterval(yardCgFrameTimer);
+    yardActionTimer = null;
+    yardCgFrameTimer = null;
+    yardActionSerial += 1;
+    yardActiveAction = null;
+    resetYardActionSprite();
+    var character = q('yard-character');
+    if (character) {
+      character.classList.remove('is-yard-action');
+      character.removeAttribute('data-yard-action');
+      character.removeAttribute('data-cg-frames');
+    }
+    if (restoreArt && state) setYardResidentArt(caseForDisplay());
+  }
+
+  function finishYardAction(serial, beastId) {
+    if (serial !== yardActionSerial) return;
+    if (yardActionTimer) root.clearTimeout(yardActionTimer);
+    if (yardCgFrameTimer) root.clearInterval(yardCgFrameTimer);
+    yardActionTimer = null;
+    yardCgFrameTimer = null;
+    yardActiveAction = null;
+    var character = q('yard-character');
+    if (character) {
+      character.classList.remove('is-yard-action');
+      character.removeAttribute('data-yard-action');
+      character.removeAttribute('data-cg-frames');
+    }
+    var display = state && caseForDisplay();
+    if (display && display.id === beastId) setYardResidentArt(display);
+    if (yardSelection && yardSelection.id === 'resident') renderYardSelectionCard();
+  }
+
+  function showYardAction(action, options) {
+    options = options || {};
+    var display = caseForDisplay();
+    if (!action || !display || !display.definition || !yardActionFor(display.definition, action.id)) return false;
+    var image = q('yard-beast');
+    var sprite = q('yard-beast-sprite');
+    var character = q('yard-character');
+    if (!image || !sprite || !character) return false;
+
+    clearYardAction(false);
+    var serial = yardActionSerial;
+    var source = characterAssetPath(action.atlas);
+    var preload = yardActionPreloads[source];
+    if (!source || preload && preload.state === 'error') {
+      showYardSpeech('穷奇抖抖翅膀，又凑近了一点。');
+      track('asset_fallback', { asset: 'qiongqi-yard-action-atlas', actionId: action.id });
+      return false;
+    }
+    var columns = Math.max(1, Number(action.columns) || 3);
+    var rows = Math.max(1, Number(action.rows) || 3);
+    var frames = Math.max(1, Math.min(columns * rows, Number(action.frames) || columns * rows));
+    var frameMs = Math.max(90, Number(action.frameMs) || 150);
+    var loops = Math.max(1, Number(options.loops != null ? options.loops : action.loops) || 1);
+    var reducedMotion = root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var duration = reducedMotion ? 1200 : frames * frameMs * loops;
+    yardActiveAction = { beastId: display.id, id: action.id, label: action.label, line: action.line, atlas: source };
+    stopFoxSprite();
+    image.hidden = true;
+    sprite.hidden = false;
+    sprite.setAttribute('data-yard-atlas', action.id);
+    sprite.style.backgroundImage = 'url("' + source.replace(/"/g, '%22') + '")';
+    sprite.style.backgroundSize = (columns * 100) + '% ' + (rows * 100) + '%';
+    character.setAttribute('data-yard-action', action.id);
+    character.setAttribute('data-cg-frames', String(frames));
+    character.setAttribute('aria-label', display.definition.name + '正在' + action.label + '，再次点击切换动作');
+    character.classList.remove('is-yard-action');
+    void character.offsetWidth;
+    character.classList.add('is-yard-action');
+    var line = options.line != null ? options.line : action.line;
+    if (line) showYardSpeech(line);
+    var copy = q('yard-copy');
+    if (copy) copy.textContent = display.definition.name + '正在' + action.label;
+    if (options.react !== false && courtyardScene && typeof courtyardScene.react === 'function') {
+      courtyardScene.react({ kind: action.sceneAction || action.id, target: 'resident' });
+    }
+    if (options.interactive !== false) yardInteractionUntil = Date.now() + duration + 450;
+    track('yard_beast_interaction', { beastId: display.id, actionId: action.id, source: options.source || 'tap' });
+    if (yardSelection && yardSelection.id === 'resident') renderYardSelectionCard();
+
+    function drawFrame(index) {
+      var column = index % columns;
+      var row = Math.floor(index / columns);
+      var x = columns > 1 ? column * 100 / (columns - 1) : 0;
+      var y = rows > 1 ? row * 100 / (rows - 1) : 0;
+      sprite.style.backgroundPosition = x + '% ' + y + '%';
+    }
+
+    if (reducedMotion) {
+      drawFrame(Math.max(0, Math.min(frames - 1, Number(action.reducedFrame) || Math.floor(frames / 2))));
+      yardActionTimer = root.setTimeout(function () { finishYardAction(serial, display.id); }, duration);
+      return true;
+    }
+
+    var frame = 0;
+    var completedLoops = 0;
+    drawFrame(frame);
+    var frameTimer = root.setInterval(function () {
+      if (serial !== yardActionSerial) {
+        root.clearInterval(frameTimer);
+        if (yardCgFrameTimer === frameTimer) yardCgFrameTimer = null;
+        return;
+      }
+      frame += 1;
+      if (frame >= frames) {
+        completedLoops += 1;
+        if (completedLoops >= loops) {
+          finishYardAction(serial, display.id);
+          return;
+        }
+        frame = 0;
+      }
+      drawFrame(frame);
+    }, frameMs);
+    yardCgFrameTimer = frameTimer;
+    return true;
+  }
+
+  function playNextYardAction(options) {
+    var display = caseForDisplay();
+    var actions = yardActionsFor(display.definition);
+    if (!actions.length) return false;
+    var action = actions[yardActionIndex % actions.length];
+    yardActionIndex = (yardActionIndex + 1) % actions.length;
+    return showYardAction(action, options);
+  }
+
+  function handleYardActionAtlasError(source) {
+    if (!yardActiveAction || source && yardActiveAction.atlas !== source) return;
+    var failed = yardActiveAction.id;
+    clearYardAction(true);
+    showYardSpeech('穷奇抖抖翅膀，又凑近了一点。');
+    track('asset_fallback', { asset: 'qiongqi-yard-action-atlas', actionId: failed });
+    if (yardSelection && yardSelection.id === 'resident') renderYardSelectionCard();
   }
 
   function itemName(item) {
@@ -315,7 +586,7 @@
     var modal = modalShell('<span class="eyebrow">物品说明</span><h2>' + esc(current.name) + '</h2>' + sourceLabel +
       '<p>' + (producer ? '两个同阶部件继续合成；四阶部件合到五阶时，会真正变成可产出素材的生成器。' : '两个同类同阶物品合成下一阶；路线从 1 阶持续到 ' + routeNames.length + ' 阶。') + '</p><div class="route-list item-route-list">' + (producer ? routeNames.map(function (name, index) {
         var partTier = index + 1;
-        return '<span class="route-step ' + (partTier === Number(tier) ? 'current' : '') + '">' + (partTier < 5 ? '<img src="' + esc(itemPath({ kind: 'generator_part', family: family, tier: partTier })) + '" alt="" />' : '<b>⚙</b>') + '<b>' + partTier + '阶</b><small>' + esc(name) + '</small></span>';
+        return '<span class="route-step ' + (partTier === Number(tier) ? 'current' : '') + '">' + (partTier < 5 ? '<img src="' + esc(itemPath({ kind: 'generator_part', family: family, tier: partTier })) + '" alt="" />' : uiIcon('settings')) + '<b>' + partTier + '阶</b><small>' + esc(name) + '</small></span>';
       }).join('') : routeMarkup(family, tier)) + '</div>' +
       '<div class="route-merge-rule">当前：' + esc(producer ? '生产器部件' : definition.name) + ' · ' + Number(tier) + ' 阶　→　' + (Number(tier) < routeNames.length ? '下一阶可由 2 个当前物品合成' : '已达最高阶') + '</div>' +
       '<div class="route-source-hint"><b>材料来源</b><span>' + esc(sourceHint) + '</span></div>' +
@@ -338,18 +609,26 @@
     var definition = familyDef(family);
     if (!definition) return null;
     var info = Core.getGeneratorState ? Core.getGeneratorState(state, family) : null;
-    var title = family === 'groom' ? '梳洗台小游戏产出' : definition.name + '生成器';
+    var storySource = immersiveVolumeOneActive() && Core.materialSourceForFamily ? Core.materialSourceForFamily(family) : null;
+    var storySourceState = storySource && state.materialSourceState && state.materialSourceState[storySource.id];
+    var title = storySource
+      ? (storySourceState && storySourceState.upgraded ? storySource.upgradedName : storySource.name)
+      : family === 'groom' ? '梳洗台小游戏产出' : definition.name + '物资源';
     var isPermanent = info && info.permanent !== false;
-    var intro = family === 'groom'
-      ? '梳子系列不再从合成棋盘生成；完成梳洗台消消乐后按得分领取数量。'
+    var intro = storySource
+      ? storySource.description
+      : family === 'groom'
+      ? '梳子系列不再从归灵台生成；完成梳洗台消消乐后按得分领取数量。'
       : isPermanent
         ? '常驻生成器：在线点击只消耗 1 点灵力，不再受储能次数硬卡。升级直接消耗暖玉、灵力与区域前置，无需合成第二台。'
         : '造物生成器：每次产出消耗 1 次使用次数，不消耗灵力；次数用尽会消散并返还少量部件。';
-    var odds = info && info.dropTable ? info.dropTable.map(function (drop) {
+    var odds = storySource ? '主线期间只产出当前项目可用的 1 阶素材' : info && info.dropTable ? info.dropTable.map(function (drop) {
       return drop.tier + '阶 ' + Math.round(drop.chance * 100) + '%';
     }).join(' · ') : '1阶 100%';
     var upgradeText = '';
-    if (info && info.nextLevel) {
+    if (storySource) {
+      upgradeText = storySourceState && storySourceState.upgraded ? '已由修缮成果升级' : '完成对应修缮后自动升级';
+    } else if (info && info.nextLevel) {
       if (isPermanent) {
         var cost = info.nextCost || {};
         var gateText = info.reason === 'upgrade-gate' ? ' · 前置未满足' : '';
@@ -360,15 +639,15 @@
           : '还需另一个 Lv' + info.level + ' 造物生成器';
       }
     } else if (info) upgradeText = '生成器已满级';
-    var lifetimeInfo = info && !isPermanent
+    var lifetimeInfo = !storySource && info && !isPermanent
       ? '<div class="generator-upgrade-summary"><b>剩余次数</b><small>' + Number(info.lifetime || 0) + ' / ' + Number(info.maxLifetime || 0) + '，用尽后自动消散并返还部件</small></div>'
       : '';
-    var partInfo = info && info.partDropChance != null && isPermanent
+    var partInfo = !storySource && info && info.partDropChance != null && isPermanent
       ? '<div class="generator-upgrade-summary"><b>部件产出</b><small>' + Math.round(info.partDropChance * 100) + '% · 保底进度 ' + Number(info.partPity || 0) + '/15</small></div>'
       : '';
     /* 产出效率：以 Lv1 为基准的 1 阶当量，升级前后的提升一目了然。 */
     var efficiencyInfo = '';
-    if (info && info.dropTable && isPermanent) {
+    if (!storySource && info && info.dropTable && isPermanent) {
       var currentEff = Core.generatorEfficiency ? Core.generatorEfficiency(info.dropTable) : 1;
       var nextLevelDrops = info.nextLevel && DATA.generators && DATA.generators.levels && DATA.generators.levels[info.nextLevel - 1] ? DATA.generators.levels[info.nextLevel - 1].drops : null;
       var nextEff = nextLevelDrops && Core.generatorEfficiency ? Core.generatorEfficiency(nextLevelDrops) : null;
@@ -376,18 +655,18 @@
       efficiencyInfo = '<div class="generator-upgrade-summary"><b>产出效率</b><small>以 Lv1 为基准 ' + efficiencyPercent(currentEff) + (nextEff ? ' · 升级后 ' + efficiencyPercent(nextEff) : '') + '</small></div>';
     }
     /* 离线储备：灵力耗尽时可动用的免费产出次数。 */
-    var reserveInfo = info && isPermanent
+    var reserveInfo = !storySource && info && isPermanent
       ? '<div class="generator-upgrade-summary"><b>离线储备</b><small>' + Math.max(0, Number(info.charges || 0)) + ' / ' + Math.max(0, Number(info.capacity || 0)) + ' 次 · 灵力耗尽时可动用储备继续产出</small></div>'
       : '';
     var areaBonuses = Core.stageBonusesOfType ? Core.stageBonusesOfType(state, ['generator.rechargeRate', 'generator.capacity', 'generator.partChance', 'generator.doubleDrop'], family) : [];
-    var bonusText = areaBonuses.length ? '<div class="generator-upgrade-summary"><b>宗门区域加成</b><small>' + esc(areaBonuses.map(function (bonus) { return bonus.text; }).join(' · ')) + '</small></div>' : '';
-    var modal = modalShell('<span class="eyebrow">生成说明 · 长按查看</span><h2>' + esc(title) + (info ? ' Lv' + info.level + (isPermanent ? '' : ' · 造物') : '') + '</h2><p>' + esc(intro) + '</p>' +
+    var bonusText = !storySource && areaBonuses.length ? '<div class="generator-upgrade-summary"><b>宗门区域加成</b><small>' + esc(areaBonuses.map(function (bonus) { return bonus.text; }).join(' · ')) + '</small></div>' : '';
+    var modal = modalShell('<span class="eyebrow">物资源说明 · 长按查看</span><h2>' + esc(title) + (!storySource && info ? ' Lv' + info.level + (isPermanent ? '' : ' · 造物') : '') + '</h2><p>' + esc(intro) + '</p>' +
       (info ? '<div class="generator-upgrade-summary"><b>当前产出</b><small>' + esc(odds) + '</small></div>' : '') + efficiencyInfo + lifetimeInfo + partInfo + reserveInfo + bonusText +
       '<div class="generator-route-list">' + definition.items.map(function (name, index) {
         var tier = index + 1;
         var direct = info && info.dropTable && info.dropTable.find(function (drop) { return Number(drop.tier) === tier; });
         return '<div class="generator-route-item"><img src="' + esc(itemPath({ family: family, tier: tier })) + '" alt="' + esc(name) + '" /><span><b>' + tier + ' 阶 · ' + esc(name) + '</b><small>' + (direct ? '当前可直接产出 · ' + Math.round(direct.chance * 100) + '%' : tier === 1 ? '基础产出/小游戏基础奖励' : '由 2 个 ' + (tier - 1) + ' 阶合成') + '</small></span></div>';
-      }).join('') + '</div>' + (info ? '<button class="modal-action" data-upgrade-generator type="button" ' + (!info.nextLevel || !info.canUpgrade ? 'disabled' : '') + '>' + esc(upgradeText) + '</button>' : ''), 'task-modal generator-route-modal');
+      }).join('') + '</div>' + (storySource ? '<div class="task-reward">' + esc(upgradeText) + '</div>' : info ? '<button class="modal-action" data-upgrade-generator type="button" ' + (!info.nextLevel || !info.canUpgrade ? 'disabled' : '') + '>' + esc(upgradeText) + '</button>' : ''), 'task-modal generator-route-modal');
     if (modal) {
       var button = modal.querySelector('[data-upgrade-generator]');
       if (button) button.addEventListener('click', function () {
@@ -408,7 +687,7 @@
     if (generatorFamily) return openGeneratorDetails(generatorFamily);
     var family = target.getAttribute('data-longpress-family');
     var tier = Number(target.getAttribute('data-longpress-tier')) || 1;
-    if (family) return openItemRoute(family, tier, target.getAttribute('data-longpress-source') || '合成棋盘/委托');
+    if (family) return openItemRoute(family, tier, target.getAttribute('data-longpress-source') || '归灵台/委托');
   }
 
   function releaseLongPress() {
@@ -497,35 +776,52 @@
     try { return JSON.parse(raw); } catch (error) { return null; }
   }
 
-  function loadState() {
-    var now = Date.now();
-    var raw = null;
-    var loadInfo = null;
-    if (root.MergeSaveStore && typeof root.MergeSaveStore.create === 'function') {
-      saveStore = root.MergeSaveStore.create({
-        key: KEY,
-        schema: DATA.version,
-        readerVersion: DATA.version,
-        minReaderVersion: DATA.version,
-        storage: root.localStorage,
-        indexedDB: root.indexedDB
-      });
-      loadInfo = saveStore.loadDetailed();
-      if (loadInfo.ok) raw = loadInfo.data;
-      readOnlyNewerSave = !!loadInfo.readOnly;
-      if (loadInfo.recovered) migrationSource = 'backup-slot';
+  function copyState(value) {
+    if (!value) return null;
+    try { return JSON.parse(JSON.stringify(value)); } catch (error) { return null; }
+  }
+
+  function hasStartedCareTransaction(value) {
+    var transactions = value && value.careTransactions;
+    return !!transactions && Object.keys(transactions).some(function (id) {
+      return transactions[id] && transactions[id].status === 'started';
+    });
+  }
+
+  function protectLoadedSave(reason, raw) {
+    readOnlyNewerSave = true;
+    saveProtectionReason = reason || 'read-only';
+    readOnlyRawSave = copyState(raw || lastCommittedStateRaw);
+  }
+
+  function restoreProtectedSnapshot() {
+    if (!readOnlyRawSave) return;
+    state = Core.normalize(copyState(readOnlyRawSave), Date.now(), today());
+    if (Core.setPublicRelease) Core.setPublicRelease(state, true);
+  }
+
+  function finalizeLoadedState(loadInfo, now) {
+    loadInfo = loadInfo || { ok: false };
+    var raw = loadInfo.ok ? loadInfo.data : null;
+    saveRevision = loadInfo.record ? Math.max(0, Number(loadInfo.record.revision) || 0) : 0;
+    if (loadInfo.recovered) migrationSource = 'backup-slot';
+    if (loadInfo.source === 'indexeddb' && loadInfo.recovered) migrationSource = 'mirror-recovery';
+    if (loadInfo.readOnly || loadInfo.conflict) {
+      protectLoadedSave(loadInfo.conflict ? 'save-conflict' : (loadInfo.reason || 'newer-reader'), raw);
     }
     if (!raw) raw = parse(safeStorageGet(KEY));
+    var recoveredCare = hasStartedCareTransaction(raw);
     var requiredReader = Math.max(
       Number(safeStorageGet(MIN_VERSION_KEY)) || 0,
       raw && raw.saveMeta ? Number(raw.saveMeta.minReaderVersion) || 0 : 0,
       raw ? Number(raw.version) || 0 : 0
     );
     if (requiredReader > DATA.version || readOnlyNewerSave) {
-      readOnlyNewerSave = true;
-      readOnlyRawSave = raw ? JSON.parse(JSON.stringify(raw)) : null;
-      /* Never overwrite a save that explicitly requires a newer reader. */
+      if (requiredReader > DATA.version) protectLoadedSave('newer-reader', raw);
+      /* Never overwrite a save that explicitly requires a newer reader or a
+         branch that needs an explicit conflict decision. */
       state = raw ? Core.normalize(raw, now, today(now)) : Core.createFresh(now, today(now));
+      lastCommittedStateRaw = copyState(raw || state);
       return state;
     }
     if (!raw) {
@@ -538,12 +834,58 @@
       });
     }
     state = raw ? Core.normalize(raw, now, today(now)) : Core.createFresh(now, today(now));
-    saveState();
+    if (Core.setPublicRelease) Core.setPublicRelease(state, true);
+    lastCommittedStateRaw = copyState(state);
+    if (recoveredCare) migrationSource = 'care-recovery';
     return state;
   }
 
-  function saveState() {
-    if (!state || readOnlyNewerSave) return false;
+  function loadState() {
+    var now = Date.now();
+    if (root.MergeSaveStore && typeof root.MergeSaveStore.create === 'function') {
+      saveStore = root.MergeSaveStore.create({
+        key: KEY,
+        schema: DATA.version,
+        readerVersion: DATA.version,
+        minReaderVersion: DATA.version,
+        storage: root.localStorage,
+        indexedDB: root.indexedDB
+      });
+      /* Loading the mirror is mandatory whenever one exists: a valid local
+         slot may still be older than IndexedDB. Environments without any
+         mirror keep the legacy synchronous startup contract for tests and
+         storage-degraded browsers. */
+      if (typeof saveStore.loadBestDetailed === 'function' &&
+          (!saveStore.mirrorAvailable || saveStore.mirrorAvailable())) {
+        return Promise.resolve(saveStore.loadBestDetailed()).then(function (loadInfo) {
+          return finalizeLoadedState(loadInfo, now);
+        }, function () {
+          return finalizeLoadedState(typeof saveStore.loadDetailed === 'function' ? saveStore.loadDetailed() : null, now);
+        });
+      }
+      return finalizeLoadedState(typeof saveStore.loadDetailed === 'function' ? saveStore.loadDetailed() : null, now);
+    }
+    return finalizeLoadedState(null, now);
+  }
+
+  function refreshProtectedSave() {
+    if (!saveStore || typeof saveStore.loadBestDetailed !== 'function') return;
+    Promise.resolve(saveStore.loadBestDetailed()).then(function (loadInfo) {
+      if (!loadInfo || !loadInfo.ok) return;
+      saveRevision = loadInfo.record ? Math.max(0, Number(loadInfo.record.revision) || saveRevision) : saveRevision;
+      readOnlyRawSave = copyState(loadInfo.data);
+      restoreProtectedSnapshot();
+      render();
+    }).catch(function () { /* The already committed snapshot remains safe. */ });
+  }
+
+  function saveState(options) {
+    options = options || {};
+    if (!state) return false;
+    if (readOnlyNewerSave) {
+      restoreProtectedSnapshot();
+      return false;
+    }
     state.version = DATA.version;
     state.saveMeta = {
       schema: DATA.version,
@@ -551,21 +893,44 @@
       savedAt: Date.now()
     };
     if (saveStore) {
-      var detail = typeof saveStore.saveDetailed === 'function' ? saveStore.saveDetailed(state) : { ok: saveStore.save(state) };
-      var saved = !!(detail && detail.ok);
-      if (saved) safeStorageSet(MIN_VERSION_KEY, String(DATA.version));
-      else track('save_error', { reason: detail && detail.reason || 'unknown', storage: 'local' });
-      if (saved && typeof saveStore.saveMirror === 'function') {
-        saveStore.saveMirror(detail.record || state).then(function (mirrorSaved) {
-          if (!mirrorSaved) track('save_error', { reason: 'mirror_failed', storage: 'indexeddb' });
-        }).catch(function () { track('save_error', { reason: 'mirror_failed', storage: 'indexeddb' }); });
+      var saveOptions = {
+        expectedRevision: saveRevision,
+        historyMode: options.historyMode === 'checkpoint' ? 'checkpoint' : 'none',
+        reason: options.reason || 'ui-state'
+      };
+      var pending = null;
+      var detail;
+      if (typeof saveStore.saveAsync === 'function') {
+        pending = saveStore.saveAsync(state, saveOptions);
+        /* saveAsync commits the crash-safe local slot synchronously, then
+           serializes the optional mirror write. */
+        detail = saveStore.lastSave;
+      } else {
+        detail = typeof saveStore.saveDetailed === 'function' ? saveStore.saveDetailed(state, saveOptions) : { ok: saveStore.save(state) };
       }
+      var saved = !!(detail && detail.ok);
+      if (saved) {
+        saveRevision = Math.max(saveRevision, Number(detail.revision || detail.record && detail.record.revision) || 0);
+        lastCommittedStateRaw = copyState(state);
+        safeStorageSet(MIN_VERSION_KEY, String(DATA.version));
+      } else {
+        track('save_error', { reason: detail && detail.reason || 'unknown', storage: 'local' });
+        if (detail && (detail.status === 'conflict' || detail.status === 'read-only')) {
+          protectLoadedSave(detail.status === 'conflict' ? 'revision-conflict' : (detail.reason || 'newer-reader'), lastCommittedStateRaw);
+          restoreProtectedSnapshot();
+          refreshProtectedSave();
+        }
+      }
+      if (pending && typeof pending.catch === 'function') pending.catch(function () { track('save_error', { reason: 'mirror_failed', storage: 'indexeddb' }); });
       return saved;
     }
     var raw;
     try { raw = JSON.stringify(state); } catch (error) { track('save_error', { reason: 'serialize_error', storage: 'local' }); return false; }
     var fallbackSaved = safeStorageSet(KEY, raw);
-    if (fallbackSaved) safeStorageSet(MIN_VERSION_KEY, String(DATA.version));
+    if (fallbackSaved) {
+      lastCommittedStateRaw = copyState(state);
+      safeStorageSet(MIN_VERSION_KEY, String(DATA.version));
+    }
     else track('save_error', { reason: 'slot_write_failed', storage: 'local' });
     return fallbackSaved;
   }
@@ -578,16 +943,78 @@
     toastTimer = root.setTimeout(function () { rootNode.innerHTML = ''; }, 2600);
   }
 
-  function modalShell(content, className) {
+  function modalBackgroundRegions() {
+    if (!document) return [];
+    return Array.prototype.slice.call(document.querySelectorAll('#slice-app > .slice-hud, #slice-app > #slice-main, #slice-app > .slice-nav, #slice-app > #world-change-root, #slice-app > #toast-root, #slice-app > #guide-root'));
+  }
+
+  function setModalBackgroundInert(active) {
+    modalBackgroundRegions().forEach(function (node) {
+      if (active) node.setAttribute('inert', '');
+      else node.removeAttribute('inert');
+    });
+    if (document && document.body) document.body.classList.toggle('modal-open', !!active);
+  }
+
+  function modalFocusable(modal) {
+    if (!modal) return [];
+    return Array.prototype.slice.call(modal.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter(function (node) {
+      return !node.hidden && node.getAttribute('aria-hidden') !== 'true' && (!node.getClientRects || node.getClientRects().length > 0);
+    });
+  }
+
+  function modalShell(content, className, options) {
     var rootNode = q('modal-root');
     if (!rootNode) return null;
-    rootNode.innerHTML = '<div class="modal-backdrop"><section class="care-modal ' + esc(className || '') + '" role="dialog" aria-modal="true">' +
-      '<button class="modal-close" data-close-modal type="button" aria-label="关闭">×</button>' + content + '</section></div>';
+    options = options || {};
+    var variant = ['dialog', 'sheet', 'immersive'].indexOf(options.variant) >= 0 ? options.variant : 'dialog';
+    var closeOnBackdrop = options.closeOnBackdrop !== false;
+    var closeOnEscape = options.closeOnEscape !== false;
+    var restoreFocus = options.restoreFocus !== false;
+    if (modalEscapeHandler && document) document.removeEventListener('keydown', modalEscapeHandler);
+    modalState = {
+      trigger: restoreFocus && document ? document.activeElement : null,
+      restoreFocus: restoreFocus
+    };
+    rootNode.innerHTML = '<div class="modal-backdrop modal-backdrop-' + variant + '" data-modal-variant="' + variant + '"><section class="care-modal modal-' + variant + ' ' + esc(className || '') + '" role="dialog" aria-modal="true" tabindex="-1">' +
+      '<button class="modal-close" data-close-modal type="button" aria-label="关闭">' + uiIcon('close') + '</button>' + content + '</section></div>';
     var close = rootNode.querySelector('[data-close-modal]');
     if (close) close.addEventListener('click', closeModal);
     var backdrop = rootNode.querySelector('.modal-backdrop');
-    if (backdrop) backdrop.addEventListener('click', function (event) { if (event.target === backdrop) closeModal(); });
-    return rootNode.querySelector('.care-modal');
+    if (backdrop && closeOnBackdrop) backdrop.addEventListener('click', function (event) { if (event.target === backdrop) closeModal(); });
+    var modal = rootNode.querySelector('.care-modal');
+    if (modal) {
+      var heading = modal.querySelector('h1, h2, h3');
+      var description = modal.querySelector('p');
+      if (heading) {
+        if (!heading.id) heading.id = 'qixia-modal-title';
+        modal.setAttribute('aria-labelledby', heading.id);
+      } else if (!modal.getAttribute('aria-label')) modal.setAttribute('aria-label', '山海·栖霞对话框');
+      if (description) {
+        if (!description.id) description.id = 'qixia-modal-description';
+        modal.setAttribute('aria-describedby', description.id);
+      }
+      setModalBackgroundInert(true);
+    }
+    if (document) {
+      modalEscapeHandler = function (event) {
+        if (event.key === 'Escape' && closeOnEscape) {
+          event.preventDefault();
+          closeModal();
+          return;
+        }
+        if (event.key !== 'Tab' || !modal || !modal.isConnected) return;
+        var focusable = modalFocusable(modal);
+        if (!focusable.length) { event.preventDefault(); modal.focus(); return; }
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      };
+      document.addEventListener('keydown', modalEscapeHandler);
+    }
+    if (modal && root.requestAnimationFrame) root.requestAnimationFrame(function () { if (modal.isConnected) modal.focus({ preventScroll: true }); });
+    return modal;
   }
 
   function recipeDefinition(recipeId) {
@@ -601,10 +1028,10 @@
 
   function moduleHelp(what, needs, use, tip) {
     return '<div class="module-help-rows">' +
-      '<div class="module-help-row"><b>它是干什么的</b><span>' + what + '</span></div>' +
-      '<div class="module-help-row"><b>需要什么</b><span>' + needs + '</span></div>' +
-      '<div class="module-help-row"><b>有什么用</b><span>' + use + '</span></div>' +
-      (tip ? '<div class="module-help-row tip"><b>小提示</b><span>' + tip + '</span></div>' : '') +
+      '<div class="module-help-row">' + uiIcon('info') + '<div><b>它是干什么的</b><span>' + what + '</span></div></div>' +
+      '<div class="module-help-row">' + uiIcon('route') + '<div><b>需要什么</b><span>' + needs + '</span></div></div>' +
+      '<div class="module-help-row">' + uiIcon('check') + '<div><b>有什么用</b><span>' + use + '</span></div></div>' +
+      (tip ? '<div class="module-help-row tip">' + uiIcon('help') + '<div><b>小提示</b><span>' + tip + '</span></div></div>' : '') +
       '</div>';
   }
 
@@ -618,11 +1045,11 @@ var MODULE_HELP = {
       tip: '遇到不懂的图标或模块，长按它，答案会自己出来。'
     },
     orders: {
-      title: '委托面板',
-      intro: '卷章、修缮、医案、访客和旅程，五条线都在这里推进。',
-      what: '五个槽位各管一类委托。点卡片看详情，点"交付"交出素材，点标题栏可以收起或展开。',
+      title: '宗门任务',
+      intro: '兽语、修缮、医案、访客和旅程，五条线都在这里推进。',
+      what: '兽语只承接神兽的回应与陪伴，修缮只处理宗门旧物；另外三槽各管一类支线。点卡片看详情，点标题栏可以收起或展开。',
       needs: '每张委托卡都写明所需素材与古方成品。梳妆和陪玩素材只能从庭院小游戏获得，其余来自生成器与合成。',
-      use: '交付后拿暖玉、阅历和灵力，同时推进疗愈、宗门修缮与神兽来信。每天有免费刷新次数，不会丢失进度。',
+      use: '交付后拿暖玉、宗门阅历和灵力，同时推进疗愈、宗门修缮与神兽来信。每天有免费刷新次数，不会丢失进度。',
       tip: '长按委托里的素材图标，能看到完整的合成路线和获取方式。'
     },
     'order-card': {
@@ -634,12 +1061,12 @@ var MODULE_HELP = {
       tip: '长按卡片里的素材看合成路线；主线完成后，"下一步"提示会自动更新。'
     },
     board: {
-      title: '合成棋盘',
+      title: '归灵台',
       intro: '宗门的灵阵，所有材料都在这里流转。',
-      what: '点一个素材选中，再点同类同阶的就能合成；也可以拖到空格整理，或直接拖到同类同阶素材上合成。点生成器出货；藤蔓用净化刷清理，封印格明确消耗暖玉解开。',
-      needs: '普通合成不耗灵力；点常驻生成器每次 1 点灵力；造物生成器不耗灵力但次数有限。扩建新格子消耗暖玉。',
-      use: '合出高阶素材去交委托。两个 4 阶部件能合成一台造物生成器，专门产出 4–6 阶材料与古方成品。连续合成还会触发连击。',
-      tip: '长按素材或部件看"从哪来"，长按生成器看升级条件与掉落。'
+      what: '归灵台把宗门各处找回的旧材料整理成可用组件：旧木料堆出木作，门房针线篮出织物，门灯点亮后可使用医馆·药庐的百草篓。两件同类同阶素材合成下一阶。',
+      needs: '普通合成不耗灵力；卷一物资源储备足以完成主线，不需要等待，也不会要求观看广告。',
+      use: '加工出的木作、织物和草药会装进当前宗门任务；备齐后一次完成交付并推进场景。卷终后才开放自由委托与常规概率产出。',
+      tip: '点击缺少的组件会直接高亮它的物资源；长按素材可以查看完整加工路线。'
     },
     recipes: {
       title: '配方柜与配方台',
@@ -669,7 +1096,7 @@ var MODULE_HELP = {
       title: '庭院场景',
       intro: '照料神兽、推进疗愈主线的地方。',
       what: '四栋建筑各有互动：医馆跳回委托页，百草园领药材，梳洗台和嬉游亭直接进小游戏。点中间的神兽看成长详情。',
-      needs: '普通小游戏消耗 1–4 点灵力，挑战模式固定 5 点。普通模式加好感和疗愈，挑战模式只按表现发素材。',
+      needs: '普通小游戏消耗 1–4 点灵力，挑战模式固定 5 点。普通模式增加信任和疗愈，挑战模式只按表现发素材。',
       use: '有效照料是疗愈故事、蜕变和新神兽来信的关键一步。每次有效互动还会带回对应的素材礼物。',
       tip: '长按四栋建筑，每栋都会告诉你它是干什么的。'
     },
@@ -684,15 +1111,15 @@ var MODULE_HELP = {
     'yard-resident': {
       title: '庭院里的住客',
       intro: '站在庭院中央的，就是你正在陪伴的那只神兽。',
-      what: '点它看好感、疗愈、阅历三条进度和当前形态。它也决定了梳洗台和嬉游亭这一局在为谁累积成长。',
-      needs: '住客通过委托和照料成长。好感、疗愈、阅历都达标后，会自动蜕变成下一形态。',
+      what: '点它看信任、疗愈、宗门阅历三条进度和当前形态。它也决定了梳洗台和嬉游亭这一局在为谁累积成长。',
+      needs: '住客通过委托和照料成长。信任、疗愈、宗门阅历都达标后，会自动蜕变成下一形态。',
       use: '和当前住客有效照料会推进疗愈主线。不同住客会带回不同素材，用来迎接下一位神兽。',
       tip: '有多位住客时，上方会出现切换栏。进小游戏前先点住客，确认"这一局为谁而玩"。'
     },
     'yard-clinic': {
       title: '医馆',
       intro: '疗愈值的主要来源，升级后事半功倍。',
-      what: '点医馆回到委托页查看和交付。设施等级决定每次有效照料能转化多少疗愈值与成长阅历。',
+      what: '点医馆回到委托页查看和交付。设施等级决定每次有效照料能转化多少疗愈值与宗门阅历。',
       needs: '升级只消耗暖玉，不耗灵力。医馆本身不产出素材。',
       use: '有效照料结算时，把这一局的表现转化为疗愈值，推动神兽蜕变。',
       tip: '先升级医馆再集中照料，同一局小游戏能推进更多疗愈。'
@@ -709,7 +1136,7 @@ var MODULE_HELP = {
       title: '梳洗台',
       intro: '帮神兽理顺毛发——消消乐玩法。',
       what: '先选难度，再进入最高 7×8 的棋盘。滑动相邻图标交换，三连消、四连造特殊块，贴着带层数的毛结消除来解开它们。',
-      needs: '普通难度 1–4 点灵力，挑战 5 点。轻松和标准默认开放，困难要 Lv2，大师要 Lv3。',
+      needs: '普通难度 1–4 点灵力，挑战 5 点。轻松可能获得梳子、毛刷（T1–T2）；标准/困难可到蝴蝶结（T3）；大师可到小花（T4）。轻松和标准默认开放，困难要 Lv2，大师要 Lv3。',
       use: '有效交换 3 次以上，超时也有保底奖励。表现越好，掉落的素材阶位越高。',
       tip: '长按梳洗台看说明，不会误触进游戏。'
     },
@@ -717,7 +1144,7 @@ var MODULE_HELP = {
       title: '嬉游亭',
       intro: '陪神兽玩玩具——玩具塔玩法。',
       what: '先选难度，然后在多层玩具塔上点"露头"的牌收进底部槽位，3 张相同自动消除，清空整座塔表现最高。',
-      needs: '普通难度 1–4 点灵力，挑战 5 点。槽满凑不出三张就结束，没牌可点时游戏会自动重排。',
+      needs: '普通难度 1–4 点灵力，挑战 5 点。轻松可能获得彩球、风筝（T1–T2）；标准/困难可到气球（T3）；大师可到溜溜球（T4）。槽满凑不出三张就结束，没牌可点时游戏会自动重排。',
       use: '消 4 组以上，超时也按表现发素材。没通关但表现够好，一样有高评级奖励。',
       tip: '先看难度卡上的玩法说明，再开始第一局。'
     },
@@ -734,7 +1161,7 @@ var MODULE_HELP = {
       intro: '四栋建筑都能升级，升了立刻生效。',
       what: '点设施卡片看每一级效果，付暖玉就能升级。百草园卡片还能直接领已产出的药材。',
       needs: '医馆、百草园、梳洗台、嬉游亭各有 Lv1–3 的升级线。小游戏高难度依赖对应设施等级。',
-      use: '医馆提升疗愈和阅历，百草园提速增产，梳洗台提高高阶奖励概率，嬉游亭增加提示次数。',
+      use: '医馆提升疗愈和宗门阅历，百草园提速增产，梳洗台提高高阶奖励概率，嬉游亭增加提示次数。',
       tip: '推荐升级顺序：医馆 → 百草园 → 你更常玩的小游戏设施。'
     },
     jobs: {
@@ -807,7 +1234,7 @@ var MODULE_HELP = {
       what: '显示立绘、形态名称、专属素材和当前成长数值。还没结识的神兽会显示信物。',
       needs: '未结识的神兽需要对应信物，卡片本身不消耗任何资源。',
       use: '点进去看全部形态、小故事和成长进度。已解锁的形态可随时换回庭院展示。',
-      tip: '好感、疗愈、阅历都达标后，这只神兽会自动长成下一形态。'
+      tip: '信任、疗愈、宗门阅历都达标后，这只神兽会自动长成下一形态。'
     },
     'sect-map-node': {
       title: '舆图上的一个区域',
@@ -819,10 +1246,10 @@ var MODULE_HELP = {
     },
     nav: {
       title: '底部导航',
-      intro: '宗门、医馆、庭院、山海册——四个页面随时切换。',
-      what: '宗门页修缮与扩张，医馆页合成与委托，庭院页照料与产出，山海册看收藏与成长。',
+      intro: '宗门、归灵台、庭院、山海册——四个页面随时切换。',
+      what: '宗门页看场景变化，归灵台加工并修复旧物，庭院负责陪伴，山海册保存相遇与回忆。医馆仍是宗门中的疗愈建筑。',
       needs: '切换页面不用灵力，没解锁的内容也能提前看说明。',
-      use: '底部还显示当前卷的疗愈总进度。不知下一步做什么，点"医馆"看顶部提示最靠谱。',
+      use: '底部还显示当前卷的疗愈总进度。不知下一步做什么，点“归灵台”查看当前宗门任务。',
       tip: '任何页面都支持长按模块看说明，不会影响当前进度。'
     }
   };
@@ -891,17 +1318,45 @@ var MODULE_HELP = {
     return modal;
   }
 
+  function openMoreMenu() {
+    var audioEnabled = !root.MergeAudio || !root.MergeAudio.isEnabled || root.MergeAudio.isEnabled();
+    var modal = modalShell(
+      '<span class="eyebrow">栖霞宗 · 更多</span><h2>需要做什么？</h2>' +
+      '<div class="more-menu-list">' +
+        '<button id="how-to-play-open" type="button" data-more-help>' + uiIcon('help') + '<span><b>玩法说明</b><small>用五步图解回看主线流程</small></span></button>' +
+        '<button id="audio-toggle" type="button" data-more-audio aria-pressed="' + (audioEnabled ? 'true' : 'false') + '">' + uiIcon(audioEnabled ? 'sound-on' : 'sound-off') + '<span><b>音效' + (audioEnabled ? '已开启' : '已关闭') + '</b><small>点击切换声音</small></span></button>' +
+        '<button id="settings-open" type="button" data-more-settings>' + uiIcon('settings') + '<span><b>设置与存档</b><small>备份、隐私与旅程管理</small></span></button>' +
+      '</div>',
+      'more-menu-modal',
+      { variant: 'sheet', closeOnBackdrop: true, closeOnEscape: true, restoreFocus: true }
+    );
+    if (!modal) return null;
+    var help = modal.querySelector('[data-more-help]');
+    var settings = modal.querySelector('[data-more-settings]');
+    var audio = modal.querySelector('[data-more-audio]');
+    if (help) help.addEventListener('click', function () { closeModal(); openHowToPlay(); });
+    if (settings) settings.addEventListener('click', function () { closeModal(); openSettings(); });
+    if (audio) audio.addEventListener('click', function () {
+      var next = !(root.MergeAudio && root.MergeAudio.isEnabled && root.MergeAudio.isEnabled());
+      if (root.MergeAudio && root.MergeAudio.setEnabled) root.MergeAudio.setEnabled(next);
+      audio.innerHTML = uiIcon(next ? 'sound-on' : 'sound-off') + '<span><b>音效' + (next ? '已开启' : '已关闭') + '</b><small>点击切换声音</small></span>';
+      audio.setAttribute('aria-pressed', next ? 'true' : 'false');
+    });
+    return modal;
+  }
+
   function openHowToPlay() {
     var modal = modalShell(
       '<span class="eyebrow">新手引导 · 随时可查看</span>' +
-      '<div class="how-to-play-head"><h2>一张图看懂栖霞宗</h2></div>' +
-      '<div class="how-to-play-page"><article class="how-to-play-item"><b>① 看“当前目标”</b><span>顶部只保留一个权威下一步；宗门、委托与地图都指向同一动作。</span></article>' +
-      '<article class="how-to-play-item"><b>② 产出与合成</b><span>点生成器得到低阶素材，两枚同类同阶合成更高阶；点需求图标可查看获取方法和使用位置。</span></article>' +
-      '<article class="how-to-play-item"><b>③ 修缮与故事</b><span>每卷先完成一段修缮，再并行推进三段故事和本卷其余修缮。</span></article>' +
-      '<article class="how-to-play-item"><b>④ 嬉游亭陪玩</b><span>在“玩具塔”中把玩具收进 5 格槽，三个相同自动消除；首次教学保底两枚 T1。</span></article>' +
-      '<article class="how-to-play-item"><b>⑤ 照料、蜕变与岗位</b><span>故事和修缮都完成后才能推进主线照料；蜕变后领取首次岗位产出，再进入下一卷。</span></article></div>' +
+      '<div class="how-to-play-head"><h2>五步走进栖霞宗</h2><p>每一步都只做一件事，当前目标会告诉你接下来去哪。</p></div>' +
+      '<div class="how-to-play-page"><article class="how-to-play-item">' + uiIcon('route') + '<span><b>1 · 看当前目标</b><small>宗门、委托和地图共用同一个下一步。</small></span></article>' +
+      '<article class="how-to-play-item">' + uiIcon('nav-merge') + '<span><b>2 · 取材与合成</b><small>两枚同类同阶素材合成更高阶组件。</small></span></article>' +
+      '<article class="how-to-play-item">' + uiIcon('area-workshop') + '<span><b>3 · 修缮与故事</b><small>先修好眼前旧物，再推进本卷故事。</small></span></article>' +
+      '<article class="how-to-play-item">' + uiIcon('material-play') + '<span><b>4 · 庭院陪伴</b><small>去嬉游亭或梳洗台完成一次有效照料。</small></span></article>' +
+      '<article class="how-to-play-item">' + uiIcon('check') + '<span><b>5 · 蜕变与上岗</b><small>三项成长达标后见证蜕变，领取岗位产出。</small></span></article></div>' +
       '<button class="modal-action" data-how-to-play-close type="button">知道了</button>',
-      'task-modal how-to-play-modal'
+      'task-modal how-to-play-modal',
+      { variant: 'dialog' }
     );
     if (!modal) return null;
     if (state && !state.tutorialSeen && !readOnlyNewerSave) {
@@ -955,7 +1410,10 @@ var MODULE_HELP = {
       }
       readOnlyNewerSave = false;
       readOnlyRawSave = null;
+      saveProtectionReason = null;
+      saveRevision = 0;
       state = Core.createFresh(Date.now(), today());
+      if (Core.setPublicRelease) Core.setPublicRelease(state, true);
       selectedIndex = null;
       var saved = saveState();
       closeModal();
@@ -973,6 +1431,86 @@ var MODULE_HELP = {
     });
   }
 
+  function applyImportedJourney(rawText) {
+    var result = saveStore && saveStore.importJSON ? saveStore.importJSON(String(rawText || '')) : { ok: false, reason: 'unsupported' };
+    if (!result.ok) {
+      toast(result.reason === 'newer-reader' ? '这份存档需要更高版本，未覆盖当前旅程' : '导入失败，文件未改变当前存档');
+      return false;
+    }
+    state = Core.normalize(result.data, Date.now(), today());
+    if (Core.setPublicRelease) Core.setPublicRelease(state, true);
+    readOnlyNewerSave = false;
+    readOnlyRawSave = null;
+    saveProtectionReason = null;
+    saveRevision = Math.max(0, Number(result.revision || result.record && result.record.revision) || saveRevision);
+    lastCommittedStateRaw = copyState(state);
+    closeModal();
+    render();
+    toast('存档导入成功');
+    return true;
+  }
+
+  function openImportConfirmation(rawText, fileName) {
+    var preview;
+    try { preview = JSON.parse(String(rawText || '')); } catch (error) {
+      toast('导入失败，文件未改变当前存档');
+      return null;
+    }
+    if (!preview || preview.format !== 'shj-h5-save-export' || Number(preview.formatVersion) !== 1 || !preview.data || typeof preview.data !== 'object') {
+      toast('导入失败，文件未改变当前存档');
+      return null;
+    }
+    var volume = Math.max(1, Number(preview.data.chapter && preview.data.chapter.volume) || 1);
+    var exportedAt = Number(preview.exportedAt) ? new Date(Number(preview.exportedAt)).toLocaleString() : '时间未记录';
+    var modal = modalShell(
+      '<span class="eyebrow">旅程设置 · 谨慎操作</span><h2>导入旅程记录？</h2>' +
+      '<div class="confirm-visual import-confirm-visual">' + uiIcon('route') + '<span><b>' + esc(fileName || '旅程记录.json') + '</b><small>导出于 ' + esc(exportedAt) + '</small></span></div>' +
+      '<div class="confirm-warning"><b>当前旅程会被所选记录替换</b><span>目标记录位于卷' + volume + '；导入前系统仍会按原有存档规则保留可恢复备份。</span></div>' +
+      '<div class="confirmation-actions"><button class="modal-secondary" data-cancel-import type="button">返回设置</button><button class="modal-action" data-confirm-import type="button">确认导入</button></div>',
+      'task-modal import-confirm-modal',
+      { variant: 'dialog', closeOnBackdrop: false, closeOnEscape: true }
+    );
+    if (!modal) return null;
+    modal.querySelector('[data-cancel-import]').addEventListener('click', function () { closeModal(); openSettings(); });
+    modal.querySelector('[data-confirm-import]').addEventListener('click', function () { applyImportedJourney(rawText); });
+    return modal;
+  }
+
+  function openRestartJourneyConfirmation() {
+    var modal = modalShell(
+      '<span class="eyebrow">旅程设置 · 危险操作</span><h2>确定从山门重新开始？</h2>' +
+      '<div class="confirm-warning danger"><b>当前旅程将被清空</b><span>核心进度、暖玉、设施与异兽记录都会重新建立。请先导出需要保留的记录。</span></div>' +
+      '<div class="confirmation-actions"><button class="modal-secondary" data-cancel-restart type="button">返回设置</button><button class="danger-action" data-confirm-restart type="button">清空并重开</button></div>',
+      'task-modal restart-confirm-modal',
+      { variant: 'dialog', closeOnBackdrop: false, closeOnEscape: true }
+    );
+    if (!modal) return null;
+    modal.querySelector('[data-cancel-restart]').addEventListener('click', function () { closeModal(); openSettings(); });
+    modal.querySelector('[data-confirm-restart]').addEventListener('click', startFreshJourney);
+    return modal;
+  }
+
+  function recycleItemFromUi(index) {
+    if (selectedIndex === index) selectedIndex = null;
+    return mutate(Core.recycleItem(state, index, true), '素材已回收为暖玉', null, 'purchase');
+  }
+
+  function openRecycleConfirmation(index, item) {
+    if (!item || Number(item.tier) < 4) return recycleItemFromUi(index);
+    var modal = modalShell(
+      '<span class="eyebrow">灵阵 · 高阶素材</span><h2>确认回收？</h2>' +
+      '<div class="confirm-visual recycle-confirm-visual"><img src="' + esc(itemPath(item)) + '" alt="" /><span><b>' + esc(itemName(item)) + '</b><small>' + Number(item.tier || 1) + ' 阶素材</small></span></div>' +
+      '<div class="confirm-warning"><b>回收后无法撤回</b><span>所得暖玉仍按原有数值规则结算；如果暂时拿不定主意，可以先收入药匣。</span></div>' +
+      '<div class="confirmation-actions"><button class="modal-secondary" data-cancel-recycle type="button">先留着</button><button class="danger-action" data-confirm-recycle type="button">确认回收</button></div>',
+      'task-modal recycle-confirm-modal',
+      { variant: 'dialog', closeOnBackdrop: false, closeOnEscape: true }
+    );
+    if (!modal) return null;
+    modal.querySelector('[data-cancel-recycle]').addEventListener('click', closeModal);
+    modal.querySelector('[data-confirm-recycle]').addEventListener('click', function () { closeModal(); recycleItemFromUi(index); });
+    return modal;
+  }
+
   function openSettings() {
     var backups = saveStore && typeof saveStore.listBackups === 'function' ? saveStore.listBackups() : [];
     var statsEnabled = analytics ? analytics.isEnabled() : true;
@@ -981,28 +1519,27 @@ var MODULE_HELP = {
       return '<button class="settings-row" data-restore-backup="' + esc(backup.id) + '" type="button"><span><b>' + esc(new Date(backup.savedAt).toLocaleString()) + '</b><small>版本 ' + esc(backup.schema) + ' · 修订 ' + backup.revision + '</small></span><em>恢复</em></button>';
     }).join('') : '<p class="settings-empty">完成保存后，这里会保留最近三份有效备份。</p>';
     var modal = modalShell(
-      '<span class="eyebrow">设置·存档与隐私</span><h2>旅程设置</h2>' +
-      (readOnlyNewerSave ? '<div class="settings-warning"><b>高版本只读存档</b><span>修改操作已禁用；请先导出原始 JSON，或安全重开。</span></div>' : '') +
-      '<label class="settings-toggle"><span><b>匿名使用统计</b><small>' + esc(privacy) + '</small></span><input data-stats-toggle type="checkbox" ' + (statsEnabled ? 'checked' : '') + ' /></label>' +
-      '<div class="settings-actions"><button data-export-save type="button">导出 JSON</button><label class="settings-import">导入 JSON<input data-import-save type="file" accept="application/json,.json" /></label><button data-reset-install-id type="button">重置匿名 ID</button></div>' +
+      '<span class="eyebrow">设置 · 旅程与隐私</span><h2>旅程设置</h2>' +
+      (readOnlyNewerSave ? '<div class="settings-warning"><b>' + (saveProtectionReason && saveProtectionReason.indexOf('conflict') >= 0 ? '检测到存档冲突' : '高版本只读存档') + '</b><span>修改操作已禁用；请先导出原始 JSON，或刷新页面 / 安全重开。</span></div>' : '') +
+      '<label class="settings-toggle"><span><b>帮助改进体验</b><small>' + esc(privacy) + '</small></span><input data-stats-toggle type="checkbox" ' + (statsEnabled ? 'checked' : '') + ' /><i class="switch-track" aria-hidden="true"><em></em></i></label>' +
+      '<div class="settings-actions"><button data-export-save type="button">导出旅程</button><label class="settings-import">导入旅程<input data-import-save type="file" accept="application/json,.json" /></label></div>' +
       '<h3>最近备份</h3><div class="settings-backups">' + backupMarkup + '</div>' +
-      '<button class="danger-action" data-restart-journey type="button">重开旅程</button>',
-      'task-modal settings-modal'
+      '<section class="settings-privacy"><b>本机隐私标识</b><small>用于区分匿名统计，不包含账号或设备指纹。</small><button data-reset-install-id type="button">重新生成本机标识</button></section>' +
+      '<section class="settings-danger"><b>危险操作</b><small>重开后会清空当前旅程，请先导出需要保留的记录。</small><button class="danger-action" data-restart-journey type="button">重开旅程</button></section>',
+      'task-modal settings-modal',
+      { variant: 'dialog', closeOnBackdrop: true, closeOnEscape: true }
     );
     if (!modal) return null;
     modal.addEventListener('change', function (event) {
       if (event.target.matches('[data-stats-toggle]') && analytics) analytics.setEnabled(event.target.checked);
       if (!event.target.matches('[data-import-save]') || !event.target.files || !event.target.files[0]) return;
+      var file = event.target.files[0];
       var reader = new FileReader();
       reader.onload = function () {
-        var result = saveStore && saveStore.importJSON ? saveStore.importJSON(String(reader.result || '')) : { ok: false, reason: 'unsupported' };
-        if (!result.ok) { toast(result.reason === 'newer-reader' ? '这份存档需要更高版本，未覆盖当前旅程' : '导入失败，文件未改变当前存档'); return; }
-        state = Core.normalize(result.data, Date.now(), today());
-        readOnlyNewerSave = false;
-        readOnlyRawSave = null;
-        closeModal(); render(); toast('存档导入成功');
+        openImportConfirmation(String(reader.result || ''), file.name);
       };
-      reader.readAsText(event.target.files[0]);
+      reader.onerror = function () { toast('无法读取所选文件，当前旅程未改变'); };
+      reader.readAsText(file);
     });
     modal.addEventListener('click', function (event) {
       if (event.target.closest('[data-export-save]')) downloadSaveExport();
@@ -1010,7 +1547,13 @@ var MODULE_HELP = {
       var restore = event.target.closest('[data-restore-backup]');
       if (restore && saveStore) {
         var result = saveStore.restoreBackup(restore.dataset.restoreBackup);
-        if (result && result.ok) { state = Core.normalize(result.data, Date.now(), today()); closeModal(); render(); toast('已恢复选中备份'); }
+        if (result && result.ok) {
+          state = Core.normalize(result.data, Date.now(), today());
+          if (Core.setPublicRelease) Core.setPublicRelease(state, true);
+          saveRevision = Math.max(0, Number(result.revision || result.record && result.record.revision) || saveRevision);
+          lastCommittedStateRaw = copyState(state);
+          closeModal(); render(); toast('已恢复选中备份');
+        }
         else toast('备份恢复失败');
       }
       var restart = event.target.closest('[data-restart-journey]');
@@ -1020,8 +1563,7 @@ var MODULE_HELP = {
           restart.textContent = '再次点击确认清空并重开';
           return;
         }
-        if (root.confirm && !root.confirm('最后确认：已导出需要保留的存档，并开始全新旅程？')) return;
-        startFreshJourney();
+        openRestartJourneyConfirmation();
       }
     });
     return modal;
@@ -1031,8 +1573,9 @@ var MODULE_HELP = {
     var session = careSession;
     careSession = null;
     if (!session) return;
-    session.settled = true;
+    session.closed = true;
     if (session.frame && root.cancelAnimationFrame) root.cancelAnimationFrame(session.frame);
+    if (session.game && session.game._finishTimer) root.clearTimeout(session.game._finishTimer);
     if (session.resizeHandler && root.removeEventListener) root.removeEventListener('resize', session.resizeHandler);
     if (session.keyHandler && document) document.removeEventListener('keydown', session.keyHandler);
     if (session.canvas && session.listeners) {
@@ -1063,24 +1606,39 @@ var MODULE_HELP = {
   function closeModal() {
     stopCareGame();
     restoreRecipeCabinet();
+    if (modalEscapeHandler && document) document.removeEventListener('keydown', modalEscapeHandler);
+    modalEscapeHandler = null;
     var rootNode = q('modal-root');
     if (rootNode) rootNode.innerHTML = '';
+    setModalBackgroundInert(false);
+    var previous = modalState;
+    modalState = null;
+    if (previous && previous.restoreFocus && previous.trigger && typeof previous.trigger.focus === 'function' && previous.trigger.isConnected) {
+      try { previous.trigger.focus({ preventScroll: true }); } catch (error) { previous.trigger.focus(); }
+    }
     scheduleTutorialPrompt(80);
   }
 
   function switchView(viewId) {
     if (!q(viewId)) return;
+    if (viewId === 'sect-view' && activeView !== 'sect-view') sectSceneVisible = false;
     activeView = viewId;
     Array.prototype.forEach.call(document.querySelectorAll('.view'), function (view) {
       view.classList.toggle('active', view.id === viewId);
     });
     Array.prototype.forEach.call(document.querySelectorAll('.nav-button'), function (button) {
       button.classList.toggle('active', button.dataset.view === viewId);
+      if (button.dataset.view === viewId) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
     });
     var main = q('slice-main');
     if (main) main.scrollTop = 0;
-    /* 宗门舆图与访客立绘按需渲染，未进入宗门页时不占首屏传输。 */
+    var viewNode = q(viewId);
+    if (viewNode) viewNode.scrollTop = 0;
+    /* 二级页面按需渲染，未进入时不请求地图、建筑和伙伴立绘。 */
     if (viewId === 'sect-view') renderSect();
+    else if (viewId === 'yard-view') renderYard();
+    else if (viewId === 'codex-view') renderCodex();
   }
 
   function overallProgress() {
@@ -1098,13 +1656,35 @@ var MODULE_HELP = {
     var xp = Math.max(0, Math.floor(numberOf(state.xp, 0)));
     var xpNext = Math.max(1, Math.floor(numberOf(state.xpNext, 70)));
     var xpPercent = Math.max(0, Math.min(100, Math.round(xp / xpNext * 100)));
-    node.innerHTML = '<span class="hud-pill hud-level" title="升级进度 ' + xpPercent + '%（' + xp + ' / ' + xpNext + ' 经验）"><small>等级</small><b>Lv.' + state.level + '</b>' +
-      '<span class="hud-level-bar" role="progressbar" aria-label="升级进度 ' + xp + '/' + xpNext + '" aria-valuenow="' + xp + '" aria-valuemin="0" aria-valuemax="' + xpNext + '"><i style="width:' + xpPercent + '%"></i><em>' + xp + '/' + xpNext + '</em></span></span>' +
-      '<span class="hud-pill hud-jade"><small>暖玉</small><b>◆ ' + state.jade + '</b></span>' +
-      '<button id="energy-pill" class="hud-pill energy hud-energy" type="button" aria-label="灵力中心"><small>灵力</small><b>⚡ ' + state.energy + '/' + state.maxEnergy + '</b></button>' +
-      (state.cleanTools ? '<span class="hud-pill hud-tools"><small>净化</small><b>刷 ' + state.cleanTools + '</b></span>' : '');
+    node.innerHTML = '<span class="hud-pill hud-level" title="宗门阅历进度 ' + xpPercent + '%（' + xp + ' / ' + xpNext + '）">' + uiIcon('level') + '<span class="hud-copy"><small>等级</small><b>Lv.' + state.level + '</b></span>' +
+      '<span class="hud-level-bar" role="progressbar" aria-label="升级进度 ' + xp + '/' + xpNext + '" aria-valuenow="' + xp + '" aria-valuemin="0" aria-valuemax="' + xpNext + '"><i style="width:' + xpPercent + '%"></i></span></span>' +
+      '<span class="hud-pill hud-jade" aria-label="暖玉 ' + state.jade + '">' + uiIcon('jade') + '<span class="hud-copy"><small>暖玉</small><b>' + compactNumber(state.jade) + '</b></span></span>' +
+      '<button id="energy-pill" class="hud-pill hud-energy" type="button" aria-label="灵力中心，当前' + state.energy + '/' + state.maxEnergy + '，点击补充灵力">' + uiIcon('energy') + '<span class="hud-copy"><small>灵力' + uiIcon('plus', 'hud-energy-plus') + '</small><b><span class="energy-current">' + compactNumber(state.energy) + '</span><span class="energy-max">/' + compactNumber(state.maxEnergy) + '</span></b></span></button>';
     var energy = q('energy-pill');
     if (energy) energy.addEventListener('click', openEnergyCenter);
+    var tools = q('clean-tools-note');
+    if (tools) {
+      tools.hidden = !state.cleanTools;
+      tools.innerHTML = state.cleanTools ? uiIcon('brush') + '<span>净化刷×' + compactNumber(state.cleanTools) + '</span>' : '';
+    }
+  }
+
+  function grantRewardedEnergy(amount) {
+    var result = Core.grantRewardedEnergy(state, amount);
+    if (mutate(result, '完整观看完成 · 灵力 +' + result.granted, null, 'order')) {
+      track('rewarded_ad', { placement: 'energy_recovery', reward: result.granted });
+    }
+  }
+
+  function watchRewardedEnergy() {
+    if (state.energy >= state.maxEnergy) { toast('灵力已经满了，先去照看神兽吧'); return; }
+    var ads = root.MergeAds;
+    if (!ads || !ads.showRewarded || !ads.showRewarded()) {
+      var error = ads && ads.getLastError ? ads.getLastError() : null;
+      toast(error && error.userMessage ? error.userMessage : '视频正在准备，请稍后再试');
+      return;
+    }
+    closeModal();
   }
 
   function openYardCharacterDetails() {
@@ -1121,11 +1701,168 @@ var MODULE_HELP = {
     var modal = modalShell(
       '<span class="eyebrow">点击住客 · 关系详情</span>' +
       '<div class="resident-detail-head"><img src="' + esc(characterAssetPath(beastArt(definition, entry))) + '" alt="" /><div><h2>' + esc(definition.name) + ' · ' + esc(beastLevelConfig(definition, entry).title) + '</h2><span class="stage-chip">成长 Lv' + entry.level + '/5</span></div></div>' +
-      '<div class="resident-progress"><div class="progress-row"><span>好感</span><div class="meter"><i style="width:' + affectionPercent + '%"></i></div><b>' + entry.affection + (next ? '/' + next.affection : '') + '</b></div>' +
-      '<div class="progress-row"><span>疗愈</span><div class="meter heal"><i style="width:' + healPercent + '%"></i></div><b>' + entry.heal + (next ? '/' + next.heal : '') + '</b></div><div class="progress-row"><span>经验</span><div class="meter"><i style="width:' + expPercent + '%"></i></div><b>' + entry.exp + (next ? '/' + next.exp : '') + '</b></div></div>' +
+      '<div class="resident-progress"><div class="progress-row"><span>信任</span><div class="meter"><i style="width:' + affectionPercent + '%"></i></div><b>' + entry.affection + (next ? '/' + next.affection : '') + '</b></div>' +
+      '<div class="progress-row"><span>疗愈</span><div class="meter heal"><i style="width:' + healPercent + '%"></i></div><b>' + entry.heal + (next ? '/' + next.heal : '') + '</b></div><div class="progress-row"><span>宗门阅历</span><div class="meter"><i style="width:' + expPercent + '%"></i></div><b>' + entry.exp + (next ? '/' + next.exp : '') + '</b></div></div>' +
       '<p class="resident-detail-note">' + esc(entry.level >= 5 ? '已经到达最高形态，可以在图鉴中换回任意已解锁形态。' : gate.ok ? '三项条件都已满足，它马上就会迎来新的形态。' : '完成成长委托与庭院照料，就会越来越接近下一形态。') + '</p>',
       'task-modal resident-detail-modal');
     return modal;
+  }
+
+  function immersiveVolumeOneActive() {
+    return !!(state && state.storyExperience && state.storyExperience.active && !state.storyExperience.volumeOneCompleted);
+  }
+
+  function projectObjectIconId(project) {
+    return {
+      'gate-lamp': 'area-gate', 'gate-ring': 'route', 'gate-sign': 'area-gate', 'clinic-broom': 'brush',
+      'clinic-cabinet': 'area-storage', 'clinic-furnace': 'area-alchemy', 'qiongqi-night-lamp': 'energy',
+      'qiongqi-bandage': 'material-cloth', 'qiongqi-umbrella': 'nav-yard'
+    }[project && project.id] || 'recipe';
+  }
+
+  function renderProjectTray() {
+    var tray = q('project-tray');
+    if (!tray) return;
+    var active = !!(state && state.storyExperience && state.storyExperience.active);
+    tray.hidden = !active;
+    if (!active) return;
+    var status = Core.nextStoryProject ? Core.nextStoryProject(state) : null;
+    if (!readOnlyNewerSave && status && status.status === 'assembled' && Core.installProject) {
+      var resumedProject = Core.installProject(state, status.project.id, Date.now());
+      if (resumedProject.ok) {
+        saveState();
+        status = Core.nextStoryProject ? Core.nextStoryProject(state) : null;
+      }
+    }
+    var title = tray.querySelector('[data-project-title]');
+    var trayEyebrow = tray.querySelector('.project-copy > .eyebrow');
+    var components = tray.querySelector('[data-project-components]');
+    var summaryProgress = tray.querySelector('[data-project-summary-progress]');
+    var action = q('project-action');
+    action.removeAttribute('data-assemble-project');
+    action.removeAttribute('data-project-care');
+    action.removeAttribute('data-project-special');
+    var hasPendingProject = !!(status && status.project && ['complete', 'completed', 'installed', 'done'].indexOf(status.status) < 0);
+    if (!hasPendingProject) {
+      var progress = Core.chapterProgress(state);
+      var hasTerminalAction = progress.phase === 'transformation' || progress.phase === 'job';
+      tray.hidden = !hasTerminalAction;
+      if (!hasTerminalAction) {
+        title.textContent = '';
+        components.innerHTML = '';
+        if (summaryProgress) summaryProgress.textContent = '';
+        action.disabled = true;
+        action.textContent = '';
+        tray.removeAttribute('data-status');
+        return;
+      }
+      title.textContent = progress.phase === 'transformation' ? '穷奇正在蜕变' : '领取第一份门卫补给';
+      if (trayEyebrow) trayEyebrow.textContent = '当前兽语任务 · 点击查看详情';
+      components.innerHTML = '<span class="project-component project-terminal">' + uiIcon(progress.phase === 'transformation' ? 'energy' : 'route') + '<small>待确认</small></span>';
+      if (summaryProgress) summaryProgress.textContent = '终幕';
+      action.disabled = false;
+      action.textContent = progress.phase === 'transformation' ? '见证穷奇蜕变' : '领取门卫补给';
+      if (progress.phase === 'transformation') action.dataset.projectSpecial = 'transformation';
+      if (progress.phase === 'job') action.dataset.projectSpecial = 'job';
+      tray.dataset.status = progress.phase;
+      return;
+    }
+    tray.hidden = false;
+    var project = status.project;
+    var object = status.object;
+    if (trayEyebrow) trayEyebrow.textContent = project.kind === 'story' ? '当前兽语任务 · 点击查看详情' : '当前修缮任务 · 点击查看详情';
+    title.textContent = '第 ' + project.sequence + '/9 项 · ' + project.title;
+    var readyCount = 0;
+    var needCount = 0;
+    components.innerHTML = (project.requirements || []).map(function (need) {
+      var have = countNeed(need);
+      var item = Core.makeItem(need.family, need.tier);
+      readyCount += Math.min(have, need.count);
+      needCount += need.count;
+      return '<span class="project-component ' + (have >= need.count ? 'ready' : '') + '" data-project-need-family="' + esc(need.family) + '" data-project-need-tier="' + need.tier + '" data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="宗门任务" title="长按查看' + esc(item.name) + '简介与合成路线"><img src="' + esc(itemPath(item)) + '" alt="" /><small>' + have + '/' + need.count + '</small></span>';
+    }).join('');
+    if (summaryProgress) summaryProgress.textContent = readyCount + '/' + needCount;
+    tray.dataset.status = status.status;
+    if (status.status === 'locked' && status.reason === 'care-required') {
+      action.disabled = false;
+      action.textContent = '去玩剧情玩具塔 · 免费';
+      action.dataset.projectCare = 'play';
+    } else if (status.status === 'ready') {
+      action.disabled = false;
+      action.textContent = project.kind === 'story' ? project.actionLabel : object ? '完成' + object.name + '修缮' : project.actionLabel || '完成' + project.title;
+      action.dataset.assembleProject = project.id;
+    } else {
+      action.disabled = true;
+      action.textContent = status.reason === 'object-undiscovered' ? '先找到这件旧物' : '组件尚未备齐';
+    }
+  }
+
+  function openProjectDetails() {
+    var status = Core.nextStoryProject ? Core.nextStoryProject(state) : null;
+    var action = q('project-action');
+    if (!status || !status.project) {
+      var progress = Core.chapterProgress(state);
+      var terminalCopy = progress.phase === 'transformation' ? '雨中的等待已经写进山海册。见证穷奇第一次挺直翅膀。' : progress.phase === 'job' ? '领取补给，点亮第一盏归灯，并看见下一位住客的剪影。' : '山门与医馆·药庐都已修好。普通医案、访客与自由合成现已开放。';
+      var terminal = modalShell('<span class="eyebrow">当前兽语任务 · 终幕</span><h2>' + esc(q('project-tray-title').textContent) + '</h2><div class="project-detail-visual is-icon">' + uiIcon(progress.phase === 'transformation' ? 'energy' : progress.phase === 'job' ? 'route' : 'check') + '</div><p>' + esc(terminalCopy) + '</p><button class="modal-action" data-project-detail-run type="button" ' + (action && !action.disabled ? '' : 'disabled') + '>' + esc(action ? action.textContent : '已完成') + '</button>', 'task-modal project-detail-modal');
+      if (terminal) terminal.querySelector('[data-project-detail-run]').addEventListener('click', function () { closeModal(); if (action) action.click(); });
+      return terminal;
+    }
+    var project = status.project;
+    var object = status.object;
+    var projectCategory = project.kind === 'story' ? '兽语' : '修缮';
+    var familySources = {};
+    var requirements = (project.requirements || []).map(function (need) {
+      var source = Core.materialSourceForFamily && Core.materialSourceForFamily(need.family);
+      if (source) familySources[source.id] = source;
+      var have = countNeed(need);
+      var item = Core.makeItem(need.family, need.tier);
+      return '<button type="button" class="project-detail-need ' + (have >= need.count ? 'ready' : '') + '" data-project-detail-source="' + esc(need.family) + '" data-project-detail-tier="' + need.tier + '" data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="' + projectCategory + '任务" title="点击定位来源，长按查看简介与合成路线"><img src="' + esc(itemPath(item)) + '" alt="" /><span><b>' + esc(item.name) + '</b><small>' + have + '/' + need.count + ' · 长按看路线</small></span></button>';
+    }).join('');
+    var sources = Object.keys(familySources).map(function (id) {
+      var source = familySources[id];
+      var savedSource = state.materialSourceState && state.materialSourceState[id];
+      var label = savedSource && savedSource.upgraded ? source.upgradedName : source.name;
+      return '<button type="button" class="project-source-chip" data-project-detail-source="' + esc(source.family) + '">' + esc(label) + '<small>' + (savedSource && savedSource.unlocked ? '点击定位来源' : '尚未发现') + '</small></button>';
+    }).join('');
+    var objectArt = object && object.brokenArt;
+    /* 兽语任务没有独立成果图时不绘制伪装成图片位的空框；素材需求仍在下方完整显示。 */
+    var visual = objectArt ? '<div class="project-detail-visual"><img src="' + esc(objectArt) + '" alt="' + esc(object.name || project.title) + '" /></div>' : '';
+    var description = object && object.brokenLabel || project.completeFeedback;
+    var modal = modalShell('<span class="eyebrow">第 ' + project.sequence + '/9 项 · ' + projectCategory + '详情</span><h2>' + esc(project.title) + '</h2>' + visual + '<p>' + esc(description) + '</p><h3 class="project-detail-heading">所需素材</h3><div class="project-detail-needs">' + requirements + '</div>' + (sources ? '<div class="project-detail-sources">' + sources + '</div>' : '') + '<button class="modal-action" data-project-detail-run type="button" ' + (action && !action.disabled ? '' : 'disabled') + '>' + esc(action ? action.textContent : '准备组件') + '</button>', 'task-modal project-detail-modal');
+    if (!modal) return null;
+    modal.addEventListener('click', function (event) {
+      var source = event.target.closest('[data-project-detail-source]');
+      if (source) {
+        closeModal();
+        focusProjectSource(source.dataset.projectDetailSource, Number(source.dataset.projectDetailTier) || 1);
+        return;
+      }
+      if (event.target.closest('[data-project-detail-run]')) { closeModal(); if (action) action.click(); }
+    });
+    return modal;
+  }
+
+  function showProjectCompletion(project, object, followUp) {
+    if (!project) return null;
+    var storyProject = project.kind === 'story';
+    var art = object && object.repairedArt;
+    var visual = art ? '<div class="project-complete-visual"><img src="' + esc(art) + '" alt="' + esc(object.name || project.title) + (storyProject ? '兽语回应' : '修缮完成') + '" /></div>' : '';
+    var modal = modalShell('<span class="eyebrow">' + (storyProject ? '兽语回应 · 新进展' : '修缮完成 · 成果') + '</span><h2>' + esc(storyProject ? project.title : object ? object.name + '修好了' : project.title + '完成') + '</h2>' + visual + '<p>' + esc(object && object.repairedLabel || project.completeFeedback || (storyProject ? '神兽终于给出了新的回应。' : '组件已经妥帖装配完成。')) + '</p><button class="modal-action" data-project-complete-close type="button">收好成果</button>', 'task-modal project-complete-modal');
+    if (modal) modal.querySelector('[data-project-complete-close]').addEventListener('click', function () {
+      closeModal();
+      if (typeof followUp === 'function') followUp();
+    });
+    return modal;
+  }
+
+  function isCompletionOnlyObjective(hint) {
+    if (!hint) return true;
+    var text = String(hint.text || '').trim();
+    var order = hint.order;
+    var orderComplete = !!(order && (order.status === 'COMPLETE' || /_complete$/.test(order.kind || '')));
+    return hint.type === 'complete' || hint.action === 'show-ending' ||
+      /^(?:当前目标[:：]\s*)?(?:已完成|本卷完成|穷奇篇完成|山海终章已完成)$/.test(text) ||
+      (orderComplete && (!hint.action || hint.action === 'show-objective'));
   }
 
   function renderNextAction() {
@@ -1134,25 +1871,34 @@ var MODULE_HELP = {
     var display = caseForDisplay();
     var hint = Core.getCurrentObjective ? Core.getCurrentObjective(state) : Core.nextActionHint(state, Core.ensureOrders(state, Math.random), display.id);
     var tutorial = state.tutorial || {};
-    if (!tutorial.completed && state.welcomeSeen) {
-      if (!tutorial.generated) hint = { type: 'generate', action: 'generator', family: 'tool', page: 'merge-view', text: '点一下天工丹械', detail: '生成一件修缮工具；成功进入棋盘后才会消耗 1 点灵力。', progress: { label: '新手教学 1/5' } };
+    if (!immersiveVolumeOneActive() && !tutorial.completed && state.welcomeSeen) {
+      if (!tutorial.generated) hint = { type: 'generate', action: 'generator', family: 'tool', page: 'merge-view', text: '点一下医师药箱', detail: '从医师药箱生成一件修缮工具；成功进入棋盘后才会消耗 1 点灵力。', progress: { label: '新手教学 1/5' } };
       else if (!tutorial.merged) hint = { type: 'merge', action: 'merge', family: 'herb', tier: 1, page: 'merge-view', text: '把两株露珠叶合成草叶', detail: '拖到一起，或依次点击两个同类同阶素材。', progress: { label: '新手教学 2/5' } };
       else if (!tutorial.firstRepair) {
         hint = Object.assign({}, hint, { detail: (hint.detail || '') + ' · 素材齐后回宗门交付，点亮山门。', progress: { label: '新手教学 3/5 · 山门修缮' } });
       } else if (!tutorial.playRewarded) hint = { type: 'care', action: 'care', careType: 'play', page: 'yard-view', text: '去嬉游亭陪穷奇玩一次玩具塔', detail: '首次教学保底获得两枚陪玩 T1，加载失败不会扣灵力。', progress: { label: '新手教学 4/5' } };
       else if (!tutorial.playMerged) hint = { type: 'merge', action: 'merge', family: 'play', tier: 1, page: 'merge-view', text: '把两枚陪玩 T1 合成主线 T2', detail: '亲手完成这次合成，新手教学就完成了。', progress: { label: '新手教学 5/5' } };
     }
-    q('merge-title').textContent = hint && hint.chapter ? hint.chapter.phaseName : '陪' + display.definition.name + '一起成长';
+    q('merge-title').textContent = immersiveVolumeOneActive() ? '宗门归灵台' : (hint && hint.chapter ? hint.chapter.phaseName : '陪' + display.definition.name + '一起成长');
+    var finishedWithoutNextTask = isCompletionOnlyObjective(hint);
+    node.hidden = finishedWithoutNextTask;
+    if (finishedWithoutNextTask) {
+      node.innerHTML = '';
+      node.removeAttribute('title');
+      return;
+    }
     var labels = {
       'deliver-order': '去交付', 'deliver-renovation': '交付修缮', merge: '去合成', generator: '去产出', care: '去庭院照料',
       'unlock-area': '去开放区域', 'open-recipe': '打开配方', 'acknowledge-transformation': '查看蜕变',
       'claim-job': '领取岗位', 'acknowledge-job': '确认岗位', 'acknowledge-transition': '查看演出', 'show-ending': '查看终章', 'show-source': '查看线索',
       'visitor-response': '回应访客'
     };
+    labels['assemble-project'] = '查看修缮案';
     var action = hint && hint.action || 'show-objective';
     var progress = hint && hint.progress && hint.progress.label ? '<span class="next-action-progress">' + esc(hint.progress.label) + '</span>' : '';
-    node.innerHTML = '<button data-objective-action="' + esc(action) + '" data-objective-order="' + esc(hint && hint.order && hint.order.id || '') + '" data-objective-area="' + esc(hint && hint.areaId || '') + '" data-objective-care="' + esc(hint && hint.careType || '') + '" data-objective-family="' + esc(hint && hint.family || '') + '" data-objective-tier="' + esc(hint && hint.tier || '') + '" type="button">' + esc(labels[action] || '查看当前目标') + '</button>' +
-      '<strong>当前目标：' + esc(hint && hint.text || '继续旅程') + '</strong><span>' + esc(hint && hint.detail || '') + '</span>' + progress;
+    node.title = String(hint && hint.text || '继续旅程') + (hint && hint.detail ? '：' + hint.detail : '');
+    node.innerHTML = '<button class="next-action-button" data-objective-action="' + esc(action) + '" data-objective-order="' + esc(hint && hint.order && hint.order.id || '') + '" data-objective-area="' + esc(hint && hint.areaId || '') + '" data-objective-care="' + esc(hint && hint.careType || '') + '" data-objective-family="' + esc(hint && hint.family || '') + '" data-objective-tier="' + esc(hint && hint.tier || '') + '" type="button" aria-label="' + esc((labels[action] || '查看当前目标') + '：' + (hint && hint.text || '') + (hint && hint.detail ? '。' + hint.detail : '')) + '">' + uiIcon('route') + '</button>' +
+      '<div class="next-action-copy"><strong>当前目标：' + esc(hint && hint.text || '继续旅程') + '</strong><span>' + esc(hint && hint.detail || '') + '</span></div>' + progress;
   }
 
   function showChapterTransition() {
@@ -1176,15 +1922,90 @@ var MODULE_HELP = {
     return modal;
   }
 
+  function showPendingStoryEvent() {
+    if (!Core.peekStoryEvent || !state || !state.welcomeSeen) return null;
+    var currentModal = q('modal-root');
+    if (currentModal && currentModal.children.length) return null;
+    var event = Core.peekStoryEvent(state);
+    if (!event) {
+      if (Core.peekBeastReveal && Core.peekBeastReveal(state)) root.setTimeout(showPendingBeastReveal, 80);
+      else if (state.pendingTransformation) root.setTimeout(showTransformation, 80);
+      return null;
+    }
+    if (event.intermediate) {
+      toast((event.speaker && event.speaker !== '旁白' ? event.speaker + '：' : '') + event.text);
+      Core.acknowledgeStoryEvent(state, event.id);
+      saveState();
+      root.setTimeout(showPendingStoryEvent, 60);
+      return null;
+    }
+    var qiongqi = beastDef('qiongqi');
+    /* 每个剧情弹窗只保留一张主视觉：有 CG 就不再把动作立绘压在画面上。 */
+    var storyVisual = event.cgArt
+      ? '<div class="story-event-cg-wrap"><img class="story-event-cg" src="' + esc(event.cgArt) + '" alt="' + esc(event.speaker || '穷奇篇') + '剧情画面" /></div>'
+      : event.actionArt
+        ? '<div class="story-event-action-wrap"><img class="story-event-action" src="' + esc(event.actionArt) + '" alt="穷奇此刻的动作" /></div>'
+        : event.speaker === '穷奇' && qiongqi
+          ? '<img class="story-event-portrait" src="' + esc(characterAssetPath(beastArt(qiongqi, state.beastCases.qiongqi))) + '" alt="穷奇" />'
+          : '';
+    var choices = (event.choices || []).map(function (choice) {
+      return '<button type="button" class="story-choice" data-story-choice="' + esc(choice.id) + '">' + esc(choice.text) + '</button>';
+    }).join('');
+    var modal = modalShell(
+      '<div class="story-event-card" data-story-event="' + esc(event.id) + '">' +
+        '<span class="eyebrow">穷奇篇 · ' + esc(storySessionTitle(event.session)) + '</span>' +
+        storyVisual +
+        '<span class="story-speaker">' + esc(event.speaker || '旁白') + '</span>' +
+        '<h2>' + esc(event.text) + '</h2>' +
+        (choices ? '<div class="story-choice-list">' + choices + '</div>' : '<button class="modal-action" data-story-continue type="button">继续</button>') +
+      '</div>',
+      'task-modal story-event-modal'
+    );
+    if (!modal) return null;
+    if (Core.saveStoryPosition) Core.saveStoryPosition(state, event.id, 1);
+    if (root.MergeAudio && typeof root.MergeAudio.playStoryEvent === 'function') root.MergeAudio.playStoryEvent(event);
+    saveState();
+    function finish(choiceId) {
+      var choiceResult = choiceId ? Core.resolveStoryChoice(state, event.id, choiceId) : null;
+      var acknowledged = Core.acknowledgeStoryEvent(state, event.id);
+      if (!acknowledged.ok) { toast(failureText(acknowledged)); return; }
+      saveState();
+      closeModal();
+      if (choiceResult && choiceResult.choice && choiceResult.choice.reply) toast('穷奇：“' + choiceResult.choice.reply + '”');
+      root.setTimeout(showPendingStoryEvent, 100);
+    }
+    Array.prototype.forEach.call(modal.querySelectorAll('[data-story-choice]'), function (button) {
+      button.addEventListener('click', function () { finish(button.dataset.storyChoice); });
+    });
+    var continueButton = modal.querySelector('[data-story-continue]');
+    if (continueButton) continueButton.addEventListener('click', function () { finish(null); });
+    return modal;
+  }
+
+  function storySessionTitle(sessionId) {
+    var sessions = DATA.storySessions || [];
+    var target = Number(sessionId) || 1;
+    for (var index = 0; index < sessions.length; index += 1) {
+      if (Number(sessions[index].id) === target) return sessions[index].title;
+    }
+    return ['门后有谁', '它没有躲', '门口等你'][target - 1] || '门后有谁';
+  }
+
   function runObjectiveAction(button) {
     if (!button) return;
     var objective = Core.getCurrentObjective ? Core.getCurrentObjective(state) : null;
     var action = button.dataset.objectiveAction;
-    if (readOnlyNewerSave && ['merge', 'generator', 'care', 'deliver-order', 'deliver-renovation', 'unlock-area', 'open-recipe', 'claim-job', 'acknowledge-job', 'acknowledge-transformation', 'acknowledge-transition'].indexOf(action) >= 0) {
+    if (readOnlyNewerSave && ['merge', 'generator', 'care', 'assemble-project', 'deliver-order', 'deliver-renovation', 'unlock-area', 'open-recipe', 'claim-job', 'acknowledge-job', 'acknowledge-transformation', 'acknowledge-transition'].indexOf(action) >= 0) {
       toast('这份高版本旅程只能查看；请在设置中导出或安全重开');
       return;
     }
     if (action === 'deliver-order') { deliver(button.dataset.objectiveOrder); return; }
+    if (action === 'assemble-project') {
+      switchView('merge-view');
+      var projectTray = q('project-tray');
+      if (projectTray && projectTray.scrollIntoView) projectTray.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
     if (action === 'visitor-response') { showPendingVisitorEncounter(); return; }
     if (action === 'deliver-renovation') {
       var reno = Core.deliverRenovation(state);
@@ -1233,19 +2054,24 @@ var MODULE_HELP = {
   function needMarkup(need) {
     var have = countNeed(need);
     var item = Core.makeItem(need.family, need.tier, need.sourceBeast);
-    return '<button type="button" class="order-need ' + (have >= need.count ? 'ready' : '') + '" data-open-source data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托需求" title="查看 ' + esc(item.name) + ' 的获取方法和使用位置" aria-label="' + esc(item.name) + ' ' + have + '/' + need.count + '，查看物品说明">' +
-      '<img src="' + esc(itemPath(item)) + '" alt="" /><b>' + have + '/' + need.count + '</b><span class="order-need-info" aria-hidden="true">i</span></button>';
+    return '<button type="button" class="order-need ' + (have >= need.count ? 'ready' : '') + '" data-open-source data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托需求" title="点击定位来源，长按查看 ' + esc(item.name) + ' 简介与合成路线" aria-label="' + esc(item.name) + ' ' + have + '/' + need.count + '，点击定位来源，长按查看简介与合成路线">' +
+      '<img src="' + esc(itemPath(item)) + '" alt="" /><b>' + have + '/' + need.count + '</b><span class="order-need-info" aria-hidden="true">' + uiIcon('info') + '</span></button>';
   }
 
   function kindLabel(kind) {
     return {
-      main: '卷章', renovation: '修缮', medical: '医案', visitor: '访客', visitor_response: '访客', journey: '旅程',
-      recruit: '灯信', recruit_complete: '灯信', growth: '成长', growth_complete: '成长', supply: '补给', supply_complete: '补给'
+      main: '兽语', beast: '兽语', beast_gate: '兽语', renovation: '修缮', medical: '医案', visitor: '访客', visitor_response: '访客', journey: '旅程',
+      project: '宗门任务', story: '兽语', care_gate: '兽语', recruit: '兽语', recruit_complete: '兽语', growth: '成长', growth_complete: '成长', supply: '补给', supply_complete: '补给',
+      first_repair_gate: '兽语', repair_gate: '兽语', transformation_gate: '兽语', job_gate: '兽语', transition_gate: '兽语', chapter_complete: '兽语'
     }[kind] || '委托';
   }
 
   function prerequisiteText(order) {
     var prerequisite = order && order.prerequisite;
+    if (order && order.status === 'LOCKED' && !prerequisite) {
+      if (order.taskCategory === 'beast' || order.kind === 'beast_gate') return '前置：先完成当前修缮任务';
+      if (order.taskCategory === 'renovation' || order.slot === 'renovation') return '前置：先完成当前兽语任务';
+    }
     if (!prerequisite) return order && order.mainline ? '前置：当前疗愈病历已建立' : '';
     if (prerequisite.type === 'story') {
       var storyBeast = beastDef(prerequisite.beastId) || { name: '当前异兽' };
@@ -1276,7 +2102,7 @@ var MODULE_HELP = {
       var label = sourceLabelForNeed(need);
       if (labels.indexOf(label) < 0) labels.push(label);
     });
-    var text = labels.length ? labels.join('、') : '合成棋盘';
+    var text = labels.length ? labels.join('、') : '归灵台';
     return (reachable ? '来源：' : '当前暂不可达 · 来源：') + text;
   }
 
@@ -1285,9 +2111,9 @@ var MODULE_HELP = {
     var bits = [];
     if (rewards.jade) bits.push('暖玉 +' + rewards.jade);
     if (rewards.xp) bits.push('宗门阅历 +' + rewards.xp);
-    if (rewards.beastExp) bits.push('神兽成长经验 +' + rewards.beastExp);
+    if (rewards.beastExp) bits.push('宗门阅历 +' + rewards.beastExp);
     if (rewards.heal) bits.push('伤势恢复 +' + rewards.heal);
-    if (affection) bits.push('好感 +' + affection);
+    if (affection) bits.push('信任 +' + affection);
     if (rewards.energy) bits.push('灵力 +' + rewards.energy);
     (rewards.generatorParts || []).forEach(function (part) {
       bits.push((familyDef(part.family) && familyDef(part.family).name || part.family) + '生成器部件 T' + (part.tier || 1) + ' ×' + (part.count || 1));
@@ -1302,6 +2128,8 @@ var MODULE_HELP = {
     var orders = Core.ensureOrders(state, Math.random);
     /* 已完成的订单卡统一排到订单栏最后：未完成在前，完成的不再抢占前面位置。 */
     var cardOrders = Core.sortOrderCards ? Core.sortOrderCards(orders) : orders.slice();
+    var orderPanel = list.closest('.order-panel');
+    if (orderPanel) orderPanel.hidden = cardOrders.length === 0;
     list.innerHTML = cardOrders.map(function (order) {
       var careGate = order.kind === 'care_gate';
       var visitorResponse = order.kind === 'visitor_response';
@@ -1318,45 +2146,78 @@ var MODULE_HELP = {
         var productHave = Math.max(0, Number(state.products && state.products[order.productNeed.productId] || 0));
         var productNeedCount = order.productNeed.count || 1;
         var productReady = productHave >= productNeedCount;
-        productTileMarkup = '<button type="button" class="order-need product-order-need' + (productReady ? ' ready' : '') + '" data-open-recipe="' + esc(order.productNeed.productId) + '" data-longpress-recipe="' + esc(order.productNeed.productId) + '" title="查看' + esc(productName) + '的配方和获取方法" aria-label="' + esc(productName) + ' ' + Math.min(productHave, productNeedCount) + '/' + productNeedCount + '，查看配方"><img src="' + esc(recipeArtPath(productRecipe)) + '" alt="" /><b>' + Math.min(productHave, productNeedCount) + '/' + productNeedCount + '</b><span class="order-need-info" aria-hidden="true">i</span></button>';
+        productTileMarkup = '<button type="button" class="order-need product-order-need' + (productReady ? ' ready' : '') + '" data-open-recipe="' + esc(order.productNeed.productId) + '" data-longpress-recipe="' + esc(order.productNeed.productId) + '" title="查看' + esc(productName) + '的配方和获取方法" aria-label="' + esc(productName) + ' ' + Math.min(productHave, productNeedCount) + '/' + productNeedCount + '，查看配方"><img src="' + esc(recipeArtPath(productRecipe)) + '" alt="" /><b>' + Math.min(productHave, productNeedCount) + '/' + productNeedCount + '</b><span class="order-need-info" aria-hidden="true">' + uiIcon('info') + '</span></button>';
       }
-      var needsMarkup = complete ? '' : '<div class="order-need-icons">' + requirements.map(needMarkup).join('') + productTileMarkup + '</div>';
-      var rewards = order.rewards || {};
-      var rewardBits = [];
-      if (rewards.jade) rewardBits.push('暖玉 +' + rewards.jade);
-      if (rewards.xp) rewardBits.push('宗门阅历 +' + rewards.xp);
-      if (rewards.beastExp) rewardBits.push('神兽成长经验 +' + rewards.beastExp);
-      if (rewards.heal) rewardBits.push('伤势恢复 +' + rewards.heal);
-      if (rewards.energy) rewardBits.push('灵力+' + rewards.energy);
-      if (rewards.generatorParts && rewards.generatorParts.length) rewardBits.push('部件×' + rewards.generatorParts.length);
-      /* 主页面订单卡不放任何文案：礼物链故事、生成器要求等只在详情弹窗展示。 */
-      var kindChip = '<span class="order-kind">' + kindLabel(order.slot || order.kind) + '</span>' + (mainline ? '<span class="mainline-badge">主线</span>' : '');
-      var actionMarkup = careGate
-        ? '<button class="deliver-btn" data-care-gate="' + esc(order.id) + '" type="button">去庭院照料</button>'
-        : visitorResponse
-          ? '<button class="deliver-btn visitor-response-btn" data-visitor-response type="button">听完故事并回应</button>'
-        : '<button class="deliver-btn" data-deliver="' + esc(order.id) + '" type="button" ' + (ready && !complete ? '' : 'disabled') + '>' + (complete ? '已完成' : '交付 · ' + rewardBits.join(' · ')) + '</button>';
+      var needsMarkup = complete
+        ? '<span class="order-card-note">本阶段已完成</span>'
+        : (requirements.length || productTileMarkup)
+          ? '<div class="order-need-icons">' + requirements.map(needMarkup).join('') + productTileMarkup + '</div>'
+          : '<span class="order-card-note">点击查看条件</span>';
+      /* 任务轨道只放类型、标题、状态和素材缩略图；交付与完整说明统一放到详情弹窗，避免压低棋盘。 */
+      var kindChip = '<span class="order-kind">' + kindLabel(order.slot || order.kind) + '</span><span class="' + (mainline ? 'mainline-badge' : 'sideline-badge') + '">' + (mainline ? '主线' : '支线') + '</span>';
+      var stateLabel = complete ? '已完成' : visitorResponse ? '待回应' : careGate ? '去照料' : ready ? '可交付' : order.status === 'LOCKED' || !reachable ? '未开放' : '进行中';
       return '<article class="order-card ' + (mainline ? 'main-order ' : '') + (visitor ? 'visitor-order ' : '') + (ready ? 'ready ' : '') + (!reachable ? 'unreachable ' : '') + (order.status === 'LOCKED' && !mainline ? 'locked-system ' : '') + '" data-order-id="' + esc(order.id) + '" data-help="order-card" title="点击查看详情，长按查看委托卡说明">' +
-        '<div class="order-head">' + kindChip + (visitor ? '<img class="order-visitor-avatar" src="' + esc(visitor.art) + '" alt="" />' : '') + '<strong>' + esc(order.title) + '</strong></div>' +
+        '<button class="order-card-open" type="button" aria-label="查看' + esc(order.title) + '详情"><span class="order-head"><span class="order-labels">' + kindChip + '</span><span class="order-card-state">' + stateLabel + '</span>' + (visitor ? '<img class="order-visitor-avatar" src="' + esc(visitor.art) + '" alt="" />' : '') + '<strong>' + esc(order.title) + '</strong></span></button>' +
         needsMarkup +
-        actionMarkup +
         '</article>';
     }).join('');
-    var readyCount = 0;
-    var slots = document.querySelectorAll('[data-order-target-slot]');
-    Array.prototype.forEach.call(slots, function (slot, index) {
-      var order = orders[index];
+    var readyCount = orders.reduce(function (count, order) {
       var complete = order && (order.status === 'COMPLETE' || /_complete$/.test(order.kind || ''));
       var ready = order && !complete && (order.kind === 'visitor_response' || order.kind !== 'care_gate' && Core.canDeliver(state, order));
-      if (ready || complete) readyCount++;
-      slot.dataset.slotState = complete ? 'done' : ready ? 'ready' : order ? 'open' : 'empty';
-      slot.title = order ? order.title : '等待目标';
-      slot.setAttribute('aria-label', order ? kindLabel(order.slot || order.kind) + '：' + order.title : '等待目标');
-    });
+      return count + (ready || complete ? 1 : 0);
+    }, 0);
     var summary = document.querySelector('[data-order-target-summary]');
     var bar = document.querySelector('[data-order-target-progress]');
     if (summary) summary.textContent = readyCount + ' / ' + orders.length + ' 可推进';
     if (bar) bar.style.width = Math.round(readyCount / Math.max(1, orders.length) * 100) + '%';
+  }
+
+  function boardOrganizeKey(item) {
+    var kind = item && item.kind || 'material';
+    var kindRank = kind === 'generator_part' ? 1 : 0;
+    return [String(item && item.family || ''), kindRank, -(Number(item && item.tier) || 0), String(item && item.name || '')];
+  }
+
+  function organizeBoard() {
+    if (!state) return { ok: false, reason: 'no-state' };
+    if (readOnlyNewerSave) {
+      toast('这份高版本旅程只能查看，不能整理归灵台');
+      return { ok: false, reason: 'read-only' };
+    }
+    var cabinetIndex = Core.recipeCabinetIndex != null ? Core.recipeCabinetIndex : (DATA.board.recipeCabinetIndex != null ? DATA.board.recipeCabinetIndex : DATA.board.totalCells - 1);
+    var limit = Math.min(state.grid.length, Math.max(0, Number(state.unlockedCells) || 0));
+    var next = state.grid.slice();
+    var destinations = [];
+    var movable = [];
+    for (var index = 0; index < limit; index++) {
+      if (index === cabinetIndex) continue;
+      var item = next[index];
+      var fixed = item && (item.kind === 'generator' || item.kind === 'obstacle' || item.kind === 'sealed');
+      if (fixed) continue;
+      destinations.push(index);
+      if (item) movable.push(item);
+      next[index] = null;
+    }
+    movable.sort(function (left, right) {
+      var a = boardOrganizeKey(left);
+      var b = boardOrganizeKey(right);
+      for (var part = 0; part < a.length; part++) {
+        if (a[part] < b[part]) return -1;
+        if (a[part] > b[part]) return 1;
+      }
+      return 0;
+    });
+    movable.forEach(function (item, itemIndex) { next[destinations[itemIndex]] = item; });
+    var changed = next.some(function (item, index) { return item !== state.grid[index]; });
+    if (!changed) {
+      toast('归灵台已经整理好了');
+      return { ok: true, changed: false, moved: 0 };
+    }
+    state.grid = next;
+    selectedIndex = null;
+    var result = { ok: true, changed: true, moved: movable.length, events: [] };
+    mutate(result, '归灵台已按物资类别与阶位整理，生成器保持原位', null, 'click');
+    return result;
   }
 
   function renderBoard() {
@@ -1368,20 +2229,24 @@ var MODULE_HELP = {
       var unlocked = index < state.unlockedCells;
       var item = state.grid[index] || null;
       var classes = ['merge-cell'];
+      if (boardMotionFeedback && boardMotionFeedback.index === index) {
+        classes.push('board-feedback-' + boardMotionFeedback.type);
+      }
       var content = '';
       var label = '空格';
       if (index === cabinetIndex) {
         classes.push('recipe-cabinet-cell');
         label = '配方柜：查看成品与配方台';
-        content = '<span class="recipe-cabinet-cell-icon" aria-hidden="true">🍱</span><em>配方柜</em>';
+        content = '<span class="recipe-cabinet-cell-icon" aria-hidden="true">' + uiIcon('recipe') + '</span><em>配方柜</em>';
         cells.push('<button class="' + classes.join(' ') + '" data-grid-index="' + index + '" data-recipe-cabinet type="button" aria-label="' + esc(label) + '">' + content + '</button>');
         continue;
       }
       if (!unlocked) {
         classes.push('locked');
+        if (index === state.unlockedCells) classes.push('next-unlock');
         var unlockCost = Core.unlockCellCost ? Core.unlockCellCost(state) : 18;
-        label = '未解锁格子，扩建需要 ◆' + unlockCost;
-        content = '<span>＋</span><em>扩建 · ◆' + unlockCost + '</em>';
+        label = '未解锁格子，点击扩建下一格，需要暖玉' + unlockCost;
+        content = '<span class="cell-lock-shadow" data-lock-shadow aria-hidden="true">' + (index === state.unlockedCells ? uiIcon('lock') : '') + '</span>';
       } else if (item && item.kind === 'generator') {
         classes.push('generator-tile');
         if (state.unlockedGenerators.indexOf(item.family) < 0) classes.push('generator-locked');
@@ -1391,25 +2256,26 @@ var MODULE_HELP = {
         var generatorMeta = item.permanent === false
           ? '余' + Math.max(0, Number(item.lifetime) || 0) + '次'
           : '灵力1' + (Number(item.charges) > 0 ? ' · 备' + Number(item.charges) : '');
-        content = (generatorArt ? '<img src="' + esc(generatorArt) + '" alt="" />' : '<span>' + esc(family ? family.icon : '✦') + '</span>') + '<b>Lv' + Math.max(1, Number(item.level) || 1) + '</b><em>' + esc(generatorMeta) + '</em>';
+        content = (generatorArt ? '<img src="' + esc(generatorArt) + '" alt="" />' : '<span class="generator-placeholder">' + uiIcon(family && family.iconId || 'nav-merge') + '</span>') + '<span class="generator-family-icon">' + uiIcon(family && family.iconId || 'nav-merge') + '</span><b>Lv' + Math.max(1, Number(item.level) || 1) + '</b><em>' + esc(generatorMeta) + '</em>';
       } else if (item && item.kind === 'generator_part') {
         classes.push('generator-part-tile');
         if (selectedIndex === index) classes.push('selected');
         label = item.name + '，生产器部件' + item.tier + '阶';
         content = '<img src="' + esc(itemPath(item)) + '" alt="" /><b>' + item.tier + '</b><em>部件</em>';
       } else if (item && item.kind === 'obstacle') {
-        classes.push('obstacle'); label = item.name; content = '<span>🌿</span><em>刷 ' + state.cleanTools + '</em>';
+        classes.push('obstacle'); label = item.name; content = '<span>' + uiIcon('material-herb') + '</span><em>净化刷 ' + state.cleanTools + '</em>';
       } else if (item && item.kind === 'sealed') {
-        classes.push('sealed'); label = item.name; content = '<span>🔒</span><em>◆25</em>';
+        classes.push('sealed'); label = item.name; content = '<span>' + uiIcon('lock') + '</span><em>暖玉25</em>';
       } else if (item) {
         if (selectedIndex === index) classes.push('selected');
         label = itemName(item) + ' ' + item.tier + '阶';
         content = '<img src="' + esc(itemPath(item)) + '" alt="" /><b>' + item.tier + '</b>';
       }
-      var longPress = item && item.kind === 'generator' ? ' data-longpress-generator="' + esc(item.family) + '"' : item && (!item.kind || item.kind === 'generator_part') ? ' data-longpress-family="' + esc(item.family) + '" data-longpress-tier="' + item.tier + '" data-longpress-source="' + (item.kind === 'generator_part' ? '生产器部件' : '合成棋盘') + '"' : '';
+      var longPress = item && item.kind === 'generator' ? ' data-longpress-generator="' + esc(item.family) + '"' : item && (!item.kind || item.kind === 'generator_part') ? ' data-longpress-family="' + esc(item.family) + '" data-longpress-tier="' + item.tier + '" data-longpress-source="' + (item.kind === 'generator_part' ? '生产器部件' : '归灵台') + '"' : '';
       cells.push('<button class="' + classes.join(' ') + '" data-grid-index="' + index + '"' + longPress + ' role="gridcell" type="button" aria-label="' + esc(label) + '">' + content + '</button>');
     }
     board.innerHTML = cells.join('');
+    boardMotionFeedback = null;
     var occupied = state.grid.slice(0, state.unlockedCells).filter(Boolean).length;
     q('space-note').textContent = '已用 ' + occupied + '/' + state.unlockedCells;
     renderSelectedItem();
@@ -1421,14 +2287,7 @@ var MODULE_HELP = {
     var item = selectedIndex == null ? null : state.grid[selectedIndex];
     if (!item || item.kind && item.kind !== 'generator_part') { node.innerHTML = ''; return; }
     var family = familyDef(item.family);
-    var producerChain = item.kind === 'generator_part' && DATA.generators && DATA.generators.producerChains && DATA.generators.producerChains[item.family];
-    var routeNames = producerChain ? producerChain.names : family.items;
-    node.innerHTML = '<div class="item-info-drawer"><div class="item-info-head"><img src="' + esc(itemPath(item)) + '" alt="" /><div><strong>' + esc(itemName(item)) + '</strong><small>' + esc(family.name) + ' · ' + item.tier + '阶</small></div><button class="drawer-close" data-clear-selection type="button">×</button></div>' +
-      '<div class="route-title">' + routeNames.length + '阶' + (producerChain ? '生产器部件链 · 五阶变为生成器' : '合成路线 · 两个同阶合成下一阶') + '</div><div class="route-list">' + routeNames.map(function (name, idx) {
-        var tier = idx + 1;
-        var routeItem = producerChain ? tier < 5 ? { kind: 'generator_part', family: item.family, tier: tier, art: producerChain.artRoot + String(tier).padStart(2, '0') + '.webp' } : null : { family: item.family, tier: tier };
-        return '<span class="route-step ' + (tier === item.tier ? 'current' : '') + '">' + (routeItem ? '<img src="' + esc(itemPath(routeItem)) + '" alt="" />' : '<b>⚙</b>') + esc(name) + '</span>';
-      }).join('') + '</div><button class="modal-secondary" data-store-selected type="button">放入暂存区</button></div>';
+    node.innerHTML = '<div class="item-info-drawer item-info-compact"><div class="item-info-head" data-longpress-family="' + esc(item.family) + '"><img src="' + esc(itemPath(item)) + '" alt="" /><div><strong>' + esc(itemName(item)) + '</strong><small>' + esc(family.name) + ' · ' + item.tier + '阶 · 长按棋盘素材看路线</small></div><button class="item-info-store" data-store-selected type="button">暂存</button><button class="drawer-close" data-clear-selection type="button" aria-label="关闭素材信息">' + uiIcon('close') + '</button></div></div>';
   }
 
   function renderStorage() {
@@ -1447,7 +2306,7 @@ var MODULE_HELP = {
     note.textContent = pending ? '待入盘队列 · ' + pending + ' 份奖励安全暂存，腾位后自动入盘。' : '药匣格用于手动存放；满盘奖励会进入待入盘队列，不会丢失。';
     var upgradeIndex = state.storage.slots - 3;
     var cost = DATA.economy.storageCosts[upgradeIndex];
-    q('storage-upgrade').textContent = state.storage.slots >= 6 ? '已满级' : '扩容 ◆' + cost;
+    q('storage-upgrade').textContent = state.storage.slots >= 6 ? '已满级' : '扩容 暖玉' + cost;
     q('storage-upgrade').disabled = state.storage.slots >= 6;
   }
 
@@ -1485,7 +2344,7 @@ var MODULE_HELP = {
 
   function activeCareText(entry) {
     var next = DATA.growth && DATA.growth.requirements && DATA.growth.requirements[Math.min(4, entry.level)] || null;
-    return '成长 Lv' + entry.level + '/5 · 好感 ' + entry.affection + (next ? '/' + next.affection : '') + ' · 疗愈 ' + entry.heal + (next ? '/' + next.heal : '') + ' · 经验 ' + entry.exp + (next ? '/' + next.exp : '');
+    return '成长 Lv' + entry.level + '/5 · 信任 ' + entry.affection + (next ? '/' + next.affection : '') + ' · 疗愈 ' + entry.heal + (next ? '/' + next.heal : '') + ' · 宗门阅历 ' + entry.exp + (next ? '/' + next.exp : '');
   }
 
   function renderYardSwitcher() {
@@ -1500,11 +2359,104 @@ var MODULE_HELP = {
     node.hidden = false;
     node.innerHTML = available.map(function (beast) {
       var entry = state.beastCases[beast.id];
-      var stage = entry && entry.transformed ? 3 : Math.max(0, Math.min(3, Number(entry && entry.stage) || 0));
       var active = beast.id === state.yardBeastId;
-      var role = beast.id === state.activeCaseId ? '当前治疗对象' : entry && entry.transformed ? '已康复居民' : '可查看居民';
-      return '<button type="button" data-yard-beast="' + esc(beast.id) + '" data-help="yard-resident" aria-current="' + (active ? 'true' : 'false') + '" class="' + (active ? 'active' : '') + '" aria-label="切换庭院显示为' + esc(beast.name) + '" title="点击切换，长按查看住客说明"><img src="' + esc(characterAssetPath(beastArt(beast, entry))) + '" alt="" /><strong>' + esc(beast.name) + '</strong><small>Lv' + entry.level + ' · ' + role + '</small></button>';
+      return '<button type="button" data-yard-beast="' + esc(beast.id) + '" data-help="yard-resident" aria-current="' + (active ? 'true' : 'false') + '" class="yard-beast-option' + (active ? ' active' : '') + '" aria-label="切换庭院显示为' + esc(beast.name) + '" title="点击切换，长按查看住客说明"><img src="' + esc(characterAssetPath(beastArt(beast, entry))) + '" alt="" /><strong>' + esc(beast.name) + '</strong></button>';
     }).join('');
+  }
+
+  function showYardSpeech(line) {
+    var speech = q('yard-speech');
+    if (!speech) return;
+    if (yardSpeechTimer) root.clearTimeout(yardSpeechTimer);
+    speech.textContent = line ? '“' + String(line).replace(/^[“\"]|[”\"]$/g, '') + '”' : '';
+    speech.classList.toggle('is-visible', !!line);
+    if (line) yardSpeechTimer = root.setTimeout(function () {
+      speech.classList.remove('is-visible');
+      yardSpeechTimer = null;
+    }, 3000);
+  }
+
+  function difficultyLabel(id) {
+    var difficulty = DATA.careGames && DATA.careGames.difficulties && DATA.careGames.difficulties[id];
+    return difficulty && difficulty.name || ({ easy: '轻松', normal: '标准', hard: '困难', master: '大师', challenge: '挑战' }[id] || String(id || '标准'));
+  }
+
+  function renderYardSelectionCard() {
+    var card = q('yard-selection-card');
+    if (!card) return;
+    var display = caseForDisplay();
+    var selectedId = yardSelection && yardSelection.id || 'resident';
+    Array.prototype.forEach.call(document.querySelectorAll('#yard-scene .scene-building, #yard-character'), function (node) {
+      var id = node.id === 'yard-character' ? 'resident' : node.dataset.nodeId;
+      var selected = id === selectedId;
+      node.classList.toggle('is-selected', selected);
+      node.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+    if (selectedId === 'resident') {
+      var entry = display.entry;
+      var stage = Math.max(0, Math.min(3, Number(entry.stage) || 0));
+      var activeAction = yardActiveAction && yardActiveAction.beastId === display.id ? yardActiveAction : null;
+      var residentLine = activeAction
+        ? '<small class="is-yard-action">正在' + esc(activeAction.label) + ' · 再点一次切换动作</small>'
+        : '<small title="点击场景中的' + esc(display.definition.name) + '可以互动">“' + esc(display.definition.dialogue[stage]) + '”</small>';
+      card.innerHTML = '<div class="yard-selection-main"><span class="yard-selection-thumb resident"><img src="' + esc(characterAssetPath(beastArt(display.definition, entry))) + '" alt="" /></span>' +
+        '<div><span class="eyebrow">当前住客</span><h2>' + esc(display.definition.name) + ' · Lv' + entry.level + '</h2><p>' + esc(activeCareText(entry)) + '</p>' + residentLine + '</div></div>' +
+        '<button class="yard-selection-action" data-yard-info-action="resident" type="button">查看成长详情</button>';
+      return;
+    }
+    var facility = state.facilities[selectedId];
+    var definition = DATA.facilities[selectedId];
+    var building = DATA.buildings && DATA.buildings[selectedId];
+    if (!facility || !definition) {
+      yardSelection = { kind: 'resident', id: 'resident' };
+      renderYardSelectionCard();
+      return;
+    }
+    var statusText = facilitySummary(selectedId);
+    var actionLabel = '查看设施';
+    var actionState = 'secondary';
+    if (selectedId === 'herb') {
+      actionLabel = facility.stored.length ? '领取产出 ×' + facility.stored.length : '查看生产';
+      actionState = facility.stored.length ? 'claimable' : 'secondary';
+    } else if (selectedId === 'clinic') actionLabel = '查看医馆';
+    else if (selectedId === 'groom') { actionLabel = '开始梳洗'; actionState = 'primary'; }
+    else if (selectedId === 'play') { actionLabel = '开始玩具塔'; actionState = 'primary'; }
+    var art = building && building.art && building.art[Math.max(0, facility.level - 1)] || '';
+    card.innerHTML = '<div class="yard-selection-main"><span class="yard-selection-thumb building">' + (art ? '<img src="' + esc(art) + '" alt="" />' : uiIcon('area-' + selectedId)) + '</span>' +
+      '<div><span class="eyebrow">庭院设施</span><h2>' + esc(definition.name) + ' · Lv' + facility.level + '</h2><p>' + esc(statusText) + '</p><small>' + (selectedId === 'groom' || selectedId === 'play' ? '先选择难度，再确认消耗灵力开始。' : '点击主操作后再进入详情。') + '</small></div></div>' +
+      '<button class="yard-selection-action state-' + actionState + '" data-yard-info-action="' + esc(selectedId) + '" type="button">' + esc(actionLabel) + '</button>';
+  }
+
+  function selectYardItem(id) {
+    yardSelection = { kind: id === 'resident' ? 'resident' : 'building', id: id || 'resident' };
+    renderYardSelectionCard();
+    var display = caseForDisplay();
+    var line = id === 'resident' ? display.definition.dialogue[Math.max(0, Math.min(3, Number(display.entry.stage) || 0))]
+      : id === 'clinic' ? '医馆里的药香很安稳。'
+      : id === 'herb' ? '百草园的叶片正在慢慢舒展。'
+      : id === 'groom' ? '梳洗台已经收拾好了。'
+      : '嬉游亭里留着一座新玩具塔。';
+    showYardSpeech(line);
+  }
+
+  function runYardInfoAction(id) {
+    if (id === 'resident') { openYardCharacterDetails(); return; }
+    var sceneButton = document.querySelector('[data-node-id="' + id + '"]');
+    if ((id === 'groom' || id === 'play') && sceneButton && sceneButton.dataset.featureLocked) {
+      var lockedModal = openFeatureLockHint(sceneButton.dataset.featureLocked);
+      var go = lockedModal && lockedModal.querySelector('[data-feature-lock-go]');
+      if (go) go.addEventListener('click', function () { closeModal(); switchView('merge-view'); });
+      return;
+    }
+    useCourtyardNode(id, id === 'groom' || id === 'play' ? 'care' : 'use');
+    playSfx('click');
+    if (id === 'groom' || id === 'play') { openCare(id); return; }
+    if (id === 'herb' && state.facilities.herb.stored.length) { claimFacilityAndShow('herb'); return; }
+    openFacility(id);
+  }
+
+  function yardUsesDirectActions() {
+    return !!(document && document.documentElement && document.documentElement.classList.contains('qixia-v14'));
   }
 
   function renderYardBackground() {
@@ -1517,7 +2469,10 @@ var MODULE_HELP = {
     if (backgroundLayer) backgroundLayer.style.backgroundImage = 'url("' + backgroundAssetPath(definition) + '")';
     else scene.style.backgroundImage = 'linear-gradient(#fff3df1c,#fff0d61c),url("' + backgroundAssetPath(definition) + '")';
     var button = q('yard-background-open');
-    if (button) button.textContent = '背景 · ' + definition.name;
+    if (button) {
+      button.innerHTML = uiIcon('nav-yard') + '<span>' + esc(definition.name) + '</span>';
+      button.setAttribute('aria-label', '切换庭院背景，当前' + definition.name);
+    }
   }
 
   function yardSceneModel(display, stage) {
@@ -1534,20 +2489,16 @@ var MODULE_HELP = {
       var levelScale = [1, 1.06, 1.12][Math.max(0, Math.min(2, Number(level || 1) - 1))];
       return (foreground ? 1.03 : 0.95) * levelScale;
     }
-    function buildingY(level, foreground) {
-      level = Math.max(1, Math.min(3, Number(level || 1)));
-      return foreground ? 71 - level : 24 + level * 2;
-    }
     return {
       background: { id: backgroundId, url: background ? backgroundAssetPath(background) : '' },
       buildings: {
-        clinic: { x: 24, y: buildingY(clinic.level, false), scale: buildingScale(clinic.level, false), level: clinic.level, image: DATA.buildings.clinic.art[clinic.level - 1], state: 'ready', bubble: '疗愈 +' + DATA.facilities.clinic.levels[clinic.level - 1].healReward },
-        herb: { x: 22, y: buildingY(herb.level, true), scale: buildingScale(herb.level, true), level: herb.level, image: DATA.buildings.herb.art[herb.level - 1], state: herb.stored.length ? 'ready' : 'producing', bubble: herb.stored.length ? '可领取 ×' + herb.stored.length : 'Lv' + herb.level + ' 生产中' },
-        groom: { x: 78, y: buildingY(groom.level, true), scale: buildingScale(groom.level, true), level: groom.level, image: DATA.buildings.groom.art[groom.level - 1], state: budget.unlimited || groomLeft ? 'care' : 'practice', bubble: budget.unlimited ? '奖励不限' : '今日剩余奖励 ' + groomLeft + '/' + budget.cap + ' 次' },
-        play: { x: 76, y: buildingY(play.level, false), scale: buildingScale(play.level, false), level: play.level, image: DATA.buildings.play.art[play.level - 1], state: budget.unlimited || playLeft ? 'care' : 'practice', bubble: budget.unlimited ? '奖励不限' : '今日剩余奖励 ' + playLeft + '/' + budget.cap + ' 次' }
+        clinic: { x: 24, y: 31, scale: buildingScale(clinic.level, false), level: clinic.level, image: DATA.buildings.clinic.art[clinic.level - 1], state: 'ready', bubble: '疗愈 +' + DATA.facilities.clinic.levels[clinic.level - 1].healReward },
+        herb: { x: 24, y: 72, scale: buildingScale(herb.level, true), level: herb.level, image: DATA.buildings.herb.art[herb.level - 1], state: herb.stored.length ? 'ready' : 'producing', bubble: herb.stored.length ? '可领取 ×' + herb.stored.length : '生产中' },
+        groom: { x: 76, y: 72, scale: buildingScale(groom.level, true), level: groom.level, image: DATA.buildings.groom.art[groom.level - 1], state: budget.unlimited || groomLeft ? 'care' : 'practice', bubble: '可开始' },
+        play: { x: 76, y: 31, scale: buildingScale(play.level, false), level: play.level, image: DATA.buildings.play.art[play.level - 1], state: budget.unlimited || playLeft ? 'care' : 'practice', bubble: '可开始' }
       },
-      character: { x: 50, y: 84, groundY: 84, scale: 0.78, src: beastArt(display.definition, display.entry), stage: display.entry.activeFormLevel - 1, state: display.entry.transformed ? 'transformed' : 'idle', transformed: !!display.entry.transformed },
-      speech: display.definition.dialogue[stage]
+      character: { x: 50, y: 87, groundY: 87, scale: 0.9, src: beastArt(display.definition, display.entry), stage: display.entry.activeFormLevel - 1, state: display.entry.transformed ? 'transformed' : 'idle', transformed: !!display.entry.transformed },
+      speech: ''
     };
   }
 
@@ -1584,14 +2535,14 @@ var MODULE_HELP = {
          building the player wants to tap. */
       payload.x = Math.min(68, Math.max(32, x + (x < 50 ? 10 : -10)));
       payload.groundY = Math.min(86, Math.max(48, y + 10));
-      payload.scale = 0.75;
+      payload.scale = 0.84;
     }
     courtyardScene.moveCharacterTo(payload, 'move');
     root.setTimeout(function () {
       if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') courtyardScene.moveCharacterTo({ id: 'resident' }, action || 'use');
     }, 520);
     root.setTimeout(function () {
-      if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') courtyardScene.moveCharacterTo({ id: 'resident', x: 50, groundY: 84, scale: 0.78 }, 'move');
+      if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') courtyardScene.moveCharacterTo({ id: 'resident', x: 50, groundY: 87, scale: 0.9 }, 'move');
     }, 1250);
     root.setTimeout(function () {
       if (courtyardScene && typeof courtyardScene.moveCharacterTo === 'function') courtyardScene.moveCharacterTo({ id: 'resident' }, 'idle');
@@ -1599,12 +2550,12 @@ var MODULE_HELP = {
   }
 
   var YARD_ROUTES = [
-    { id: 'clinic', x: 40, y: 38, action: 'inspect', line: '它在医馆门口嗅了嗅药香。' },
-    { id: 'play', x: 60, y: 38, action: 'play', line: '它追着亭边的风铃跑了两圈。' },
-    { id: 'groom', x: 60, y: 72, action: 'play', line: '它把落在地上的彩球轻轻拨了回来。' },
-    { id: 'herb', x: 40, y: 72, action: 'sniff', line: '它蹲在百草园旁认真闻了闻叶片。' },
+    { id: 'clinic', x: 40, y: 38, action: 'inspect', cg: 'curious', line: '它在医馆门口嗅了嗅药香。' },
+    { id: 'play', x: 60, y: 38, action: 'play', cg: 'play-ball', line: '它追着亭边的风铃跑了两圈。' },
+    { id: 'groom', x: 60, y: 72, action: 'play', cg: 'greet', line: '它对着梳洗台上的倒影挥了挥爪。' },
+    { id: 'herb', x: 40, y: 72, action: 'sniff', cg: 'curious', line: '它蹲在百草园旁认真闻了闻叶片。' },
     { id: 'path-left', x: 46, y: 54, action: 'wander', line: '它沿着石径小跑，尾巴晃得很轻快。' },
-    { id: 'path-right', x: 54, y: 84, action: 'wander', line: '它停下来望了望远山，又继续散步。' }
+    { id: 'path-right', x: 54, y: 84, action: 'wander', cg: 'stretch', line: '它停下来望望远山，舒舒服服伸了个懒腰。' }
   ];
 
   function courtyardIsVisible() {
@@ -1612,19 +2563,19 @@ var MODULE_HELP = {
     return !!(view && view.classList.contains('active') && document && !document.hidden && !q('modal-root').firstChild);
   }
 
-  function runYardAutonomy() {
-    if (!courtyardScene || typeof courtyardScene.moveCharacterTo !== 'function' || !courtyardIsVisible() || Date.now() < yardInteractionUntil) return;
+  function runYardAutonomy(force) {
+    var bypassInteractionGuard = force === true || !!(force && force.force);
+    if (!courtyardScene || typeof courtyardScene.moveCharacterTo !== 'function' || !courtyardIsVisible() || (!bypassInteractionGuard && Date.now() < yardInteractionUntil)) return;
     var route = YARD_ROUTES[yardAutonomyStep % YARD_ROUTES.length];
     yardAutonomyStep++;
-    var speech = q('yard-speech');
     courtyardScene.moveCharacterTo({ id: 'resident', x: route.x, groundY: route.y, scale: route.y < 65 ? 0.69 : 0.76, duration: 900 }, 'move');
-    if (speech) {
-      speech.textContent = route.line;
-      speech.classList.add('is-visible', 'autonomy-speech');
-    }
+    showYardSpeech(route.line);
     root.setTimeout(function () {
-      if (!courtyardScene || !courtyardIsVisible()) return;
+      if (!courtyardScene || !courtyardIsVisible() || (!bypassInteractionGuard && Date.now() < yardInteractionUntil)) return;
       courtyardScene.moveCharacterTo({ id: 'resident' }, route.action === 'wander' ? 'run' : route.action);
+      var display = caseForDisplay();
+      var actionCg = route.cg && yardActionFor(display.definition, route.cg);
+      if (actionCg) showYardAction(actionCg, { line: route.line, loops: 1, interactive: false, react: false, source: 'autonomy' });
       var character = q('yard-character');
       if (character) {
         character.dataset.autonomousAction = route.action;
@@ -1632,11 +2583,11 @@ var MODULE_HELP = {
       }
     }, 950);
     root.setTimeout(function () {
+      if (!bypassInteractionGuard && Date.now() < yardInteractionUntil) return;
       if (courtyardScene && courtyardIsVisible()) courtyardScene.moveCharacterTo({ id: 'resident' }, 'idle');
       var character = q('yard-character');
       if (character) character.className = character.className.replace(/\bis-autonomous-[^\s]+\b/g, '').trim();
-      if (speech) speech.classList.remove('autonomy-speech');
-    }, 2300);
+    }, 2850);
   }
 
   function startYardAutonomy() {
@@ -1664,22 +2615,15 @@ var MODULE_HELP = {
     var activeResident = display.id === state.activeCaseId && !entry.transformed;
     var activeTarget = state.activeCaseId && state.beastCases[state.activeCaseId];
     var activeTargetDef = activeTarget && beastDef(activeTarget.id);
-    var art = beastArt(definition, entry);
-    q('yard-beast').src = characterAssetPath(art);
-    q('yard-beast').alt = definition.name + ' · Lv' + entry.activeFormLevel;
-    syncYardBeastSprite(definition, entry);
+    clearYardAction(false);
+    setYardResidentArt(display);
+    preloadYardActionAtlases(definition);
     q('yard-heading').textContent = activeResident ? '陪伴' + definition.name + '慢慢恢复' : entry.transformed ? definition.name + '已经成为宗门伙伴' : '查看' + definition.name + '的状态';
     q('yard-copy').textContent = activeResident ? activeCareText(entry) : entry.transformed ? '岗位已生效 · ' + (activeTargetDef ? '当前治疗对象：' + activeTargetDef.name + ' · ' : '') + '这里正在查看' + definition.name : '当前治疗对象：' + (activeTargetDef ? activeTargetDef.name : '暂无') + ' · 这里正在查看' + definition.name;
-    q('yard-speech').textContent = '“' + definition.dialogue[stage] + '”';
+    q('yard-speech').textContent = '';
     renderYardBackground();
     renderCourtyardScene(display, stage);
     renderYardSwitcher();
-    var herbHotspot = document.querySelector('[data-hotspot="herb"]');
-    if (herbHotspot) {
-      var storedHerbs = state.facilities.herb.stored.length;
-      var herbCaption = herbHotspot.querySelector('small');
-      if (herbCaption) herbCaption.textContent = storedHerbs ? '领取 ×' + storedHerbs : '查看产出';
-    }
     ['groom', 'play'].forEach(function (type) {
       var button = document.querySelector('[data-care="' + type + '"]');
       if (!button) return;
@@ -1695,13 +2639,10 @@ var MODULE_HELP = {
       var rewardUsed = Number(state.daily.careRewards && state.daily.careRewards[type]) || 0;
       var rewardLeft = rewardBudget.unlimited ? Infinity : Math.max(0, rewardBudget.cap - rewardUsed);
       button.title = available
-        ? '与' + display.definition.name + '一起' + careTypeShortLabel(type) + '，会带回「' + (routeFamily ? routeFamily.name : route.family) + '」素材' + (isGiftRoute ? '——这正是' + display.definition.name + '成长和下一位伙伴来信需要的礼物。' : '；好感与疗愈照常增长。')
+        ? '与' + display.definition.name + '一起' + careTypeShortLabel(type) + '，会带回「' + (routeFamily ? routeFamily.name : route.family) + '」素材' + (isGiftRoute ? '——这正是' + display.definition.name + '成长和下一位伙伴来信需要的礼物。' : '；信任与疗愈照常增长。')
         : '当前没有可互动的神兽';
-      var caption = button.querySelector('small');
-      if (caption) caption.textContent = available
-        ? (isGiftRoute ? '送出成长礼物 · ' + (routeFamily ? routeFamily.name : '') + (rewardBudget.unlimited ? ' · 素材奖励不限' : ' · 今日剩余奖励 ' + rewardLeft + '/' + rewardBudget.cap + ' 次') : '日常小礼 · ' + (routeFamily ? routeFamily.name : '') + (rewardBudget.unlimited ? ' · 素材奖励不限' : ' · 今日剩余奖励 ' + rewardLeft + '/' + rewardBudget.cap + ' 次'))
-        : '暂无可互动的神兽';
     });
+    renderYardSelectionCard();
     renderDaily();
     renderFacilities();
     renderJobs();
@@ -1717,13 +2658,13 @@ var MODULE_HELP = {
 
   function renderDaily() {
     var goals = [
-      { label: '合灵', icon: '▦', current: state.daily.merges, target: 5 },
-      { label: '回信', icon: '✉', current: state.daily.orders, target: 2 },
-      { label: '陪伴', icon: '♡', current: state.daily.care, target: 1 }
+      { label: '合灵', iconId: 'daily-merge', current: state.daily.merges, target: 5 },
+      { label: '回信', iconId: 'daily-order', current: state.daily.orders, target: 2 },
+      { label: '陪伴', iconId: 'daily-care', current: state.daily.care, target: 1 }
     ];
     q('yard-goals').innerHTML = goals.map(function (goal) {
       var done = goal.current >= goal.target;
-      return '<div class="yard-goal ' + (done ? 'done' : '') + '"><strong>' + goal.icon + ' ' + goal.label + '</strong>' + Math.min(goal.current, goal.target) + '/' + goal.target + '</div>';
+      return '<div class="yard-goal ' + (done ? 'done' : '') + '">' + uiIcon(done ? 'check' : goal.iconId) + '<strong>' + goal.label + '</strong><span>' + Math.min(goal.current, goal.target) + '/' + goal.target + '</span></div>';
     }).join('');
     var complete = goals.every(function (goal) { return goal.current >= goal.target; });
     var button = q('claim-yard-goal');
@@ -1750,7 +2691,7 @@ var MODULE_HELP = {
     var weekly = q('weekly-goal');
     if (weekly && state.weekly) {
       var weeklyDone = state.weekly.merges >= 30 && state.weekly.orders >= 12 && state.weekly.care >= 6;
-      weekly.innerHTML = '<div><b>本周疗愈挑战</b><small>合成 ' + Math.min(30, state.weekly.merges) + '/30 · 委托 ' + Math.min(12, state.weekly.orders) + '/12 · 有效照料 ' + Math.min(6, state.weekly.care) + '/6</small></div><button data-claim-weekly type="button" ' + (!weeklyDone || state.weekly.claimed ? 'disabled' : '') + '>' + (state.weekly.claimed ? '本周已领' : weeklyDone ? '领取 ◆120 + T3' : '持续推进') + '</button>';
+      weekly.innerHTML = '<div><b>本周疗愈挑战</b><small>合成 ' + Math.min(30, state.weekly.merges) + '/30 · 委托 ' + Math.min(12, state.weekly.orders) + '/12 · 有效照料 ' + Math.min(6, state.weekly.care) + '/6</small></div><button data-claim-weekly type="button" ' + (!weeklyDone || state.weekly.claimed ? 'disabled' : '') + '>' + (state.weekly.claimed ? '本周已领' : weeklyDone ? '领取 暖玉120 + T3' : '持续推进') + '</button>';
     }
   }
 
@@ -1767,20 +2708,20 @@ var MODULE_HELP = {
     }
     if (id === 'clinic') {
       var clinic = DATA.facilities.clinic.levels[level - 1];
-      return '有效照料疗愈 +' + clinic.healReward + (clinic.beastXpMultiplier > 1 ? ' · 成长经验 +10%' : '');
+      return '有效照料疗愈 +' + clinic.healReward + (clinic.beastXpMultiplier > 1 ? ' · 宗门阅历 +10%' : '');
     }
-    if (id === 'groom') return '已开放至' + DATA.facilities.groom.levels[level - 1].difficulty + '难度 · 梳洗奖励加成 ' + Math.round(DATA.facilities.groom.levels[level - 1].bonusTierChance * 100) + '%';
+    if (id === 'groom') return '已开放至' + difficultyLabel(DATA.facilities.groom.levels[level - 1].difficulty) + '难度 · 梳洗奖励加成 ' + Math.round(DATA.facilities.groom.levels[level - 1].bonusTierChance * 100) + '%';
     var play = DATA.facilities.play.levels[level - 1];
-    return '已开放至' + play.difficulty + '难度 · 开局提示 +' + play.hintBonus;
+    return '已开放至' + difficultyLabel(play.difficulty) + '难度 · 开局提示 +' + play.hintBonus;
   }
 
   function renderFacilities() {
-    var icons = { clinic: '医', herb: '药', groom: '梳', play: '铃' };
+    var icons = { clinic: 'area-clinic', herb: 'area-herb-garden', groom: 'area-groom-pavilion', play: 'area-playground' };
     q('building-list').innerHTML = ['clinic', 'herb', 'groom', 'play'].map(function (id) {
       var facility = state.facilities[id];
       var definition = DATA.facilities[id];
       var next = facility.level < 3 ? definition.levels[facility.level] : null;
-      return '<button class="building built" data-facility="' + id + '" data-help="facility-' + id + '" type="button" title="点击查看升级，长按查看' + esc(definition.name) + '说明"><span class="building-art">' + icons[id] + '</span><span><strong>' + esc(definition.name) + ' Lv' + facility.level + '</strong><small>' + esc(facilitySummary(id)) + '</small></span><b>' + (next ? '升级 ◆' + next.cost : '满级') + '</b></button>';
+      return '<button class="facility-button building built" data-facility="' + id + '" data-help="facility-' + id + '" type="button" title="点击查看升级，长按查看' + esc(definition.name) + '说明"><span class="building-art">' + uiIcon(icons[id]) + '</span><span class="facility-copy"><strong>' + esc(definition.name) + ' Lv' + facility.level + '</strong><small>' + esc(facilitySummary(id)) + '</small></span><b class="facility-level-note">' + (next ? '升级 ' + compactNumber(next.cost) : '满级') + '</b></button>';
     }).join('');
   }
 
@@ -1791,7 +2732,7 @@ var MODULE_HELP = {
       taotie: '膳食生成时有20%概率双倍掉落',
       dijiang: '百草园提速20%，容量+1',
       bifang: '所有生成器冷却 -10%',
-      baize: '委托经验 +10%',
+      baize: '委托宗门阅历 +10%',
       taowu: '连击窗口 +5 秒',
       zhulong: '灵力回复速度 +20%',
       pixiu: '回收价格 +10%',
@@ -1803,7 +2744,10 @@ var MODULE_HELP = {
   }
 
   function renderJobs() {
-    q('job-list').innerHTML = DATA.beasts.map(function (beast) {
+    var publicCap = Number(DATA.release && DATA.release.publicVolumeCap || DATA.beasts.length);
+    q('job-list').innerHTML = DATA.beasts.filter(function (beast, index) {
+      return Number(beast.volumeNumber || index + 1) <= publicCap;
+    }).map(function (beast) {
       var entry = state.beastCases[beast.id];
       var available = !!(state.jobs && state.jobs[beast.id] && state.jobs[beast.id].unlocked) || entry.transformed;
       var action = '';
@@ -1811,7 +2755,7 @@ var MODULE_HELP = {
         var stored = state.jobs.qiongqi.stored;
         action = '<button data-claim-job="qiongqi" type="button" ' + (stored ? '' : 'disabled') + '>' + (stored ? '领取 ×' + stored : '积累中') + '</button>';
       } else action = '<button type="button" disabled>' + (available ? '已生效' : '待蜕变') + '</button>';
-      return '<div class="job-row ' + (available ? '' : 'locked') + '" data-help="job-row" title="长按查看岗位卡说明"><span class="job-avatar"><img loading="lazy" src="' + esc(characterAssetPath(beastArt(beast, entry))) + '" alt="" /></span><span><strong>' + esc(beast.name + ' · ' + beast.job.title) + '</strong><small>' + esc(jobDescription(beast)) + '</small></span>' + action + '</div>';
+      return '<div class="job-row ' + (available ? '' : 'locked') + '" data-help="job-row" title="长按查看岗位卡说明"><span class="job-avatar"><img loading="lazy" src="' + esc(characterAssetPath(beastArt(beast, entry))) + '" alt="" /></span><span class="job-copy"><strong>' + esc(beast.name + ' · ' + beast.job.title) + '</strong><small>' + esc(jobDescription(beast)) + '</small></span>' + action + '</div>';
     }).join('');
   }
 
@@ -1830,25 +2774,19 @@ var MODULE_HELP = {
     q('codex-page').textContent = codexPage + ' / ' + pageCount;
     q('codex-prev').disabled = codexPage <= 1;
     q('codex-next').disabled = codexPage >= pageCount;
-    q('chapter-goal').innerHTML = '<strong>山海成长册</strong>十二位伙伴共 60 个形态；好感、疗愈与经验都会逐级点亮。';
+    q('chapter-goal').innerHTML = '<strong>穷奇成长册</strong>公开篇章先完整记录穷奇的五种形态；其余山海页随新卷开放。';
     q('codex-list').innerHTML = pageBeasts.map(function (beast) {
       var entry = state.beastCases[beast.id];
       var discovered = state.codex[beast.id].discovered;
       if (!discovered) {
         return '<article class="codex-card locked" data-beast-id="' + beast.id + '" data-help="codex-card" title="点击查看获取线索">' +
-          '<div class="codex-art codex-silhouette" aria-hidden="true"><img loading="lazy" src="' + esc(characterAssetPath(beastArt(beast, entry))) + '" alt="" /><b>等待相遇</b></div>' +
-          '<div class="codex-copy"><h2>未结识 · ' + esc(beast.name) + '</h2><p class="acquisition-clue"><b>获取线索：</b>' + esc(beastAcquisitionClue(beast)) + '</p>' +
-          '<div class="codex-job">这里只有真实线索；结识后才显示等级、好感与经验。</div></div></article>';
+          '<div class="codex-card-art codex-silhouette codex-future-mark" aria-hidden="true">' + uiIcon('lock') + '<b>查看线索</b></div>' +
+          '<div class="codex-card-copy"><strong>' + esc(beast.name) + '</strong><small>未结识</small></div></article>';
       }
-      var careGuide = (beast.careTypes || []).map(careTypeLabel).join(' / ') || '暂无指定设施';
       var levelConfig = beastLevelConfig(beast, entry);
-      var next = DATA.growth.requirements[Math.min(4, entry.level)];
       return '<article class="codex-card" data-beast-id="' + beast.id + '" data-help="codex-card" title="点击查看详情，长按查看图鉴卡说明">' +
-        '<div class="codex-art"><img loading="lazy" src="' + esc(characterAssetPath(beastArt(beast, entry))) + '" alt="' + esc(beast.name) + '大图立绘" /><b>' + esc(levelConfig && levelConfig.title || beast.stageNames[entry.stage]) + '</b></div>' +
-        '<div class="codex-copy"><h2>' + esc(beast.name) + '</h2><p>' + esc(beast.lore) + '</p>' +
-        '<div class="codex-care"><strong>专属素材：' + esc(careGuide) + '</strong><small>梳洗、陪玩和专属委托会增加好感；已有好感永不因离线下降。</small></div>' +
-        '<div class="codex-growth"><b>Lv' + entry.level + '/5</b><span>好感 ' + entry.affection + (next ? '/' + next.affection : '') + '</span><span>疗愈 ' + entry.heal + (next ? '/' + next.heal : '') + '</span><span>经验 ' + entry.exp + (next ? '/' + next.exp : '') + '</span></div>' +
-        '<div class="codex-job">点击查看大图、故事与形态</div></div></article>';
+        '<div class="codex-card-art"><img loading="lazy" src="' + esc(characterAssetPath(beastArt(beast, entry))) + '" alt="' + esc(beast.name) + '立绘" /></div>' +
+        '<div class="codex-card-copy"><strong>' + esc(beast.name) + '</strong><small>' + esc(levelConfig && levelConfig.title || beast.stageNames[entry.stage]) + '</small><b>Lv' + entry.level + '</b></div></article>';
     }).join('');
     q('ending-card').innerHTML = state.sagaComplete
       ? '<h2>山海终章 · 万灯归家</h2><p>十二位伙伴的篇章都已完成。山海册合上了一页，宗门的日常仍会继续。</p>'
@@ -1857,26 +2795,60 @@ var MODULE_HELP = {
         : '<h2>下一页正等你翻开</h2><p>完成前三位伙伴的完整篇章，将解锁“第一段结局”。</p>';
   }
 
+  function resetCodexScroll() {
+    var view = q('codex-view');
+    var main = q('slice-main');
+    if (view) view.scrollTop = 0;
+    if (main) main.scrollTop = 0;
+  }
+
   function renderProgress() {
     var progress = overallProgress();
     var volume = Math.max(1, Number(state.chapter && state.chapter.volume || 1));
-    q('goal-progress').textContent = '卷' + volume + '旅程总进度 · ' + progress + '%';
+    q('goal-progress').textContent = state.storyExperience && state.storyExperience.publicRelease
+      ? '卷一 · ' + progress + '%'
+      : '卷' + volume + '旅程 · ' + progress + '%';
     q('goal-bar').style.width = progress + '%';
   }
 
   function sectFocusLabel(focus) {
     return {
-      visitor: '访客', board: '合成棋盘', generator: '生成器', minigame: '小游戏',
+      visitor: '访客', board: '归灵台', generator: '生成器', minigame: '小游戏',
       growth: '神兽成长', codex: '山海册', storage: '库房', activity: '活动'
     }[focus] || '宗门';
   }
 
-  function sectAreaArt(status, stageIndex) {
+  function sectAreaVisual(status, stageIndex) {
     stageIndex = Math.max(0, Math.min(3, Math.floor(numberOf(stageIndex, 0))));
-    if (status && Array.isArray(status.art) && status.art[stageIndex]) return status.art[stageIndex];
+    var definition = areaDefinitionById(status && (status.areaId || status.id));
+    var visualMode = status && status.visualMode || definition && definition.visualMode || '';
+    var baseArt = status && status.baseArt || definition && definition.baseArt || '';
+    if (visualMode === 'layered' && baseArt) {
+      return { art: baseArt, layered: true, stage: stageIndex, stateName: sectStateName(stageIndex) };
+    }
+    var art = status && Array.isArray(status.art) && status.art[stageIndex]
+      || definition && Array.isArray(definition.art) && definition.art[stageIndex]
+      || baseArt;
+    return { art: art || null, layered: false, stage: stageIndex, stateName: sectStateName(stageIndex) };
+  }
+
+  function sectAreaArt(status, stageIndex) {
+    var visual = sectAreaVisual(status, stageIndex);
+    if (visual.art) return visual.art;
     /* 区域没有专属 stage 系列图（art: []）时返回 null：调用方统一渲染
        “灵雾待启”占位，而不是加载灰白剪影占位图破坏主视觉。 */
     return null;
+  }
+
+  function sectAreaVisualMarkup(status, stageIndex, className, label) {
+    var visual = sectAreaVisual(status, stageIndex);
+    if (!visual.art) return '';
+    var classes = [className || 'area-visual'];
+    if (visual.layered) classes.push('area-visual-layered', 'area-stage-' + visual.stateName);
+    return '<div class="' + classes.join(' ') + '" data-visual-mode="' + (visual.layered ? 'layered' : 'staged') + '" data-area-stage="' + visual.stateName + '"' +
+      (visual.layered ? ' data-visual-mode="layered"' : '') +
+      (label ? ' aria-label="' + esc(label) + '"' : ' aria-hidden="true"') +
+      ' style="background-image:url(\'' + esc(String(visual.art).replace(/'/g, '')) + '\')"></div>';
   }
 
   function numberOf(value, fallback) {
@@ -1889,17 +2861,17 @@ var MODULE_HELP = {
   }
 
   function areaThumbMarkup(status, stageIndex, label) {
-    var art = sectAreaArt(status, stageIndex);
-    if (art) return '<div class="change-thumb" style="background-image:url(\'' + esc(String(art).replace(/'/g, '')) + '\')"></div>';
-    return '<div class="change-thumb" aria-label="' + esc(label || status.name) + '"><i>' + esc(status.icon) + '</i></div>';
+    var visual = sectAreaVisualMarkup(status, stageIndex, 'change-thumb', label || status.name);
+    if (visual) return visual;
+    return '<div class="change-thumb" aria-label="' + esc(label || status.name) + '">' + uiIcon(areaIconId(status)) + '</div>';
   }
 
   function areaMapArtMarkup(status) {
     /* Locked/non-current map nodes stay as lightweight fog markers. Their
        full restoration art is requested only after the area becomes real. */
-    var art = status && !status.locked ? sectAreaArt(status, status.stage) : null;
-    if (art) return '<div class="sect-map-art" style="background-image:url(\'' + esc(String(art).replace(/'/g, '')) + '\')"></div>';
-    return '<div class="sect-map-art no-art" aria-label="' + esc(status.name || status.areaId) + '暂未开启"><span class="fog-tag">灵雾待启</span><i aria-hidden="true">☁</i></div>';
+    var visual = status && !status.locked ? sectAreaVisualMarkup(status, status.stage, 'sect-map-art', status.name) : '';
+    if (visual) return visual;
+    return '<div class="sect-map-art no-art" aria-label="' + esc(status.name || status.areaId) + (status.locked ? '尚未解锁' : '暂无专属区域图') + '">' + uiIcon(status.locked ? 'lock' : areaIconId(status)) + '</div>';
   }
 
   function areaBadgeChips(status) {
@@ -1923,10 +2895,11 @@ var MODULE_HELP = {
     var row = Math.max(1, Number(status.map && status.map.row) || 1);
     var column = Math.max(0, Number(status.map && status.map.column) || 0);
     var x = column === 0 ? 26 : 74;
-    if (row % 2 === 1) x = column === 0 ? 30 : 70;
-    var y = 10 + (row - 1) * 13;
-    /* 节点宽 92px、标签与徽章随行展开：左右留边，顶部避开标题，底部避开底栏。 */
-    return { left: Math.max(12, Math.min(84, x)), top: Math.max(7, Math.min(88, y)) };
+    if (row % 2 === 1) x = column === 0 ? 27 : 73;
+    var y = 7.5 + (row - 1) * 14.16;
+    /* 七行在 500px 最小地图中仍保留约 70px 的中心距，容纳 48px 图、
+       区域名和三段进度，不让相邻节点标签互相压住。 */
+    return { left: Math.max(12, Math.min(84, x)), top: Math.max(7, Math.min(93, y)) };
   }
 
   var SECT_NPCS = [
@@ -1942,10 +2915,10 @@ var MODULE_HELP = {
     var rootNode = q('sect-map-npcs');
     if (!rootNode) return;
     var ledger = state.visitors || { met: {}, lastVisitorId: null };
-    rootNode.innerHTML = SECT_NPCS.map(function (npc, index) {
-      /* NPC 只在中下段的山路上散步，避免漂在顶部建筑上被误读为浮窗。 */
-      var left = 10 + ((index * 23) % 80);
-      var top = 52 + ((index * 17) % 34);
+    var pathPoints = [{ left: 45, top: 38 }, { left: 55, top: 62 }, { left: 43, top: 82 }];
+    rootNode.innerHTML = SECT_NPCS.slice(0, 3).map(function (npc, index) {
+      var left = pathPoints[index].left;
+      var top = pathPoints[index].top;
       var known = Number(ledger.met && ledger.met[npc.id]) > 0;
       var recent = ledger.lastVisitorId === npc.id;
       return '<img class="map-npc' + (known ? ' known-visitor' : '') + (recent ? ' recent-visitor' : '') + '" data-map-npc="' + esc(npc.id) + '" src="assets/art/npc/' + esc(npc.id) + '.webp" alt="' + esc(npc.name) + (recent ? '刚刚来访，正在山门散步' : '在散步') + '" style="left:' + left + '%;top:' + top + '%" />';
@@ -1959,8 +2932,8 @@ var MODULE_HELP = {
     Array.prototype.forEach.call(rootNode.querySelectorAll('[data-map-npc]'), function (npc, index) {
       var currentLeft = parseFloat(npc.style.left) || (10 + index * 23);
       var currentTop = parseFloat(npc.style.top) || (52 + index * 17);
-      var nextLeft = clampNpc(currentLeft + ((Math.random() - 0.5) * 24), 6, 86);
-      var nextTop = clampNpc(currentTop + ((Math.random() - 0.5) * 12), 46, 86);
+      var nextLeft = clampNpc(currentLeft + ((Math.random() - 0.5) * 10), 40, 60);
+      var nextTop = clampNpc(currentTop + ((Math.random() - 0.5) * 10), 30, 86);
       npc.style.left = nextLeft + '%';
       npc.style.top = nextTop + '%';
       npc.classList.toggle('facing-left', nextLeft < currentLeft);
@@ -2000,7 +2973,7 @@ var MODULE_HELP = {
     if (!mapNode) return;
     var view = Core.mapView ? Core.mapView(state) : { ok: true, totalAreas: 0, renewedCount: 0, nodes: [] };
     var progressNode = q('sect-map-progress');
-    if (progressNode) progressNode.textContent = view.renewedCount + ' / ' + view.totalAreas + ' 焕新';
+    if (progressNode) progressNode.textContent = view.renewedCount + ' / ' + view.totalAreas;
     mapNode.innerHTML = view.nodes.map(function (status) {
       if (!status || !status.ok) return '';
       var pos = sectMapPosition(status);
@@ -2009,21 +2982,17 @@ var MODULE_HELP = {
         var pipCls = index < status.stage ? 'done' : index === status.stage && !status.locked ? 'current' : '';
         pips += '<i class="' + pipCls + '"></i>';
       }
-      var chips = status.locked ? [] : areaBadgeChips(status);
-      var badgeMarkup = chips.length ? '<div class="sect-map-badges">' + chips.map(function (chip) { return '<span>' + chip + '</span>'; }).join('') + '</div>' : '';
-      var lockedMarkup = status.locked ? '<span class="fog-tag">' + esc(status.canUnlock ? '可解锁' : '灵雾') + '</span>' : '';
       var cls = ['sect-map-node'];
       if (status.locked) cls.push('locked');
       else if (status.stage >= status.target) cls.push('is-done');
       if (sectAreaSelection === status.areaId) cls.push('is-current');
       return '<button type="button" role="listitem" class="' + cls.join(' ') + '" data-area-node="' + esc(status.areaId) + '" data-area-stage="' + status.stage + '" data-stage="' + sectStateName(status.stage) + '" data-help="sect-map-node" style="left:' + pos.left + '%;top:' + pos.top + '%" aria-label="' + esc(status.name + (status.locked ? '，' + status.lockHint : '')) + '" title="点击查看区域，长按查看区域卡说明">' +
-        lockedMarkup + areaMapArtMarkup(status) +
-        '<h3>' + esc(status.icon) + ' ' + esc(status.name) + '<small>' + esc(sectFocusLabel(status.focus)) + '</small></h3>' +
+        areaMapArtMarkup(status) + (status.stage >= status.target ? '<span class="sect-map-complete">' + uiIcon('check') + '</span>' : '') +
+        '<h3>' + esc(status.name) + '</h3>' +
         '<div class="sect-map-pips">' + pips + '</div>' +
-        badgeMarkup +
         '</button>';
     }).join('');
-    probeMissingArt('#sect-map .sect-map-art', '<span class="fog-tag">灵雾待启</span><i aria-hidden="true">☁</i>', 'no-art');
+    probeMissingArt('#sect-map .sect-map-art', uiIcon('fog'), 'no-art');
     renderSectNpcs();
     ensureSectNpcTimer();
     var note = q('sect-map-note');
@@ -2042,9 +3011,84 @@ var MODULE_HELP = {
     }
   }
 
+  function areaConditionText(need) {
+    if (!need) return '条件未满足';
+    if (need.kind === 'volume') return '完成第 ' + need.volume + ' 卷（当前第 ' + need.current + ' 卷）';
+    if (need.kind === 'areaStage') return need.areaName + '修至 ' + need.stage + '/3 段';
+    if (need.kind === 'product') {
+      var recipe = recipeDefinition(need.productId);
+      return (recipe && recipe.name || '区域信物') + ' ' + need.have + '/' + need.need;
+    }
+    if (need.kind === 'jade') return '暖玉 ' + need.have + '/' + need.need;
+    return '完成前置目标';
+  }
+
+  function openSectAreaDetails(areaId) {
+    var status = Core.areaStatus ? Core.areaStatus(state, areaId) : null;
+    var definition = areaDefinitionById(areaId);
+    if (!status || !status.ok || !definition) return null;
+    sectAreaSelection = areaId;
+    renderSectMap();
+    var stageNames = DATA.sect.stageNames || ['荒废', '清理', '修补', '焕新'];
+    var stageMarkup = stageNames.map(function (name, index) {
+      var complete = index <= status.stage;
+      var current = index === status.stage;
+      return '<span class="area-progress-step' + (complete ? ' is-complete' : '') + (current ? ' is-current' : '') + '">' + (complete ? uiIcon('check') : '<i></i>') + '<b>' + esc(name) + '</b></span>';
+    }).join('');
+    var facilityNames = (status.facilities || []).map(function (id) {
+      return DATA.buildings && DATA.buildings[id] ? DATA.buildings[id].name : id;
+    });
+    if (status.generatorFamily) {
+      var family = familyDef(status.generatorFamily);
+      facilityNames.push((family ? family.name : status.generatorFamily) + '产线');
+    }
+    var activeBonuses = status.bonuses && status.bonuses.length
+      ? status.bonuses.map(function (bonus) { return '<li>' + uiIcon('check') + '<span>' + esc(bonus.text) + '</span></li>'; }).join('')
+      : '<li class="is-muted">' + uiIcon('info') + '<span>完成第一段修缮后获得永久加成</span></li>';
+    var nextBonus = (definition.stageBonuses || []).find(function (bonus) { return bonus.stage > status.stage; });
+    var conditionMarkup = status.locked
+      ? (status.lockMissing && status.lockMissing.length
+        ? status.lockMissing.map(function (need) { return '<li class="is-missing">' + uiIcon('lock') + '<span>' + esc(areaConditionText(need)) + '</span></li>'; }).join('')
+        : '<li>' + uiIcon('check') + '<span>条件已齐，可以拨开灵雾</span></li>')
+      : '<li>' + uiIcon('check') + '<span>区域已解锁，选择“查看近景”进入</span></li>';
+    var actionLabel = status.locked ? (status.canUnlock ? '解锁区域' : '条件不足') : (status.stage >= status.target ? '查看焕新场景' : '查看近景');
+    var actionAttr = status.locked ? 'data-area-detail-unlock' : 'data-area-detail-scene';
+    var visual = sectAreaVisualMarkup(status, status.stage, 'area-sheet-art', status.name + ' · ' + status.stageName);
+    if (!visual) visual = '<div class="area-sheet-art is-icon">' + uiIcon(status.locked ? 'fog' : areaIconId(status)) + '</div>';
+    var modal = modalShell(
+      '<div class="area-sheet-handle" aria-hidden="true"></div>' +
+      '<div class="area-sheet-head">' + visual + '<div><span class="eyebrow">宗门区域</span><h2>' + esc(status.name) + '</h2><span class="stage-chip">' + (status.locked ? '灵雾未散' : esc(status.stageName) + ' · ' + status.stage + '/3') + '</span></div></div>' +
+      '<div class="area-progress-track">' + stageMarkup + '</div>' +
+      '<section class="area-sheet-section"><h3>设施与产线</h3><p>' + esc(facilityNames.length ? facilityNames.join(' · ') : '访客与山径功能') + '</p></section>' +
+      '<section class="area-sheet-section"><h3>永久加成</h3><ul class="area-sheet-list">' + activeBonuses + '</ul>' + (nextBonus ? '<p class="area-next-bonus"><b>下一阶段：</b>' + esc(nextBonus.text) + '</p>' : '') + '</section>' +
+      '<section class="area-sheet-section"><h3>解锁条件</h3><ul class="area-sheet-list">' + conditionMarkup + '</ul></section>' +
+      '<button class="modal-action area-sheet-action" ' + actionAttr + ' type="button" ' + (status.locked && !status.canUnlock ? 'disabled' : '') + '>' + esc(actionLabel) + '</button>',
+      'sect-area-sheet',
+      { variant: 'sheet', closeOnBackdrop: true, closeOnEscape: true, restoreFocus: true }
+    );
+    if (!modal) return null;
+    var unlock = modal.querySelector('[data-area-detail-unlock]');
+    if (unlock) unlock.addEventListener('click', function () {
+      var result = Core.unlockArea ? Core.unlockArea(state, areaId, Date.now()) : { ok: false, reason: 'unavailable' };
+      closeModal();
+      if (mutate(result, status.name + '已纳入宗门版图', null, 'order')) showAreaCeremony(areaId);
+    });
+    var sceneAction = modal.querySelector('[data-area-detail-scene]');
+    if (sceneAction) sceneAction.addEventListener('click', function () {
+      closeModal();
+      sectAreaSelection = areaId;
+      sectSceneVisible = true;
+      renderSect();
+      var scene = q('sect-scene');
+      if (scene && scene.scrollIntoView) scene.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return modal;
+  }
+
   function renderSectScene(areas) {
     var scene = q('sect-scene');
     if (!scene) return;
+    scene.hidden = !sectSceneVisible;
     var unlockedAreas = areas.filter(function (area) { return area && !Core.areaStatus(state, area.id).locked; });
     var selectableAreas = unlockedAreas.length ? unlockedAreas : areas;
     if (!selectableAreas.some(function (area) { return area.id === sectAreaSelection; })) sectAreaSelection = selectableAreas[0] ? selectableAreas[0].id : '';
@@ -2054,7 +3098,6 @@ var MODULE_HELP = {
     var stageIndex = Math.max(0, Math.min(3, status.stage || 0));
     var stateName = sectStateName(stageIndex);
     var stageLabel = (DATA.sect.stageNames || ['荒废', '清理', '修补', '焕新'])[stageIndex] || stateName;
-    var art = sectAreaArt(status, stageIndex);
     scene.dataset.currentArea = selected.id;
     scene.dataset.stage = stateName;
     var buildingLayer = q('sect-building-layer');
@@ -2068,30 +3111,27 @@ var MODULE_HELP = {
     /* 背景只负责提供庭院环境，区域建筑统一由前景 building-visual 呈现，
        避免同一张区域大图在背景与建筑层重复叠放。 */
     if (background) background.style.backgroundImage = 'url("' + sceneAssetPath('bg_courtyard_buildingfree.webp') + '")';
-    buildingLayer.innerHTML = areas.map(function (area) {
-      var nodeStatus = Core.areaStatus ? Core.areaStatus(state, area.id) : null;
-      if (!nodeStatus || !nodeStatus.ok) return '';
-      var nodeStage = Math.max(0, Math.min(3, nodeStatus.stage || 0));
-      var nodeState = nodeStatus.locked ? 'locked' : sectStateName(nodeStage);
-      var nodeArt = sectAreaArt(nodeStatus, nodeStage);
-      var label = nodeStatus.locked ? '灵雾未散' : (DATA.sect.stageNames || [])[nodeStage] || nodeState;
-      var visual = nodeArt
-        ? '<span class="sect-building-visual" style="background-image:url(\'' + esc(String(nodeArt).replace(/'/g, '')) + '\')" aria-hidden="true"></span>'
-        : '<span class="sect-building-visual missing-art" aria-hidden="true">☁<span class="fog-tag">灵雾未散</span></span>';
-      return '<button class="sect-building-hotspot' + (area.id === selected.id ? ' is-current' : '') + '" data-scene-node="building" data-area="' + esc(area.id) + '" data-stage="' + nodeState + '" data-state="' + nodeState + '" data-action="select-sect-area" type="button" aria-label="' + esc(nodeStatus.name + '，' + label) + '" aria-current="' + (area.id === selected.id ? 'true' : 'false') + '">' +
-        visual + '<b data-area-label>' + esc(nodeStatus.name) + '</b><small data-stage-label>' + esc(label) + '</small></button>';
-    }).join('');
-    probeMissingArt('#sect-building-layer .sect-building-visual', '<span class="fog-tag">灵雾未散</span>☁', 'missing-art');
+    var selectedVisual = sectAreaVisualMarkup(status, stageIndex, 'sect-building-visual', '');
+    if (!selectedVisual) selectedVisual = '<span class="sect-building-visual missing-art" aria-hidden="true">' + uiIcon('fog') + '<span class="fog-placeholder-label">灵雾待启</span></span>';
+    buildingLayer.innerHTML = '<div class="sect-building-hotspot is-current" data-scene-node="building" data-area="' + esc(selected.id) + '" data-stage="' + stateName + '" data-state="' + stateName + '" aria-label="' + esc(status.name + '，' + stageLabel) + '">' + selectedVisual + '</div>';
+    probeMissingArt('#sect-building-layer .sect-building-visual', uiIcon('fog') + '<span class="fog-placeholder-label">灵雾待启</span>', 'missing-art');
+    Array.prototype.forEach.call(scene.querySelectorAll('.sect-stage-track span'), function (step, index) {
+      step.classList.toggle('is-complete', index <= stageIndex);
+      step.classList.toggle('is-current', index === stageIndex);
+    });
     var switcher = q('sect-area-switcher');
     if (switcher) {
-      switcher.innerHTML = areas.map(function (area) {
+      var switcherAreas = areas.slice(0, 4);
+      (DATA.sect.areas || []).forEach(function (area) {
+        if (switcherAreas.length >= 4 || switcherAreas.some(function (entry) { return entry.id === area.id; })) return;
+        switcherAreas.push(area);
+      });
+      switcher.innerHTML = switcherAreas.map(function (area) {
         var nodeStatus = Core.areaStatus ? Core.areaStatus(state, area.id) : null;
-        var label = nodeStatus && nodeStatus.locked ? '🔒' + area.name : area.name;
-        return '<button class="sect-area-tab' + (area.id === selected.id ? ' is-current' : '') + '" data-action="select-sect-area" data-area="' + esc(area.id) + '" type="button" aria-current="' + (area.id === selected.id ? 'true' : 'false') + '">' + esc(label) + '</button>';
+        var locked = !!(nodeStatus && nodeStatus.locked);
+        return '<button class="sect-area-tab' + (area.id === selected.id ? ' is-current' : '') + (locked ? ' is-locked' : '') + '" data-action="select-sect-area" data-area="' + esc(area.id) + '" type="button" aria-current="' + (area.id === selected.id ? 'true' : 'false') + '" ' + (locked ? 'disabled' : '') + '>' + (locked ? uiIcon('lock') : '') + '<span>' + esc(area.name) + '</span></button>';
       }).join('');
     }
-    var hotspots = scene.querySelector('.sect-scene-hotspots');
-    if (hotspots) hotspots.innerHTML = '';
   }
 
   function focusRenovatedArea(areaId) {
@@ -2120,19 +3160,15 @@ var MODULE_HELP = {
     var fromStage = Math.max(0, Math.min(3, Number(event.fromStage) || 0));
     var toStage = Math.max(0, Math.min(3, Number(event.toStage) || 0));
     var stageNames = DATA.sect && DATA.sect.stageNames || ['荒废', '清理', '修补', '焕新'];
-    var fromArt = status && status.art && status.art[fromStage] || null;
-    var toArt = status && status.art && status.art[toStage] || null;
-    function changeFrame(art, label) {
-      var visual = art
-        ? '<div class="change-thumb" style="background-image:url(\'' + esc(String(art).replace(/'/g, '')) + '\')"></div>'
-        : '<div class="change-thumb"><i>' + esc(status && status.icon || '⛩') + '</i></div>';
+    function changeFrame(stageIndex, label) {
+      var visual = areaThumbMarkup(status, stageIndex, label);
       return '<div class="change-frame">' + visual + '<span>' + esc(label) + '</span></div>';
     }
     var rewardText = event.reward && Object.keys(event.reward).length ? rewardDescription(event.reward, 0) : '';
     var milestone = toStage >= 3 ? '整片区域已经焕新' : '第 ' + toStage + '/3 段修缮完成';
     rootNode.innerHTML = '<div class="world-change-backdrop"><section class="world-change-card" role="dialog" aria-modal="true" aria-labelledby="world-change-title">' +
       '<span class="eyebrow">修缮完成 · 世界即时变化</span><h2 id="world-change-title">' + esc(event.areaName || '宗门') + '亮起来了</h2>' +
-      '<div class="world-change-compare">' + changeFrame(fromArt, stageNames[fromStage] || '从前') + '<span class="change-arrow" aria-hidden="true">→</span>' + changeFrame(toArt, stageNames[toStage] || '现在') + '</div>' +
+      '<div class="world-change-compare">' + changeFrame(fromStage, stageNames[fromStage] || '从前') + '<span class="change-arrow" aria-hidden="true">' + uiIcon('route') + '</span>' + changeFrame(toStage, stageNames[toStage] || '现在') + '</div>' +
       '<div class="change-copy"><b>' + esc(milestone) + '</b><p>' + esc(event.text || '宗门又变好了一点。') + '</p>' +
       (event.bonusText ? '<small>永久生效：' + esc(event.bonusText) + '</small>' : '') +
       (rewardText ? '<small>本次获得：' + esc(rewardText) + '</small>' : '') + '</div>' +
@@ -2159,7 +3195,15 @@ var MODULE_HELP = {
   function showRenovationFeedback(result) {
     if (!result || !result.ok) return null;
     function followUp() {
-      if ((result.acquiredBeastId || result.revealEvents && result.revealEvents.length) && Core.peekBeastReveal && Core.peekBeastReveal(state)) showPendingBeastReveal();
+      if ((result.acquiredBeastId || result.revealEvents && result.revealEvents.length) && Core.peekBeastReveal && Core.peekBeastReveal(state)) {
+        showPendingBeastReveal();
+        return;
+      }
+      if (Core.peekStoryEvent && Core.peekStoryEvent(state)) {
+        root.setTimeout(showPendingStoryEvent, 80);
+        return;
+      }
+      if (result.transformed || state.pendingTransformation) root.setTimeout(showTransformation, 80);
     }
     if (result.worldEvent) return showWorldChange(result.worldEvent, followUp);
     followUp();
@@ -2180,12 +3224,14 @@ var MODULE_HELP = {
     var badge = result && result.stageBonus && result.stageBonus.text
       ? result.stageBonus.text
       : isRenewal ? '区域永久加成已生效' : '新的修缮委托已开启';
-    rootNode.innerHTML = '<section class="world-ceremony" role="dialog" aria-modal="true" aria-label="区域更新">' +
-      '<span class="ceremony-icon">' + esc(status.icon) + '</span>' +
-      '<h2>' + esc(title) + '</h2>' +
-      '<p>' + esc(copy) + '</p>' +
-      '<span class="ceremony-bonus">' + esc(badge) + '</span>' +
-      '<button type="button" data-ceremony-close>' + (isRenewal ? '去看看焕新的宗门' : '收下这份新天地') + '</button></section>';
+    var particles = new Array(15).fill(0).map(function (_, index) { return '<i style="--particle:' + index + '" aria-hidden="true"></i>'; }).join('');
+    var visual = sectAreaVisualMarkup(status, status.stage, 'ceremony-art', status.name + ' · ' + status.stageName);
+    if (!visual) visual = '<div class="ceremony-art is-icon">' + uiIcon(areaIconId(status)) + '</div>';
+    rootNode.innerHTML = '<div class="world-ceremony-backdrop"><section class="world-ceremony" role="dialog" aria-modal="true" aria-label="区域更新">' +
+      '<span class="eyebrow">宗门焕新 · ' + (isRenewal ? '庆典' : '新天地') + '</span>' +
+      '<div class="ceremony-visual"><span class="ceremony-ring" aria-hidden="true"></span>' + visual + '<span class="ceremony-particles">' + particles + '</span></div>' +
+      '<div class="ceremony-copy"><h2>' + esc(title) + '</h2><p>' + esc(copy) + '</p><span class="ceremony-bonus">' + esc(badge) + '</span></div>' +
+      '<button type="button" data-ceremony-close>' + (isRenewal ? '去看看焕新的宗门' : '收下这份新天地') + '</button></section></div>';
     var close = rootNode.querySelector('[data-ceremony-close]');
     if (close) close.addEventListener('click', function () {
       rootNode.innerHTML = '';
@@ -2198,12 +3244,17 @@ var MODULE_HELP = {
     var status = Core.areaStatus ? Core.areaStatus(state, areaId) : null;
     if (!status || !status.ok) return;
     var ready = status.canUnlock;
+    var conditionRows = status.lockMissing && status.lockMissing.length
+      ? status.lockMissing.map(function (need) { return '<li class="is-missing">' + uiIcon('lock') + '<span>' + esc(areaConditionText(need)) + '</span></li>'; }).join('')
+      : '<li>' + uiIcon('check') + '<span>全部条件已满足</span></li>';
     var modal = modalShell(
-      '<span class="eyebrow">宗门舆图 · 区域扩张</span><h2>' + esc(status.icon) + ' ' + esc(status.name) + '</h2>' +
+      '<span class="eyebrow">宗门舆图 · 区域扩张</span><h2 class="icon-heading">' + uiIcon(areaIconId(status)) + '<span>' + esc(status.name) + '</span></h2>' +
       '<p>' + esc(status.lockHint || '这片山径还被灵雾封着。') + '</p>' +
+      '<ul class="area-sheet-list area-unlock-conditions">' + conditionRows + '</ul>' +
       '<div class="task-reward">' + esc('区域职能：' + sectFocusLabel(status.focus) + (status.generatorFamily ? ' · 新生成器产线' : '')) + '</div>' +
       '<button class="modal-action" data-confirm-unlock type="button" ' + (ready ? '' : 'disabled') + '>' + (ready ? '拨开灵雾，扩张宗门' : '条件未齐 · 去完成前置目标') + '</button>',
-      'task-modal area-unlock-modal'
+      'task-modal area-unlock-modal',
+      { variant: 'dialog' }
     );
     if (!modal) return;
     var confirm = modal.querySelector('[data-confirm-unlock]');
@@ -2228,10 +3279,12 @@ var MODULE_HELP = {
     renderSectMap();
     renderSectScene(areas);
     q('sect-acts-title').textContent = '当前阶段 · ' + progress.phaseName;
-    q('sect-reno-progress').textContent = '修缮度 ' + progress.renovationDone + '/' + progress.renovationTarget;
+    q('sect-reno-progress').textContent = Number(progress.renovationTarget) > 0
+      ? '修缮度 ' + progress.renovationDone + '/' + progress.renovationTarget
+      : '本卷以兽语与照料为主';
     q('sect-acts').innerHTML = (progress.milestones || []).map(function (name, index) {
       var cls = index < progress.milestoneIndex ? 'done' : index === progress.milestoneIndex ? 'current' : '';
-      return '<span class="sect-act ' + cls + '"><b>' + esc(name) + '</b><small>' + (index < progress.milestoneIndex ? '✓' : index === progress.milestoneIndex ? '进行中' : '未开启') + '</small></span>';
+      return '<span class="sect-act ' + cls + '"><b>' + esc(name) + '</b><small>' + (index < progress.milestoneIndex ? '已完成' : index === progress.milestoneIndex ? '进行中' : '未开启') + '</small></span>';
     }).join('');
     var stageNames = DATA.sect.stageNames || [];
     q('sect-areas').innerHTML = areas.map(function (area) {
@@ -2239,12 +3292,12 @@ var MODULE_HELP = {
       var done = status ? status.stage : (state.sect && state.sect.stages && state.sect.stages[area.id]) || 0;
       var pips = stageNames.slice(0, 4).map(function (stageName, index) {
         var cls = index < done ? 'done' : index === done && !(status && status.locked) ? 'current' : '';
-        return '<span class="sect-stage-pip ' + cls + '">' + esc(stageName || String(index + 1)) + (index < done ? ' ✓' : '') + '</span>';
+        return '<span class="sect-stage-pip ' + cls + '">' + (index < done ? uiIcon('check') : '') + '<span>' + esc(stageName || String(index + 1)) + '</span></span>';
       }).join('');
       var bonusMarkup = status && status.bonuses && status.bonuses.length
         ? '<div class="sect-area-bonus-list">' + status.bonuses.map(function (bonus) { return '<div class="sect-area-bonus active"><b>段' + bonus.stage + '加成</b><span>' + esc(bonus.text) + '</span></div>'; }).join('') + '</div>'
         : '';
-      return '<div class="sect-area-card" data-help="sect-area-card" title="长按查看区域段位卡说明"><div class="sect-area-head"><strong>' + esc((area.icon || '') + ' ' + area.name) + '</strong><span class="stage-chip">' + (status && status.locked ? '未解锁' : done + '/3 段') + '</span></div><div class="sect-stage-pips">' + pips + '</div>' + bonusMarkup + '</div>';
+      return '<div class="sect-area-card" data-help="sect-area-card" title="长按查看区域段位卡说明"><div class="sect-area-head"><strong>' + uiIcon(area.iconId || 'area-gate') + '<span>' + esc(area.name) + '</span></strong><span class="stage-chip">' + (status && status.locked ? '未解锁' : done + '/3 段') + '</span></div><div class="sect-stage-pips">' + pips + '</div>' + bonusMarkup + '</div>';
     }).join('');
     var reno = Core.currentRenovation ? Core.currentRenovation(state) : null;
     var renoNode = q('sect-reno');
@@ -2256,18 +3309,18 @@ var MODULE_HELP = {
         var renoProductName = renoRecipe ? renoRecipe.name : reno.order.productNeed.productId;
         var renoProductHave = Math.max(0, Number(state.products && state.products[reno.order.productNeed.productId] || 0));
         var renoProductReady = renoProductHave >= (reno.order.productNeed.count || 1);
-        renoProductMarkup = '<button type="button" class="order-need product-order-need' + (renoProductReady ? ' ready' : '') + '" data-open-recipe="' + esc(reno.order.productNeed.productId) + '" data-longpress-recipe="' + esc(reno.order.productNeed.productId) + '" title="查看' + esc(renoProductName) + '的配方和获取方法" aria-label="' + esc(renoProductName) + ' ' + Math.min(renoProductHave, reno.order.productNeed.count) + '/' + reno.order.productNeed.count + '，查看配方"><img src="' + esc(recipeArtPath(renoRecipe)) + '" alt="" /><b>' + Math.min(renoProductHave, reno.order.productNeed.count) + '/' + reno.order.productNeed.count + '</b><span class="order-need-info" aria-hidden="true">i</span></button>';
+        renoProductMarkup = '<button type="button" class="order-need product-order-need' + (renoProductReady ? ' ready' : '') + '" data-open-recipe="' + esc(reno.order.productNeed.productId) + '" data-longpress-recipe="' + esc(reno.order.productNeed.productId) + '" title="查看' + esc(renoProductName) + '的配方和获取方法" aria-label="' + esc(renoProductName) + ' ' + Math.min(renoProductHave, reno.order.productNeed.count) + '/' + reno.order.productNeed.count + '，查看配方"><img src="' + esc(recipeArtPath(renoRecipe)) + '" alt="" /><b>' + Math.min(renoProductHave, reno.order.productNeed.count) + '/' + reno.order.productNeed.count + '</b><span class="order-need-info" aria-hidden="true">' + uiIcon('info') + '</span></button>';
       }
       renoNode.innerHTML = '<div class="section-title-row"><div><span class="eyebrow">当前修缮委托 · ' + esc(reno.area.name) + ' · ' + esc(reno.stageName) + '段</span><h2>' + esc(reno.order.title) + '</h2></div></div>' +
         '<p>' + esc(reno.order.text) + '</p>' +
         '<div class="order-need-icons">' + reno.order.requirements.map(needMarkup).join('') + renoProductMarkup + '</div>' +
         '<button class="deliver-btn" data-deliver-reno type="button" ' + (renoReady ? '' : 'disabled') + '>' + (renoReady ? '交付修缮' : '素材未齐') + '</button>' +
-        '<button class="modal-action" data-go-merge type="button">去医馆合成准备素材</button>';
+        '<button class="modal-action" data-go-merge type="button">去归灵台准备组件</button>';
     } else {
       var volumeLocked = areas.some(function (area) { var status = Core.areaStatus(state, area.id); return status && status.locked; });
       renoNode.innerHTML = volumeLocked
         ? '<div class="section-title-row"><div><span class="eyebrow">区域扩张待办</span><h2>本卷仍有灵雾锁着的山径</h2></div></div><p>回到上方的宗门舆图，点击可解锁区域交付信物，新修缮委托就会出现。</p>'
-        : '<div class="section-title-row"><div><span class="eyebrow">本卷修缮完成</span><h2>宗门焕然一新</h2></div></div><p>把眼前的世界交给下一次交付：去医馆合成、去庭院照料，新区域会随卷章继续展开。</p>';
+        : '<div class="section-title-row"><div><span class="eyebrow">本卷修缮完成</span><h2>宗门焕然一新</h2></div></div><p>穷奇篇已完整保存在山海册。归灵台进入自由加工，普通医案与来访需求也会逐步出现。</p>';
     }
     var nextVolumeConfig = (DATA.sect.volumes || []).find(function (entry) { return entry.volume === volume + 1; }) || null;
     var hookLabel = nextVolumeConfig ? nextVolumeConfig.title : '终卷 · 欢迎回家';
@@ -2313,8 +3366,23 @@ var MODULE_HELP = {
     var recipeOpen = activeProductNeed || Object.keys(state.products || {}).some(function (id) { return Number(state.products[id]) > 0; });
     var yardNav = document.querySelector('.nav-button[data-view="yard-view"]');
     var codexNav = document.querySelector('.nav-button[data-view="codex-view"]');
-    if (yardNav) yardNav.hidden = !firstRepair;
-    if (codexNav) codexNav.hidden = !(state.codex && state.codex.qiongqi && state.codex.qiongqi.discovered);
+    function syncNavLock(button, locked, type) {
+      if (!button) return;
+      button.hidden = false;
+      button.classList.toggle('is-locked', locked);
+      if (locked) {
+        button.dataset.featureLocked = type;
+        button.setAttribute('aria-label', (type === 'yard' ? '庭院' : '图鉴') + '尚未解锁，点击查看条件');
+        if (!button.querySelector('.nav-lock')) button.insertAdjacentHTML('beforeend', uiIcon('lock', 'nav-lock'));
+      } else {
+        delete button.dataset.featureLocked;
+        var lock = button.querySelector('.nav-lock');
+        if (lock) lock.remove();
+        button.setAttribute('aria-label', type === 'yard' ? '打开庭院页' : '打开图鉴页');
+      }
+    }
+    syncNavLock(yardNav, !firstRepair, 'yard');
+    syncNavLock(codexNav, !(state.codex && state.codex.qiongqi && state.codex.qiongqi.discovered), 'codex');
     var playBuilding = document.querySelector('.scene-building[data-node-id="play"]');
     var groomBuilding = document.querySelector('.scene-building[data-node-id="groom"]');
     if (playBuilding) playBuilding.hidden = !firstRepair;
@@ -2349,8 +3417,9 @@ var MODULE_HELP = {
     else if (!tutorial.completed && state.welcomeSeen && tutorial.playRewarded && !tutorial.playMerged) focus = q('merge-board') || focus;
     else if (objective && objective.type === 'care') focus = playBuilding || yardNav || focus;
     else if (objective && (objective.type === 'deliver' || objective.type === 'unlock-area') && objective.page === 'sect-view') focus = q('sect-reno') || focus;
-    else if (objective && (objective.type === 'merge' || objective.type === 'generate' || objective.type === 'recipe')) focus = q('merge-board') || focus;
-    if (focus && state.tutorial && !state.tutorial.completed) focus.classList.add('tutorial-focus');
+    else if (objective && (objective.type === 'merge' || objective.type === 'recipe')) focus = q('merge-board') || focus;
+    else if (objective && objective.type === 'generate') focus = document.querySelector('.merge-cell[data-longpress-generator="' + objective.family + '"]') || q('merge-board') || focus;
+    if (focus && ((state.tutorial && !state.tutorial.completed) || objective && objective.type === 'generate')) focus.classList.add('tutorial-focus');
     syncTutorialMilestones();
   }
 
@@ -2359,8 +3428,8 @@ var MODULE_HELP = {
     if (!state || !state.welcomeSeen || tutorial.completed) return null;
     if (!tutorial.generated) return {
       key: 'generate', index: 1, title: '先产出一件修缮工具',
-      copy: '切到医馆，找到棋盘里的“天工丹械”并点一下。产出成功后才会消耗 1 点灵力。',
-      action: '去点击天工丹械', page: 'merge-view', target: '.merge-cell[data-longpress-generator="tool"]'
+      copy: '切到医馆，找到棋盘里的“医师药箱”并点一下。产出成功后才会消耗 1 点灵力。',
+      action: '去点击医师药箱', page: 'merge-view', target: '.merge-cell[data-longpress-generator="tool"]'
     };
     if (!tutorial.merged) return {
       key: 'merge', index: 2, title: '亲手完成第一次合成',
@@ -2434,11 +3503,17 @@ var MODULE_HELP = {
   }
 
   function openFeatureLockHint(type) {
-    if (type !== 'groom') return null;
-    track('blocked', { reason: 'feature_locked', feature: 'groom' });
+    var messages = {
+      groom: { eyebrow: '庭院灵雾 · 尚待开启', title: '灵雾后是梳洗台', copy: '完成卷一穷奇篇，迎来九尾狐后，灵雾就会散开。现在先跟着顶部“当前目标”修缮山门、完成故事和嬉游亭陪玩。' },
+      yard: { eyebrow: '庭院 · 尚待开启', title: '先把山门点亮', copy: '完成第一次山门修缮后，庭院入口就会开放。当前进度不会丢失，先回归灵台准备修缮组件。' },
+      codex: { eyebrow: '山海册 · 尚待开启', title: '先与第一位伙伴相遇', copy: '完成山门首次修缮并正式结识穷奇后，山海册会记录它的形态与故事。' }
+    };
+    var message = messages[type];
+    if (!message) return null;
+    track('blocked', { reason: 'feature_locked', feature: type });
     return modalShell(
-      '<span class="eyebrow">庭院灵雾 · 尚待开启</span><h2>灵雾后是梳洗台</h2>' +
-      '<p>完成卷一穷奇篇，迎来九尾狐后，灵雾就会散开。现在先跟着顶部“当前目标”修缮山门、完成故事和嬉游亭陪玩。</p>' +
+      '<span class="eyebrow">' + esc(message.eyebrow) + '</span><h2>' + esc(message.title) + '</h2>' +
+      '<p>' + esc(message.copy) + '</p>' +
       '<button class="modal-action" data-feature-lock-go type="button">回到当前目标</button>',
       'task-modal feature-lock-modal'
     );
@@ -2468,22 +3543,37 @@ var MODULE_HELP = {
     Core.ensureOrders(state, Math.random);
     renderHud();
     renderNextAction();
+    renderProjectTray();
     renderOrders();
     renderBoard();
     renderMergeTools();
     renderStorage();
-    renderYard();
-    renderCodex();
     renderProgress();
     renderFeatureVisibility();
     switchView(activeView);
     scheduleTutorialPrompt(100);
   }
 
+  function savePolicyForMutation(result, soundName) {
+    if (result && (result.chapterTransition || result.completedVolume)) {
+      return { historyMode: 'checkpoint', reason: 'chapter-complete' };
+    }
+    if (result && (result.firstCare || result.careToken || result.careResult)) {
+      return { historyMode: 'checkpoint', reason: 'care-settlement' };
+    }
+    /* Jade/paid actions are explicit recovery points. Ordinary generation,
+       board movement and merges deliberately stay out of long-term history. */
+    if (soundName === 'purchase') return { historyMode: 'checkpoint', reason: 'paid-action' };
+    return { historyMode: 'none', reason: soundName === 'merge' ? 'board-merge' : 'ui-action' };
+  }
+
   function mutate(result, successMessage, failureMessage, soundName) {
     if (result && result.ok) {
       if (readOnlyNewerSave) {
-        toast('这份高版本旅程只能查看；可先导出，或在设置中安全重开');
+        restoreProtectedSnapshot();
+        toast(saveProtectionReason && saveProtectionReason.indexOf('conflict') >= 0
+          ? '检测到另一处更新，当前已暂停修改；请先导出或刷新页面'
+          : '这份高版本旅程只能查看；可先导出，或在设置中安全重开');
         render();
         return false;
       }
@@ -2507,14 +3597,17 @@ var MODULE_HELP = {
       if (result.chapterTransition) track('chapter_complete', { volume: result.completedVolume || result.chapterTransition.fromVolume });
       if (result.baseReward) track('daily_claim', { day: state.sevenDayPromise && state.sevenDayPromise.daysClaimed || 0 });
       syncTutorialMilestones();
-      var saved = saveState();
+      var saved = saveState(savePolicyForMutation(result, soundName));
       render();
       if (!saved) {
-        toast('本次变更未能保存，请先导出备份后重试');
+        toast(readOnlyNewerSave
+          ? '检测到存档冲突，为避免覆盖另一处进度，当前已切为只读'
+          : '本次变更未能保存，请先导出备份后重试');
         return false;
       }
       playSfx(soundName || 'click');
       if (successMessage) toast(successMessage);
+      if (Core.peekStoryEvent && Core.peekStoryEvent(state)) root.setTimeout(showPendingStoryEvent, 90);
       return true;
     }
     toast(failureMessage || failureText(result));
@@ -2535,7 +3628,7 @@ var MODULE_HELP = {
       'generator-cap': '同族造物生成器最多同时存在 2 台',
       'resource-upgrade-required': '常驻生成器请通过详情页消耗资源升级',
       'upgrade-gate': '升级前置条件还没满足，长按生成器查看详情',
-      'player-level': '庭院阅历还不够，继续完成委托后再来升级',
+      'player-level': '宗门阅历还不够，继续完成委托后再来升级',
       'max-level': '已经升到最高等级',
       requirements: '素材还没准备齐', jade: '暖玉不足',
       'storage-full': '暂存区已满', 'no-brush': '净化刷不足',
@@ -2563,33 +3656,78 @@ var MODULE_HELP = {
     return cell && board.contains(cell) ? Number(cell.dataset.gridIndex) : null;
   }
 
+  function removeBoardDragGhost() {
+    if (boardDragGhost && boardDragGhost.parentNode) boardDragGhost.parentNode.removeChild(boardDragGhost);
+    boardDragGhost = null;
+  }
+
+  function moveBoardDragGhost(clientX, clientY) {
+    if (!boardDragGhost) return;
+    boardDragGhost.style.left = (Number(clientX) || 0) + 'px';
+    boardDragGhost.style.top = (Number(clientY) || 0) + 'px';
+  }
+
+  function createBoardDragGhost(source, clientX, clientY) {
+    removeBoardDragGhost();
+    if (!source) return;
+    var bounds = source.getBoundingClientRect ? source.getBoundingClientRect() : null;
+    var ghost = document.createElement('div');
+    ghost.className = 'board-drag-ghost';
+    ghost.setAttribute('aria-hidden', 'true');
+    ghost.innerHTML = source.innerHTML;
+    ghost.style.width = Math.max(36, bounds && bounds.width || 0) + 'px';
+    ghost.style.height = Math.max(36, bounds && bounds.height || 0) + 'px';
+    document.body.appendChild(ghost);
+    boardDragGhost = ghost;
+    moveBoardDragGhost(clientX, clientY);
+  }
+
+  function boardDropKind(fromIndex, toIndex) {
+    var cabinetIndex = Core.recipeCabinetIndex != null ? Core.recipeCabinetIndex : (DATA.board.recipeCabinetIndex != null ? DATA.board.recipeCabinetIndex : DATA.board.totalCells - 1);
+    if (!Number.isFinite(fromIndex) || !Number.isFinite(toIndex) || fromIndex === toIndex || toIndex < 0 || toIndex >= state.unlockedCells || toIndex === cabinetIndex) return 'invalid';
+    var source = state.grid[fromIndex];
+    var target = state.grid[toIndex];
+    if (!source) return 'invalid';
+    if (!target) return 'move';
+    if (!source.kind && !target.kind && source.family === target.family && source.tier === target.tier) return 'merge';
+    if (source.kind === 'generator_part' && target.kind === 'generator_part' && source.family === target.family && source.tier === target.tier) return 'merge';
+    if (source.kind === 'generator' && target.kind === 'generator' && source.permanent === false && target.permanent === false && source.family === target.family && Number(source.level || 1) === Number(target.level || 1)) return 'merge';
+    return 'invalid';
+  }
+
   function clearBoardDragClasses() {
     var board = q('merge-board');
-    if (!board) return;
-    board.classList.remove('is-dragging');
-    Array.prototype.forEach.call(board.querySelectorAll('.drag-source,.drag-over'), function (cell) {
-      cell.classList.remove('drag-source', 'drag-over');
-    });
+    if (board) {
+      board.classList.remove('is-dragging');
+      Array.prototype.forEach.call(board.querySelectorAll('.drag-source,.drag-over,.drag-can-merge,.drag-can-move,.drag-invalid'), function (cell) {
+        cell.classList.remove('drag-source', 'drag-over', 'drag-can-merge', 'drag-can-move', 'drag-invalid');
+      });
+    }
+    removeBoardDragGhost();
   }
 
   function dropBoardItem(fromIndex, toIndex) {
-    var target = state.grid[toIndex];
+    var dropKind = boardDropKind(fromIndex, toIndex);
     selectedIndex = null;
-    if (!target) {
+    if (dropKind === 'invalid') {
+      render();
+      toast('请拖到空格，或同类同阶的素材上');
+      return { ok: false, reason: 'occupied' };
+    }
+    if (dropKind === 'move') {
       var moved = Core.moveBoardItem(state, fromIndex, toIndex);
-      if (moved.ok) mutate(moved, '素材已移动 · 可继续拖动合成', null, 'click');
+      if (moved.ok) {
+        boardMotionFeedback = { index: toIndex, type: 'move' };
+        mutate(moved, '素材已移动 · 可继续拖动合成', null, 'click');
+      }
       else { render(); toast(failureText(moved)); }
       return moved;
     }
-    var source = state.grid[fromIndex];
-    var producerPair = target.kind && source && ((target.kind === 'generator_part' && source.kind === 'generator_part') || (target.kind === 'generator' && source.kind === 'generator'));
-    if (target.kind && !producerPair) {
-      render();
-      toast('只能把素材拖到空格，或拖到同类同阶素材上');
-      return { ok: false, reason: 'occupied' };
-    }
     var merged = Core.mergeItems(state, fromIndex, toIndex, Date.now());
-    if (merged.ok) mutate(merged, '合成成功 · ' + itemName(merged.item), null, 'merge');
+    if (merged.ok) {
+      boardMotionFeedback = { index: toIndex, type: 'merge' };
+      mutate(merged, '合成成功 · ' + itemName(merged.item), null, 'merge');
+    }
     else { render(); toast(failureText(merged)); }
     return merged;
   }
@@ -2627,19 +3765,26 @@ var MODULE_HELP = {
       if (board) {
         board.classList.add('is-dragging');
         var source = board.querySelector('[data-grid-index="' + boardDragState.fromIndex + '"]');
-        if (source) source.classList.add('drag-source');
+        if (source) {
+          source.classList.add('drag-source');
+          createBoardDragGhost(source, event.clientX, event.clientY);
+        }
       }
     }
     if (!boardDragState.dragging) return;
     event.preventDefault();
+    moveBoardDragGhost(event.clientX, event.clientY);
     var targetIndex = boardCellAtPoint(event.clientX, event.clientY);
     boardDragState.targetIndex = targetIndex;
     var boardNode = q('merge-board');
     if (boardNode) {
-      Array.prototype.forEach.call(boardNode.querySelectorAll('.drag-over'), function (cell) { cell.classList.remove('drag-over'); });
+      Array.prototype.forEach.call(boardNode.querySelectorAll('.drag-over,.drag-can-merge,.drag-can-move,.drag-invalid'), function (cell) {
+        cell.classList.remove('drag-over', 'drag-can-merge', 'drag-can-move', 'drag-invalid');
+      });
       if (targetIndex != null && targetIndex !== boardDragState.fromIndex) {
         var target = boardNode.querySelector('[data-grid-index="' + targetIndex + '"]');
-        if (target) target.classList.add('drag-over');
+        var dropKind = boardDropKind(boardDragState.fromIndex, targetIndex);
+        if (target) target.classList.add('drag-over', dropKind === 'invalid' ? 'drag-invalid' : 'drag-can-' + dropKind);
       }
     }
   }
@@ -2670,7 +3815,12 @@ var MODULE_HELP = {
     if (index === cabinetIndex) { openRecipeCabinet(); return; }
     var item = state.grid[index];
     if (index >= state.unlockedCells) {
-      mutate(Core.unlockCell(state), '宗门扩建了一格');
+      var unlockResult = Core.unlockCell(state);
+      if (unlockResult.ok) {
+        selectedIndex = null;
+        boardMotionFeedback = { index: unlockResult.index, type: 'unlock' };
+      }
+      mutate(unlockResult, unlockResult.ok ? '第 ' + (unlockResult.index + 1) + ' 格已开放' : null);
       return;
     }
     if (!item) { playSfx('click'); selectedIndex = null; renderBoard(); return; }
@@ -2756,16 +3906,16 @@ var MODULE_HELP = {
     var preview = Core.recycleLowestPreview ? Core.recycleLowestPreview(state, 3) : { ok: false, count: 0 };
     var canRecycle = preview && preview.ok && preview.recycled.length > 0;
     var planMarkup = canRecycle
-      ? '<div class="board-full-plan"><b>可回收 ' + preview.recycled.length + ' 件低阶素材</b><small>' + preview.recycled.map(function (entry) { return esc(entry.name + ' ' + entry.tier + '阶'); }).join('、') + '</small><em>约 +◆' + preview.jade + '</em></div>'
+      ? '<div class="board-full-plan"><b>可回收 ' + preview.recycled.length + ' 件低阶素材</b><small>' + preview.recycled.map(function (entry) { return esc(entry.name + ' ' + entry.tier + '阶'); }).join('、') + '</small><em>约增加暖玉 ' + preview.jade + '</em></div>'
       : '<p class="board-full-empty">棋盘上暂时没有适合一键回收的低阶素材。可以打开回收抽屉整理高阶素材，或先交付已完成素材的委托。</p>';
     var modal = modalShell('<span class="eyebrow">棋盘已满 · 宗门纪事</span><h2>把最旧的几样交回宗门</h2>' +
       '<p class="task-symptom">把无处安放的旧物交回宗门，换一点暖玉，棋盘就又能呼吸了。</p>' + planMarkup +
-      (canRecycle ? '<button class="modal-action" data-recycle-lowest type="button">交回宗门 ' + preview.recycled.length + ' 件 · +◆' + preview.jade + '</button>' : '') +
+      (canRecycle ? '<button class="modal-action" data-recycle-lowest type="button">交回宗门 ' + preview.recycled.length + ' 件 · 暖玉+' + preview.jade + '</button>' : '') +
       '<button class="modal-secondary" data-close-modal type="button">先自己整理</button>', 'task-modal board-full-modal');
     if (modal && canRecycle) {
       modal.querySelector('[data-recycle-lowest]').addEventListener('click', function () {
         var result = Core.recycleLowestItems(state, 3);
-        if (mutate(result, '已回收 ' + (result.recycled ? result.recycled.length : 0) + ' 件 · +◆' + (result.jade || 0), null, 'purchase')) closeModal();
+        if (mutate(result, '已回收 ' + (result.recycled ? result.recycled.length : 0) + ' 件 · 暖玉+' + (result.jade || 0), null, 'purchase')) closeModal();
       });
     }
   }
@@ -2846,7 +3996,7 @@ var MODULE_HELP = {
   function deliver(id) {
     var result = Core.deliverOrder(state, id, Math.random, Date.now());
     var message = result && result.order && result.order.deliveryText ? result.order.deliveryText : '委托完成 · 新进展已记录';
-    if (!message && result && result.affectionGained) message += ' · ' + beastDef(result.order.beastId).name + '好感 +' + result.affectionGained;
+    if (!message && result && result.affectionGained) message += ' · ' + beastDef(result.order.beastId).name + '信任 +' + result.affectionGained;
     if (!message && result && result.levelsGained) message += ' · 升级 Lv.' + result.level + '，灵力上限 +' + result.levelsGained;
     if (!mutate(result, message, null, 'order')) return result;
     closeModal();
@@ -2891,6 +4041,11 @@ var MODULE_HELP = {
       return;
     }
     var can = Core.canDeliver(state, order);
+    var lockedWithoutMaterials = order.status === 'LOCKED' && !(order.requirements || []).length && !order.productNeed && !order.generatorNeed;
+    var lockedTaskNote = order.taskCategory === 'beast' || order.kind === 'beast_gate'
+      ? '这一步不需要交材料。完成当前修缮后，新的兽语会自动开放。'
+      : '这一步暂不需要交材料。先回应当前兽语，修缮材料随后单独开放。';
+    var unavailableActionLabel = lockedWithoutMaterials ? '前置条件尚未完成' : '素材尚未齐全';
     var roll = rerollInfo();
     var rerollAvailable = roll.remaining > 0;
     var orderAffection = Core.affectionRewardForOrder(order);
@@ -2921,19 +4076,19 @@ var MODULE_HELP = {
     var metCount = visitor && state.visitors && state.visitors.met ? Number(state.visitors.met[visitor.id]) || 0 : 0;
     var visitorMarkup = visitor ? '<div class="visitor-request-head"><img src="' + esc(visitor.art) + '" alt="' + esc(visitor.name) + '" /><div><span>山海访客 · ' + esc(visitor.role) + '</span><strong>' + esc(visitor.name) + '</strong><small>' + (metCount ? '曾来过 ' + metCount + ' 次，这次又带来了新故事' : '第一次循着山门灯火而来') + '</small></div></div>' +
       '<p class="visitor-arrival">“' + esc(visitor.arrival) + '”</p><div class="visitor-system-note"><b>山海访客是什么？</b><span>它们是修缮山门后前来求助、送信或歇脚的山海旅人。备好物资后还要当面回应；你的选择会改变结尾与小回礼，并记入访客簿。</span></div>' : '';
-    var modal = modalShell('<span class="eyebrow">' + kindLabel(order.kind) + '委托</span><h2>' + esc(order.title) + '</h2><p class="task-symptom">' + esc(order.symptom || '') + '</p>' +
+    var modal = modalShell('<span class="eyebrow">' + kindLabel(order.taskCategory || order.kind) + '</span><h2>' + esc(order.title) + '</h2><p class="task-symptom">' + esc(order.symptom || '') + '</p>' +
       visitorMarkup +
       (order.mainline ? '<div class="order-prerequisite"><b>主线前置</b><span>' + esc(prerequisiteText(order)) + '</span></div>' : '') +
       '<div class="task-needs">' + order.requirements.map(function (need) {
         var item = Core.makeItem(need.family, need.tier);
-        return '<button type="button" class="task-need-row" data-open-source data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托详情"><img src="' + esc(itemPath(item)) + '" alt="" /><span><strong>' + esc(item.name) + '</strong><small>' + esc(familyDef(need.family).name) + ' · ' + need.tier + '阶 · ' + esc(sourceLabelForNeed(need)) + '</small></span><b>' + countNeed(need) + '/' + need.count + '</b></button>';
-      }).join('') + '</div><div class="task-source-note">同类同阶二合一；每种物品都标明了具体来源，小游戏材料需要在对应设施中获得。委托每日自动刷新，刷新页面不会改变槽位；手动刷新消耗今日次数。</div>' +
+        return '<button type="button" class="task-need-row" data-open-source data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" data-longpress-source="委托详情" title="点击定位来源，长按查看简介与合成路线"><img src="' + esc(itemPath(item)) + '" alt="" /><span><strong>' + esc(item.name) + '</strong><small>' + esc(familyDef(need.family).name) + ' · ' + need.tier + '阶 · ' + esc(sourceLabelForNeed(need)) + '</small></span><b>' + countNeed(need) + '/' + need.count + '</b></button>';
+      }).join('') + '</div><div class="task-source-note">' + esc(lockedWithoutMaterials ? lockedTaskNote : '同类同阶二合一；每种物品都标明了具体来源，小游戏材料需要在对应设施中获得。委托每日自动刷新，刷新页面不会改变槽位；手动刷新消耗今日次数。') + '</div>' +
       careJumpMarkup +
       generatorHintMarkup +
       giftNoteMarkup +
       productHintMarkup +
       '<div class="task-reward">完成奖励：' + esc(rewardDescription(order.rewards, orderAffection)) + '</div>' +
-      '<button class="modal-action" data-modal-deliver type="button" ' + (can ? '' : 'disabled') + '>' + (can ? (visitor ? '交给' + esc(visitor.name) + '，听听后续' : '立即交付') : '素材尚未齐全') + '</button>' +
+      '<button class="modal-action" data-modal-deliver type="button" ' + (can ? '' : 'disabled') + '>' + (can ? (visitor ? '交给' + esc(visitor.name) + '，听听后续' : '立即交付') : unavailableActionLabel) + '</button>' +
       ((order.slot === 'supply' || order.slot === 'care') ? '<button class="modal-secondary" data-reroll="' + order.slot + '" type="button" ' + (rerollAvailable ? '' : 'disabled') + '>免费刷新 ' + roll.remaining + '/' + roll.max + '</button>' : ''), 'task-modal' + (visitor ? ' visitor-order-modal' : ''));
     if (!modal) return;
     var modalCare = modal.querySelector('[data-modal-care]');
@@ -2949,23 +4104,42 @@ var MODULE_HELP = {
 
   function openEnergyCenter() {
     var actions = Core.getAvailableActions(state);
+    var ads = root.MergeAds;
+    var rewardedEnabled = !!(DATA.featureFlags && DATA.featureFlags.rewardedAds);
+    var energyFull = state.energy >= state.maxEnergy;
+    var adReady = ads && ads.isReady && ads.isReady();
+    var adError = ads && ads.getLastError ? ads.getLastError() : null;
+    var adStatus = energyFull ? '当前灵力已满' : (adReady ? '视频已准备好' : (adError && adError.userMessage ? adError.userMessage : '点击后将加载视频'));
+    var rewardedMarkup = rewardedEnabled ? '<div class="energy-reward-offer"><strong>灵力不够时，可以自愿观看激励视频</strong><small>有效观看完成恢复 10 点灵力；中途关闭、跳过或播放失败不发放奖励。' + esc(adStatus) + '。</small></div>' +
+      '<button class="modal-action energy-ad-action" data-watch-rewarded type="button" ' + (energyFull ? 'disabled' : '') + '>' + (energyFull ? '灵力已满，无需观看' : '看广告恢复 10 点灵力') + '</button>' : '';
     var modal = modalShell('<span class="eyebrow">灵力 · 灯油慢慢攒</span><h2>每一次出发，都要留一点力气</h2><p>每 150 秒恢复 1 点，最多 ' + state.maxEnergy + ' 点；离开庭院后最多替你积攒 8 小时。</p>' +
       '<div class="energy-card"><div class="energy-stat"><span>当前灵力</span><b>' + state.energy + '/' + state.maxEnergy + '</b></div><small>小游戏消耗：轻松1 · 标准2 · 困难3 · 大师4 · 挑战5。零灵力仍可：' + [actions.merge ? '合成' : '', actions.claimJob ? '领取产出' : '交付委托'].filter(Boolean).join('、') + '</small></div>' +
       '<p class="ad-hint">灯油见底了，不着急。先合成、交付或领取百草园产出，灯会自己慢慢蓄起来。</p>' +
+      rewardedMarkup +
       '<button class="modal-secondary" data-close-energy type="button">知道了，继续玩</button>', 'energy-modal');
-    if (modal) modal.querySelector('[data-close-energy]').addEventListener('click', closeModal);
+    if (!modal) return;
+    modal.querySelector('[data-close-energy]').addEventListener('click', closeModal);
+    var watch = modal.querySelector('[data-watch-rewarded]');
+    if (watch) watch.addEventListener('click', watchRewardedEnergy);
   }
 
   function openFacility(id) {
+    if (id === 'clinic' && state.storyExperience && state.storyExperience.active && !state.storyExperience.volumeOneCompleted) {
+      closeModal();
+      switchView('merge-view');
+      var currentProject = q('project-tray');
+      if (currentProject && currentProject.scrollIntoView) currentProject.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
     var definition = DATA.facilities[id];
     var facility = state.facilities[id];
     var next = facility.level < definition.levels.length ? definition.levels[facility.level] : null;
     var modal = modalShell('<span class="eyebrow">庭院设施 · 可见产出</span><h2>' + esc(definition.name) + ' Lv' + facility.level + '</h2><p>' + esc(facilitySummary(id)) + '</p><div class="facility-modal-grid">' + definition.levels.map(function (level) {
-      var text = id === 'herb' ? level.intervalMinutes + '分钟/份 · 容量' + level.cap : id === 'clinic' ? '有效照料疗愈 +' + level.healReward + (level.beastXpMultiplier > 1 ? ' · 经验+10%' : '') : id === 'groom' ? '开放至' + level.difficulty + ' · 梳洗奖励 ' + Math.round(level.bonusTierChance * 100) + '%' : '开放至' + level.difficulty + ' · 提示 +' + level.hintBonus;
-      return '<div class="facility-level ' + (facility.level === level.level ? 'current' : '') + '"><b>Lv' + level.level + ' · ◆' + level.cost + '</b><small>' + esc(text) + '</small></div>';
+      var text = id === 'herb' ? level.intervalMinutes + '分钟/份 · 容量' + level.cap : id === 'clinic' ? '有效照料疗愈 +' + level.healReward + (level.beastXpMultiplier > 1 ? ' · 宗门阅历+10%' : '') : id === 'groom' ? '开放至' + difficultyLabel(level.difficulty) + ' · 梳洗奖励 ' + Math.round(level.bonusTierChance * 100) + '%' : '开放至' + difficultyLabel(level.difficulty) + ' · 提示 +' + level.hintBonus;
+      return '<div class="facility-level ' + (facility.level === level.level ? 'current' : '') + '"><b>Lv' + level.level + ' · 暖玉' + level.cost + '</b><small>' + esc(text) + '</small></div>';
     }).join('') + '</div>' +
       (id === 'herb' && facility.stored.length ? '<button class="modal-secondary" data-claim-facility type="button">领取药材 ×' + facility.stored.length + '</button>' : '') +
-      '<button class="modal-action" data-upgrade-facility type="button" ' + (next ? '' : 'disabled') + '>' + (next ? '升级 · ◆' + next.cost : '设施已满级') + '</button>', 'task-modal');
+      '<button class="modal-action" data-upgrade-facility type="button" ' + (next ? '' : 'disabled') + '>' + (next ? '升级 · 暖玉' + next.cost : '设施已满级') + '</button>', 'task-modal');
     if (!modal) return;
     var upgrade = modal.querySelector('[data-upgrade-facility]');
     if (upgrade) upgrade.addEventListener('click', function () {
@@ -3021,7 +4195,7 @@ var MODULE_HELP = {
         (item ? '<img src="' + esc(itemPath(item)) + '" alt="' + esc(itemName(item)) + '" />' : '＋') + '</button>';
     }).join('');
     var cost = DATA.economy.storageCosts[state.storage.slots - 3];
-    var modal = modalShell('<span class="eyebrow">随身药匣 · 满盘奖励不丢失</span><h2>药匣格 ' + state.storage.slots + ' 格</h2><p>点击素材即可放回棋盘；药匣格与满盘后的待入盘队列是两个独立位置。</p><div class="storage-list drawer-storage-list">' + slots + '</div><p class="storage-note ' + (state.pendingRewards.length ? 'pending' : '') + '">待入盘队列 · ' + state.pendingRewards.length + ' 份</p><button class="modal-action" data-storage-drawer-upgrade type="button" ' + (state.storage.slots >= 6 ? 'disabled' : '') + '>' + (state.storage.slots >= 6 ? '药匣已满级' : '扩容 · ◆' + cost) + '</button>', 'task-modal storage-modal');
+    var modal = modalShell('<span class="eyebrow">随身药匣 · 满盘奖励不丢失</span><h2>药匣格 ' + state.storage.slots + ' 格</h2><p>点击素材即可放回棋盘；药匣格与满盘后的待入盘队列是两个独立位置。</p><div class="storage-list drawer-storage-list">' + slots + '</div><p class="storage-note ' + (state.pendingRewards.length ? 'pending' : '') + '">待入盘队列 · ' + state.pendingRewards.length + ' 份</p><button class="modal-action" data-storage-drawer-upgrade type="button" ' + (state.storage.slots >= 6 ? 'disabled' : '') + '>' + (state.storage.slots >= 6 ? '药匣已满级' : '扩容 · 暖玉' + cost) + '</button>', 'task-modal storage-modal');
     if (!modal) return;
     modal.addEventListener('click', function (event) {
       var slot = event.target.closest('[data-storage-drawer-index]');
@@ -3069,9 +4243,9 @@ var MODULE_HELP = {
     var cards = (DATA.backgrounds || []).map(function (background) {
       var isOwned = owned.indexOf(background.id) >= 0;
       var isActive = active === background.id;
-      var action = isActive ? '当前使用' : isOwned ? '使用' : background.signInExclusive ? '七日约定限定' : '购买 · ◆' + background.price;
+      var action = isActive ? '当前使用' : isOwned ? '使用' : background.signInExclusive ? '七日约定限定' : '购买 · 暖玉' + background.price;
       return '<article class="background-card ' + (isActive ? 'active' : '') + '">' +
-        '<img src="' + esc(backgroundAssetPath(background)) + '" alt="' + esc(background.name) + '" />' +
+        '<img src="' + esc(backgroundAssetPath(background)) + '" alt="' + esc(background.name) + '" style="object-position:' + esc(background.previewPosition || '50% 50%') + '" />' +
         '<div class="background-card-body"><strong>' + esc(background.name) + '</strong><small>' + esc(background.description || '') + '</small>' +
         '<button type="button" data-background-id="' + esc(background.id) + '" ' + (isActive || background.signInExclusive && !isOwned ? 'disabled' : '') + '>' + action + '</button></div></article>';
     }).join('');
@@ -3088,13 +4262,55 @@ var MODULE_HELP = {
     });
   }
 
-  function careRewardPreview(difficulty) {
-    if (difficulty && difficulty.challenge) return '按得分 2–6 份素材 · 最高 T3+T2 · 不增加成长数值';
+  function careRewardFamily(type) {
+    var display = caseForDisplay();
+    var route = display && careRouteForDisplay(display.id, type);
+    return route && route.family || (type === 'play' ? 'play' : 'groom');
+  }
+
+  function careRewardTierLimit(difficulty) {
+    if (difficulty && difficulty.challenge) return Math.max(1, Number(difficulty.maxTier) || 3);
+    var rewards = difficulty && difficulty.rewards || {};
+    var maxTier = 1;
+    Object.keys(rewards).forEach(function (key) {
+      (rewards[key] || []).forEach(function (tier) { maxTier = Math.max(maxTier, Number(tier) || 1); });
+    });
+    return maxTier;
+  }
+
+  function careRewardItemText(type, difficulty) {
+    var family = familyDef(careRewardFamily(type));
+    var maxTier = careRewardTierLimit(difficulty);
+    var names = family && Array.isArray(family.items) ? family.items.slice(0, maxTier) : [];
+    return {
+      familyName: family && family.name || '照料',
+      maxTier: maxTier,
+      names: names
+    };
+  }
+
+  function careRewardPreview(type, difficulty) {
+    var itemInfo = careRewardItemText(type, difficulty);
+    var itemText = itemInfo.names.join('、') || itemInfo.familyName + '素材';
+    if (difficulty && difficulty.challenge) return '可能获得：' + itemText + '（T1–T' + itemInfo.maxTier + '） · 按得分 2–6 份 · 不增加成长数值';
     var rewards = difficulty && difficulty.rewards || {};
     function tiers(values) {
       return (values || []).map(function (tier) { return 'T' + tier; }).join('+') || '—';
     }
-    return '保底 ' + tiers(rewards.floor) + ' · B ' + tiers(rewards.B) + ' · A ' + tiers(rewards.A) + ' · S ' + tiers(rewards.S);
+    return '可能获得：' + itemText + '（T1–T' + itemInfo.maxTier + '） · 保底 ' + tiers(rewards.floor) + ' · B ' + tiers(rewards.B) + ' · A ' + tiers(rewards.A) + ' · S ' + tiers(rewards.S);
+  }
+
+  function careRewardKindsGuide(type) {
+    var config = DATA.careGames || {};
+    var ids = (config.order || []).slice();
+    if (config.difficulties && config.difficulties.challenge) ids.push('challenge');
+    var parts = ids.map(function (id) {
+      var difficulty = config.difficulties && config.difficulties[id];
+      if (!difficulty) return '';
+      var info = careRewardItemText(type, difficulty);
+      return difficulty.name + '：' + (info.names.join('、') || info.familyName + '素材') + '（T1–T' + info.maxTier + '）';
+    }).filter(Boolean);
+    return '<div class="care-guide-row"><i class="care-guide-mark reward">' + uiIcon('jade') + '</i><span>各难度可能获得：' + esc(parts.join('；')) + '。评级越高，越容易拿到高阶物品。</span></div>';
   }
 
   function careOrderRelevance(type) {
@@ -3127,19 +4343,19 @@ var MODULE_HELP = {
       var objectiveLabel = game.objective && typeof game.objective === 'object' ? game.objective.label : game.objective;
       return (game.typeCount ? game.typeCount + ' 种图标 · ' : '') + (game.moveLimit ? game.moveLimit + ' 步 · ' : '') + esc(objectiveLabel || '完成关卡目标') + ' · 至少 ' + (game.minLegalMoves || 1) + ' 个候选交换';
     }
-    var towerInfo = game.cols + '×' + game.rows + ' 塔基 · ' + game.layers + ' 层 · ' + game.typeCount + ' 种玩具';
-    var failInfo = Number(game.failPerfCap) >= 0.8 ? '未通关也按得分结算奖励' : '通关/得分均可结算';
-    return towerInfo + ' · 三张相同消除 · 槽 ' + game.slots + ' 格 · ' + failInfo;
+    var towerInfo = game.cols + '×' + game.rows + ' 中央主牌区 · 四组副牌 · ' + game.typeCount + ' 种玩具';
+    return towerInfo + ' · 交错叠牌 · 槽 ' + game.slots + ' 格 · 题面有解，错路会卡死';
   }
 
   function careGameGuide(type) {
     if (type === 'groom') {
       return '<div class="care-game-guide" role="note"><strong>先看懂棋子标记</strong>' +
-        '<div class="care-guide-row"><i class="care-guide-mark knot">×/2</i><span>毛结层数：需要通过相邻消除逐层解开；“2”表示还剩两层，不是要匹配两次。</span></div>' +
-        '<div class="care-guide-row"><i class="care-guide-mark line">↔↕</i><span>条纹块：消除整行或整列；○ 炸弹：清除周围 3×3；✦ 彩石：清除同色图标。</span></div>' +
-        '<div class="care-guide-row"><i class="care-guide-mark move">⇄</i><span>拖动相邻图标交换，三连即可消除；四连、五连或 L/T 形会制造特殊块。</span></div></div>';
+        careRewardKindsGuide(type) +
+        '<div class="care-guide-row"><i class="care-guide-mark knot">' + uiIcon('info') + '</i><span>毛结层数：需要通过相邻消除逐层解开；数字“2”表示还剩两层。</span></div>' +
+        '<div class="care-guide-row"><i class="care-guide-mark line">' + uiIcon('route') + '</i><span>条纹块消除整行或整列，炸弹清除周围 3×3，彩石清除同色图标。</span></div>' +
+        '<div class="care-guide-row"><i class="care-guide-mark move">' + uiIcon('daily-merge') + '</i><span>拖动相邻图标交换，三连即可消除；四连、五连或 L/T 形会制造特殊块。</span></div></div>';
     }
-    return '<div class="care-game-guide" role="note"><strong>玩具塔玩法</strong><div class="care-guide-row"><i class="care-guide-mark move">🪜</i><span>玩具牌会叠成多层塔，只有上方没有压住的“露头牌”可以点击；下层牌会随清塔逐渐露出。</span></div><div class="care-guide-row"><i class="care-guide-mark line">3</i><span>点击露头牌收入底部五格槽，凑满 3 张相同图案自动消除；槽满仍凑不出三张则本局结束。</span></div><div class="care-guide-row"><i class="care-guide-mark line">⏱</i><span>连续消除三张会触发连击加分。高难度即使未能通关，也会按已消组数和得分结算素材奖励；清空整座塔获得最高表现。</span></div></div>';
+    return '<div class="care-game-guide" role="note"><strong>玩具塔玩法</strong>' + careRewardKindsGuide(type) + '<div class="care-guide-row"><i class="care-guide-mark move">' + uiIcon('nav-merge') + '</i><span>中央是交错覆盖的主牌区，四周是四组副牌堆。优先向主牌深处推进，副牌留作配对和救场。</span></div><div class="care-guide-row"><i class="care-guide-mark line">' + uiIcon('lock') + '</i><span>只有完全未被上层卡面压住的牌可以点击；被压住的图案会变暗。</span></div><div class="care-guide-row"><i class="care-guide-mark line">' + uiIcon('daily-merge') + '</i><span>底部五格，三张相同自动消除。题面有通关路线，但错误顺序仍可能塞满槽位。</span></div><div class="care-guide-row"><i class="care-guide-mark line">' + uiIcon('tool-undo') + '</i><span>每局可各用一次移出三张、撤回一步和重排牌面；每日同难度保持同一牌阵。</span></div></div>';
   }
 
   function openCareDifficulty(type) {
@@ -3151,24 +4367,59 @@ var MODULE_HELP = {
     var used = Number(state.daily.careRewards && state.daily.careRewards[type]) || 0;
     var difficultyIds = (config.order || []).slice();
     if (config.difficulties && config.difficulties.challenge) difficultyIds.push('challenge');
-    var cards = difficultyIds.map(function (id) {
+    var selectedDifficulty = difficultyIds.indexOf(recommended) >= 0 ? recommended : difficultyIds[0];
+    var tabs = difficultyIds.map(function (id) {
       var difficulty = config.difficulties[id];
       var unlocked = Core.careDifficultyUnlocked(state, id, type);
-      var game = difficulty[type];
-      return '<button class="care-difficulty-card ' + (recommended === id ? 'recommended' : '') + (difficulty.challenge ? ' challenge' : '') + '" data-care-difficulty="' + id + '" type="button" ' + (unlocked ? '' : 'disabled') + '>' +
-        '<span><b>' + esc(difficulty.name) + (recommended === id ? ' · 推荐' : '') + '</b><small>' + game.cols + '×' + game.rows + ' · ' + (game.typeCount || 6) + ' 种图标 · ' + game.timeLimit + ' 秒</small></span>' +
-        '<em class="care-rule-preview">' + (unlocked ? careRulePreview(type, game) : esc(careUnlockText(id, type))) + '</em>' +
-        '<em>' + (unlocked ? esc(careRewardPreview(difficulty) + (difficulty.challenge && state.challengeBest ? ' · 最高分 ' + (Number(state.challengeBest[type]) || 0) : '')) : '') + '</em></button>';
+      return '<button class="care-difficulty-tab' + (id === selectedDifficulty ? ' is-selected' : '') + (recommended === id ? ' is-recommended' : '') + (difficulty.challenge ? ' is-challenge' : '') + '" data-care-difficulty-tab="' + id + '" type="button" role="tab" aria-selected="' + (id === selectedDifficulty ? 'true' : 'false') + '"><b>' + esc(difficulty.name) + '</b><small>' + (recommended === id ? '推荐' : unlocked ? '可选择' : '未解锁') + '</small></button>';
     }).join('');
+    function detailMarkup(id) {
+      var difficulty = config.difficulties[id];
+      var game = difficulty[type];
+      var unlocked = Core.careDifficultyUnlocked(state, id, type);
+      var cost = Number(config.energyCosts && config.energyCosts[id]) || 0;
+      return '<div class="care-detail-grid">' +
+        '<div><span>棋盘</span><b>' + game.cols + '×' + game.rows + '</b></div>' +
+        '<div><span>目标</span><b>' + esc(game.objective && game.objective.label || (type === 'play' ? '清空玩具塔' : '完成梳洗')) + '</b></div>' +
+        '<div><span>灵力</span><b>' + cost + ' 点</b></div>' +
+        '<div><span>状态</span><b>' + (unlocked ? '已解锁' : esc(careUnlockText(id, type))) + '</b></div>' +
+      '</div><p class="care-rule-preview">' + esc(careRulePreview(type, game)) + '</p>' +
+      '<div class="care-reward-preview">' + uiIcon('jade') + '<span>' + esc(careRewardPreview(type, difficulty)) + '</span></div>' +
+      (difficulty.challenge ? '<div class="care-challenge-note">挑战模式只发素材，不增加信任、疗愈或宗门阅历。</div>' : '');
+    }
     var modal = modalShell('<span class="eyebrow">挑一个合适的挑战</span><h2>' + esc(careTypeLabel(type)) + '</h2>' +
       '<p>' + esc(careOrderRelevance(type)) + '</p><div class="care-run-budget"><b>今日素材奖励</b><span>' + (rewardBudget.unlimited ? '奖励不限' : '今日剩余奖励 ' + Math.max(0, rewardBudget.cap - used) + '/' + rewardBudget.cap + ' 次') + '</span></div>' +
-      '<div class="care-preference-warning">普通难度会增加当前神兽的好感与疗愈；挑战模式只按得分发放更多合成素材，不增加任何成长数值。</div>' +
-      careGameGuide(type) + '<div class="care-difficulty-list">' + cards + '</div><p class="care-effective-rule">灵力消耗：轻松1 · 标准2 · 困难3 · 大师4 · 挑战5。离开或跳过不会返还灵力。</p>', 'task-modal care-difficulty-modal');
+      '<div class="care-difficulty-tabs" role="tablist" aria-label="难度选择">' + tabs + '</div>' +
+      '<div class="care-difficulty-detail" data-care-difficulty-detail>' + detailMarkup(selectedDifficulty) + '</div>' +
+      '<details class="care-guide-disclosure"><summary>玩法说明</summary>' + careGameGuide(type) + '</details>' +
+      '<p class="care-effective-rule">离开或跳过不会返还灵力；加载失败时不会扣除。</p>' +
+      '<button class="modal-action care-start-action" data-care-start type="button"></button>', 'task-modal care-difficulty-modal', { variant: 'dialog', closeOnBackdrop: true, closeOnEscape: true });
     if (!modal) return { ok: false, reason: 'modal-unavailable' };
+    function syncSelection(id) {
+      selectedDifficulty = id;
+      Array.prototype.forEach.call(modal.querySelectorAll('[data-care-difficulty-tab]'), function (tab) {
+        var selected = tab.dataset.careDifficultyTab === id;
+        tab.classList.toggle('is-selected', selected);
+        tab.setAttribute('aria-selected', selected ? 'true' : 'false');
+      });
+      var detail = modal.querySelector('[data-care-difficulty-detail]');
+      if (detail) detail.innerHTML = detailMarkup(id);
+      var difficulty = config.difficulties[id];
+      var unlocked = Core.careDifficultyUnlocked(state, id, type);
+      var cost = Number(config.energyCosts && config.energyCosts[id]) || 0;
+      var start = modal.querySelector('[data-care-start]');
+      if (start) {
+        start.disabled = !unlocked;
+        start.textContent = unlocked ? '消耗' + cost + '灵力 · 开始' + difficulty.name : '尚未解锁 · ' + careUnlockText(id, type);
+      }
+    }
+    syncSelection(selectedDifficulty);
     modal.addEventListener('click', function (event) {
-      var button = event.target.closest('[data-care-difficulty]');
-      if (!button || button.disabled) return;
-      openCare(type, button.dataset.careDifficulty);
+      var tab = event.target.closest('[data-care-difficulty-tab]');
+      if (tab) { syncSelection(tab.dataset.careDifficultyTab); return; }
+      var start = event.target.closest('[data-care-start]');
+      if (!start || start.disabled) return;
+      openCare(type, selectedDifficulty);
     });
     return { ok: true, selector: true, recommendedDifficulty: recommended };
   }
@@ -3182,7 +4433,7 @@ var MODULE_HELP = {
     if (ready && ready.Game) return Promise.resolve(ready);
     if (retry) delete careEngineLoads[type];
     if (careEngineLoads[type]) return careEngineLoads[type];
-    var source = type === 'groom' ? 'js/merge/match3.js' : 'js/merge/sheep-game.js';
+    var source = type === 'groom' ? 'js/merge/match3.js?ui=13' : 'js/merge/sheep-game.js?ui=13';
     careEngineLoads[type] = new Promise(function (resolve, reject) {
       var stale = document.querySelector('script[data-care-engine="' + type + '"]');
       if (stale && stale.parentNode) stale.parentNode.removeChild(stale);
@@ -3246,7 +4497,12 @@ var MODULE_HELP = {
     return openCareLoaded(type, difficulty);
   }
 
-  function openCareLoaded(type, difficulty) {
+  function openCareLoaded(type, difficulty, runOptions) {
+    runOptions = runOptions || {};
+    if (readOnlyNewerSave) {
+      toast('只读旅程不能开始新的照料；请先导出或刷新页面');
+      return { ok: false, reason: 'read-only' };
+    }
     if (!difficulty) return openCareDifficulty(type);
     var display = caseForDisplay();
     if (!display.entry) {
@@ -3264,26 +4520,39 @@ var MODULE_HELP = {
     if (!Engine || !Engine.Game || !gameRoot) {
       return prepareCare(type, difficulty, true);
     }
-    var started = Core.beginCare(state, type, difficulty, display.id);
+    var practice = type === 'play' && runOptions.practice === true;
+    var started = practice
+      ? { ok: true, token: null, cost: 0, energy: state.energy, practice: true }
+      : Core.beginCare(state, type, difficulty, display.id);
     if (!started.ok) { toast(failureText(started)); return started; }
+    if (!practice && !saveState({ historyMode: 'checkpoint', reason: 'care-start' })) {
+      Core.refundCare(state, started.token);
+      saveState({ historyMode: 'checkpoint', reason: 'care-start-rollback' });
+      render();
+      toast('照料凭据未能写入存档，本次没有扣除灵力');
+      return { ok: false, reason: 'save-failed', refunded: true };
+    }
     closeModal();
     playSfx('click');
 
     gameRoot.classList.add('is-open');
     gameRoot.setAttribute('aria-hidden', 'false');
-    var warning = '';
-    gameRoot.innerHTML = '<section class="care-game-shell ' + (type === 'groom' ? 'match3-shell' : 'sheep-shell') + '" role="dialog" aria-modal="true" aria-label="' + (type === 'groom' ? '梳洗台梳洗' : '嬉游亭陪玩 · 玩具塔') + '">' + warning + '<canvas id="care-game-canvas" tabindex="0" aria-label="' + (type === 'groom' ? '滑动交换梳洗图案，规划步数、制造特殊块并完成毛结目标' : '点击露出的玩具牌收入五格槽，三张相同自动消除，清空玩具塔') + '"></canvas></section>';
+    var warning = practice ? '<div class="care-practice-banner">同局复盘 · 不耗灵力 · 不发奖励</div>' : '';
+    var careVisual = type === 'groom'
+      ? '<span class="care-game-beast" aria-hidden="true"><img src="assets/art/characters/qiongqi_lv1.webp" alt="" /></span>'
+      : '';
+    gameRoot.innerHTML = '<section class="care-game-shell ' + (type === 'groom' ? 'match3-shell' : 'sheep-shell') + '" role="dialog" aria-modal="true" aria-label="' + (type === 'groom' ? '梳洗台梳洗' : '嬉游亭陪玩 · 玩具塔') + '">' + warning + careVisual + '<canvas id="care-game-canvas" tabindex="0" aria-label="' + (type === 'groom' ? '滑动交换梳洗图案，规划步数、制造特殊块并完成毛结目标' : '点击未被遮挡的玩具牌收入五格槽，三张相同自动消除；可使用移出、撤回和重排各一次') + '"></canvas></section>';
     var canvas = q('care-game-canvas');
     var context = canvas && canvas.getContext ? canvas.getContext('2d') : null;
     if (!canvas || !context) {
-      Core.refundCare(state, started.token);
+      if (!practice) Core.refundCare(state, started.token);
       gameRoot.innerHTML = '';
       gameRoot.classList.remove('is-open');
       gameRoot.setAttribute('aria-hidden', 'true');
-      var canvasRefundSaved = saveState();
+      var canvasRefundSaved = practice ? true : saveState({ historyMode: 'checkpoint', reason: 'care-refund-canvas' });
       render();
-      toast(canvasRefundSaved ? '当前浏览器无法启动小游戏，灵力已返还' : '小游戏未启动；返还状态未能保存，请先导出备份');
-      return { ok: false, reason: 'canvas-unavailable', refunded: true };
+      toast(practice ? '当前浏览器无法启动复盘' : (canvasRefundSaved ? '当前浏览器无法启动小游戏，灵力已返还' : '小游戏未启动；返还状态未能保存，请先导出备份'));
+      return { ok: false, reason: 'canvas-unavailable', refunded: !practice };
     }
 
     var session = {
@@ -3297,25 +4566,42 @@ var MODULE_HELP = {
       width: 390,
       height: 844,
       difficulty: difficulty,
+      practice: practice,
+      seed: type === 'play' ? toyTowerSeed(difficulty) : '',
       listeners: {},
-      settled: false
+      settled: false,
+      settling: false,
+      closed: false
     };
     session.careToken = started.token;
     careSession = session;
 
     function settle(perf, summary, skipped) {
-      if (!careSession || careSession !== session || session.settled) return;
+      if (!careSession || careSession !== session || session.settled || session.settling) return;
+      session.settling = true;
       var value = Math.max(0, Math.min(1, Number(perf) || 0));
       var outcome = skipped ? 'skip' : value >= 0.85 ? 'mastery' : value >= 0.4 ? 'complete' : 'timeout';
-      finishCare(outcome, summary || {});
+      var settled = finishCare(outcome, summary || {}, session);
+      if (!settled || !settled.ok) session.settling = false;
+      return settled;
     }
 
     var engineOptions = Object.assign({}, difficultyConfig[type], {
       difficulty: difficulty,
+      seed: type === 'play' ? session.seed : undefined,
+      uiTheme: type === 'play' ? {
+        shell: 'rgba(20,43,50,0.76)', panel: '#F8E8C7', ink: '#5A3A28', muted: '#80644F',
+        primary: '#D86A4E', primaryDark: '#8F3F31', disabled: '#AFA89B', success: '#78A67A'
+      } : {
+        shell: 'rgba(248,239,211,0.28)', panel: '#FFF8E8', ink: '#5A3A28', muted: '#80644F',
+        primary: '#D86A4E', primaryDark: '#8F3F31', disabled: '#D7CDBB', success: '#78A67A'
+      },
       onEvent: function (name) {
         if (name === 'swap' || name === 'swap-fail') playSfx('swap');
         else if (name === 'match') playSfx('match');
         else if (name === 'land') playSfx('land');
+        else if (name === 'tool' || name === 'shuffle') playSfx('care');
+        else if (name === 'danger') playSfx('click');
       },
       onDone: function (perf, summary) { settle(perf, summary, false); },
       onCancel: function (summary) { settle(summary && summary.perf, summary, true); },
@@ -3327,12 +4613,12 @@ var MODULE_HELP = {
     try {
       session.game = new Engine.Game(type === 'groom' ? 'GROOM' : 'PLAY', engineOptions);
     } catch (error) {
-      Core.refundCare(state, session.careToken);
+      if (!practice) Core.refundCare(state, session.careToken);
       stopCareGame();
-      var startRefundSaved = saveState();
+      var startRefundSaved = practice ? true : saveState({ historyMode: 'checkpoint', reason: 'care-refund-start' });
       render();
-      toast(startRefundSaved ? '小游戏启动失败，灵力已返还' : '小游戏启动失败；返还状态未能保存，请先导出备份');
-      return { ok: false, reason: 'game-start', refunded: true };
+      toast(practice ? '复盘启动失败' : (startRefundSaved ? '小游戏启动失败，灵力已返还' : '小游戏启动失败；返还状态未能保存，请先导出备份'));
+      return { ok: false, reason: 'game-start', refunded: !practice };
     }
     if (type === 'groom' && difficulty === 'easy' && session.game && typeof session.game.useHint === 'function') {
       root.setTimeout(function () {
@@ -3390,7 +4676,17 @@ var MODULE_HELP = {
     session.listeners.pointercancel = pointerUp;
     Object.keys(session.listeners).forEach(function (name) { canvas.addEventListener(name, session.listeners[name], { passive: false }); });
     session.keyHandler = function (event) {
-      if (event.key === 'Escape') settle(0, { game: type === 'groom' ? 'match3' : 'sheep', perf: 0 }, true);
+      if (event.key !== 'Escape' || !session.game) return;
+      event.preventDefault();
+      /* Goal completion wins over cancellation. SheepGame deliberately waits
+         650ms for its finish presentation; Escape during that window must not
+         turn a cleared tower into a skipped visit. */
+      var complete = typeof session.game.isGoalComplete === 'function' && session.game.isGoalComplete();
+      complete = complete || session.game.finished && session.game.phase === 'done';
+      var summary = typeof session.game._summary === 'function'
+        ? session.game._summary()
+        : { game: type === 'groom' ? 'match3' : 'sheep', perf: Number(session.game.perf) || 0 };
+      settle(Number(summary.perf != null ? summary.perf : session.game.perf) || 0, summary, !complete);
     };
     document.addEventListener('keydown', session.keyHandler);
     session.resizeHandler = resizeCanvas;
@@ -3405,6 +4701,24 @@ var MODULE_HELP = {
       session.game.update(dt);
       context.clearRect(0, 0, session.width, session.height);
       session.game.draw(context, session.width, session.height);
+      if (session.canvas && session.game) {
+        var presentation = typeof session.game.finishPresentationState === 'function' ? session.game.finishPresentationState() : 'disabled';
+        session.canvas.dataset.finishState = presentation;
+        var layout = session.game._lastRect || {};
+        var lowestControl = Math.max(
+          layout.finishB ? layout.finishB.y + layout.finishB.h : 0,
+          layout.cancelB ? layout.cancelB.y + layout.cancelB.h : 0,
+          layout.tray ? layout.tray.y + layout.tray.h : 0,
+          layout.slotY != null ? layout.slotY + Number(layout.slotH || 0) : 0
+        );
+        session.canvas.dataset.bottomSafe = String(Math.max(0, Math.round(session.height - lowestControl)));
+        if (layout.finishB) {
+          session.canvas.dataset.finishX = String(layout.finishB.x);
+          session.canvas.dataset.finishY = String(layout.finishB.y);
+          session.canvas.dataset.finishWidth = String(layout.finishB.w);
+          session.canvas.dataset.finishHeight = String(layout.finishB.h);
+        }
+      }
       session.frame = root.requestAnimationFrame(frame);
     }
     session.frame = root.requestAnimationFrame(frame);
@@ -3412,19 +4726,71 @@ var MODULE_HELP = {
     return { ok: true, game: session.game };
   }
 
-  function finishCare(outcome, summary) {
+  function careDeadlockMarkup(summary) {
+    if (!summary || summary.game !== 'sheep' || !summary.failed) return '';
+    var deadlock = summary.deadlock || {};
+    var remaining = Math.max(0, Number(summary.tilesRemaining) || 0);
+    var held = Math.max(0, Number(deadlock.held) || 0);
+    var blockers = Math.max(0, Number(deadlock.blockers) || 0);
+    var total = Math.max(1, Number(summary.totalTriples) || 1);
+    var cleared = Math.max(0, Number(summary.triplesCleared) || 0);
+    var progress = Math.min(100, Math.round(cleared / total * 100));
+    var thirdTileText = blockers > 0
+      ? '需要的牌仍被约 ' + blockers + ' 张上层玩具压住。'
+      : '需要的牌已经露头，但五格槽没有余位。';
+    return '<div class="care-deadlock-review" role="note"><strong>五格槽已满 · 塔上还剩 ' + remaining + ' 张</strong>' +
+      '<span>本局推进 ' + progress + '%。最接近三连的一组已有 ' + held + ' 张；' + thirdTileText + '</span>' +
+      '<small>今日题面已通过完整解法校验；这次是取牌顺序走入了死局。免费复盘会保留完全相同的牌阵。</small></div>';
+  }
+
+  function showPracticeCareResult(session, outcome, summary) {
+    var failed = !!(summary && summary.game === 'sheep' && summary.failed);
+    var cleared = !!(summary && summary.cleared);
+    var score = Math.max(0, Math.round(Number(summary && summary.score) || 0));
+    var modal = modalShell('<div class="outcome-card practice-outcome-card"><span class="eyebrow">同局复盘 · 不计奖励</span><h2>' +
+      (cleared ? '你找到了这座塔的通路' : failed ? '这一步把五格槽塞满了' : '本次复盘结束') +
+      '</h2><div class="care-score-summary"><span>复盘得分 <b>' + score + '</b></span><span>清除 <b>' + Math.max(0, Number(summary && summary.triplesCleared) || 0) + '/' + Math.max(0, Number(summary && summary.totalTriples) || 0) + ' 组</b></span></div>' +
+      careDeadlockMarkup(summary) +
+      '<div class="care-practice-note">复盘没有消耗灵力，也没有发放素材、信任、疗愈或宗门阅历。</div><div class="care-result-actions"><button class="modal-action" data-care-practice-retry type="button">再试同一座塔</button><button class="modal-secondary" data-care-practice-exit type="button">返回庭院</button></div></div>', 'task-modal care-practice-result-modal');
+    if (modal) {
+      modal.querySelector('[data-care-practice-retry]').addEventListener('click', function () {
+        closeModal();
+        openCareLoaded(session.type, session.difficulty, { practice: true });
+      });
+      modal.querySelector('[data-care-practice-exit]').addEventListener('click', closeModal);
+    }
+    return { ok: true, practice: true, outcome: outcome, summary: summary };
+  }
+
+  function finishCare(outcome, summary, expectedSession) {
     if (!careSession) return { ok: false, reason: 'no-session' };
     var session = careSession;
+    if (expectedSession && expectedSession !== session) return { ok: false, reason: 'stale-session' };
+    if (session.settled) return { ok: false, reason: 'already-settled' };
+    session.settling = true;
+    if (session.practice) {
+      session.settled = true;
+      stopCareGame();
+      return showPracticeCareResult(session, outcome, summary || {});
+    }
+    var settleCare = typeof Core.settleCare === 'function' ? Core.settleCare : Core.recordCare;
+    var result = settleCare(state, session.type, { outcome: outcome, beastId: session.beastId, difficulty: session.difficulty, careToken: session.careToken, game: summary || {} }, Date.now());
+    if (!result.ok) {
+      session.settling = false;
+      toast(failureText(result));
+      return result;
+    }
+    /* The DOM session becomes final only after the transaction token has been
+       atomically accepted by Core. onDone/Escape can now race harmlessly. */
+    session.settled = true;
     stopCareGame();
-    var result = Core.recordCare(state, session.type, { outcome: outcome, beastId: session.beastId, difficulty: session.difficulty, careToken: session.careToken, game: summary || {} }, Date.now());
-    if (!result.ok) { closeModal(); mutate(result); return result; }
     state.telemetryMilestones = Object.assign({}, state.telemetryMilestones || {});
     if ((result.firstCare || result.qualified) && !state.telemetryMilestones.firstCare) {
       state.telemetryMilestones.firstCare = true;
       track('first_care', { careType: session.type });
     }
     syncTutorialMilestones();
-    var saved = saveState();
+    var saved = saveState({ historyMode: 'checkpoint', reason: 'care-settlement' });
     render();
     if (!saved) {
       toast('照料结果未能保存，请先导出备份后重试');
@@ -3440,22 +4806,35 @@ var MODULE_HELP = {
       if (!itemGroups[key]) itemGroups[key] = { item: reward, count: 0 };
       itemGroups[key].count++;
     });
-    var rewardText = result.noReward ? '本局不产生照料奖励' : Object.keys(itemGroups).map(function (key) {
+    var rewardText = result.storyRound ? '旧彩球 · 已收入山海册' : result.noReward ? '本局不产生照料奖励' : Object.keys(itemGroups).map(function (key) {
       var group = itemGroups[key];
       return esc(group.item.name) + ' ×' + group.count;
     }).join('、') || '基础照料奖励';
     var score = Math.max(0, Math.round(Number(summary && summary.score) || 0));
     var perf = Math.round(Math.max(0, Math.min(1, Number(summary && summary.perf) || 0)) * 100);
-    var label = result.challenge ? '挑战结算' : result.rewardLimited ? '练习完成' : result.noReward ? (result.qualified ? '体验完成' : '尚未达到有效门槛') : '评级 ' + (result.grade || 'B');
-    var rewardNote = result.challenge ? (result.noReward ? '需要实际完成有效操作并取得分数，挑战局不会增加好感、疗愈或经验。' : '奖励随分数增加，最多六份；挑战局不会增加好感、疗愈或经验。') : result.rewardLimited ? '今日该设施的素材奖励已领取；成绩仍会记录，明天再来。' : result.noReward ? (outcome === 'skip' ? '这次先休息，灵力不会返还；准备好后再挑战。' : !result.qualified ? '还差一些有效操作；达到门槛后即使超时也有保底。' : '本局未达到奖励条件，但仍会记录成绩。') : '评级 ' + result.grade + ' · 好感 +' + (result.affectionGained || 0) + ' · 伤势恢复 +' + (result.healGained || 0) + ' · ' + (result.remainingRewardRuns == null ? '今日素材奖励不限。' : '今日剩余奖励 ' + result.remainingRewardRuns + '/' + careRewardBudget().cap + ' 次。');
+    var towerDeadlock = !!(summary && summary.game === 'sheep' && summary.failed);
+    var label = result.storyRound ? '剧情玩具塔 · 完成' : towerDeadlock ? '槽位满了 · 本局结束' : result.challenge ? '挑战结算' : result.rewardLimited ? '练习完成' : result.noReward ? (result.qualified ? '体验完成' : '尚未达到有效门槛') : '评级 ' + (result.grade || 'B');
+    var rewardNote = result.storyRound ? '这不是修缮材料。它只记住穷奇第一次愿意把心爱的旧物推给你。' : result.challenge ? (result.noReward ? '需要实际完成有效操作并取得分数，挑战局不会增加信任、疗愈或宗门阅历。' : '奖励随分数增加，最多六份；挑战局不会增加信任、疗愈或宗门阅历。') : result.rewardLimited ? '今日该设施的素材奖励已领取；成绩仍会记录，明天再来。' : result.noReward ? (outcome === 'skip' ? '这次先休息，灵力不会返还；准备好后再挑战。' : !result.qualified ? '还差一些有效操作；达到门槛后即使超时也有保底。' : '本局未达到奖励条件，但仍会记录成绩。') : '评级 ' + result.grade + ' · 信任 +' + (result.affectionGained || 0) + ' · 疗愈 +' + (result.healGained || 0) + ' · ' + (result.remainingRewardRuns == null ? '今日素材奖励不限。' : '今日剩余奖励 ' + result.remainingRewardRuns + '/' + careRewardBudget().cap + ' 次。');
     var giftFamily = familyDef(result.giftFamily);
-    var giftLine = !result.noReward && result.giftFamily ? ' · 带回' + (giftFamily ? giftFamily.name : result.giftFamily) + '素材' : '';
-    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · 本局回顾</span><h2>' + esc(beastDef(session.beastId).name) + (result.noReward ? '陪你玩了一局' : '把礼物收进了药匣') + '</h2><img src="' + esc(characterAssetPath(beastArt(beastDef(session.beastId), state.beastCases[session.beastId]))) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div><div class="task-reward">' + (result.noReward ? '' : '获得 ') + rewardText + '<br /><small>' + rewardNote + giftLine + '</small></div><button class="modal-action" data-care-continue type="button">继续</button></div>', 'task-modal');
-    if (modal) modal.querySelector('[data-care-continue]').addEventListener('click', function () {
-      closeModal();
-      if (Core.peekBeastReveal && Core.peekBeastReveal(state)) showPendingBeastReveal();
-      else if (state.pendingTransformation) showTransformation();
-    });
+    var giftLine = !result.storyRound && !result.noReward && result.giftFamily ? ' · 带回' + (giftFamily ? giftFamily.name : result.giftFamily) + '素材' : '';
+    var resultActions = towerDeadlock
+      ? '<div class="care-result-actions"><button class="modal-action" data-care-practice type="button">免费复盘同局</button><button class="modal-secondary" data-care-continue type="button">返回庭院</button></div>'
+      : '<button class="modal-action" data-care-continue type="button">继续</button>';
+    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · 本局回顾</span><h2>' + esc(beastDef(session.beastId).name) + (result.storyRound ? '把旧彩球推给了你' : towerDeadlock ? '还想再试一次' : result.noReward ? '陪你玩了一局' : '把礼物收进了药匣') + '</h2><img src="' + esc(characterAssetPath(beastArt(beastDef(session.beastId), state.beastCases[session.beastId]))) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div>' + careDeadlockMarkup(summary) + '<div class="task-reward">' + (result.noReward ? '' : '获得 ') + rewardText + '<br /><small>' + rewardNote + giftLine + '</small></div>' + resultActions + '</div>', 'task-modal');
+    if (modal) {
+      var continueButton = modal.querySelector('[data-care-continue]');
+      if (continueButton) continueButton.addEventListener('click', function () {
+        closeModal();
+        if (Core.peekStoryEvent && Core.peekStoryEvent(state)) showPendingStoryEvent();
+        else if (Core.peekBeastReveal && Core.peekBeastReveal(state)) showPendingBeastReveal();
+        else if (state.pendingTransformation) showTransformation();
+      });
+      var practiceButton = modal.querySelector('[data-care-practice]');
+      if (practiceButton) practiceButton.addEventListener('click', function () {
+        closeModal();
+        openCareLoaded(session.type, session.difficulty, { practice: true });
+      });
+    }
     return result;
   }
 
@@ -3470,6 +4849,107 @@ var MODULE_HELP = {
     var dialogue = definition && definition.dialogue || [];
     if (dialogue.length) return dialogue[Math.min(dialogue.length - 1, Math.max(0, level - 1))];
     return definition && definition.lore || '谢谢你把我带回灯火里。';
+  }
+
+  function acquisitionCinematicFor(event) {
+    var cinematic = DATA.cinematics && DATA.cinematics.qiongqiAcquisition;
+    if (!event || !cinematic) return null;
+    return event.type === cinematic.revealType && event.beastId === cinematic.beastId && Number(event.level) === Number(cinematic.level)
+      ? cinematic
+      : null;
+  }
+
+  function showAcquisitionCinematic(event, cinematic) {
+    if (!event || !cinematic || !document) return null;
+    var existing = document.querySelector('.beast-acquisition-video-modal');
+    if (existing) return existing;
+    var reducedMotion = root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion) return showBeastMilestone(event.beastId, event.level, 'acquired', { text: event.copy }, event.id);
+    var definition = beastDef(event.beastId);
+    var modal = modalShell(
+      '<div class="beast-acquisition-stage">' +
+        '<video class="beast-acquisition-video" src="' + esc(cinematic.src) + '" preload="auto" playsinline autoplay aria-label="' + esc(definition.name) + '第一次走出修缮后的山门"></video>' +
+        '<button class="beast-acquisition-skip" data-acquisition-skip type="button">跳过动画</button>' +
+        '<button class="beast-acquisition-play" data-acquisition-play type="button" hidden>播放相遇动画</button>' +
+        '<div class="beast-acquisition-caption"><span>初次相遇 · ' + esc(definition.name) + '</span><strong>门灯亮了，它终于走出了山门</strong></div>' +
+      '</div>',
+      'beast-acquisition-video-modal',
+      { variant: 'immersive', closeOnBackdrop: false, closeOnEscape: false, restoreFocus: true }
+    );
+    if (!modal) return showBeastMilestone(event.beastId, event.level, 'acquired', { text: event.copy }, event.id);
+    if (modal.parentNode) modal.parentNode.classList.add('beast-acquisition-backdrop');
+    var stage = modal.querySelector('.beast-acquisition-stage');
+    var video = modal.querySelector('.beast-acquisition-video');
+    var skip = modal.querySelector('[data-acquisition-skip]');
+    var play = modal.querySelector('[data-acquisition-play]');
+    var audioEnabled = !root.MergeAudio || !root.MergeAudio.isEnabled || root.MergeAudio.isEnabled();
+    var longformInterrupted = false;
+    var finished = false;
+    var playbackStarted = false;
+    var playbackPromptTimer = null;
+
+    if (video) {
+      video.muted = !audioEnabled;
+      video.defaultMuted = !audioEnabled;
+      video.volume = 0.88;
+    }
+    if (audioEnabled && root.MergeAudio && typeof root.MergeAudio.stopLongform === 'function') {
+      root.MergeAudio.stopLongform();
+      longformInterrupted = true;
+    }
+
+    function restoreLongformAudio() {
+      if (!longformInterrupted || !root.MergeAudio) return;
+      if (typeof root.MergeAudio.playBgm === 'function') root.MergeAudio.playBgm('qiongqiGate');
+      if (typeof root.MergeAudio.playAmbience === 'function') root.MergeAudio.playAmbience('gateWind');
+    }
+
+    function finishCinematic(reason) {
+      if (finished) return null;
+      finished = true;
+      if (playbackPromptTimer) root.clearTimeout(playbackPromptTimer);
+      if (document && document.removeEventListener) document.removeEventListener('visibilitychange', resumeWhenVisible);
+      if (video && typeof video.pause === 'function') {
+        try { video.pause(); } catch (error) { /* Disposed media is harmless. */ }
+      }
+      restoreLongformAudio();
+      track('story_cinematic', { id: cinematic.id, result: reason || 'complete' });
+      closeModal();
+      return showBeastMilestone(event.beastId, event.level, 'acquired', { text: event.copy }, event.id);
+    }
+
+    function showPlayPrompt() {
+      if (!finished && !playbackStarted && play) play.hidden = false;
+    }
+
+    function requestPlayback() {
+      if (!video || finished) return;
+      if (play) play.hidden = true;
+      var pending;
+      try { pending = video.play(); }
+      catch (error) { showPlayPrompt(); return; }
+      if (pending && typeof pending.catch === 'function') pending.catch(showPlayPrompt);
+    }
+
+    function resumeWhenVisible() {
+      if (!document.hidden && video && video.paused && !finished) requestPlayback();
+    }
+
+    if (video) {
+      video.addEventListener('playing', function () {
+        playbackStarted = true;
+        if (play) play.hidden = true;
+        if (stage) stage.classList.add('is-playing');
+      });
+      video.addEventListener('ended', function () { finishCinematic('complete'); });
+      video.addEventListener('error', function () { finishCinematic('load-error'); });
+    }
+    if (skip) skip.addEventListener('click', function () { finishCinematic('skipped'); });
+    if (play) play.addEventListener('click', requestPlayback);
+    if (document && document.addEventListener) document.addEventListener('visibilitychange', resumeWhenVisible);
+    playbackPromptTimer = root.setTimeout(showPlayPrompt, 2600);
+    requestPlayback();
+    return modal;
   }
 
   function showBeastMilestone(beastId, level, reason, story, eventId) {
@@ -3522,23 +5002,22 @@ var MODULE_HELP = {
     if (!Core.peekBeastReveal) return null;
     var event = Core.peekBeastReveal(state);
     if (!event) return null;
+    var cinematic = acquisitionCinematicFor(event);
+    if (cinematic) return showAcquisitionCinematic(event, cinematic);
     return showBeastMilestone(event.beastId, event.level, event.type === 'acquire' ? 'acquired' : 'level-up', { text: event.copy }, event.id);
   }
 
   function showWelcomeGuide() {
     if (!state || state.welcomeSeen || !state.beastCases || !state.beastCases.qiongqi) return null;
-    var definition = beastDef('qiongqi');
-    var entry = state.beastCases.qiongqi;
-    var portrait = beastArt(definition, entry);
     var modal = modalShell(
       '<div class="beast-milestone-card welcome-guide-card">' +
-        '<span class="eyebrow">栖霞宗 · 山门重开</span>' +
-        '<h2>穷奇在门口等你</h2>' +
-        '<div class="beast-milestone-art"><img src="' + esc(characterAssetPath(portrait)) + '" alt="穷奇立绘" /></div>' +
-        '<p class="beast-milestone-line">“' + esc(definition.revealLines && definition.revealLines[0] || definition.dialogue[0] || '别怕，我会守住这里。') + '”</p>' +
-        '<p class="welcome-guide-copy">末法时代，灵气稀薄，宗门荒了很久。接下来会用五个短步骤带你亲手体验产出、合成、修缮和玩具塔；每完成一步，都会弹出下一条指引。</p>' +
-        '<div class="welcome-guide-path" aria-label="新手旅程五步">产出材料 <i>→</i> 合成 <i>→</i> 修缮山门 <i>→</i> 嬉游亭陪玩 <i>→</i> 合成主线 T2</div>' +
-        '<button class="modal-action" data-welcome-start type="button">开始第一步</button>' +
+        '<span class="eyebrow">穷奇篇 · 第一幕</span>' +
+        '<h2>门后有谁</h2>' +
+        '<div class="beast-milestone-art ruined-gate-art"><img src="assets/art/v7/sect/gate_stage0.webp" alt="荒废的栖霞宗山门" /></div>' +
+        '<p class="beast-milestone-line">山门荒了很久。你握住门环时，门后传来一声很轻、很紧张的呼噜。</p>' +
+        '<p class="welcome-guide-copy">归灵台能把宗门各处收来的旧材料整理成组件。先看见坏掉的旧物，再用木作、织物或草药把它修回原处。</p>' +
+        '<div class="welcome-guide-path" aria-label="卷一物资来源">旧木料堆 <i>·</i> 门房针线篮 <i>·</i> 医馆·药庐百草篓</div>' +
+        '<button class="modal-action" data-welcome-start type="button">推开山门</button>' +
       '</div>',
       'beast-milestone-modal welcome-guide-modal'
     );
@@ -3548,15 +5027,19 @@ var MODULE_HELP = {
       state.welcomeSeen = true;
       state.tutorialSeen = true;
       state.tutorial = Object.assign({}, state.tutorial || {}, { welcome: true, objectiveOpened: true });
+      var opening = Core.peekStoryEvent && Core.peekStoryEvent(state);
+      if (opening && opening.id === 'volume-one-opening') Core.acknowledgeStoryEvent(state, opening.id);
       track('tutorial_step', { step: 'welcome_complete' });
+      if (root.MergeAudio) {
+        if (typeof root.MergeAudio.playBgm === 'function') root.MergeAudio.playBgm('qiongqiGate');
+        if (typeof root.MergeAudio.playAmbience === 'function') root.MergeAudio.playAmbience('gateWind');
+      }
       saveState();
       closeModal();
-      switchView('sect-view');
+      switchView('merge-view');
       render();
-      root.setTimeout(function () {
-        var target = q('sect-reno');
-        if (target && typeof target.scrollIntoView === 'function') target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 80);
+      var mergeView = q('merge-view');
+      if (mergeView) mergeView.scrollTop = 0;
     }
     var start = modal.querySelector('[data-welcome-start]');
     if (start) start.addEventListener('click', dismiss);
@@ -3576,14 +5059,25 @@ var MODULE_HELP = {
     var transformLine = narrative.transformLine || (definition.dialogue && definition.dialogue[3]) || '它变得比从前更精神了。';
     var transformEyebrow = definition.volumeNumber ? '第 ' + definition.volumeNumber + ' 盏灯 · 归位' : '一盏灯 · 归位';
     var jobLine = narrative.jobLine || ('新岗位：' + definition.job.title + ' · ' + jobDescription(definition));
-    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + esc(transformEyebrow) + '</span><h2>' + esc(definition.name) + '完成蜕变</h2><img src="' + esc(characterAssetPath(definition.art[3])) + '" alt="' + esc(definition.name) + '蜕变形态" /><p>' + esc(transformLine) + '</p><div class="task-reward">' + esc(jobLine) + '</div><button class="modal-action" data-ack-transform type="button">确认蜕变，查看岗位</button></div>', 'task-modal transformation-modal beast-milestone-modal');
+    var particles = new Array(18).fill(0).map(function (_, index) { return '<i style="--particle:' + index + '" aria-hidden="true"></i>'; }).join('');
+    var modal = modalShell('<div class="transformation-stage is-playing">' +
+      '<button class="transformation-skip" data-skip-transform-animation type="button">跳过演出</button>' +
+      '<span class="eyebrow transformation-eyebrow">' + esc(transformEyebrow) + '</span>' +
+      '<div class="transformation-visual"><span class="transformation-glow" aria-hidden="true"></span><span class="transformation-particles">' + particles + '</span><img src="' + esc(characterAssetPath(definition.art[3])) + '" alt="' + esc(definition.name) + '蜕变形态" /></div>' +
+      '<div class="transformation-copy"><h2>' + esc(definition.name) + '完成蜕变</h2><p>“' + esc(transformLine) + '”</p><div class="task-reward">' + esc(jobLine) + '</div></div>' +
+      '<button class="modal-action transformation-confirm" data-ack-transform type="button">确认蜕变，查看岗位</button></div>', 'transformation-modal beast-milestone-modal', { variant: 'immersive', closeOnBackdrop: false, closeOnEscape: false, restoreFocus: true });
     if (modal && modal.parentNode) modal.parentNode.classList.add('beast-milestone-backdrop');
-    if (modal) modal.querySelector('[data-ack-transform]').addEventListener('click', function () {
+    if (modal) {
+      var stage = modal.querySelector('.transformation-stage');
+      var skip = modal.querySelector('[data-skip-transform-animation]');
+      if (skip) skip.addEventListener('click', function () { if (stage) stage.classList.remove('is-playing'); });
+      modal.querySelector('[data-ack-transform]').addEventListener('click', function () {
       if (mutate(Core.acknowledgeTransformation(state, beastId), '蜕变已记入山海册', null, 'order')) {
         closeModal();
         switchView('sect-view');
       }
-    });
+      });
+    }
   }
 
   function showOffline(result) {
@@ -3600,9 +5094,10 @@ var MODULE_HELP = {
     if (!discovered) {
       return modalShell(
         '<span class="eyebrow">异兽图鉴 · 等待相遇</span><h2>' + esc(definition.name) + '</h2>' +
-        '<div class="locked-codex-portrait" aria-hidden="true"><img loading="lazy" src="' + esc(characterAssetPath(beastArt(definition, entry))) + '" alt="" /><span>尚未结识</span></div>' +
+        '<div class="locked-codex-portrait" aria-hidden="true">' + uiIcon('lock') + '<span>尚未开放</span></div>' +
         '<div class="acquisition-clue"><b>获取线索</b><p>' + esc(beastAcquisitionClue(definition)) + '</p></div>',
-        'task-modal codex-detail-modal locked-codex-detail'
+        'task-modal codex-detail-modal locked-codex-detail',
+        { variant: 'dialog' }
       );
     }
     var levelConfig = beastLevelConfig(definition, entry);
@@ -3614,10 +5109,36 @@ var MODULE_HELP = {
     }).join('');
     var storyMarkup = stories.map(function (story) {
       var unlocked = entry.unlockedStories.indexOf(story.level) >= 0;
-      return '<div class="facility-level ' + (unlocked ? 'current' : '') + '"><b>' + (unlocked ? '✓ ' : '◇ ') + esc(story.title) + '</b><small>' + (unlocked ? esc(story.text) : '突破到 Lv' + story.level + ' 后解锁') + '</small></div>';
+      return '<div class="facility-level ' + (unlocked ? 'current' : '') + '"><b>' + uiIcon(unlocked ? 'check' : 'lock') + esc(story.title) + '</b><small>' + (unlocked ? esc(story.text) : '突破到 Lv' + story.level + ' 后解锁') + '</small></div>';
     }).join('');
-    var growthNote = entry.level >= 5 ? '已到最高等级' : gate.ok ? '三项条件已满足，正在自动成长' : '距离下一形态：好感' + gate.missing.affection + ' · 疗愈' + gate.missing.heal + ' · 经验' + gate.missing.exp;
-    var modal = modalShell('<span class="eyebrow">异兽图鉴 · ' + (discovered ? '已结识' : '等待来信') + '</span><div class="resident-detail-head codex-portrait"><img src="' + esc(characterAssetPath(beastArt(definition, entry))) + '" alt="' + esc(definition.name) + '大图立绘" /><div><h2>' + esc(definition.name) + ' · ' + esc(levelConfig && levelConfig.title || definition.stageNames[entry.stage]) + '</h2><span class="stage-chip">Lv' + entry.level + '/5</span></div></div><p>' + esc(discovered ? definition.lore : '备好相遇信物，它就会循着庭院的灯火到来。') + '</p><div class="resident-progress"><div class="progress-row"><span>好感</span><b>' + entry.affection + '</b></div><div class="progress-row"><span>疗愈</span><b>' + entry.heal + '</b></div><div class="progress-row"><span>经验</span><b>' + entry.exp + '</b></div></div><h3>形态收藏</h3><div class="facility-modal-grid">' + forms + '</div><h3>专属小故事</h3><div class="facility-modal-grid">' + storyMarkup + '</div><div class="task-reward">' + esc(growthNote) + '</div>', 'task-modal codex-detail-modal');
+    var experience = state.storyExperience || {};
+    var keepsake = beastId === 'qiongqi' && experience.keepsakes && experience.keepsakes['qiongqi-old-ball'];
+    var keepsakeMarkup = keepsake
+      ? '<h3>故事物件</h3><div class="facility-level current"><b>' + uiIcon('route') + esc(keepsake.name) + '</b><small>' + esc(keepsake.note) + '</small></div>'
+      : '';
+    var memoryEvents = beastId === 'qiongqi' ? (DATA.storyEvents || []).filter(function (storyEvent) {
+      return experience.acknowledged && experience.acknowledged[storyEvent.id];
+    }) : [];
+    var memoryMarkup = memoryEvents.length
+      ? '<h3>穷奇篇回忆</h3><div class="facility-modal-grid">' + memoryEvents.map(function (storyEvent) {
+        var choice = experience.choices && experience.choices[storyEvent.id];
+        var choiceLine = choice ? ' · 你说：“' + choice.text + '” ' + (choice.reply ? '穷奇回答：“' + choice.reply + '”' : '') : '';
+        return '<div class="facility-level current"><b>' + esc(storyEvent.speaker || '旁白') + '</b><small>' + esc(storyEvent.text + choiceLine) + '</small></div>';
+      }).join('') + '</div>'
+      : '';
+    var growthNote = entry.level >= 5 ? '已到最高等级' : gate.ok ? '三项条件已满足，正在自动成长' : '距离下一形态：信任' + gate.missing.affection + ' · 疗愈' + gate.missing.heal + ' · 宗门阅历' + gate.missing.exp;
+    var nextGrowth = DATA.growth && DATA.growth.requirements && DATA.growth.requirements[Math.min(4, entry.level)] || null;
+    function growthRow(label, value, target, cls) {
+      var percent = target ? Math.min(100, Math.round(value / Math.max(1, target) * 100)) : 100;
+      return '<div class="progress-row ' + (cls || '') + '"><span>' + label + '</span><div class="meter"><i style="width:' + percent + '%"></i></div><b>' + value + (target ? '/' + target : '') + '</b></div>';
+    }
+    var modal = modalShell('<div class="codex-detail-sticky"><span class="eyebrow">异兽图鉴 · 已结识</span><h2>' + esc(definition.name) + '</h2></div>' +
+      '<div class="resident-detail-head codex-portrait"><img src="' + esc(characterAssetPath(beastArt(definition, entry))) + '" alt="' + esc(definition.name) + '大图立绘" /><div><h3>' + esc(levelConfig && levelConfig.title || definition.stageNames[entry.stage]) + '</h3><span class="stage-chip">Lv' + entry.level + '/5</span></div></div>' +
+      '<p>' + esc(definition.lore) + '</p><div class="resident-progress">' + growthRow('信任', entry.affection, nextGrowth && nextGrowth.affection) + growthRow('疗愈', entry.heal, nextGrowth && nextGrowth.heal, 'heal') + growthRow('宗门阅历', entry.exp, nextGrowth && nextGrowth.exp) + '</div>' +
+      '<section class="codex-detail-section">' + keepsakeMarkup + '<h3>形态收藏</h3><div class="facility-modal-grid">' + forms + '</div></section>' +
+      '<section class="codex-detail-section"><h3>专属小故事</h3><div class="facility-modal-grid">' + storyMarkup + '</div>' + memoryMarkup + '</section>' +
+      '<section class="codex-detail-section"><h3>岗位</h3><p>' + esc(definition.job.title + ' · ' + jobDescription(definition)) + '</p></section>' +
+      '<div class="task-reward">' + esc(growthNote) + '</div>', 'task-modal codex-detail-modal', { variant: 'dialog' });
     if (!modal) return null;
     modal.addEventListener('click', function (event) {
       var form = event.target.closest('[data-select-form]');
@@ -3629,8 +5150,41 @@ var MODULE_HELP = {
     return modal;
   }
 
+  function focusProjectSource(family, tier) {
+    switchView('merge-view');
+    renderBoard();
+    var target = document.querySelector('.merge-cell[data-longpress-generator="' + family + '"]');
+    if (target) {
+      target.classList.add('hint-pulse');
+      if (target.scrollIntoView) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      root.setTimeout(function () { target.classList.remove('hint-pulse'); }, 2800);
+    } else if (tier) toast('这个素材来源尚未出现在棋盘上；长按素材可查看完整路线');
+  }
+
+  function handleProjectTrayClick(event) {
+    var action = event.target.closest('#project-action');
+    if (!action) { openProjectDetails(); return; }
+    if (action.disabled) return;
+    if (action.dataset.projectCare) { goCareAndPulse(action.dataset.projectCare); return; }
+    if (action.dataset.assembleProject) {
+      var beforeAssembly = Core.nextStoryProject ? Core.nextStoryProject(state) : null;
+      var completed = Core.completeProject(state, action.dataset.assembleProject, Date.now());
+      if (mutate(completed, completed.deliveryText || '修缮完成，旧物已经回到它真正的位置', null, 'order')) {
+        showProjectCompletion(beforeAssembly && beforeAssembly.project, beforeAssembly && beforeAssembly.object, function () {
+          showRenovationFeedback(completed);
+        });
+      }
+      return;
+    }
+    if (action.dataset.projectSpecial === 'transformation') { showTransformation(); return; }
+    if (action.dataset.projectSpecial === 'job') {
+      var claimed = Core.claimJob(state, 'qiongqi', Date.now());
+      mutate(claimed, '门卫补给已领取，第一盏归灯亮起', null, 'order');
+    }
+  }
+
   function bindEvents() {
-    var mutationSelector = '[data-grid-index],[data-deliver],[data-deliver-reno],[data-visitor-choice],[data-craft-recipe],[data-recycle-index],[data-care-difficulty],[data-claim-job],[data-claim-weekly],[data-facility],[data-unlock-area],[data-yard-beast],[data-select-form],[data-background-buy],[data-background-select],[data-storage-index],#claim-yard-goal,#storage-upgrade';
+    var mutationSelector = '[data-grid-index],[data-deliver],[data-deliver-reno],[data-assemble-project],[data-visitor-choice],[data-craft-recipe],[data-recycle-index],[data-care-difficulty],[data-claim-job],[data-claim-weekly],[data-facility],[data-unlock-area],[data-yard-beast],[data-select-form],[data-background-buy],[data-background-select],[data-storage-index],#claim-yard-goal,#storage-upgrade';
     function stopReadOnlyMutation(event) {
       if (!readOnlyNewerSave || !event.target.closest(mutationSelector)) return;
       event.preventDefault();
@@ -3638,6 +5192,13 @@ var MODULE_HELP = {
       toast('高版本存档为只读：可在设置中导出或安全重开');
     }
     document.addEventListener('pointerdown', stopReadOnlyMutation, true);
+    document.addEventListener('error', handleMaterialImageError, true);
+    if (q('project-tray')) q('project-tray').addEventListener('click', handleProjectTrayClick);
+    if (q('project-tray')) q('project-tray').addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      openProjectDetails();
+    });
     /* 长按弹出说明后，紧随其后的 click 会被吞掉，避免“想长按看说明却误触了模块”。 */
     document.addEventListener('click', function (event) {
       if (readOnlyNewerSave && event.target.closest(mutationSelector)) { stopReadOnlyMutation(event); return; }
@@ -3650,7 +5211,8 @@ var MODULE_HELP = {
       if (sourceButton) {
         event.preventDefault();
         event.stopPropagation();
-        openItemRoute(sourceButton.getAttribute('data-longpress-family'), Number(sourceButton.getAttribute('data-longpress-tier')) || 1, sourceButton.getAttribute('data-longpress-source') || '目标需求');
+        closeModal();
+        focusProjectSource(sourceButton.getAttribute('data-longpress-family'), Number(sourceButton.getAttribute('data-longpress-tier')) || 1);
         return;
       }
       var recipeButton = event.target.closest('[data-open-recipe]');
@@ -3668,7 +5230,15 @@ var MODULE_HELP = {
       }
     }, true);
     Array.prototype.forEach.call(document.querySelectorAll('.nav-button'), function (button) {
-      button.addEventListener('click', function () { switchView(button.dataset.view); });
+      button.addEventListener('click', function () {
+        if (button.dataset.featureLocked) {
+          var modal = openFeatureLockHint(button.dataset.featureLocked);
+          var go = modal && modal.querySelector('[data-feature-lock-go]');
+          if (go) go.addEventListener('click', function () { closeModal(); switchView('merge-view'); });
+          return;
+        }
+        switchView(button.dataset.view);
+      });
     });
     var mergeBoard = q('merge-board');
     mergeBoard.addEventListener('pointerdown', boardPointerDown, { passive: false });
@@ -3693,12 +5263,14 @@ var MODULE_HELP = {
       var card = event.target.closest('[data-order-id]');
       if (card) openOrderDetails(card.dataset.orderId);
     });
-    q('order-target-toggle').addEventListener('click', function () {
-      var button = q('order-target-toggle');
-      var expanded = button.getAttribute('aria-expanded') !== 'false';
-      button.setAttribute('aria-expanded', expanded ? 'false' : 'true');
-      q('order-target-bar').dataset.state = expanded ? 'collapsed' : 'expanded';
-      q('order-drawer').dataset.state = expanded ? 'collapsed' : 'expanded';
+    var orderTargetToggle = q('order-target-toggle');
+    if (orderTargetToggle) orderTargetToggle.addEventListener('click', function () {
+      var expanded = orderTargetToggle.getAttribute('aria-expanded') !== 'false';
+      var nextExpanded = !expanded;
+      orderTargetToggle.setAttribute('aria-expanded', nextExpanded ? 'true' : 'false');
+      orderTargetToggle.setAttribute('aria-label', nextExpanded ? '收起宗门任务' : '展开宗门任务');
+      q('order-target-bar').dataset.state = nextExpanded ? 'expanded' : 'collapsed';
+      q('order-drawer').dataset.state = nextExpanded ? 'expanded' : 'collapsed';
       playSfx('click');
     });
     q('recipe-table-open').addEventListener('click', function () {
@@ -3730,10 +5302,7 @@ var MODULE_HELP = {
       if (!button) return;
       var index = Number(button.dataset.recycleIndex);
       var item = state.grid[index];
-      var confirmed = !item || item.tier < 4 || !root.confirm || root.confirm('这是高阶素材。确定要回收 ' + itemName(item) + ' 吗？');
-      if (!confirmed) return;
-      if (selectedIndex === index) selectedIndex = null;
-      mutate(Core.recycleItem(state, index, true), '素材已回收为暖玉', null, 'purchase');
+      openRecycleConfirmation(index, item);
     });
     bindLongPress(q('slice-app'), '[data-help], [data-longpress-recipe], [data-longpress-family], [data-longpress-generator]');
     q('next-action').addEventListener('click', function (event) {
@@ -3750,6 +5319,13 @@ var MODULE_HELP = {
       if (focus) openOrderDetails(focus.dataset.focusOrder);
     });
     q('sect-view').addEventListener('click', function (event) {
+      if (event.target.closest('[data-close-sect-scene]')) {
+        sectSceneVisible = false;
+        renderSect();
+        var mapStage = q('sect-map-stage');
+        if (mapStage && mapStage.scrollIntoView) mapStage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
       if (event.target.closest('[data-show-transition]')) { showChapterTransition(); return; }
       if (event.target.closest('[data-open-visitor-book]')) { openVisitorBook(); return; }
       var areaButton = event.target.closest('[data-action="select-sect-area"], .sect-building-hotspot[data-area]');
@@ -3763,15 +5339,7 @@ var MODULE_HELP = {
       }
       var mapButton = event.target.closest('[data-area-node]');
       if (mapButton && mapButton.dataset.areaNode) {
-        var mapStatus = Core.areaStatus ? Core.areaStatus(state, mapButton.dataset.areaNode) : null;
-        if (mapStatus && mapStatus.locked) {
-          openAreaUnlockModal(mapButton.dataset.areaNode);
-        } else {
-          sectAreaSelection = mapButton.dataset.areaNode;
-          renderSect();
-          var scene = q('sect-scene');
-          if (scene && typeof scene.scrollIntoView === 'function') scene.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        openSectAreaDetails(mapButton.dataset.areaNode);
         playSfx('click');
         return;
       }
@@ -3805,26 +5373,27 @@ var MODULE_HELP = {
     });
     q('storage-upgrade').addEventListener('click', function () { mutate(Core.upgradeStorage(state), '暂存区扩容成功', null, 'purchase'); });
     q('storage-open').addEventListener('click', openStorageDrawer);
-    q('energy-help').addEventListener('click', openEnergyCenter);
-    q('how-to-play-open').addEventListener('click', openHowToPlay);
-    q('settings-open').addEventListener('click', openSettings);
+    q('more-menu-open').addEventListener('click', openMoreMenu);
     Array.prototype.forEach.call(document.querySelectorAll('[data-care]'), function (button) {
       button.addEventListener('click', function () {
-        if (button.dataset.featureLocked) {
-          var modal = openFeatureLockHint(button.dataset.featureLocked);
-          var go = modal && modal.querySelector('[data-feature-lock-go]');
-          if (go) go.addEventListener('click', function () { closeModal(); switchView('merge-view'); });
-          return;
-        }
-        useCourtyardNode(button.dataset.care, 'care');
-        openCare(button.dataset.care);
+        var id = button.dataset.care;
+        selectYardItem(id);
+        // v14 deliberately hides the large selection card to preserve the
+        // compact scene. Its landmarks therefore execute their primary action
+        // directly; older layouts keep the selection-card confirmation.
+        if (yardUsesDirectActions()) runYardInfoAction(id);
       });
     });
     q('yard-beast-switcher').addEventListener('click', function (event) {
       var button = event.target.closest('[data-yard-beast]');
       if (!button) return;
       var result = Core.selectYardBeast(state, button.dataset.yardBeast);
+      yardSelection = { kind: 'resident', id: 'resident' };
       mutate(result, '庭院已切换为' + beastDef(button.dataset.yardBeast).name, null, 'click');
+    });
+    q('yard-selection-card').addEventListener('click', function (event) {
+      var action = event.target.closest('[data-yard-info-action]');
+      if (action) runYardInfoAction(action.dataset.yardInfoAction);
     });
     q('yard-facilities-open').addEventListener('click', openFacilitiesDrawer);
     q('yard-jobs-open').addEventListener('click', openJobsDrawer);
@@ -3832,18 +5401,18 @@ var MODULE_HELP = {
     q('yard-character').addEventListener('click', function () {
       var button = q('yard-character');
       button.classList.remove('beast-react'); void button.offsetWidth; button.classList.add('beast-react');
-      if (courtyardScene && typeof courtyardScene.react === 'function') courtyardScene.react({ kind: 'greet', target: 'resident' });
-      openYardCharacterDetails();
+      selectYardItem('resident');
+      if (!playNextYardAction({ source: 'tap' }) && courtyardScene && typeof courtyardScene.react === 'function') {
+        courtyardScene.react({ kind: 'greet', target: 'resident' });
+      }
+      playSfx('care');
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-hotspot]'), function (button) {
       button.addEventListener('click', function () {
-        useCourtyardNode(button.dataset.hotspot, 'use');
-        playSfx('click');
-        if (button.dataset.hotspot === 'clinic') { switchView('merge-view'); return; }
-        if (button.dataset.hotspot === 'herb' && state.facilities.herb.stored.length) {
-          claimFacilityAndShow('herb'); return;
-        }
-        openFacility(button.dataset.hotspot);
+        var id = button.dataset.hotspot;
+        selectYardItem(id);
+        if (yardUsesDirectActions()) runYardInfoAction(id);
+        else playSfx('click');
       });
     });
     q('building-list').addEventListener('click', function (event) {
@@ -3864,6 +5433,7 @@ var MODULE_HELP = {
       if (codexPage <= 1) return;
       codexPage--;
       renderCodex();
+      resetCodexScroll();
       playSfx('click');
     });
     q('codex-next').addEventListener('click', function () {
@@ -3871,6 +5441,7 @@ var MODULE_HELP = {
       if (codexPage >= pageCount) return;
       codexPage++;
       renderCodex();
+      resetCodexScroll();
       playSfx('click');
     });
     q('codex-list').addEventListener('click', function (event) {
@@ -3885,17 +5456,51 @@ var MODULE_HELP = {
     Core.ensureDaily(state, today(), Date.now());
     if (result.appliedMs > 0) {
       saveState();
-      renderHud(); renderStorage(); renderMergeTools(); renderFacilities(); renderJobs(); renderDaily();
+      renderHud(); renderStorage(); renderMergeTools();
+      if (activeView === 'yard-view') { renderFacilities(); renderJobs(); renderDaily(); }
     }
   }
 
-  function init() {
-    if (initialized || !document || !Core || !DATA) return state;
-    initialized = true;
+  function runInitialOverlayFlow(offline) {
+    if (!state) return;
+    if (!state.welcomeSeen) showWelcomeGuide();
+    else if (Core.peekStoryEvent && Core.peekStoryEvent(state)) showPendingStoryEvent();
+    else if (Core.peekBeastReveal && Core.peekBeastReveal(state)) showPendingBeastReveal();
+    else if (state.pendingTransformation) showTransformation();
+    else if (state.visitors && state.visitors.pending) showPendingVisitorEncounter();
+    else if (offline && offline.elapsedMs >= 5 * 60 * 1000) showOffline(offline);
+  }
+
+  function scheduleInitialOverlayFlow(offline) {
+    var run = function () {
+      var request = root.requestAnimationFrame || function (callback) { return root.setTimeout(callback, 0); };
+      request(function () { runInitialOverlayFlow(offline); });
+    };
+    /* The launcher owns first paint. Waiting for its explicit dismissal avoids
+       the old 30ms race and never auto-clicks or permanently skips onboarding. */
+    if (document.getElementById('qixia-launch')) {
+      document.addEventListener('qixia-launch-dismissed', run, { once: true });
+      return;
+    }
+    if (root.__QIXIA_APP_READY__) run();
+    else document.addEventListener('qixia-app-ready', run, { once: true });
+  }
+
+  function finishInitialization() {
     if (root.MergeAnalytics && typeof root.MergeAnalytics.create === 'function') {
       analytics = root.MergeAnalytics.create({ endpoint: root.SHJ_EVENTS_ENDPOINT || '/api/events', build: root.SHJ_BUILD_ID || 'v8', storage: root.localStorage });
     }
-    loadState();
+    if (DATA.featureFlags && DATA.featureFlags.rewardedAds && root.MergeAds) {
+      root.MergeAds.init({
+        onReward: grantRewardedEnergy,
+        onState: function (type, detail) {
+          if (type === 'ready') renderHud();
+          else if (type === 'incomplete') toast('未达到有效观看条件，本次不恢复灵力');
+          else if (type === 'error' && detail && (detail.source === 'request' || detail.source === 'show')) toast(detail.userMessage || '视频暂时不可用，请稍后再试');
+          else if (type === 'preview') toast(detail && detail.message || '本地仅演示推广位入口');
+        }
+      });
+    }
     var offline = Core.advanceTime(state, Date.now(), Math.random);
     if (offline.elapsedMs >= 5 * 60 * 1000) {
       var hours = offline.elapsedMs / 3600000;
@@ -3904,7 +5509,10 @@ var MODULE_HELP = {
     Core.ensureDaily(state, today(), Date.now());
     Core.ensureOrders(state, Math.random);
     Core.autoLevelUpBeasts(state);
-    saveState();
+    saveState({
+      historyMode: migrationSource === 'care-recovery' ? 'checkpoint' : 'none',
+      reason: migrationSource === 'care-recovery' ? 'care-reload-refund' : 'startup-reconcile'
+    });
     bindEvents();
     render();
     tickTimer = root.setInterval(tick, 5000);
@@ -3913,37 +5521,63 @@ var MODULE_HELP = {
       if (document.hidden) saveState(); else { tick(); render(); }
     });
     root.addEventListener('pagehide', function () { saveState(); if (analytics) analytics.flush(); });
-    if (readOnlyNewerSave) toast('这份旅程来自未来，暂时只能在这里查看');
+    if (readOnlyNewerSave) toast(saveProtectionReason && saveProtectionReason.indexOf('conflict') >= 0
+      ? '发现两份冲突进度；为避免覆盖，当前仅可查看和导出'
+      : '这份旅程来自未来，暂时只能在这里查看');
     else if (migrationSource === 'backup-slot') toast('刚才的记录有些模糊，已经为你找回最近一次旅程');
+    else if (migrationSource === 'mirror-recovery') toast('已从设备镜像找回更新的旅程');
+    else if (migrationSource === 'care-recovery') toast('上次照料未完成，灵力已自动返还');
     else if (migrationSource) toast('欢迎回来，你和伙伴们的回忆都好好留着');
-    if (!state.welcomeSeen) root.setTimeout(showWelcomeGuide, 30);
-    else if (Core.peekBeastReveal && Core.peekBeastReveal(state)) root.setTimeout(showPendingBeastReveal, 30);
-    else if (state.pendingTransformation) root.setTimeout(showTransformation, 30);
-    else if (state.visitors && state.visitors.pending) root.setTimeout(showPendingVisitorEncounter, 30);
-    else if (offline.elapsedMs >= 5 * 60 * 1000) root.setTimeout(function () { showOffline(offline); }, 30);
+    scheduleInitialOverlayFlow(offline);
     return state;
+  }
+
+  function init() {
+    if (initialized || !document || !Core || !DATA) return initPromise || state;
+    initialized = true;
+    var loaded = loadState();
+    if (loaded && typeof loaded.then === 'function') {
+      initPromise = Promise.resolve(loaded).then(function () { return finishInitialization(); });
+      return initPromise;
+    }
+    return finishInitialization();
+  }
+
+  function whenReady() {
+    var result = init();
+    return result && typeof result.then === 'function' ? result : Promise.resolve(result);
   }
 
   function resetForTests() {
     if (saveStore) saveStore.remove();
     safeStorageRemove(KEY);
     state = Core.createFresh(Date.now(), today());
+    if (Core.setPublicRelease) Core.setPublicRelease(state, true);
+    readOnlyNewerSave = false;
+    readOnlyRawSave = null;
+    saveProtectionReason = null;
+    saveRevision = 0;
     selectedIndex = null;
+    clearYardAction(false);
+    yardActionIndex = 0;
+    yardActionPreloads = {};
     tutorialPromptedStep = null;
     if (tutorialPromptTimer) root.clearTimeout(tutorialPromptTimer);
     tutorialPromptTimer = null;
-    saveState();
+    saveState({ historyMode: 'checkpoint', reason: 'test-reset' });
     if (document) render();
     return state;
   }
 
   return {
     init: init,
+    whenReady: whenReady,
     render: render,
     state: function () { return state; },
     save: saveState,
     reset: resetForTests,
     switchView: switchView,
+    organizeBoard: organizeBoard,
     deliver: deliver,
     generate: function (family) { var result = Core.generate(state, family, Math.random, Date.now()); mutate(result); return result; },
     openCare: openCare,
@@ -3954,10 +5588,13 @@ var MODULE_HELP = {
     openModuleHelp: openModuleHelp,
     openRecipeDetails: openRecipeDetails,
     openYardCharacterDetails: openYardCharacterDetails,
-    runYardAutonomy: runYardAutonomy,
+    runYardAutonomy: function () { return runYardAutonomy(true); },
     showTransformation: showTransformation,
     showBeastMilestone: showBeastMilestone,
+    showPendingBeastReveal: showPendingBeastReveal,
+    showAcquisitionCinematic: showAcquisitionCinematic,
     showWelcomeGuide: showWelcomeGuide,
+    showPendingStoryEvent: showPendingStoryEvent,
     showPendingVisitorEncounter: showPendingVisitorEncounter,
     openVisitorBook: openVisitorBook,
     showWorldChange: showWorldChange

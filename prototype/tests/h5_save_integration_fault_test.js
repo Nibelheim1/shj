@@ -174,6 +174,16 @@ function makePage(storage, options) {
       }
       vm.runInContext(source, context, { filename: filename });
     });
+    /* The v14 launch screen publishes its deferred source manifest instead of
+     * transferring the game on first paint. jsdom has no network loader, so
+     * execute that same manifest synchronously before bootstrapping the page. */
+    const deferredSources = Array.isArray(W.QIXIA_APP_SOURCES) ? W.QIXIA_APP_SOURCES : [];
+    deferredSources.forEach(function (source) {
+      const file = source.split('?')[0].replace(/^\.\//, '');
+      const scriptPath = path.resolve(ROOT, file);
+      assert.ok(fs.existsSync(scriptPath), 'deferred script exists: ' + file);
+      vm.runInContext(fs.readFileSync(scriptPath, 'utf8'), context, { filename: file });
+    });
     /* merge-slice.js registers a one-shot DOMContentLoaded bootstrap. */
     W.document.dispatchEvent(new W.Event('DOMContentLoaded'));
   } catch (error) {
@@ -229,7 +239,7 @@ function expect(condition, message) { assert.ok(condition, message); }
 
 console.log('== H5 save integration/fault contract ==');
 
-check('首启通过真实 MergeUI 写入 A/B 双槽及 pointer', function () {
+check('首启通过真实 MergeUI 写入一个有效槽及 pointer，语义 no-op 不制造伪备份', function () {
   const storage = new SharedStorage();
   const page = makePage(storage);
   const W = page.window;
@@ -237,8 +247,10 @@ check('首启通过真实 MergeUI 写入 A/B 双槽及 pointer', function () {
   expect(page.runtimeErrors.length === 0, page.runtimeErrors.map(function (e) { return e.message; }).join('\n'));
   const current = activeRecord(storage);
   expect(current.slot === 'A' || current.slot === 'B', 'pointer 指向 A/B');
-  expect(storage.getItem(SLOT_KEYS.A) !== null, 'A 槽已写入');
-  expect(storage.getItem(SLOT_KEYS.B) !== null, 'B 槽已写入');
+  const occupiedSlots = ['A', 'B'].filter(function (slot) { return storage.getItem(SLOT_KEYS[slot]) !== null; });
+  expect(occupiedSlots.length === 1, '首启只写一个真实 revision，重复 no-op 不轮换槽位');
+  expect(occupiedSlots[0] === current.slot, 'pointer 指向唯一活动槽');
+  expect(Number(current.record && current.record.revision) === 1, '首启 revision 为 1');
   expect(current.record && typeof current.record.data === 'string', '活动槽是完整 SaveStore record');
   closePage(page);
 });

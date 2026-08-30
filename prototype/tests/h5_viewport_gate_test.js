@@ -354,7 +354,12 @@ async function evaluateYardComposition(page) {
     const characterRect = rect(character);
     const hud = [...document.querySelectorAll('.hud-values > .hud-pill')].slice(0, 3).map((element) => {
       const style = getComputedStyle(element);
-      return { rect: rect(element), radius: parseFloat(style.borderRadius) || 0, fontSize: parseFloat(style.fontSize) || 0 };
+      return {
+        rect: rect(element),
+        radius: parseFloat(style.borderRadius) || 0,
+        fontSize: parseFloat(style.fontSize) || 0,
+        backgroundImage: style.backgroundImage || ''
+      };
     });
     return {
       scene: sceneRect,
@@ -381,13 +386,15 @@ function checkYardComposition(report, scenario, composition) {
   if (background.width < scene.width - 2 || background.height < scene.height - 2) {
     fail(report, scenario.id, 'yard-background-fill', `background ${background.width.toFixed(1)}x${background.height.toFixed(1)} does not fill scene ${scene.width.toFixed(1)}x${scene.height.toFixed(1)}`, composition);
   }
-  if (!/bg_courtyard_buildingfree(?:[_-]|\.)/i.test(composition.backgroundImage)) {
+  if (!/(?:bg_courtyard_buildingfree(?:[_-]|\.)|courtyard-clean-v13\.webp|bg_courtyard_spring_day\.webp)/i.test(composition.backgroundImage)) {
     fail(report, scenario.id, 'yard-building-free-background', `unexpected background: ${composition.backgroundImage || 'none'}`, composition);
   }
   if (scene.height < scene.width * 1.18) {
     fail(report, scenario.id, 'yard-long-scene', `scene ratio is ${scene.width.toFixed(1)}:${scene.height.toFixed(1)}; expected a tall courtyard`, composition);
   }
-  if (composition.character && (composition.character.width > scene.width * 0.27 || composition.character.height > scene.height * 0.27)) {
+  /* The courtyard redesign deliberately raises the resident from the former
+     miniature 0.78 scale to roughly 0.9 while keeping it inside the scene. */
+  if (composition.character && (composition.character.width > scene.width * 0.38 || composition.character.height > scene.height * 0.38)) {
     fail(report, scenario.id, 'yard-character-scale', `character ${composition.character.width.toFixed(1)}x${composition.character.height.toFixed(1)} dominates scene ${scene.width.toFixed(1)}x${scene.height.toFixed(1)}`, composition);
   }
   for (const building of composition.buildings) {
@@ -408,8 +415,8 @@ function checkYardComposition(report, scenario, composition) {
     if (Math.max(...heights) - Math.min(...heights) > 1) {
       fail(report, scenario.id, 'hud-resource-shape', `HUD resource heights differ: ${heights.map((height) => height.toFixed(1)).join('/')}`, composition.hud);
     }
-    if (composition.hud.some((entry) => entry.radius < 8 || entry.radius > 16)) {
-      fail(report, scenario.id, 'hud-resource-radius', 'HUD resources do not share the intended rounded-rectangle grammar', composition.hud);
+    if (composition.hud.some((entry) => !/resource_pill\.webp/i.test(entry.backgroundImage) && (entry.radius < 8 || entry.radius > 16))) {
+      fail(report, scenario.id, 'hud-resource-shape', 'HUD resources use neither the authored v14 resource frame nor the fallback rounded-rectangle grammar', composition.hud);
     }
   }
 }
@@ -571,9 +578,11 @@ async function run() {
               checkYardComposition(report, scenario, composition);
 
               await page.locator('#yard-character').click({ force: true });
+              const residentAction = page.locator('.qv14-yard-care-entry[data-ui-action="open-care"], #yard-selection-card [data-yard-info-action="resident"]').first();
+              if (await residentAction.isVisible().catch(() => false)) await residentAction.click();
               const detailsVisible = await page.locator('#modal-root .resident-detail-modal').isVisible().catch(() => false);
               const detailsText = detailsVisible ? await page.locator('#modal-root .resident-detail-modal').innerText() : '';
-              if (!detailsVisible || !/(?:好感|疗愈|经验)/.test(detailsText)) {
+              if (!detailsVisible || !/(?:信任|疗愈|宗门阅历)/.test(detailsText)) {
                 fail(report, scenario.id, 'yard-character-details', 'clicking the resident does not reveal growth details', { detailsVisible, detailsText });
               }
               const detailClose = page.locator('#modal-root [data-close-modal]').first();

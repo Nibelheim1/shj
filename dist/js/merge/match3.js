@@ -17,6 +17,7 @@
 (function (global) {
   'use strict';
 
+  var KAI_FONT = '"Qixia WenKai","LXGW WenKai","STKaiti","KaiTi","Kaiti SC",cursive';
   var COLS = 6, ROWS = 6;
   var GAME_SECONDS = 60;
   var TIME_PICKUP_SECONDS = 5;
@@ -164,6 +165,7 @@
   function Game(kind, opts) {
     this.kind = SETS[kind] ? kind : 'FEED';
     this.opts = opts || {};
+    this.uiTheme = Object.assign({ shell: '#FFF4E7', panel: '#FFF8EE', ink: '#6B4F3A', primary: '#DF7959', primaryDark: '#B8563C', disabled: '#E7DED5' }, this.opts.uiTheme || {});
     this.onEvent = typeof this.opts.onEvent === 'function' ? this.opts.onEvent : null;
     this.theme = THEME[this.kind];
     this.rule = RULE[this.kind];
@@ -1193,7 +1195,11 @@
     if (!rect) return false;
 
     if (this._inBtn(x, y, rect.timeItem)) return this.collectTimePickup();
-    if (this._inBtn(x, y, rect.finishB)) { this._pendingFinish = true; return true; }
+    if (this._inBtn(x, y, rect.finishB)) {
+      if (!this.canFinish()) return false;
+      this._pendingFinish = true;
+      return true;
+    }
     if (this._inBtn(x, y, rect.cancelB)) { this._pendingCancel = true; return true; }
 
     // 道具栏
@@ -1362,6 +1368,20 @@
     return this.rule.label + ' ' + Math.round(this.perf * 100) + '%';
   };
 
+  Game.prototype.isGoalComplete = function () {
+    this._updatePerf();
+    return this.perf >= 0.999;
+  };
+
+  Game.prototype.canFinish = function () {
+    return this.isGoalComplete() || this.effectiveMoves > 0 || this.validMoves > 0;
+  };
+
+  Game.prototype.finishPresentationState = function () {
+    if (this.isGoalComplete()) return 'complete';
+    return this.canFinish() ? 'early' : 'disabled';
+  };
+
   // ---------- 绘制 ----------
   Game.prototype.draw = function (ctx, W, H) {
     ctx.save();
@@ -1370,13 +1390,13 @@
       ctx.translate((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake);
     }
 
-    ctx.fillStyle = 'rgba(20,15,10,0.66)'; ctx.fillRect(-20, -20, W + 40, H + 40);
+    ctx.fillStyle = this.uiTheme.shell; ctx.fillRect(-20, -20, W + 40, H + 40);
 
     var topH = 104;                 // 标题 + 进度条
-    var itemH = 76;                 // 道具栏
-    var btnH = 58;                  // 底部按钮
+    var itemH = 78;                 // 道具栏
+    var btnH = 76;                  // 48px按钮 + 20px底部安全区及呼吸空间
     var availW = W - 32;
-    var availH = H - topH - itemH - btnH - 24;
+    var availH = H - topH - itemH - btnH - 16;
     var cell = Math.floor(Math.min(availW / this.cols, availH / this.rows));
     var boardW = cell * this.cols, boardH = cell * this.rows;
     var bx = Math.round((W - boardW) / 2), by = Math.round(topH + (availH - boardH) / 2);
@@ -1384,6 +1404,14 @@
     var rect = { x: bx, y: by, cell: cell, pad: pad, finishB: null, cancelB: null, items: [] };
 
     this._drawHud(ctx, W, bx, by, boardW, pad, rect);
+
+    this._roundRect(ctx, 18, 112, Math.min(220, W - 154), 54, 15);
+    ctx.fillStyle = 'rgba(255,248,232,0.92)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(117,73,47,0.62)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#5A3A28';
+    ctx.font = '700 13px ' + KAI_FONT;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('解开单层毛结并制造特殊块', 18 + Math.min(220, W - 154) / 2, 139);
 
     // 棋盘底
     this._roundRect(ctx, bx - pad, by - pad, boardW + pad * 2, boardH + pad * 2, 16);
@@ -1436,11 +1464,12 @@
     this._drawItemBar(ctx, W, by + boardH + pad + 12, rect);
 
     // 底部按钮
-    var bw = (W - 48 - 14) / 2, bh = 44, byb = H - btnH + 6;
-    rect.finishB = { x: 24, y: byb, w: bw, h: bh };
-    rect.cancelB = { x: 24 + bw + 14, y: byb, w: bw, h: bh };
-    this._drawBtn(ctx, rect.finishB, '完成照料', true);
-    this._drawBtn(ctx, rect.cancelB, '放弃', false);
+    var bh = 52, byb = H - bh - 18;
+    rect.finishB = { x: 48, y: byb, w: W - 96, h: bh };
+    rect.cancelB = { x: W - 62, y: 10, w: 48, h: 48 };
+    var finishState = this.finishPresentationState();
+    this._drawBtn(ctx, rect.finishB, finishState === 'complete' ? '完成照料' : finishState === 'early' ? '提前结算' : '完成照料', finishState);
+    this._drawBtn(ctx, rect.cancelB, 'Ⅱ', 'secondary');
 
     ctx.restore();
     this._lastRect = rect;
@@ -1452,31 +1481,34 @@
       GROOM: '梳毛 · 解开毛结', PLAY: '陪玩 · 攒满欢乐'
     }[this.kind];
 
-    ctx.fillStyle = '#FFF7EC';
-    ctx.font = '700 18px "PingFang SC",sans-serif';
+    this._roundRect(ctx, 12, 8, W - 86, 48, 12);
+    ctx.fillStyle = 'rgba(255,248,232,0.94)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(117,73,47,0.66)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#5A3A28';
+    ctx.font = '700 19px ' + KAI_FONT;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(title, W / 2, 30);
+    ctx.fillText(title, (W - 74) / 2 + 6, 28);
 
     // 提示语
-    ctx.font = '400 11px "PingFang SC",sans-serif';
-    ctx.fillStyle = 'rgba(251,234,210,0.72)';
-    ctx.fillText(this.rule.tip, W / 2, 49);
+    ctx.font = '500 11px ' + KAI_FONT;
+    ctx.fillStyle = '#8A6B56';
+    ctx.fillText(this.rule.tip, (W - 74) / 2 + 6, 47);
 
     // 时间进度条：不再用步数限制，60 秒内完成即可。
     var pw = Math.min(boardW, W - 48), px = (W - pw) / 2, py = 62, ph = 10;
     this._roundRect(ctx, px, py, pw, ph, ph / 2);
-    ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.fill();
+    ctx.fillStyle = '#E5D3C4'; ctx.fill();
     var timeRatio = clamp(this.timeLeft / this.timeLimit, 0, 1);
     this._roundRect(ctx, px, py, Math.max(ph, pw * timeRatio), ph, ph / 2);
     ctx.fillStyle = timeRatio <= 0.22 ? '#F27E73' : this.theme.accent; ctx.fill();
 
     // 左：剩余时间；右：当前得分
-    ctx.font = '600 12px "PingFang SC",sans-serif';
-    ctx.textAlign = 'left'; ctx.fillStyle = '#FBEAD2';
+    ctx.font = '600 12px ' + KAI_FONT;
+    ctx.textAlign = 'left'; ctx.fillStyle = '#6B4F3A';
     ctx.fillText('剩余 ' + Math.ceil(this.timeLeft) + ' 秒', px, py + 24);
 
     ctx.textAlign = 'right';
-    ctx.fillStyle = '#FBEAD2';
+    ctx.fillStyle = '#6B4F3A';
     ctx.fillText('得分 ' + this.score, px + pw, py + 24);
 
     // 中：连击 / 热情
@@ -1487,10 +1519,10 @@
       ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
       this._roundRect(ctx, hx, hy, Math.max(4, hw * this.heat), 12, 6);
       ctx.fillStyle = this.heat > 0.7 ? '#FF8FB0' : '#F0A8C0'; ctx.fill();
-      ctx.fillStyle = '#5A2B3A'; ctx.font = '700 9px "PingFang SC",sans-serif';
+      ctx.fillStyle = '#5A2B3A'; ctx.font = '700 9px ' + KAI_FONT;
       ctx.fillText('热情', W / 2, hy + 6);
     } else if (this.maxCombo > 1) {
-      ctx.fillStyle = '#FBEAD2'; ctx.font = '600 12px "PingFang SC",sans-serif';
+      ctx.fillStyle = '#6B4F3A'; ctx.font = '600 12px ' + KAI_FONT;
       ctx.fillText('连击 x' + this.maxCombo, W / 2, py + 24);
     }
 
@@ -1500,9 +1532,9 @@
       this._roundRect(ctx, pickup.x, pickup.y, pickup.w, pickup.h, 9);
       ctx.fillStyle = '#FFF2BF'; ctx.fill();
       ctx.strokeStyle = '#E4B65F'; ctx.lineWidth = 2; ctx.stroke();
-      ctx.fillStyle = '#8D633C'; ctx.font = '800 10px "PingFang SC",sans-serif';
+      ctx.fillStyle = '#8D633C'; ctx.font = '800 10px ' + KAI_FONT;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('⏱ +5秒', pickup.x + pickup.w / 2, pickup.y + pickup.h / 2 + 1);
+      ctx.fillText('加时 5秒', pickup.x + pickup.w / 2, pickup.y + pickup.h / 2 + 1);
     }
   };
 
@@ -1510,14 +1542,14 @@
     // 灵力条
     var ew = Math.min(240, W - 80), ex = (W - ew) / 2, eh = 8;
     this._roundRect(ctx, ex, y, ew, eh, eh / 2);
-    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
+    ctx.fillStyle = '#E5D3C4'; ctx.fill();
     var ratio = this.energy / this.energyMax;
     if (ratio > 0.01) {
       this._roundRect(ctx, ex, y, Math.max(eh, ew * ratio), eh, eh / 2);
       ctx.fillStyle = this.theme.energy; ctx.fill();
     }
-    ctx.fillStyle = 'rgba(251,234,210,0.75)';
-    ctx.font = '600 10px "PingFang SC",sans-serif';
+    ctx.fillStyle = '#7B5B47';
+    ctx.font = '600 10px ' + KAI_FONT;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('灵力 ' + Math.floor(this.energy), W / 2, y - 9);
 
@@ -1550,9 +1582,9 @@
 
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       ctx.fillStyle = active ? '#FFF7EC' : (usable ? '#6B4F3A' : 'rgba(107,79,58,0.45)');
-      ctx.font = '700 11px "PingFang SC",sans-serif';
+      ctx.font = '700 11px ' + KAI_FONT;
       ctx.fillText(this.itemLabel(id), b.x + 30, b.y + 15);
-      ctx.font = '500 10px "PingFang SC",sans-serif';
+      ctx.font = '500 10px ' + KAI_FONT;
       ctx.fillStyle = active ? 'rgba(255,247,236,0.85)' : (usable ? '#B89B82' : 'rgba(184,155,130,0.5)');
       ctx.fillText(this.itemCost(id) + ' 灵力', b.x + 30, b.y + 29);
     }
@@ -1640,7 +1672,7 @@
       ctx.fillStyle = fill; ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.lineWidth = 1;
       if (ctx.stroke) ctx.stroke();
-      ctx.fillStyle = ink; ctx.font = '900 ' + Math.max(10, Math.floor(badge * 0.62)) + 'px sans-serif';
+      ctx.fillStyle = ink; ctx.font = '900 ' + Math.max(10, Math.floor(badge * 0.62)) + 'px ' + KAI_FONT;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       if (ctx.fillText) ctx.fillText(label, bx + badge / 2, by + badge / 2 + 0.5);
       ctx.restore();
@@ -1654,7 +1686,7 @@
 
     // 污渍与毛结也只占用角落；毛结的“×/2”就是需要解开的层数。
     if (s.dirt) drawBadge('·', '#B9916C', '#FFF8FA', true);
-    if (s.knot > 0) drawBadge(s.knot > 1 ? '2' : '×', '#E5D4F7', '#6D459A', true);
+    if (s.knot > 0) drawBadge(String(Math.max(1, s.knot)), '#E5D4F7', '#6D459A', true);
     ctx.restore();
   };
 
@@ -1715,14 +1747,22 @@
     ctx.closePath();
   };
 
-  Game.prototype._drawBtn = function (ctx, b, label, primary) {
+  Game.prototype._drawBtn = function (ctx, b, label, state) {
+    if (state === true) state = 'complete';
+    if (state === false) state = 'secondary';
+    state = state || 'secondary';
+    var primary = state === 'complete';
+    var disabled = state === 'disabled';
+    var early = state === 'early';
     ctx.save();
-    ctx.fillStyle = primary ? this.theme.accent : 'rgba(255,247,236,0.95)';
+    ctx.fillStyle = primary ? this.uiTheme.primary : disabled ? this.uiTheme.disabled : early ? this.uiTheme.panel : this.uiTheme.panel;
     if (primary) { ctx.shadowColor = 'rgba(0,0,0,0.2)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3; }
-    this._roundRect(ctx, b.x, b.y, b.w, b.h, 12); ctx.fill();
+    this._roundRect(ctx, b.x, b.y, b.w, b.h, 14); ctx.fill();
+    ctx.strokeStyle = primary ? this.uiTheme.primaryDark : disabled ? '#C8BBB0' : this.uiTheme.primaryDark;
+    ctx.lineWidth = 1.5; if (ctx.stroke) ctx.stroke();
     ctx.restore();
-    ctx.fillStyle = primary ? '#fff' : '#6B4F3A';
-    ctx.font = '700 16px "PingFang SC",sans-serif';
+    ctx.fillStyle = primary ? '#fff' : disabled ? '#6F665F' : '#8E4432';
+    ctx.font = '700 14px ' + KAI_FONT;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(label, b.x + b.w / 2, b.y + b.h / 2 + 1);
   };

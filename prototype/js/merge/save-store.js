@@ -64,6 +64,55 @@
     return JSON.stringify(value);
   }
 
+  /* A save may carry bookkeeping fields that change on every flush even when
+     the game state did not.  Keep those fields in the persisted payload for
+     backwards compatibility, but exclude them from semantic change
+     detection. */
+  function semanticValue(value) {
+    var cloned = JSON.parse(JSON.stringify(value));
+    if (cloned && typeof cloned === 'object' && !Array.isArray(cloned) &&
+        cloned.saveMeta && typeof cloned.saveMeta === 'object') {
+      delete cloned.saveMeta.savedAt;
+      delete cloned.saveMeta.revision;
+      delete cloned.saveMeta.contentHash;
+      delete cloned.saveMeta.historyMode;
+      delete cloned.saveMeta.reason;
+    }
+    return cloned;
+  }
+
+  function stableStringify(value) {
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) {
+      return '[' + value.map(function (item) {
+        var encoded = stableStringify(item);
+        return encoded === undefined ? 'null' : encoded;
+      }).join(',') + ']';
+    }
+    var parts = [];
+    Object.keys(value).sort().forEach(function (key) {
+      var encoded = stableStringify(value[key]);
+      if (encoded !== undefined) parts.push(JSON.stringify(key) + ':' + encoded);
+    });
+    return '{' + parts.join(',') + '}';
+  }
+
+  function semanticString(value) {
+    return stableStringify(semanticValue(value));
+  }
+
+  function contentHash(value) {
+    try {
+      return checksum(semanticString(value));
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function recordChecksum(record) {
+    return record ? String(record.checksum || record.sum || '') : '';
+  }
+
   function parsePointer(raw) {
     if (raw == null) return null;
     var value = String(raw).trim().toUpperCase();
@@ -158,6 +207,12 @@
     this.lastSave = null;
     this.readOnly = false;
     this._revision = 0;
+    this._knownMirrorRevision = 0;
+    this._unresolvedConflict = null;
+    /* Every public mirror mutation is chained through this promise.  A
+       rejection is absorbed into the tail so one failed IndexedDB write does
+       not permanently poison subsequent saves. */
+    this._mirrorQueue = Promise.resolve();
   }
 
   SaveStore.prototype._getItem = function (key) {
@@ -212,13 +267,17 @@
       minReaderVersion: own(options, 'minReaderVersion') ? options.minReaderVersion : this.minReaderVersion,
       revision: revision,
       savedAt: now,
-      data: data
+      data: data,
+      contentHash: own(options, 'contentHash') ? options.contentHash : contentHash(value)
     };
     record.saveMeta = {
       schema: record.schema,
       minReaderVersion: record.minReaderVersion,
       revision: record.revision,
-      savedAt: record.savedAt
+      savedAt: record.savedAt,
+      contentHash: record.contentHash,
+      historyMode: options.historyMode === 'checkpoint' ? 'checkpoint' : 'none',
+      reason: options.reason == null ? null : String(options.reason)
     };
     record.checksum = checksum(makeMaterial(record));
     /* `sum` keeps inspection/migration tools that used SaveManager's field
@@ -274,6 +333,9 @@
     normalized.minReaderVersion = minReaderVersion;
     normalized.revision = materialRecord.revision;
     normalized.savedAt = materialRecord.savedAt;
+    /* Hash the parsed value rather than the JSON string itself so key
+       insertion order cannot create a false change. */
+    normalized.contentHash = contentHash(data) || checksum(record.data);
     return {
       ok: true,
       slot: slot,
@@ -302,6 +364,90 @@
     return revisions.length ? Math.max.apply(Math, revisions) : 0;
   };
 
+  SaveStore.prototype._candidateResults = function () {
+    return [this._readSlot('A'), this._readSlot('B')].filter(function (result) {
+      return result && result.ok;
+    });
+  };
+
+  SaveStore.prototype._describeCandidate = function (result, eligible, selected) {
+    if (!result || !result.ok || !result.record) return null;
+    var protection = this._readOnlyFor(result.record);
+    return {
+      source: result.source || 'local',
+      slot: result.slot == null ? null : result.slot,
+      revision: numberOr(result.record.revision, 0),
+      savedAt: numberOr(result.record.savedAt, 0),
+      schema: result.record.schema,
+      minReaderVersion: result.record.minReaderVersion,
+      checksum: recordChecksum(result.record),
+      contentHash: result.record.contentHash || contentHash(result.data) || checksum(result.record.data),
+      eligible: eligible !== false,
+      selected: !!selected,
+      readOnly: !!protection.readOnly,
+      reason: protection.reason || null,
+      data: result.data,
+      record: result.record
+    };
+  };
+
+  SaveStore.prototype._findRevisionConflicts = function (candidates) {
+    var groups = {};
+    var newestEligibleRevision = (candidates || []).reduce(function (maximum, candidate) {
+      if (!candidate || candidate.eligible === false) return maximum;
+      return Math.max(maximum, numberOr(candidate.revision, 0));
+    }, 0);
+    (candidates || []).forEach(function (candidate) {
+      if (!candidate || !candidate.record) return;
+      var revision = String(numberOr(candidate.revision, candidate.record.revision));
+      if (!groups[revision]) groups[revision] = [];
+      groups[revision].push(candidate);
+    });
+    return Object.keys(groups).map(function (revision) {
+      if (numberOr(revision, 0) !== newestEligibleRevision) return null;
+      var seen = {};
+      groups[revision].forEach(function (candidate) { seen[String(candidate.checksum || recordChecksum(candidate.record))] = true; });
+      if (Object.keys(seen).length < 2) return null;
+      return {
+        revision: numberOr(revision, 0),
+        reason: 'same-revision-checksum-conflict',
+        candidates: groups[revision]
+      };
+    }).filter(function (group) { return !!group; }).sort(function (left, right) {
+      return right.revision - left.revision;
+    });
+  };
+
+  SaveStore.prototype._compareCandidates = function (left, right) {
+    var revision = numberOr(left && left.revision, 0) - numberOr(right && right.revision, 0);
+    if (revision) return revision;
+    var savedAt = numberOr(left && left.savedAt, 0) - numberOr(right && right.savedAt, 0);
+    if (savedAt) return savedAt;
+    var schema = versionCompare(left && left.schema, right && right.schema);
+    if (schema) return schema;
+    /* Equal records prefer the committed local candidate.  This makes the
+       choice deterministic without treating source order as freshness. */
+    if (left && left.source === 'local' && (!right || right.source !== 'local')) return 1;
+    if (right && right.source === 'local' && (!left || left.source !== 'local')) return -1;
+    return String(left && left.slot || '').localeCompare(String(right && right.slot || '')) * -1;
+  };
+
+  SaveStore.prototype._maxCandidateRevision = function (candidates) {
+    return (candidates || []).reduce(function (maximum, candidate) {
+      return Math.max(maximum, numberOr(candidate && candidate.revision, 0));
+    }, 0);
+  };
+
+  SaveStore.prototype._publicConflicts = function (conflicts) {
+    return (conflicts || []).map(function (group) {
+      return {
+        revision: group.revision,
+        reason: group.reason,
+        candidates: group.candidates.slice()
+      };
+    });
+  };
+
   SaveStore.prototype._readLocalHistory = function () {
     var raw = this._getItem(this.keys.history);
     if (!raw) return [];
@@ -313,17 +459,21 @@
       .filter(function (result) { return result.ok; });
   };
 
-  SaveStore.prototype._appendLocalHistory = function (record) {
+  SaveStore.prototype._appendLocalHistoryRecords = function (newRecords, minimumLimit) {
     var records = this._readLocalHistory().map(function (result) { return result.record; });
-    records.push(record);
+    records = records.concat((newRecords || []).filter(function (record) { return !!record; }));
     var seen = {};
     records = records.sort(function (a, b) { return numberOr(b.revision, 0) - numberOr(a.revision, 0); }).filter(function (item) {
       var key = String(item.revision) + ':' + String(item.checksum || item.sum || '');
       if (seen[key]) return false;
       seen[key] = true;
       return true;
-    }).slice(0, this.backupLimit);
+    }).slice(0, Math.max(this.backupLimit, numberOr(minimumLimit, 0)));
     return this._setItem(this.keys.history, JSON.stringify(records));
+  };
+
+  SaveStore.prototype._appendLocalHistory = function (record) {
+    return this._appendLocalHistoryRecords([record], this.backupLimit);
   };
 
   SaveStore.prototype._pickRecord = function () {
@@ -386,6 +536,14 @@
 
   SaveStore.prototype.loadDetailed = function () {
     var picked = this._pickRecord();
+    var self = this;
+    var slotResults = this._candidateResults();
+    var slotCandidates = slotResults.map(function (result) {
+      return self._describeCandidate(result, !!(picked.result && result.slot === picked.result.slot),
+        !!(picked.result && result.slot === picked.result.slot));
+    });
+    var conflicts = this._findRevisionConflicts(slotCandidates);
+    var futureCandidates = slotCandidates.filter(function (candidate) { return candidate.readOnly; });
     if (!picked.result) {
       var empty = {
         ok: false,
@@ -398,21 +556,40 @@
         recovered: false,
         readOnly: false,
         isReadOnly: false,
-        readOnlyNewer: false
+        readOnlyNewer: futureCandidates.length > 0,
+        candidates: slotCandidates,
+        conflicts: this._publicConflicts(conflicts),
+        conflict: conflicts.length > 0
       };
+      if (futureCandidates.length) {
+        empty.status = 'read-only';
+        empty.reason = futureCandidates[0].reason;
+        empty.readOnly = true;
+        empty.isReadOnly = true;
+      }
       this.lastLoad = empty;
-      this.readOnly = false;
+      this.readOnly = futureCandidates.length > 0;
+      this._unresolvedConflict = conflicts.length ? { conflicts: conflicts, candidates: slotCandidates } : null;
       return empty;
     }
 
     var result = picked.result;
-    var readOnly = this._readOnlyFor(result.record);
+    var selectedReadOnly = this._readOnlyFor(result.record);
+    var readOnly = futureCandidates.length ? this._readOnlyFor(futureCandidates[0].record) : selectedReadOnly;
+    if (futureCandidates.length) {
+      readOnly = {
+        readOnly: true,
+        reason: futureCandidates[0].reason,
+        requiredSchema: futureCandidates[0].schema,
+        requiredReaderVersion: futureCandidates[0].minReaderVersion
+      };
+    }
     var detailed = {
       ok: true,
       data: result.data,
       value: result.data,
-      status: readOnly.readOnly ? 'read-only' : (picked.recovered ? 'recovered' : 'ok'),
-      reason: readOnly.reason || (picked.recovered ? 'primary-corrupt' : null),
+      status: readOnly.readOnly ? 'read-only' : (conflicts.length ? 'conflict' : (picked.recovered ? 'recovered' : 'ok')),
+      reason: readOnly.reason || (conflicts.length ? 'same-revision-checksum-conflict' : (picked.recovered ? 'primary-corrupt' : null)),
       slot: result.slot,
       source: result.source,
       recovered: picked.recovered,
@@ -424,11 +601,15 @@
       requiredReaderVersion: readOnly.requiredReaderVersion,
       readOnly: readOnly.readOnly,
       isReadOnly: readOnly.readOnly,
-      readOnlyNewer: readOnly.readOnly
+      readOnlyNewer: readOnly.readOnly,
+      candidates: slotCandidates,
+      conflicts: this._publicConflicts(conflicts),
+      conflict: conflicts.length > 0
     };
     this.lastLoad = detailed;
     this.readOnly = readOnly.readOnly;
-    this._revision = Math.max(this._revision, numberOr(result.record.revision, 0));
+    this._unresolvedConflict = conflicts.length ? { conflicts: conflicts, candidates: slotCandidates } : null;
+    this._revision = Math.max(this._revision, this._maxCandidateRevision(slotCandidates));
     return detailed;
   };
 
@@ -455,8 +636,16 @@
 
   SaveStore.prototype.saveDetailed = function (value, options) {
     options = options || {};
+    var saveOptions = {};
+    Object.keys(options).forEach(function (key) { saveOptions[key] = options[key]; });
+    saveOptions.historyMode = options.historyMode === 'checkpoint' ? 'checkpoint' : 'none';
     if (this.readOnly && !options.allowNewer) {
-      var blocked = { ok: false, status: 'read-only', reason: 'newer-reader', readOnly: true };
+      var blocked = {
+        ok: false,
+        status: 'read-only',
+        reason: this.lastLoad && this.lastLoad.reason || 'newer-reader',
+        readOnly: true
+      };
       this.lastSave = blocked;
       return blocked;
     }
@@ -464,6 +653,13 @@
     /* Protect a newer save even when the caller writes before calling load(). */
     var existing = this._pickRecord();
     var slotRecords = [this._readSlot('A'), this._readSlot('B')];
+    var self = this;
+    var slotCandidates = slotRecords.filter(function (result) { return result.ok; }).map(function (result) {
+      return self._describeCandidate(result, !!(existing.result && existing.result.slot === result.slot),
+        !!(existing.result && existing.result.slot === result.slot));
+    });
+    var localConflicts = this._findRevisionConflicts(slotCandidates);
+    if (localConflicts.length) this._unresolvedConflict = { conflicts: localConflicts, candidates: slotCandidates };
     for (var slotIndex = 0; slotIndex < slotRecords.length; slotIndex++) {
       if (!slotRecords[slotIndex].ok) continue;
       var slotReadOnly = this._readOnlyFor(slotRecords[slotIndex].record);
@@ -499,7 +695,128 @@
       }
     }
 
-    var made = this._makeRecord(value, options);
+    var localRevision = existing.result ? numberOr(existing.result.record.revision, 0) : 0;
+    var loadedRevision = this.lastLoad && this.lastLoad.ok && this.lastLoad.record ?
+      numberOr(this.lastLoad.record.revision, 0) : 0;
+    var actualRevision = Math.max(localRevision, loadedRevision, numberOr(this._knownMirrorRevision, 0));
+    if (own(options, 'expectedRevision') && numberOr(options.expectedRevision, -1) !== actualRevision) {
+      var stale = {
+        ok: false,
+        status: 'conflict',
+        reason: 'revision-conflict',
+        expectedRevision: numberOr(options.expectedRevision, -1),
+        actualRevision: actualRevision,
+        readOnly: false
+      };
+      this.lastSave = stale;
+      return stale;
+    }
+
+    if (this._unresolvedConflict && !options.resolveConflict) {
+      var unresolved = {
+        ok: false,
+        status: 'conflict',
+        reason: 'same-revision-checksum-conflict',
+        actualRevision: actualRevision,
+        conflicts: this._publicConflicts(this._unresolvedConflict.conflicts),
+        readOnly: false
+      };
+      this.lastSave = unresolved;
+      return unresolved;
+    }
+    if (this._unresolvedConflict && options.resolveConflict && !own(options, 'expectedRevision')) {
+      var resolutionNeedsRevision = {
+        ok: false,
+        status: 'conflict',
+        reason: 'conflict-resolution-requires-expected-revision',
+        actualRevision: actualRevision,
+        conflicts: this._publicConflicts(this._unresolvedConflict.conflicts),
+        readOnly: false
+      };
+      this.lastSave = resolutionNeedsRevision;
+      return resolutionNeedsRevision;
+    }
+
+    var currentResult = existing.result;
+    if (this.lastLoad && this.lastLoad.ok && this.lastLoad.record &&
+        (!currentResult || numberOr(this.lastLoad.record.revision, 0) > numberOr(currentResult.record.revision, 0))) {
+      currentResult = {
+        ok: true,
+        source: this.lastLoad.source,
+        slot: this.lastLoad.slot,
+        data: this.lastLoad.data,
+        record: this.lastLoad.record
+      };
+    }
+    var incomingHash = contentHash(value);
+    var targetSchema = own(options, 'schema') ? options.schema : this.schema;
+    var targetMinReader = own(options, 'minReaderVersion') ? options.minReaderVersion : this.minReaderVersion;
+    var currentHash = currentResult && currentResult.record ?
+      (currentResult.record.contentHash || contentHash(currentResult.data) || checksum(currentResult.record.data)) : null;
+    var semanticallyEqual = false;
+    if (currentResult && incomingHash && currentHash === incomingHash) {
+      try { semanticallyEqual = semanticString(value) === semanticString(currentResult.data); } catch (error) { semanticallyEqual = false; }
+    }
+    if (!options.resolveConflict && currentResult && semanticallyEqual &&
+        versionCompare(currentResult.record.schema, targetSchema) === 0 &&
+        versionCompare(currentResult.record.minReaderVersion, targetMinReader) === 0) {
+      var localHasCurrent = !!(existing.result &&
+        numberOr(existing.result.record.revision, 0) === numberOr(currentResult.record.revision, 0) &&
+        recordChecksum(existing.result.record) === recordChecksum(currentResult.record));
+      if (!localHasCurrent) {
+        var reconcilePointer = existing.pointer || (existing.result && existing.result.slot) || null;
+        var reconcileTarget = reconcilePointer === 'A' ? 'B' : 'A';
+        if (!reconcilePointer && existing.result && existing.result.slot === 'B') reconcileTarget = 'A';
+        var reconcileRaw;
+        try { reconcileRaw = JSON.stringify(currentResult.record); } catch (reconcileError) {
+          var reconcileSerializationFailure = { ok: false, status: 'error', reason: 'serialize-record-error', error: reconcileError };
+          this.lastSave = reconcileSerializationFailure;
+          return reconcileSerializationFailure;
+        }
+        if (!this._setItem(this.keys[reconcileTarget], reconcileRaw)) {
+          var reconcileSlotFailure = { ok: false, status: 'error', reason: 'slot-write-failed', slot: reconcileTarget, error: this._lastStorageError };
+          this.lastSave = reconcileSlotFailure;
+          return reconcileSlotFailure;
+        }
+        if (!this._setItem(this.keys.pointer, reconcileTarget)) {
+          var reconcilePointerFailure = { ok: false, status: 'error', reason: 'pointer-write-failed', slot: reconcileTarget, error: this._lastStorageError };
+          this.lastSave = reconcilePointerFailure;
+          return reconcilePointerFailure;
+        }
+        var reconciledHistory = saveOptions.historyMode === 'checkpoint' ? this._appendLocalHistory(currentResult.record) : false;
+        var reconciled = {
+          ok: true,
+          status: 'reconciled',
+          unchanged: true,
+          reconciled: true,
+          slot: reconcileTarget,
+          record: currentResult.record,
+          revision: numberOr(currentResult.record.revision, 0),
+          readOnly: false,
+          backupHistory: reconciledHistory,
+          historyMode: saveOptions.historyMode
+        };
+        this.lastSave = reconciled;
+        return reconciled;
+      }
+      var checkpointed = saveOptions.historyMode === 'checkpoint' ? this._appendLocalHistory(currentResult.record) : false;
+      var unchanged = {
+        ok: true,
+        status: 'unchanged',
+        unchanged: true,
+        slot: currentResult.slot,
+        record: currentResult.record,
+        revision: numberOr(currentResult.record.revision, 0),
+        readOnly: false,
+        backupHistory: checkpointed,
+        historyMode: saveOptions.historyMode
+      };
+      this.lastSave = unchanged;
+      return unchanged;
+    }
+
+    if (this._unresolvedConflict && options.resolveConflict) saveOptions.historyMode = 'checkpoint';
+    var made = this._makeRecord(value, saveOptions);
     if (made.error) {
       var serializationFailure = { ok: false, status: 'error', reason: 'serialize-error', error: made.error };
       this.lastSave = serializationFailure;
@@ -532,15 +849,29 @@
       return pointerFailure;
     }
 
+    var backupHistory = false;
+    if (this._unresolvedConflict && options.resolveConflict) {
+      var conflictRecords = this._unresolvedConflict.candidates.map(function (candidate) {
+        return candidate && candidate.record;
+      }).filter(function (candidateRecord) { return !!candidateRecord; });
+      conflictRecords.push(record);
+      backupHistory = this._appendLocalHistoryRecords(conflictRecords, conflictRecords.length);
+    } else if (saveOptions.historyMode === 'checkpoint') {
+      backupHistory = this._appendLocalHistory(record) || backupHistory;
+    }
     var saved = {
       ok: true,
       status: 'saved',
       slot: target,
       record: record,
+      revision: numberOr(record.revision, 0),
       readOnly: false,
-      backupHistory: this._appendLocalHistory(record)
+      backupHistory: backupHistory,
+      historyMode: saveOptions.historyMode,
+      reason: saveOptions.reason == null ? null : String(saveOptions.reason)
     };
     this.readOnly = false;
+    this._unresolvedConflict = null;
     this.lastSave = saved;
     return saved;
   };
@@ -585,7 +916,11 @@
         data: envelope.data
       };
     }
-    var saved = this.saveDetailed(envelope.data, options);
+    var importOptions = {};
+    Object.keys(options).forEach(function (key) { importOptions[key] = options[key]; });
+    if (!own(importOptions, 'historyMode')) importOptions.historyMode = 'checkpoint';
+    if (!own(importOptions, 'reason')) importOptions.reason = 'import';
+    var saved = this.saveDetailed(envelope.data, importOptions);
     if (!saved.ok) return saved;
     return { ok: true, status: 'imported', slot: saved.slot, record: saved.record, data: envelope.data };
   };
@@ -605,6 +940,8 @@
         revision: numberOr(result.record.revision, 0),
         savedAt: numberOr(result.record.savedAt, 0),
         schema: result.record.schema,
+        historyMode: result.record.saveMeta && result.record.saveMeta.historyMode || 'legacy',
+        reason: result.record.saveMeta && result.record.saveMeta.reason || null,
         data: result.data,
         source: result.source,
         record: result.record
@@ -621,7 +958,7 @@
       var decoded = records.map(function (record) { return self._decodeRecord(record, null, 'indexeddb-history'); }).filter(function (result) { return result.ok; });
       var all = local.concat(decoded.map(function (result) {
         var sum = result.record.checksum || result.record.sum || '';
-        return { id: 'backup:' + result.record.revision + ':' + sum, revision: numberOr(result.record.revision, 0), savedAt: numberOr(result.record.savedAt, 0), schema: result.record.schema, data: result.data, source: result.source, record: result.record };
+        return { id: 'backup:' + result.record.revision + ':' + sum, revision: numberOr(result.record.revision, 0), savedAt: numberOr(result.record.savedAt, 0), schema: result.record.schema, historyMode: result.record.saveMeta && result.record.saveMeta.historyMode || 'legacy', reason: result.record.saveMeta && result.record.saveMeta.reason || null, data: result.data, source: result.source, record: result.record };
       }));
       var seen = {};
       return all.sort(function (a, b) { return b.revision - a.revision; }).filter(function (entry) {
@@ -635,7 +972,7 @@
   SaveStore.prototype.restoreBackup = function (id) {
     var selected = this.listBackups().find(function (backup) { return backup.id === id; });
     if (!selected) return { ok: false, reason: 'backup-not-found' };
-    var saved = this.saveDetailed(selected.data);
+    var saved = this.saveDetailed(selected.data, { historyMode: 'checkpoint', reason: 'restore-backup' });
     if (!saved.ok) return saved;
     return { ok: true, status: 'restored', restoredFrom: id, revision: saved.record.revision, data: selected.data };
   };
@@ -649,6 +986,8 @@
     this.lastSave = null;
     this.readOnly = false;
     this._revision = 0;
+    this._knownMirrorRevision = 0;
+    this._unresolvedConflict = null;
     return ok;
   };
 
@@ -743,16 +1082,22 @@
     });
   };
 
-  SaveStore.prototype.saveMirror = function (valueOrRecord) {
-    var made = valueOrRecord && valueOrRecord.data && valueOrRecord.checksum ?
-      { record: valueOrRecord } : this._makeRecord(valueOrRecord, {});
-    if (made.error) return Promise.resolve(false);
+  SaveStore.prototype._enqueueMirrorMutation = function (task) {
+    var run = this._mirrorQueue.then(task, task);
+    this._mirrorQueue = run.then(function () { return true; }, function () { return false; });
+    return run;
+  };
+
+  SaveStore.prototype._saveMirrorRecord = function (record, options) {
+    options = options || {};
     var self = this;
-    return this._mirrorCall('save', made.record).then(function (saved) {
-      if (!saved || self.mirrorAdapter) return !!saved;
+    var historyMode = options.historyMode || (record.saveMeta && record.saveMeta.historyMode) || 'none';
+    return this._mirrorCall('save', record).then(function (saved) {
+      if (saved) self._knownMirrorRevision = Math.max(self._knownMirrorRevision, numberOr(record.revision, 0));
+      if (!saved || self.mirrorAdapter || historyMode !== 'checkpoint') return !!saved;
       return self._mirrorCall('load', null, self.dbHistoryRecord).then(function (records) {
         records = Array.isArray(records) ? records : [];
-        records.push(made.record);
+        records.push(record);
         var seen = {};
         records = records.sort(function (a, b) { return numberOr(b && b.revision, 0) - numberOr(a && a.revision, 0); }).filter(function (record) {
           if (!record || typeof record !== 'object') return false;
@@ -763,6 +1108,17 @@
         }).slice(0, self.backupLimit);
         return self._mirrorCall('save', records, self.dbHistoryRecord).then(function () { return true; }, function () { return true; });
       }, function () { return true; });
+    });
+  };
+
+  SaveStore.prototype.saveMirror = function (valueOrRecord, options) {
+    options = options || {};
+    var made = valueOrRecord && valueOrRecord.data && (valueOrRecord.checksum || valueOrRecord.sum) ?
+      { record: valueOrRecord } : this._makeRecord(valueOrRecord, options);
+    if (made.error) return Promise.resolve(false);
+    var self = this;
+    return this._enqueueMirrorMutation(function () {
+      return self._saveMirrorRecord(made.record, options);
     });
   };
 
@@ -803,36 +1159,127 @@
     return this.loadMirrorDetailed().then(function (result) { return result.ok ? result.data : null; });
   };
 
-  SaveStore.prototype.removeMirror = function () {
+  SaveStore.prototype._removeMirrorNow = function () {
     var self = this;
     return this._mirrorCall('remove').then(function (result) {
-      if (self.mirrorAdapter) return result === true;
-      return self._mirrorCall('remove', null, self.dbHistoryRecord).then(function () { return result === true; }, function () { return result === true; });
+      if (self.mirrorAdapter) {
+        if (result === true) self._knownMirrorRevision = 0;
+        return result === true;
+      }
+      return self._mirrorCall('remove', null, self.dbHistoryRecord).then(function () {
+        if (result === true) self._knownMirrorRevision = 0;
+        return result === true;
+      }, function () {
+        if (result === true) self._knownMirrorRevision = 0;
+        return result === true;
+      });
     }, function () { return false; });
+  };
+
+  SaveStore.prototype.removeMirror = function () {
+    var self = this;
+    return this._enqueueMirrorMutation(function () { return self._removeMirrorNow(); });
   };
 
   SaveStore.prototype.saveAsync = function (value, options) {
     var localResult = this.saveDetailed(value, options);
     var self = this;
     if (!localResult.ok) return Promise.resolve(false);
-    return this.saveMirror(localResult.record).then(function (mirrorOk) {
+    if (localResult.unchanged) {
+      localResult.mirror = 'unchanged';
+      return Promise.resolve(true);
+    }
+    return this.saveMirror(localResult.record, options).then(function (mirrorOk) {
       /* IndexedDB is an optional mirror: local success remains success even
          when the browser has no IndexedDB or the mirror operation fails. */
-      self.lastSave.mirror = !!mirrorOk;
+      localResult.mirror = !!mirrorOk;
+      if (self.lastSave === localResult) self.lastSave.mirror = !!mirrorOk;
       return true;
     }, function () { return true; });
   };
 
-  SaveStore.prototype.loadAsyncDetailed = function () {
+  SaveStore.prototype.loadBestDetailed = function () {
     var self = this;
-    var local = this.loadDetailed();
-    if (local.ok) return Promise.resolve(local);
-    return this.loadMirrorDetailed().then(function (mirror) {
-      if (mirror.ok) {
-        self.lastLoad = mirror;
-        self.readOnly = !!mirror.readOnly;
-      }
-      return mirror.ok ? mirror : local;
+    /* Observe all mirror writes queued before this read. */
+    return this._mirrorQueue.then(function () {
+      var local = self.loadDetailed();
+      return self.loadMirrorDetailed().then(function (mirror) {
+        var candidates = (local.candidates || []).map(function (candidate) {
+          var copy = {};
+          Object.keys(candidate).forEach(function (key) { copy[key] = candidate[key]; });
+          copy.selected = false;
+          return copy;
+        });
+        if (mirror.ok) {
+          var mirrorResult = {
+            ok: true,
+            source: 'indexeddb',
+            slot: null,
+            data: mirror.data,
+            record: mirror.record
+          };
+          candidates.push(self._describeCandidate(mirrorResult, true, false));
+          self._knownMirrorRevision = Math.max(self._knownMirrorRevision, numberOr(mirror.record.revision, 0));
+        }
+
+        var eligible = candidates.filter(function (candidate) { return candidate && candidate.eligible !== false; });
+        var selected = eligible.sort(function (left, right) { return self._compareCandidates(right, left); })[0] || null;
+        if (!selected) {
+          local.candidates = candidates;
+          local.conflicts = [];
+          local.conflict = false;
+          self.lastLoad = local;
+          return local;
+        }
+        candidates.forEach(function (candidate) { candidate.selected = candidate === selected; });
+        var conflicts = self._findRevisionConflicts(candidates);
+        var futureCandidates = candidates.filter(function (candidate) { return candidate.readOnly; })
+          .sort(function (left, right) { return self._compareCandidates(right, left); });
+        var protection = futureCandidates.length ? {
+          readOnly: true,
+          reason: futureCandidates[0].reason,
+          requiredSchema: futureCandidates[0].schema,
+          requiredReaderVersion: futureCandidates[0].minReaderVersion
+        } : self._readOnlyFor(selected.record);
+        var recovered = selected.source === 'local' ? !!local.recovered : !local.ok;
+        var result = {
+          ok: true,
+          data: selected.data,
+          value: selected.data,
+          status: protection.readOnly ? 'read-only' : (conflicts.length ? 'conflict' : (recovered ? 'recovered' : 'ok')),
+          reason: protection.reason || (conflicts.length ? 'same-revision-checksum-conflict' : (recovered ? 'local-unavailable' : null)),
+          source: selected.source,
+          slot: selected.slot,
+          recovered: recovered,
+          record: selected.record,
+          schema: selected.schema,
+          minReaderVersion: selected.minReaderVersion,
+          requiredSchema: protection.requiredSchema,
+          requiredReaderVersion: protection.requiredReaderVersion,
+          readOnly: !!protection.readOnly,
+          isReadOnly: !!protection.readOnly,
+          readOnlyNewer: !!protection.readOnly,
+          conflict: conflicts.length > 0,
+          conflicts: self._publicConflicts(conflicts),
+          candidates: candidates,
+          selectedCandidate: selected
+        };
+        self.lastLoad = result;
+        self.readOnly = !!protection.readOnly;
+        self._unresolvedConflict = conflicts.length ? { conflicts: conflicts, candidates: candidates } : null;
+        self._revision = Math.max(self._revision, self._maxCandidateRevision(candidates));
+        return result;
+      });
+    });
+  };
+
+  SaveStore.prototype.loadAsyncDetailed = function () {
+    return this.loadBestDetailed();
+  };
+
+  SaveStore.prototype.loadBest = function () {
+    return this.loadBestDetailed().then(function (result) {
+      return result.ok ? result.data : null;
     });
   };
 
@@ -871,7 +1318,7 @@
   ['save', 'saveDetailed', 'load', 'loadDetailed', 'hasSave', 'remove', 'reset', 'clear', 'status',
     'read', 'readDetailed', 'getLastLoad', 'write',
     'exportJSON', 'importJSON', 'listBackups', 'listBackupsAsync', 'restoreBackup',
-    'saveAsync', 'loadAsync', 'loadAsyncDetailed', 'removeAsync', 'resetAsync', 'saveMirror',
+    'saveAsync', 'loadAsync', 'loadAsyncDetailed', 'loadBest', 'loadBestDetailed', 'removeAsync', 'resetAsync', 'saveMirror',
     'loadMirror', 'loadMirrorDetailed', 'removeMirror', 'mirrorSave', 'mirrorLoad', 'mirrorLoadDetailed',
     'mirrorRemove', 'mirrorAvailable', 'isMirrorAvailable'].forEach(function (name) {
     api[name] = function () { return defaultStore()[name].apply(defaultStore(), arguments); };

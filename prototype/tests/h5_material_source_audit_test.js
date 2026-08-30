@@ -3,12 +3,13 @@
 /*
  * 素材来源可达性审计：
  * 1. 嬉游亭永远产出玩具系列（play），梳洗台永远产出梳妆系列（groom）。
- * 2. 八个素材族在各自卷章解锁后都有真实产线：
- *    herb/tool=卷一生成器，build=卷二工坊，food=卷三膳堂，
+ * 2. 九个素材族在各自卷章解锁后都有真实产线：
+ *    herb/build/cloth=卷一物资源，tool=卷二起的医馆器物，food=卷三膳堂，
  *    groom/play=庭院小游戏，charm=卷七符台，treasure=卷八宝台。
  * 3. 每个族的最低阶都可以用 isOrderReachable 通过“1 阶需求”验证。
  */
 const assert = require('assert');
+const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -60,14 +61,26 @@ check('嬉游亭所有神兽的陪玩路线统一为玩具系列', function () {
     '嬉游亭奖励全部是 play 族');
 });
 
-check('八个素材族的 activeFromVolume 与产线解锁卷章一致', function () {
+check('九个素材族的 activeFromVolume 与产线解锁卷章一致', function () {
   const expected = {
-    herb: 1, tool: 1, food: 3, build: 2, groom: 2, play: 1, charm: 7, treasure: 8
+    herb: 1, build: 1, cloth: 1, tool: 2, food: 3, groom: 2, play: 1, charm: 7, treasure: 8
   };
   Object.keys(expected).forEach(function (family) {
     expect(DATA.families[family], '存在素材族 ' + family);
     expect(Number(DATA.families[family].activeFromVolume) === expected[family],
       family + ' 应在卷 ' + expected[family] + ' 可用');
+  });
+});
+
+check('所有生产器部件与合成生成器都有可加载的正式素材', function () {
+  Object.keys(DATA.generators.producerChains || {}).forEach(function (family) {
+    const chain = DATA.generators.producerChains[family];
+    for (let tier = 1; tier <= 5; tier += 1) {
+      const relative = chain.artRoot + String(tier).padStart(2, '0') + '.webp';
+      const file = path.resolve(ROOT, relative);
+      expect(fs.existsSync(file) && fs.statSync(file).size > 0,
+        family + ' 生产器素材缺失：' + relative);
+    }
   });
 });
 
@@ -92,7 +105,7 @@ check('卷一~卷八逐卷激活后，每族最低阶在当阶段都可达', fun
     });
   }
   expect(Object.keys(seen).length === Object.keys(DATA.families).length,
-    '八个素材族全部在对应卷章被审计');
+    '九个素材族全部在对应卷章被审计');
 });
 
 check('符箓/珍宝生成器在梼杌/烛龙入伙后真实出现在棋盘', function () {

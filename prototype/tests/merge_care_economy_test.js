@@ -66,24 +66,38 @@ function runChallenge(score, validActions, outcome, careType) {
 
 console.log('\n== H5 care economy ==');
 
-check('配置含四档难度、双游戏尺寸、玩法规则和统一奖励表', function () {
+check('配置含四档难度、原版式玩具塔和统一奖励表', function () {
   assert.deepStrictEqual(DATA.careGames.order, ['easy', 'normal', 'hard', 'master']);
   assert.strictEqual(DATA.careGames.difficulties.master.groom.cols, 7);
   assert.strictEqual(DATA.careGames.difficulties.master.groom.moveLimit, 18);
   assert.strictEqual(DATA.careGames.difficulties.master.groom.knotMode, 'double-triple');
   assert.ok(DATA.careGames.difficulties.master.groom.objective.label.includes('特殊块'));
   assert.strictEqual(DATA.careGames.difficulties.hard.play.typeCount, 11);
-  assert.strictEqual(DATA.careGames.difficulties.master.play.layers, 4);
+  assert.strictEqual(DATA.careGames.difficulties.master.play.layers, 5);
   assert.strictEqual(DATA.careGames.difficulties.easy.play.tilesPerType, 3);
-  assert.strictEqual(DATA.careGames.difficulties.normal.play.layers, 3);
+  assert.strictEqual(DATA.careGames.difficulties.easy.play.totalTiles, 21);
+  assert.strictEqual(DATA.careGames.difficulties.easy.play.slots, 5);
+  assert.strictEqual(DATA.careGames.difficulties.easy.play.timeLimit, 90);
+  assert.strictEqual(DATA.careGames.difficulties.easy.play.storyRound, true);
+  assert.strictEqual(DATA.careGames.difficulties.normal.play.layers, 4);
   assert.strictEqual(DATA.careGames.difficulties.hard.play.slots, 5);
-  assert.strictEqual(DATA.careGames.difficulties.hard.play.cols, 3);
-  assert.strictEqual(DATA.careGames.difficulties.hard.play.rows, 3);
-  assert.strictEqual(DATA.careGames.difficulties.master.play.cols, 3);
+  assert.strictEqual(DATA.careGames.difficulties.hard.play.cols, 5);
+  assert.strictEqual(DATA.careGames.difficulties.hard.play.rows, 5);
+  assert.strictEqual(DATA.careGames.difficulties.master.play.cols, 5);
+  assert.strictEqual(DATA.careGames.difficulties.master.play.rows, 5);
+  assert.strictEqual(DATA.careGames.difficulties.hard.play.tilesPerType, 6);
+  assert.strictEqual(DATA.careGames.difficulties.hard.play.reserveStacks, 4);
   assert.strictEqual(DATA.careGames.difficulties.master.play.typeCount, 12);
-  assert.strictEqual(DATA.careGames.difficulties.hard.play.scoreTarget, 3100);
-  assert.strictEqual(DATA.careGames.difficulties.master.play.failPerfCap, 0.84);
-  assert.strictEqual(DATA.careGames.difficulties.master.play.comboWindow, 1.0);
+  assert.strictEqual(DATA.careGames.difficulties.hard.play.scoreTarget, 5400);
+  assert.strictEqual(DATA.careGames.difficulties.master.play.failPerfCap, 0.76);
+  assert.strictEqual(DATA.careGames.effectiveActions.play, 3);
+  assert.strictEqual(DATA.careGames.difficulties.master.play.comboWindow, 1.2);
+  assert.strictEqual(DATA.careGames.difficulties.challenge.play.cols, 6);
+  assert.strictEqual(DATA.careGames.difficulties.challenge.play.rows, 5);
+  assert.strictEqual(DATA.careGames.difficulties.challenge.play.layers, 5);
+  assert.strictEqual(DATA.careGames.difficulties.challenge.play.tilesPerType, 6);
+  assert.strictEqual(DATA.careGames.difficulties.challenge.play.slots, 5);
+  assert.strictEqual(DATA.careGames.difficulties.challenge.play.reserveStacks, 4);
   assert.ok(Array.isArray(DATA.careGames.difficulties.challenge.play.icons) &&
     DATA.careGames.difficulties.challenge.play.icons.length === 16,
     '挑战模式配置 16 张跨系列图标池');

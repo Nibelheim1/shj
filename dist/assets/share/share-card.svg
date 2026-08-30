@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
-  <title id="title">小动物山海经·栖霞宗</title>
+  <title id="title">山海·栖霞</title>
   <desc id="desc">修缮宗门，陪伴十二只小神兽慢慢找回力量。</desc>
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff4df"/><stop offset="1" stop-color="#e7c59f"/></linearGradient>
@@ -24,11 +24,11 @@
     <path d="M18 72-8 60M21 91-10 92M151 72l27-13M149 91l31 2" stroke="#8b4f3c" stroke-width="6" stroke-linecap="round"/>
   </g>
   <g fill="#49382f">
-    <text x="88" y="152" font-size="34" font-family="system-ui,'Microsoft YaHei',sans-serif" letter-spacing="6">栖霞宗·十二盏灯</text>
-    <text x="82" y="260" font-size="76" font-weight="700" font-family="system-ui,'Microsoft YaHei',sans-serif">小动物山海经</text>
-    <text x="88" y="329" font-size="34" font-family="system-ui,'Microsoft YaHei',sans-serif">修缮宗门，陪伴小神兽慢慢找回力量</text>
+    <text x="88" y="152" font-size="34" font-family="'STKaiti','KaiTi','Kaiti SC',cursive" letter-spacing="6">栖霞宗·十二盏灯</text>
+    <text x="82" y="260" font-size="76" font-weight="700" font-family="'STKaiti','KaiTi','Kaiti SC',cursive">山海·栖霞</text>
+    <text x="88" y="329" font-size="34" font-family="'STKaiti','KaiTi','Kaiti SC',cursive">修缮宗门，陪伴小神兽慢慢找回力量</text>
   </g>
-  <g transform="translate(88 390)" font-family="system-ui,'Microsoft YaHei',sans-serif" font-size="25" fill="#fff8e8">
+  <g transform="translate(88 390)" font-family="'STKaiti','KaiTi','Kaiti SC',cursive" font-size="25" fill="#fff8e8">
     <rect width="560" height="84" rx="42" fill="#805847" opacity=".94"/>
     <text x="36" y="52">合成 · 修缮 · 故事 · 陪玩 · 蜕变</text>
   </g>

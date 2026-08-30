@@ -73,18 +73,19 @@ check('首次生成器部件教学成对发放，后续掉落恢复单件', func
 
 check('Lv4/Lv5 升级受宗门前置与信物门控', function () {
   const state = fresh();
+  const gate = DATA.generators.upgradeGates.herb;
   state.level = 12;
   state.jade = 100000;
   state.energy = 100;
   state.grid.find((item) => item && item.kind === 'generator' && item.family === 'herb').level = 3;
   const denied = Core.upgradeGenerator(state, 'herb');
-  expect(denied.ok === false && denied.reason === 'upgrade-gate', '百草园未修至2段时 Lv4 升级被拒');
-  state.sect.stages.herb_garden = 2;
+  expect(denied.ok === false && denied.reason === 'upgrade-gate', '所属区域尚未完成时 Lv4 升级被拒');
+  state.sect.stages[gate.areaId] = gate.areaStage;
   const allowed = Core.upgradeGenerator(state, 'herb');
   expect(allowed.ok === true && allowed.level === 4, '满足前置后 Lv4 升级成功');
   const denied5 = Core.upgradeGenerator(state, 'herb');
-  expect(denied5.ok === false && denied5.reason === 'upgrade-gate', '缺 PROD_GARDEN 信物时 Lv5 升级被拒');
-  state.products.PROD_GARDEN = 1;
+  expect(denied5.ok === false && denied5.reason === 'upgrade-gate', '缺少配置的信物时 Lv5 升级被拒');
+  state.products[gate.level5Product] = 1;
   const allowed5 = Core.upgradeGenerator(state, 'herb');
   expect(allowed5.ok === true && allowed5.level === 5, '持有信物后 Lv5 升级成功');
 });

@@ -34,8 +34,12 @@ const DIST_ROOT = path.join(REPO_ROOT, 'dist');
 const BUILD_SCRIPT = path.join(REPO_ROOT, 'build-dist.js');
 const VIEWPORT = { width: 390, height: 844 };
 const INITIAL_TRANSFER_LIMIT = Math.floor(1.5 * 1024 * 1024);
-const DIST_TOTAL_LIMIT = 10 * 1024 * 1024;
+// v14 publishes the complete layered art contract. The install may contain
+// lazy page bundles, while the true launch download remains tightly capped.
+const DIST_TOTAL_LIMIT = 60 * 1024 * 1024;
+const DIST_NON_CINEMATIC_LIMIT = 60 * 1024 * 1024;
 const RESOURCE_LIMIT = 1 * 1024 * 1024;
+const CINEMATIC_RESOURCE_LIMIT = 3 * 1024 * 1024;
 const WAIT_AFTER_LOAD_MS = 250;
 
 const MIME_TYPES = {
@@ -48,6 +52,7 @@ const MIME_TYPES = {
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.mp3': 'audio/mpeg',
+  '.mp4': 'video/mp4',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.wav': 'audio/wav',
@@ -114,6 +119,13 @@ function createStaticServer(requestLog) {
     };
     requestLog.push(record);
 
+    if (request.method === 'POST' && requestedUrl.split('?')[0] === '/api/events') {
+      record.status = 204;
+      request.resume();
+      response.statusCode = 204;
+      response.end();
+      return;
+    }
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       record.status = 405;
       response.statusCode = 405;
@@ -255,12 +267,22 @@ async function run() {
   check('build dist/', true, 'build-dist.js completed');
 
   const distStats = collectDistStats();
-  check('complete dist <= 10 MiB', distStats.totalBytes <= DIST_TOTAL_LIMIT,
+  check('complete dist <= 60 MiB', distStats.totalBytes <= DIST_TOTAL_LIMIT,
     `${formatBytes(distStats.totalBytes)} (${distStats.totalBytes} bytes)`);
 
-  const oversizedDistFiles = distStats.files.filter((entry) => entry.bytes > RESOURCE_LIMIT);
-  check('dist files <= 1 MiB each', oversizedDistFiles.length === 0,
+  const cinematicFiles = distStats.files.filter((entry) => /^dist\/assets\/video\//.test(entry.path));
+  const nonCinematicFiles = distStats.files.filter((entry) => !/^dist\/assets\/video\//.test(entry.path));
+  const nonCinematicBytes = nonCinematicFiles.reduce((sum, entry) => sum + entry.bytes, 0);
+  check('non-cinematic dist <= 60 MiB', nonCinematicBytes <= DIST_NON_CINEMATIC_LIMIT,
+    `${formatBytes(nonCinematicBytes)} (${nonCinematicBytes} bytes)`);
+
+  const oversizedDistFiles = nonCinematicFiles.filter((entry) => entry.bytes > RESOURCE_LIMIT);
+  check('non-cinematic dist files <= 1 MiB each', oversizedDistFiles.length === 0,
     oversizedDistFiles.length ? oversizedDistFiles.map((entry) => `${entry.path}=${formatBytes(entry.bytes)}`).join(', ') : 'none');
+
+  const oversizedCinematics = cinematicFiles.filter((entry) => entry.bytes > CINEMATIC_RESOURCE_LIMIT);
+  check('cinematic files <= 3 MiB each', oversizedCinematics.length === 0,
+    oversizedCinematics.length ? oversizedCinematics.map((entry) => `${entry.path}=${formatBytes(entry.bytes)}`).join(', ') : 'none');
 
   const requestLog = [];
   const serverInfo = await createStaticServer(requestLog);
@@ -303,7 +325,7 @@ async function run() {
       };
       const mark = () => {
         if (window.__h5FirstInteractiveAt != null) return;
-        if (window.MergeSlice && document.querySelector('#merge-board [data-grid-index]')) {
+        if (document.querySelector('[data-qv14-enter]') || window.MergeSlice && document.querySelector('#merge-board [data-grid-index]')) {
           window.__h5FirstInteractiveAt = performance.now();
         }
       };
@@ -347,11 +369,14 @@ async function run() {
       diagnostics.responses.push(record);
       if (response.status() >= 400) diagnostics.httpErrors.push({ status: response.status(), url: response.url() });
     });
-    page.on('requestfailed', (request) => diagnostics.requestFailures.push({
-      url: request.url(),
-      resourceType: request.resourceType(),
-      failure: request.failure() ? request.failure().errorText : ''
-    }));
+    page.on('requestfailed', (request) => {
+      if (/\/api\/events(?:\?|$)/.test(request.url())) return;
+      diagnostics.requestFailures.push({
+        url: request.url(),
+        resourceType: request.resourceType(),
+        failure: request.failure() ? request.failure().errorText : ''
+      });
+    });
     page.on('domcontentloaded', () => {
       dclAt = Date.now();
     });
@@ -361,7 +386,7 @@ async function run() {
 
     let navigationError = null;
     try {
-      await page.goto(serverInfo.url, { waitUntil: 'load', timeout: 30000 });
+      await page.goto(`${serverInfo.url}?ui-launch=1`, { waitUntil: 'load', timeout: 30000 });
     } catch (error) {
       navigationError = error;
     }
@@ -433,6 +458,14 @@ async function run() {
     }, 0);
     check('first-screen transfer <= 1.5 MiB', initialTransferBytes <= INITIAL_TRANSFER_LIMIT,
       `${formatBytes(initialTransferBytes)} (${initialTransferBytes} bytes)`);
+
+    const enterButton = page.locator('[data-qv14-enter]').first();
+    check('launch entry is interactive', await enterButton.isVisible().catch(() => false), 'layered launch control');
+    if (await enterButton.isVisible().catch(() => false)) {
+      await enterButton.click();
+      await page.waitForFunction(() => window.__QIXIA_APP_READY__ === true, null, { timeout: 15000 });
+      await page.waitForTimeout(320);
+    }
 
     // The v8 first-run flow has one welcome card and then the current goal.
     for (let sheet = 0; sheet < 3; sheet += 1) {
@@ -506,7 +539,7 @@ async function run() {
     })));
 
     check('yard tab becomes active', courtyard.yardActive, courtyard.yardActive ? 'active' : 'not active');
-    check('yard uses the building-free interactive background', /bg_courtyard_buildingfree(?:[_-]|\.)/i.test(courtyard.background),
+    check('yard uses the building-free interactive background', /(?:bg_courtyard_buildingfree(?:[_-]|\.)|courtyard-clean-v13\.webp|ui-v14\/backgrounds\/fullscreen\/bg_courtyard_spring_day\.webp)/i.test(courtyard.background),
       courtyard.background || 'background missing');
     const visibleBuildings = courtyard.buildings.filter((building) => building.visible && !building.disabled);
     const expectedVisible = ['clinic', 'herb', 'play', 'groom'];
@@ -548,7 +581,10 @@ async function run() {
       await page.waitForTimeout(40);
     };
 
+    // v14 hides the legacy selection card, so authored landmarks must execute
+    // their primary route directly from the visible scene hit target.
     await page.locator('.scene-building[data-node-id="clinic"]').click();
+    await page.waitForTimeout(60);
     check('courtyard route clinic -> merge/case view', await page.locator('#merge-view.active').count() === 1,
       await page.locator('#merge-view.active').count() === 1 ? 'route pass' : 'merge view not active');
     await showYard();
@@ -557,6 +593,7 @@ async function run() {
     // direct scene hit remains authoritative for the building action while
     // this route test deliberately avoids waiting for cosmetic animation.
     await page.locator('.scene-building[data-node-id="herb"]').click({ force: true });
+    await page.waitForTimeout(60);
     check('courtyard route herb -> construction/production panel', await page.locator('#modal-root [data-upgrade-facility]').isVisible().catch(() => false),
       'facility upgrade route');
     const upgradedHerb = await page.locator('#modal-root [data-upgrade-facility]').click().then(() => true).catch(() => false);
@@ -565,19 +602,20 @@ async function run() {
       const building = document.querySelector('.scene-building[data-node-id="herb"]');
       return building ? {
         level: building.getAttribute('data-level'),
-        levelLabel: building.querySelector('[data-building-level]') && building.querySelector('[data-building-level]').textContent,
+        selectionText: document.getElementById('yard-selection-card') && document.getElementById('yard-selection-card').textContent,
         state: building.getAttribute('data-building-state'),
         locked: building.getAttribute('data-locked')
       } : null;
     });
     check('courtyard upgrade remains visible in scene', upgradedHerb && herbSceneState && herbSceneState.level === '1' &&
-      herbSceneState.levelLabel === 'Lv1' && herbSceneState.locked === 'false' && herbSceneState.state === 'producing',
-    herbSceneState ? `${herbSceneState.levelLabel}; state=${herbSceneState.state}; locked=${herbSceneState.locked}` : 'building missing');
+      /Lv1/.test(herbSceneState.selectionText || '') && herbSceneState.locked === 'false' && herbSceneState.state === 'producing',
+    herbSceneState ? `${herbSceneState.selectionText}; state=${herbSceneState.state}; locked=${herbSceneState.locked}` : 'building missing');
     await showYard();
 
     for (const id of ['play']) {
       await page.locator(`.scene-building[data-node-id="${id}"]`).click({ force: true });
-      const difficultyVisible = await page.locator('#modal-root [data-care-difficulty]').first().isVisible().catch(() => false);
+      await page.waitForTimeout(60);
+      const difficultyVisible = await page.locator('#modal-root [data-care-difficulty-tab]').first().isVisible().catch(() => false);
       check(`courtyard route ${id} -> difficulty selector`, difficultyVisible,
         difficultyVisible ? 'care route pass' : 'difficulty selector missing');
       await showYard();

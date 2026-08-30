@@ -1,4 +1,4 @@
-﻿/*
+/*
  * 合成宗门的数据契约。
  *
  * This file deliberately has no dependency on the renderer or on a save file.
@@ -31,9 +31,9 @@
     });
   }
 
-  function storyStep(id, title, text, requirements) {
+  function storyStep(id, title, text, requirements, meta) {
     var reqs = copyRequirements(requirements);
-    return {
+    return Object.assign({
       id: id,
       title: title,
       text: text,
@@ -43,7 +43,7 @@
       needs: copyRequirements(reqs),
       need: copyRequirements(reqs),
       rewards: { trust: 15, heal: 25 }
-    };
+    }, meta || {});
   }
 
   function orderTemplate(id, kind, title, beastId, step, requirements, reward) {
@@ -85,36 +85,40 @@
      decide what can actually enter the board or an order. */
   var families = {
     herb: {
-      id: 'herb', name: '药材', icon: '🌿', path: 'herb', color: '#9fc69b',
-      activeFromVolume: 1, items: ['露珠叶', '草叶', '宁神草', '暖阳花', '花蜜露', '舒神叶', '清心草', '九节灵参', '月华灵芝', '不死树芽']
+      id: 'herb', name: '药材', iconId: 'material-herb', icon: '🌿', path: 'herb', color: '#9fc69b',
+      activeFromVolume: 1, items: ['露珠叶', '草叶束', '宁神草', '干药包', '清露精华', '安神香', '月华药露', '九节灵参', '月华灵芝', '不死树芽']
     },
     tool: {
-      id: 'tool', name: '药具', icon: '🧪', path: 'tool', color: '#91b9cf',
-      activeFromVolume: 1, items: ['药膏', '安神茶', '清露膏', '小药炉', '银针', '医馆印记', '青玉药罐', '百草杵', '云纹药箱', '药王鼎']
+      id: 'tool', name: '药具', iconId: 'material-tool', icon: '🧪', path: 'tool', color: '#91b9cf',
+      activeFromVolume: 2, items: ['药匙', '药钵', '铜药杵', '小药炉', '银针', '医馆印记', '青玉药罐', '百草杵', '云纹药箱', '药王鼎']
     },
     food: {
-      id: 'food', name: '膳食', icon: '🍚', path: 'feed', color: '#e9ad77',
+      id: 'food', name: '膳食', iconId: 'material-food', icon: '🍚', path: 'feed', color: '#e9ad77',
       activeFromVolume: 3, items: ['小鱼', '肉骨头', '苹果', '米饭', '牛奶瓶', '饕餮橡果', '百花糕', '八宝粥', '蟠桃盏', '山海全席']
     },
     build: {
-      id: 'build', name: '建材', icon: '🪵', path: 'build', color: '#bd8c62',
-      activeFromVolume: 2, items: ['山藤', '青竹', '原木', '方石', '青砖', '瓦当', '桐油', '金丝楠', '琉璃瓦', '天工梁']
+      id: 'build', name: '木作', iconId: 'material-build', icon: '🪵', path: 'build', color: '#bd8c62',
+      activeFromVolume: 1, items: ['木片', '木条', '木板', '榫卯件', '门梁', '山门构件', '灵木框架', '云纹梁柱', '琉璃木构', '天工山门']
+    },
+    cloth: {
+      id: 'cloth', name: '织物', iconId: 'material-cloth', icon: '🧵', path: 'cloth', color: '#c69b8f',
+      activeFromVolume: 1, items: ['麻纤', '麻线', '布条', '布卷', '软垫', '避雨篷', '云纹布', '栖霞锦', '天衣软帘', '山海云幕']
     },
     groom: {
-      id: 'groom', name: '梳妆', icon: '🪮', path: 'groom', color: '#b596d0',
+      id: 'groom', name: '梳妆', iconId: 'material-groom', icon: '🪮', path: 'groom', color: '#b596d0',
       activeFromVolume: 2, items: ['梳子', '毛刷', '蝴蝶结', '小花', '剪刀', '九尾手镜', '云缎披风', '九尾宝镜']
     },
     play: {
-      id: 'play', name: '陪玩', icon: '🎐', path: 'play', color: '#df91a5',
+      id: 'play', name: '陪玩', iconId: 'material-play', icon: '🎐', path: 'play', color: '#df91a5',
       activeFromVolume: 1, items: ['彩球', '风筝', '气球', '溜溜球', '星星', '嬉云糖塔', '木马摇铃', '百戏台']
     },
     charm: {
-      id: 'charm', name: '符箓', icon: '🧿', path: 'charm', color: '#d7b45d',
+      id: 'charm', name: '符箓', iconId: 'material-charm', icon: '🧿', path: 'charm', color: '#d7b45d',
       activeFromVolume: 7,
       items: ['黄纸符', '朱砂', '桃木牌', '铜铃', '八卦镜', '避水符', '聚灵符', '镇山印']
     },
     treasure: {
-      id: 'treasure', name: '珍宝', icon: '🪸', path: 'treasure', color: '#70b8ba',
+      id: 'treasure', name: '珍宝', iconId: 'material-treasure', icon: '🪸', path: 'treasure', color: '#70b8ba',
       activeFromVolume: 8,
       items: ['海螺', '珍珠', '夜明珠', '珊瑚枝', '暖玉坠', '避尘珠', '归墟贝壳', '归墟明珠']
     }
@@ -128,6 +132,7 @@
       id: 'courtyard',
       name: '晨光庭院',
       file: 'bg_courtyard_buildingfree.webp',
+      previewPosition: '50% 18%',
       price: 0,
       ownedByDefault: true,
       description: '山雾与暖阳相伴的宗门。'
@@ -136,6 +141,7 @@
       id: 'sunset',
       name: '桃霞山庭',
       file: 'bg_courtyard_buildingfree_sunset.webp',
+      previewPosition: '45% 15%',
       price: 180,
       ownedByDefault: false,
       description: '晚霞落在山门与花径上，适合安静散步。'
@@ -144,6 +150,7 @@
       id: 'moonlit',
       name: '月影竹溪',
       file: 'bg_courtyard_buildingfree_moonlit.webp',
+      previewPosition: '50% 18%',
       price: 260,
       ownedByDefault: false,
       description: '竹影、溪声与灯火，夜间也能安心休息。'
@@ -153,6 +160,7 @@
       name: '狐灯夜庭',
       file: 'bg_fox_lantern_buildingfree.webp',
       assetPath: 'assets/art/v7/scenes/bg_fox_lantern_buildingfree.webp',
+      previewPosition: '50% 10%',
       price: 0,
       ownedByDefault: false,
       signInExclusive: true,
@@ -173,7 +181,44 @@
       match: 'tile-match.ogg',
       land: 'tile-land.ogg'
     },
-    sfxVolume: 0.34
+    bgm: {
+      qiongqiGate: 'bgm_qiongqi_gate.wav',
+      qiongqiHome: 'bgm_qiongqi_home.wav'
+    },
+    ambience: {
+      gateWind: 'amb_gate_wind.wav',
+      clinicFire: 'amb_clinic_fire.wav',
+      rain: 'amb_rain.wav'
+    },
+    voice: {
+      qiongqiEar: 'voice_qiongqi_01_ear.wav',
+      qiongqiBall: 'voice_qiongqi_02_ball.wav',
+      qiongqiReturn: 'voice_qiongqi_03_return.wav',
+      qiongqiSect: 'voice_qiongqi_04_sect.wav',
+      qiongqiStay: 'voice_qiongqi_05_stay.wav',
+      qiongqiUmbrella: 'voice_qiongqi_06_umbrella.wav',
+      qiongqiBandage: 'voice_qiongqi_07_bandage.wav',
+      qiongqiRain: 'voice_qiongqi_08_rain.wav',
+      qiongqiFinale: 'voice_qiongqi_09_finale.wav'
+    },
+    sfxVolume: 0.34,
+    bgmVolume: 0.16,
+    ambienceVolume: 0.2,
+    voiceVolume: 0.72
+  };
+
+  /* Cinematics are requested only when their story event is reached, so the
+     first screen never downloads video. The acquisition cut deliberately ends
+     before the source video's obsolete title card. */
+  var cinematics = {
+    qiongqiAcquisition: {
+      id: 'qiongqi-acquisition',
+      src: 'assets/video/qiongqi-arrival.mp4',
+      duration: 7,
+      beastId: 'qiongqi',
+      revealType: 'acquire',
+      level: 1
+    }
   };
 
   var beasts = [
@@ -184,17 +229,18 @@
       unlockFamily: null,
       unlockTier: 0,
       careTypes: ['groom', 'play'],
-      /* 陪伴闭环：不同神兽玩同一款游戏会带回不同素材。
-         穷奇陪玩 → 梳妆素材，用于九尾狐的来信与它自己的成长心意。 */
+      /* 陪伴闭环：不同神兽玩同一款游戏会带回对应设施的素材。
+         新手阶段的嬉游亭只产出玩具素材，避免把未开放的梳洗台素材
+         混进卷一目标。 */
       careRoutes: {
-        groom: { family: 'play', label: '梳洗时藏好的玩伴小礼' },
-        play: { family: 'groom', label: '陪玩时收进包袱的梳妆小礼' }
+        groom: { family: 'groom', label: '梳洗时顺好的梳妆小礼' },
+        play: { family: 'play', label: '陪玩时收进包袱的玩具小礼' }
       },
       gift: {
         care: 'play',
-        family: 'groom',
-        item: '九尾手镜',
-        note: '穷奇把最心爱的玩具和小镜子一样样收进包袱。玩着玩着，九尾狐需要的梳妆礼物就准备好了。'
+        family: 'play',
+        item: '彩球',
+        note: '穷奇把最心爱的玩具一样样收进包袱。玩着玩着，九尾狐需要的玩具礼物就准备好了。'
       },
       art: [
         'assets/art/characters/qiongqi_lv1.webp',
@@ -202,6 +248,33 @@
         'assets/art/characters/qiongqi_lv3.webp',
         'assets/art/characters/qiongqi_lv4.webp',
         'assets/art/characters/qiongqi_lv5.webp'
+      ],
+      /* 庭院动作 CG 只描述临时演出，不进入存档；每套图集为逐行播放的 4×4 十六帧序列。 */
+      yardActions: [
+        {
+          id: 'greet', label: '挥爪招呼', sceneAction: 'greet',
+          atlas: 'assets/art/v9/qiongqi_yard_actions/qiongqi_greet_atlas.webp',
+          columns: 4, rows: 4, frames: 16, frameMs: 90, loops: 2, reducedFrame: 7,
+          line: '你回来啦！今天也一起守门吗？'
+        },
+        {
+          id: 'play-ball', label: '扑住旧彩球', sceneAction: 'play',
+          atlas: 'assets/art/v9/qiongqi_yard_actions/qiongqi_play_ball_atlas.webp',
+          columns: 4, rows: 4, frames: 16, frameMs: 90, loops: 2, reducedFrame: 9,
+          line: '旧彩球还在！这次我一定接住它。'
+        },
+        {
+          id: 'stretch', label: '伸个懒腰', sceneAction: 'rest',
+          atlas: 'assets/art/v9/qiongqi_yard_actions/qiongqi_stretch_atlas.webp',
+          columns: 4, rows: 4, frames: 16, frameMs: 90, loops: 2, reducedFrame: 9,
+          line: '呼——晒过太阳，翅膀也暖起来了。'
+        },
+        {
+          id: 'curious', label: '侧耳细听', sceneAction: 'inspect',
+          atlas: 'assets/art/v9/qiongqi_yard_actions/qiongqi_curious_atlas.webp',
+          columns: 4, rows: 4, frames: 16, frameMs: 90, loops: 2, reducedFrame: 8,
+          line: '你刚才叫我了吗？我听见啦。'
+        }
       ],
       stageNames: ['灵绒·藏门虎', '霁羽·听风虎使', '玄翼·镇庭灵卫', '云阙·护门虎君', '天穹·凌霄神将'],
       dialogue: [
@@ -224,15 +297,15 @@
       },
       jobTitle: '门卫 / 安保',
       storySteps: [
-        storyStep(1, '点亮夜灯', '穷奇把爪子缩在门后，一整晚没有合眼。陪它玩一小会儿，它才肯把藏起来的梳妆小礼放进灯下。', [
-          sourcedRequirement('groom', 2, 1, 'qiongqi'), requirement('herb', 1, 1)
-        ]),
-        storyStep(2, '包扎旧伤', '后腿的旧伤发热了。药布落下时，它没有咬住你的手，只把新赢来的小梳子往你掌心推。', [
-          sourcedRequirement('groom', 3, 1, 'qiongqi'), requirement('herb', 2, 1)
-        ]),
-        storyStep(3, '门口等你', '穷奇把玩熟的小镜子收进包袱，第一次走出门后，把伞递给了晚归的朋友。', [
-          sourcedRequirement('groom', 4, 1, 'qiongqi'), requirement('tool', 2, 1)
-        ])
+        storyStep(1, '点亮夜灯', '你把刚做好的安睡香放进门灯。暖光落到门后，穷奇终于敢把一只爪子伸出来。', [
+          requirement('herb', 3, 1), requirement('herb', 1, 1)
+        ], { projectId: 'qiongqi-night-lamp', actionLabel: '把安睡香放进门灯', session: 1 }),
+        storyStep(2, '包扎旧伤', '舒缓药布绕过后腿的旧伤。它没有咬人，也没有躲，只把那只旧彩球轻轻推向你。', [
+          requirement('cloth', 3, 1), requirement('herb', 3, 1)
+        ], { projectId: 'qiongqi-bandage', actionLabel: '替它包扎', session: 2 }),
+        storyStep(3, '门口等你', '雨里，穷奇第一次离开门后，举着你们一起修好的旧伞，站在山门口等你。', [
+          requirement('build', 2, 1), requirement('cloth', 4, 1)
+        ], { projectId: 'qiongqi-umbrella', actionLabel: '把伞递给穷奇', session: 3 })
       ]
     },
     {
@@ -896,7 +969,7 @@
   var volumeOneOrderTemplates = catalogTemplates('v1', 'volume1', 1, [
     '扫开山门阶', '擦亮铜门环', '补迎风门旗', '清点空药柜', '晒返潮药屉',
     '点第一炉香', '给门后留灯', '缝安睡软垫', '送安神药包'
-  ], ['herb', 'tool'], 3);
+  ], ['herb', 'build', 'cloth'], 3);
   var volumeTwoOrderTemplates = catalogTemplates('v2', 'volume2', 2, [
     '扫迎客花径', '修前院木栏', '添等候软凳', '挂第一狐灯', '收散落梳齿',
     '擦梳洗铜镜', '架灵木床座', '铺不打结毯', '备狐尾清露', '摆回五尾镜',
@@ -905,16 +978,16 @@
   var medicalOrderTemplates = catalogTemplates('medical', 'medical', 1, [
     '怕夜风惊醒', '旧伤雨天痒', '尾毛怕照镜', '赶路忘喝水',
     '闻药香紧张', '进门想躲起', '睡前要点灯', '按时去复诊'
-  ], ['herb', 'tool', 'groom'], 3);
+  ], ['herb'], 3);
   var visitorOrderTemplates = catalogTemplates('visitor', 'visitor', 1, [
     '松鼠轻药囊', '小鹿晨露水', '白鹤远绷带', '山雀暖巢草', '獾叔耐磨具',
     '兔子梳毛礼', '穿山甲药包', '狸猫晚灯油', '雨燕风草叶', '小熊登山补'
-  ], ['herb', 'tool'], 3);
+  ], ['herb', 'build', 'cloth'], 3);
   /* 山海访客不是匿名材料单，而是循着宗门灯火上门的短篇来客。
      两个回应方向只给等价的小回礼，选择负责塑造故事，不制造最优解焦虑。 */
   var visitors = [
     {
-      id: 'squirrel', name: '松鼠客', role: '雪岭跑信人', title: '迟到的药囊', art: 'assets/art/npc/squirrel.webp',
+      id: 'squirrel', name: '松鼠客', role: '雪岭跑信人', title: '迟到的药囊', art: 'assets/art/npc/squirrel.webp', requestFamilies: ['herb'],
       arrival: '它抱着一只比自己还大的空药囊，在山门前急得尾巴直抖。',
       request: '雪岭的小松鼠染了风寒。它想带一份山中物资赶在落雪前回去。',
       delivered: '药囊终于鼓了起来。松鼠客松开一直攥紧的小爪子。',
@@ -924,7 +997,7 @@
       ]
     },
     {
-      id: 'deer', name: '小鹿', role: '溪谷采露人', title: '打翻的晨露', art: 'assets/art/npc/deer.webp',
+      id: 'deer', name: '小鹿', role: '溪谷采露人', title: '打翻的晨露', art: 'assets/art/npc/deer.webp', requestFamilies: ['herb'],
       arrival: '小鹿护着一只裂了缝的露水瓶，蹄印从溪谷一直湿到门前。',
       request: '它答应给卧病的祖母带回晨露，却在过石桥时摔碎了瓶子。',
       delivered: '新装好的物资在瓶中轻轻晃动，小鹿终于敢抬头看你。',
@@ -934,7 +1007,7 @@
       ]
     },
     {
-      id: 'sparrow', name: '山雀', role: '风口守巢者', title: '被风吹散的家', art: 'assets/art/npc/sparrow.webp',
+      id: 'sparrow', name: '山雀', role: '风口守巢者', title: '被风吹散的家', art: 'assets/art/npc/sparrow.webp', requestFamilies: ['build', 'cloth'],
       arrival: '山雀衔着一根湿羽毛落在门环上，身后还追着几片破碎的旧巢。',
       request: '昨夜山风掀开了屋顶。它想带些结实物资回去，让幼鸟今晚有地方睡。',
       delivered: '山雀把物资一件件系紧，胸口的小绒毛也跟着蓬松起来。',
@@ -944,7 +1017,7 @@
       ]
     },
     {
-      id: 'badger', name: '獾叔', role: '山道修桥匠', title: '没修完的木桥', art: 'assets/art/npc/badger.webp',
+      id: 'badger', name: '獾叔', role: '山道修桥匠', title: '没修完的木桥', art: 'assets/art/npc/badger.webp', requestFamilies: ['build'],
       arrival: '獾叔拖着磨钝的工具箱进门，袖口还沾着河滩的泥。',
       request: '通往集市的小桥只差最后一截，桥那头还有几户人家等着过河。',
       delivered: '新物资落进工具箱，发出让老匠人安心的清脆声。',
@@ -954,7 +1027,7 @@
       ]
     },
     {
-      id: 'rabbit', name: '兔灯', role: '夜路引灯人', title: '借来的一点光', art: 'assets/art/npc/rabbit.webp',
+      id: 'rabbit', name: '兔灯', role: '夜路引灯人', title: '借来的一点光', art: 'assets/art/npc/rabbit.webp', requestFamilies: ['herb'],
       arrival: '兔灯抱着一盏熄灭的小灯，耳朵上还挂着夜路的露珠。',
       request: '山下有群晚归的孩子认不清岔路，它想把这盏灯重新点亮。',
       delivered: '灯芯吃饱了物资，暖黄的光一下映亮兔灯的眼睛。',
@@ -964,7 +1037,7 @@
       ]
     },
     {
-      id: 'aluan', name: '阿鸾', role: '南山传书使', title: '没有署名的回信', art: 'assets/art/npc/aluan.webp',
+      id: 'aluan', name: '阿鸾', role: '南山传书使', title: '没有署名的回信', art: 'assets/art/npc/aluan.webp', requestFamilies: ['cloth'],
       arrival: '阿鸾把一封没有署名的信压在翅下，绕着山门飞了两圈才落下。',
       request: '写信的人只说“我很好”，可纸上有泪痕。阿鸾想带些东西和一句真正的问候回去。',
       delivered: '物资包好后，阿鸾仍守着那封信，等你替空白处添一句话。',
@@ -994,7 +1067,7 @@
   };
 
   var recipes = [
-    { id: 'PROD_SOOTHE', name: '安神药包', volume: 1, inputs: [requirement('herb', 3, 1), requirement('tool', 3, 1)], use: '穷奇疗愈与卷一医案', art: 'assets/art/recipes/prod_soothe.webp', brief: '把宁神草与清露膏收进软布包，让不安的心在清润药香里慢慢安顿下来。' },
+    { id: 'PROD_SOOTHE', name: '安神药包', volume: 1, inputs: [requirement('herb', 3, 1), requirement('cloth', 3, 1)], use: '穷奇疗愈与卷一医案', art: 'assets/art/recipes/prod_soothe.webp', brief: '把宁神草收进柔软药布包，让不安的心在清润药香里慢慢安顿下来。' },
     { id: 'PROD_BED', name: '灵木床', volume: 2, inputs: [requirement('build', 4, 1), requirement('groom', 3, 1)], use: '九尾狐静室与卷二修缮', art: 'assets/art/recipes/prod_bed.webp', brief: '用方石做床脚、蝴蝶结编成柔软铺面，搭一张能让尾巴都舒展开的灵木小床。' },
     { id: 'PROD_MEAL', name: '疗愈餐', volume: 3, inputs: [requirement('food', 6, 1), requirement('herb', 4, 1)], use: '饕餮卷医案', art: 'assets/art/recipes/prod_meal.webp', brief: '把最受欢迎的山海小食与暖阳花一起装盘，吃饱了才有力气继续疗愈。' },
     { id: 'PROD_CLEAR', name: '清心丹', volume: 3, inputs: [requirement('tool', 6, 1), requirement('herb', 6, 1)], use: '焦虑类医案', art: 'assets/art/recipes/prod_clear.webp', brief: '医馆印记配上舒神叶，在青玉药罐里炼成一粒让呼吸慢下来的清心丹。' },
@@ -1071,38 +1144,38 @@
       play: { countThresholds: [700, 1500, 2600, 4000], tier2Score: 2000, tier3Score: 3800 }
     },
     historyLimit: 5,
-    effectiveActions: { groom: 3, play: 4 },
+    effectiveActions: { groom: 3, play: 3 },
     order: ['easy', 'normal', 'hard', 'master'],
     difficulties: {
       easy: {
         id: 'easy', name: '轻松', unlock: 'default',
         groom: { cols: 6, rows: 6, typeCount: 5, timeLimit: 90, moveLimit: 26, minLegalMoves: 5, objective: { mode: 'score', targetMultiplier: 0.72, label: '解开单层毛结并制造特殊块' }, knotMode: 'single', timePickupBudget: 4, itemCounts: { hammer: 3, shuffle: 2, theme: 2 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01'] },
-        play: { cols: 3, rows: 3, layers: 3, typeCount: 7, tilesPerType: 3, slots: 5, timeLimit: 70, scoreTarget: 900, failPerfCap: 0.58, comboWindow: 2.2, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
+        play: { cols: 5, rows: 5, layers: 3, typeCount: 7, tilesPerType: 3, totalTiles: 21, storyRound: true, slots: 5, reserveStacks: 3, timeLimit: 90, scoreTarget: 900, failPerfCap: 0.54, comboWindow: 2.2, icons: ['play_01', 'herb_01', 'build_01', 'cloth_01', 'groom_01', 'charm_01', 'treasure_01'] },
         rewards: { floor: [1], B: [1, 1], A: [2], S: [2, 1] }
       },
       normal: {
         id: 'normal', name: '标准', unlock: 'firstStory',
         groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 90, moveLimit: 23, minLegalMoves: 4, objective: { mode: 'score', targetMultiplier: 0.90, label: '收集目标图案并解开混合毛结' }, knotMode: 'mixed', timePickupBudget: 3, itemCounts: { hammer: 2, shuffle: 2, theme: 1 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
-        play: { cols: 3, rows: 3, layers: 3, typeCount: 9, tilesPerType: 3, slots: 5, timeLimit: 85, scoreTarget: 1900, failPerfCap: 0.72, comboWindow: 1.9, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
+        play: { cols: 5, rows: 5, layers: 4, typeCount: 9, tilesPerType: 6, slots: 5, reserveStacks: 4, timeLimit: 150, scoreTarget: 3900, failPerfCap: 0.60, comboWindow: 1.9, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
         rewards: { floor: [1], B: [2], A: [2, 1], S: [3] }
       },
       hard: {
         id: 'hard', name: '困难', unlock: 'groomLevel2',
         groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 90, moveLimit: 20, minLegalMoves: 3, objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '清除扩散毛结并完成两次连锁' }, knotMode: 'double-spread', timePickupBudget: 2, itemCounts: { hammer: 2, shuffle: 1, theme: 1 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
-        play: { cols: 3, rows: 3, layers: 4, typeCount: 11, tilesPerType: 3, slots: 5, timeLimit: 95, scoreTarget: 3100, failPerfCap: 0.84, comboWindow: 1.4, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
+        play: { cols: 5, rows: 5, layers: 5, typeCount: 11, tilesPerType: 6, slots: 5, reserveStacks: 4, timeLimit: 180, scoreTarget: 5400, failPerfCap: 0.68, comboWindow: 1.5, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
         rewards: { floor: [2], B: [2, 1], A: [3], S: [3, 2] }
       },
       master: {
         id: 'master', name: '大师', unlock: 'groomLevel3',
         groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 90, moveLimit: 18, minLegalMoves: 2, objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '破除三层毛结并组合两枚特殊块' }, knotMode: 'double-triple', timePickupBudget: 1, itemCounts: { hammer: 1, shuffle: 1, theme: 1 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
-        play: { cols: 3, rows: 3, layers: 4, typeCount: 12, tilesPerType: 3, slots: 5, timeLimit: 105, scoreTarget: 4600, failPerfCap: 0.84, comboWindow: 1.0, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
+        play: { cols: 5, rows: 5, layers: 5, typeCount: 12, tilesPerType: 6, slots: 5, reserveStacks: 4, timeLimit: 210, scoreTarget: 6800, failPerfCap: 0.76, comboWindow: 1.2, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
         rewards: { floor: [2], B: [3], A: [3, 2], S: [4], repeatS: [3, 2] }
       },
       challenge: {
         id: 'challenge', name: '挑战模式', unlock: 'default', challenge: true,
         rewardCap: 6, maxRewardItems: 6,
         groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 120, moveLimit: 50, minLegalMoves: 3, objective: { mode: 'score', targetMultiplier: 1.7, label: '在长局中尽量刷新高分' }, knotMode: 'mixed', timePickupBudget: 4, itemCounts: { hammer: 2, shuffle: 2, theme: 2 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
-        play: { cols: 4, rows: 4, layers: 5, typeCount: 13, tilesPerType: 6, slots: 5, timeLimit: 150, scoreTarget: 6400, failPerfCap: 0.84, comboWindow: 1.2, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
+        play: { cols: 6, rows: 5, layers: 5, typeCount: 13, tilesPerType: 6, slots: 5, reserveStacks: 4, timeLimit: 260, scoreTarget: 8200, failPerfCap: 0.80, comboWindow: 1.1, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
         rewards: { scoreBased: true, minItems: 2, maxItems: 6, maxTier: 3 }
       }
     }
@@ -1135,9 +1208,10 @@
     },
     areas: [
       {
-        id: 'gate', name: '山门', icon: '⛩', volume: 1, focus: 'visitor',
+        id: 'gate', name: '山门', iconId: 'area-gate', icon: '⛩', volume: 1, focus: 'visitor',
         map: { row: 1, column: 0 },
         generatorFamily: null, facilities: [],
+        visualMode: 'staged',
         art: ['assets/art/v7/sect/gate_stage0.webp', 'assets/art/v7/sect/gate_stage1.webp', 'assets/art/v7/sect/gate_stage2.webp', 'assets/art/v7/sect/gate_stage3.webp'],
         stageLines: ['山门还笼在枯藤里。', '藤蔓退去，旧门环重新反光。', '门环修好了，晚归的脚步声听得见。', '栖霞宗的门匾亮起，这扇门重新有了温度。'],
         unlock: { kind: 'default' },
@@ -1147,15 +1221,16 @@
           stageBonus(3, '访客委托刷新再 -15 分钟', 'order.refreshMs', { add: -15 * 60 * 1000 })
         ],
         stages: [
-          { order: { title: '点亮门灯', text: '山门的灯盏碎了。合两株草药、一贴药膏，先让门口亮起来。', requirements: [requirement('herb', 2, 1), requirement('tool', 1, 1)], reward: { jade: 30, xp: 20 } } },
-          { order: { title: '修补门环', text: '门环锈住了。补好它，晚归的脚步声就听得见。', requirements: [requirement('tool', 2, 1), requirement('herb', 1, 1)], reward: { jade: 40, xp: 25 } } },
-          { order: { title: '重挂栖霞匾', text: '把门匾擦亮、挂正——栖霞宗，回来了。', requirements: [requirement('herb', 3, 1), requirement('tool', 2, 1)], reward: { jade: 60, xp: 35 } } }
+          { projectId: 'gate-lamp', order: { title: '修好门灯', actionLabel: '装回山门', text: '旧门灯的木框裂了，灯绳也断了。把木条和麻线装回去，让门后不再漆黑。', requirements: [requirement('build', 2, 1), requirement('cloth', 2, 1)], reward: { jade: 30, xp: 20 } } },
+          { projectId: 'gate-ring', order: { title: '加固门环', actionLabel: '把门环扣牢', text: '锈门环在风里摇晃。垫上木板、重新绑牢，晚归的脚步声就听得见。', requirements: [requirement('build', 3, 1), requirement('cloth', 2, 1)], reward: { jade: 40, xp: 25 } } },
+          { projectId: 'gate-sign', order: { title: '重挂栖霞匾', actionLabel: '把匾额挂正', text: '褪色匾额还认得自己的位置。补好背板、系上新绳——栖霞宗重新开门。', requirements: [requirement('build', 3, 1), requirement('cloth', 2, 1)], reward: { jade: 60, xp: 35 } } }
         ]
       },
       {
-        id: 'clinic', name: '医馆·药庐', icon: '⚕', volume: 1, focus: 'board',
+        id: 'clinic', name: '医馆·药庐', iconId: 'area-clinic', icon: '⚕', volume: 1, focus: 'board',
         map: { row: 1, column: 1 },
-        generatorFamily: 'tool', facilities: ['clinic'],
+        generatorFamily: 'herb', facilities: ['clinic'],
+        visualMode: 'staged',
         art: ['assets/art/v7/sect/clinic_stage0.webp', 'assets/art/v7/sect/clinic_stage1.webp', 'assets/art/v7/sect/clinic_stage2.webp', 'assets/art/v7/sect/clinic_stage3.webp'],
         stageLines: ['药庐积了灰，抽屉老是滑出来。', '灰尘扫净，药材愿意留下来了。', '药柜修好，每一味药都有了自己的格子。', '药炉温温地亮着，落魄的神兽才肯安心进门。'],
         unlock: { kind: 'default' },
@@ -1165,15 +1240,16 @@
           stageBonus(3, '合成棋盘 +2 格', 'board.cells', { count: 2 })
         ],
         stages: [
-          { order: { title: '清扫药庐', text: '药庐积了灰。扫干净，药材才愿意留下来。', requirements: [requirement('tool', 2, 1), requirement('herb', 2, 1)], reward: { jade: 35, xp: 22 } } },
-          { order: { title: '修好药柜', text: '药柜缺了一角，抽屉老是滑出来。', requirements: [requirement('tool', 3, 1), requirement('herb', 2, 1)], reward: { jade: 50, xp: 30 } } },
-          { order: { title: '点上药炉', text: '药炉温温的，落魄的神兽才肯安心进门。', requirements: [requirement('herb', 3, 1), requirement('tool', 3, 1)], reward: { jade: 70, xp: 40 } } }
+          { projectId: 'clinic-broom', order: { title: '清扫药庐', actionLabel: '修好扫帚并清扫', text: '断柄扫帚还靠在墙边。接上木条、绑紧麻线，把落灰的药庐一点点扫出来。', requirements: [requirement('build', 2, 1), requirement('cloth', 2, 1)], reward: { jade: 35, xp: 22 } } },
+          { projectId: 'clinic-cabinet', order: { title: '修好药柜', actionLabel: '把抽屉装回去', text: '裂药柜缺了两块背板。补牢抽屉后，你在柜子后面发现了一把破旧小伞。', requirements: [requirement('build', 3, 2)], reward: { jade: 50, xp: 30 } } },
+          { projectId: 'clinic-furnace', order: { title: '重燃药炉', actionLabel: '点起温药火', text: '冷药炉需要宁神草作引，再用麻线缠稳炉口。火光亮起，疗愈配方重新开放。', requirements: [requirement('herb', 3, 1), requirement('cloth', 2, 1)], reward: { jade: 70, xp: 40 } } }
         ]
       },
       {
-        id: 'forecourt', name: '前院迎客坪', icon: '✿', volume: 2, focus: 'visitor',
+        id: 'forecourt', name: '前院迎客坪', iconId: 'area-forecourt', icon: '✿', volume: 2, focus: 'visitor',
         map: { row: 2, column: 0 },
         generatorFamily: null, facilities: [],
+        visualMode: 'staged',
         art: ['assets/art/v7/sect/forecourt_stage0.webp', 'assets/art/v7/sect/forecourt_stage1.webp', 'assets/art/v7/sect/forecourt_stage2.webp', 'assets/art/v7/sect/forecourt_stage3.webp'],
         stageLines: ['青石径被落叶埋住了。', '扫开青石径，客人走得进来了。', '迎客凳摆好，远客有了歇脚的地方。', '迎宾灯次第亮起，谁都不会找不到家。'],
         unlock: { kind: 'volume', volume: 2 },
@@ -1189,9 +1265,10 @@
         ]
       },
       {
-        id: 'groom_pavilion', name: '梳洗阁', icon: '🪮', volume: 2, focus: 'minigame',
+        id: 'groom_pavilion', name: '梳洗阁', iconId: 'area-groom-pavilion', icon: '🪮', volume: 2, focus: 'minigame',
         map: { row: 2, column: 1 },
         generatorFamily: null, facilities: ['groom'],
+        visualMode: 'staged',
         art: ['assets/art/v7/sect/groom_pavilion_stage0.webp', 'assets/art/v7/sect/groom_pavilion_stage1.webp', 'assets/art/v7/sect/groom_pavilion_stage2.webp', 'assets/art/v7/sect/groom_pavilion_stage3.webp'],
         stageLines: ['旧竹席落满灰，尾巴们没处舒展。', '竹席收好，空出了转身的地方。', '梳洗镜架起，今天的样子被认真照见。', '九尾灯沿檐亮起，九条尾巴有了自在转身的地方。'],
         unlock: { kind: 'product', volume: 2, productId: 'PROD_BED', productCount: 1 },
@@ -1207,10 +1284,10 @@
         ]
       },
       {
-        id: 'workshop', name: '工坊', icon: '🪵', volume: 2, focus: 'generator',
+        id: 'workshop', name: '工坊', iconId: 'area-workshop', icon: '🪵', volume: 2, focus: 'generator',
         map: { row: 3, column: 0 },
         generatorFamily: 'build', facilities: ['workshop'],
-        art: [],
+        visualMode: 'layered', baseArt: 'assets/art/v10/sect/workshop.webp', stageOverlayKey: 'workshop',
         stageLines: ['旧工坊堆满木料，榫卯都松了。', '木料清点归位，工台重新平稳。', '鲁班台架起，构件开始咬合。', '营造司重新开炉，建材线随之点亮。'],
         unlock: { kind: 'areaStage', volume: 2, requireAreaId: 'gate', requireStage: 3, requireAreaId2: 'clinic', requireStage2: 3 },
         stageBonuses: [
@@ -1225,16 +1302,16 @@
         ]
       },
       {
-        id: 'den', name: '静室·兽舍', icon: '🏮', volume: 2, focus: 'growth',
+        id: 'den', name: '静室·兽舍', iconId: 'area-den', icon: '🏮', volume: 2, focus: 'growth',
         map: { row: 3, column: 1 },
         generatorFamily: null, facilities: ['den'],
-        art: [],
+        visualMode: 'layered', baseArt: 'assets/art/v10/sect/den.webp', stageOverlayKey: 'den',
         stageLines: ['兽舍空着，风吹过会呜呜响。', '旧垫子晒暖，不再漏风。', '灵木床架好，住客有了安睡的地方。', '静室亮起小灯，每只神兽都有了回家的路。'],
         unlock: { kind: 'product', volume: 2, requireAreaId: 'groom_pavilion', requireStage: 3, productId: 'PROD_BED', productCount: 1 },
         stageBonuses: [
-          stageBonus(1, '全兽每日 Heal +1', 'beast.dailyHeal', { add: 1 }),
-          stageBonus(2, '全兽每日 Heal 再 +1', 'beast.dailyHeal', { add: 1 }),
-          stageBonus(3, '照料好感 +5%', 'care.affectionMult', { mult: 1.05 })
+          stageBonus(1, '全兽每日疗愈 +1', 'beast.dailyHeal', { add: 1 }),
+          stageBonus(2, '全兽每日疗愈再 +1', 'beast.dailyHeal', { add: 1 }),
+          stageBonus(3, '照料信任 +5%', 'care.affectionMult', { mult: 1.05 })
         ],
         stages: [
           sectStage('晒暖旧软垫', '把旧垫子搬到日头下，蓬松的云会留在里面。', [requirement('build', 2, 1), requirement('groom', 2, 1)], { jade: 45, xp: 25 }),
@@ -1243,10 +1320,10 @@
         ]
       },
       {
-        id: 'canteen', name: '膳堂', icon: '🍚', volume: 3, focus: 'generator',
+        id: 'canteen', name: '膳堂', iconId: 'area-canteen', icon: '🍚', volume: 3, focus: 'generator',
         map: { row: 4, column: 0 },
         generatorFamily: 'food', facilities: ['canteen'],
-        art: [],
+        visualMode: 'layered', baseArt: 'assets/art/v10/sect/canteen.webp', stageOverlayKey: 'canteen',
         stageLines: ['灶台冷着，粮仓空了大半。', '米面归位，灶台重新擦亮。', '烟囱冒出第一缕暖烟。', '膳堂开火，第一口热饭留给朋友。'],
         unlock: { kind: 'volume', volume: 3 },
         stageBonuses: [
@@ -1261,10 +1338,10 @@
         ]
       },
       {
-        id: 'herb_garden', name: '百草园', icon: '🌿', volume: 4, focus: 'generator',
+        id: 'herb_garden', name: '百草园', iconId: 'area-herb-garden', icon: '🌿', volume: 4, focus: 'generator',
         map: { row: 4, column: 1 },
         generatorFamily: 'herb', facilities: ['herb'],
-        art: [],
+        visualMode: 'layered', baseArt: 'assets/art/v10/sect/herb_garden.webp', stageOverlayKey: 'herb_garden',
         stageLines: ['灵土板结，药苗蔫蔫地垂着头。', '土垄重新松软，露水留得住。', '药苗挺直，第一批新芽冒尖。', '百草园灵气流动，药圃进入盛产。'],
         unlock: { kind: 'product', volume: 4, productId: 'PROD_GARDEN', productCount: 1 },
         stageBonuses: [
@@ -1279,10 +1356,10 @@
         ]
       },
       {
-        id: 'alchemy', name: '丹房', icon: '⚗', volume: 5, focus: 'generator',
+        id: 'alchemy', name: '丹房', iconId: 'area-alchemy', icon: '⚗', volume: 5, focus: 'generator',
         map: { row: 5, column: 0 },
         generatorFamily: 'tool', facilities: ['alchemy'],
-        art: [],
+        visualMode: 'layered', baseArt: 'assets/art/v10/sect/alchemy.webp', stageOverlayKey: 'alchemy',
         stageLines: ['丹炉落灰，药香早就散了。', '旧炉膛清理干净，火种重新引上。', '药具码放整齐，丹房有了条理。', '丹火不熄，药具线进入盛产。'],
         unlock: { kind: 'product', volume: 5, productId: 'PROD_FLAME', productCount: 1 },
         stageBonuses: [
@@ -1297,16 +1374,16 @@
         ]
       },
       {
-        id: 'library', name: '藏书阁', icon: '📜', volume: 6, focus: 'codex',
+        id: 'library', name: '藏书阁', iconId: 'area-library', icon: '📜', volume: 6, focus: 'codex',
         map: { row: 5, column: 1 },
         generatorFamily: null, facilities: ['library'],
-        art: [],
-        stageLines: ['书页受潮，字迹都困倦了。', '旧书晒好，纸页重新挺括。', '书架修稳，《山海册》有了安放处。', '灯下可读书，宗门经验 +10%。'],
+        visualMode: 'layered', baseArt: 'assets/art/v10/sect/library.webp', stageOverlayKey: 'library',
+        stageLines: ['书页受潮，字迹都困倦了。', '旧书晒好，纸页重新挺括。', '书架修稳，《山海册》有了安放处。', '灯下可读书，宗门阅历 +10%。'],
         unlock: { kind: 'volume', volume: 6 },
         stageBonuses: [
-          stageBonus(1, '委托经验 +3%', 'order.xpMult', { mult: 1.03 }),
-          stageBonus(2, '委托经验再 +3%', 'order.xpMult', { mult: 1.03 }),
-          stageBonus(3, '委托经验再 +4%', 'order.xpMult', { mult: 1.04 })
+          stageBonus(1, '委托阅历 +3%', 'order.xpMult', { mult: 1.03 }),
+          stageBonus(2, '委托阅历再 +3%', 'order.xpMult', { mult: 1.03 }),
+          stageBonus(3, '委托阅历再 +4%', 'order.xpMult', { mult: 1.04 })
         ],
         stages: [
           sectStage('晒一晒旧书', '受潮的书页要慢慢晒，字才会醒过来。', [requirement('herb', 3, 1), requirement('groom', 2, 1)], { jade: 60, xp: 36 }),
@@ -1315,10 +1392,10 @@
         ]
       },
       {
-        id: 'playground', name: '嬉游坪', icon: '🎐', volume: 7, focus: 'minigame',
+        id: 'playground', name: '嬉游坪', iconId: 'area-playground', icon: '🎐', volume: 7, focus: 'minigame',
         map: { row: 6, column: 0 },
         generatorFamily: null, facilities: ['play'],
-        art: [],
+        visualMode: 'layered', baseArt: 'assets/art/v10/sect/playground.webp', stageOverlayKey: 'playground',
         stageLines: ['坪上荒草长到腰高。', '草剪平了，空出追跑的场地。', '木马与彩球摆好，笑声有了去处。', '百戏台亮灯，连击窗口 +3 秒。'],
         unlock: { kind: 'volume', volume: 7 },
         stageBonuses: [
@@ -1333,10 +1410,10 @@
         ]
       },
       {
-        id: 'storage', name: '库房', icon: '🏺', volume: 9, focus: 'storage',
+        id: 'storage', name: '库房', iconId: 'area-storage', icon: '🏺', volume: 9, focus: 'storage',
         map: { row: 6, column: 1 },
         generatorFamily: null, facilities: ['storage'],
-        art: [],
+        visualMode: 'layered', baseArt: 'assets/art/v10/sect/storage.webp', stageOverlayKey: 'storage',
         stageLines: ['库房漏雨，箱笼都受潮了。', '屋顶补好，箱笼重新干燥。', '货架按族归位，找东西不再翻箱倒柜。', '库房满而不乱，药匣 +1 格、回收价 +10%。'],
         unlock: { kind: 'volume', volume: 9 },
         stageBonuses: [
@@ -1351,10 +1428,10 @@
         ]
       },
       {
-        id: 'charm_altar', name: '后山符台', icon: '🧿', volume: 10, focus: 'generator',
+        id: 'charm_altar', name: '后山符台', iconId: 'area-charm-altar', icon: '🧿', volume: 10, focus: 'generator',
         map: { row: 7, column: 0 },
         generatorFamily: 'charm', facilities: ['charm_altar'],
-        art: [],
+        visualMode: 'layered', baseArt: 'assets/art/v10/sect/charm_altar.webp', stageOverlayKey: 'charm_altar',
         stageLines: ['符台被藤蔓封住，符纸散了一地。', '藤蔓清开，台面露出旧纹路。', '符笔与朱砂归位，纹路重新清晰。', '符台灵气重现，符箓线随之开放。'],
         unlock: { kind: 'product', volume: 10, productId: 'PROD_ARRAY', productCount: 1 },
         stageBonuses: [
@@ -1369,10 +1446,10 @@
         ]
       },
       {
-        id: 'cloud_isle', name: '云海浮岛', icon: '☁', volume: 12, focus: 'generator',
+        id: 'cloud_isle', name: '云海浮岛', iconId: 'area-cloud-isle', icon: '☁', volume: 12, focus: 'generator',
         map: { row: 7, column: 1 },
         generatorFamily: 'treasure', facilities: ['cloud_isle'],
-        art: [],
+        visualMode: 'layered', baseArt: 'assets/art/v10/sect/cloud_isle.webp', stageOverlayKey: 'cloud_isle',
         stageLines: ['浮岛悬在云里，渡口空无一人。', '渡舟修好，云海重新可以抵达。', '岛上灯火点亮，宝台有了回应。', '云海宝台重启，珍宝线随之开放。'],
         unlock: { kind: 'product', volume: 12, productId: 'PROD_BOAT', productCount: 1 },
         stageBonuses: [
@@ -1387,21 +1464,24 @@
         ]
       }
     ],
+    /* v10：卷配置是主线区域归属的唯一真源。`areaIds` 暂留一版只读
+       兼容镜像；运行时只读 requiredAreaIds/optionalAreaIds。故事数量直接
+       取对应异兽 storySteps.length，不再维护会漂移的 storyTaskCount。 */
     volumes: [
-      { volume: 1, beastId: 'qiongqi', title: '卷一 · 穷奇篇', areaIds: ['gate', 'clinic'], storyTaskCount: 3 },
-      { volume: 2, beastId: 'jiuweihu', title: '卷二 · 九尾狐篇', areaIds: ['forecourt', 'groom_pavilion', 'workshop', 'den'], storyTaskCount: 9 },
-      { volume: 3, beastId: 'taotie', title: '卷三 · 饕餮篇', areaIds: ['canteen'], storyTaskCount: 9 },
-      { volume: 4, beastId: 'dijiang', title: '卷四 · 帝江篇', areaIds: ['herb_garden'], storyTaskCount: 9 },
-      { volume: 5, beastId: 'bifang', title: '卷五 · 毕方篇', areaIds: ['alchemy'], storyTaskCount: 9 },
-      { volume: 6, beastId: 'baize', title: '卷六 · 白泽篇', areaIds: ['library'], storyTaskCount: 9 },
-      { volume: 7, beastId: 'taowu', title: '卷七 · 梼杌篇', areaIds: ['playground'], storyTaskCount: 9 },
-      { volume: 8, beastId: 'zhulong', title: '卷八 · 烛龙篇', areaIds: [], storyTaskCount: 9 },
-      { volume: 9, beastId: 'pixiu', title: '卷九 · 貔貅篇', areaIds: ['storage'], storyTaskCount: 9 },
-      { volume: 10, beastId: 'qilin', title: '卷十 · 麒麟篇', areaIds: ['charm_altar'], storyTaskCount: 9 },
-      { volume: 11, beastId: 'fenghuang', title: '卷十一 · 凤凰篇', areaIds: [], storyTaskCount: 9 },
-      { volume: 12, beastId: 'kunpeng', title: '卷十二 · 鲲鹏篇', areaIds: ['cloud_isle'], storyTaskCount: 9 }
+      { volume: 1, beastId: 'qiongqi', title: '卷一 · 穷奇篇', flow: 'repair-first', requiredAreaIds: ['gate', 'clinic'], optionalAreaIds: [], areaIds: ['gate', 'clinic'] },
+      { volume: 2, beastId: 'jiuweihu', title: '卷二 · 九尾狐篇', flow: 'repair-first', requiredAreaIds: ['forecourt', 'groom_pavilion'], optionalAreaIds: ['workshop', 'den'], areaIds: ['forecourt', 'groom_pavilion', 'workshop', 'den'] },
+      { volume: 3, beastId: 'taotie', title: '卷三 · 饕餮篇', flow: 'repair-first', requiredAreaIds: ['canteen'], optionalAreaIds: [], areaIds: ['canteen'] },
+      { volume: 4, beastId: 'dijiang', title: '卷四 · 帝江篇', flow: 'repair-first', requiredAreaIds: ['herb_garden'], optionalAreaIds: [], areaIds: ['herb_garden'] },
+      { volume: 5, beastId: 'bifang', title: '卷五 · 毕方篇', flow: 'repair-first', requiredAreaIds: ['alchemy'], optionalAreaIds: [], areaIds: ['alchemy'] },
+      { volume: 6, beastId: 'baize', title: '卷六 · 白泽篇', flow: 'repair-first', requiredAreaIds: ['library'], optionalAreaIds: [], areaIds: ['library'] },
+      { volume: 7, beastId: 'taowu', title: '卷七 · 梼杌篇', flow: 'repair-first', requiredAreaIds: ['playground'], optionalAreaIds: [], areaIds: ['playground'] },
+      { volume: 8, beastId: 'zhulong', title: '卷八 · 烛龙篇', flow: 'story-first', requiredAreaIds: [], optionalAreaIds: [], areaIds: [] },
+      { volume: 9, beastId: 'pixiu', title: '卷九 · 貔貅篇', flow: 'repair-first', requiredAreaIds: ['storage'], optionalAreaIds: [], areaIds: ['storage'] },
+      { volume: 10, beastId: 'qilin', title: '卷十 · 麒麟篇', flow: 'repair-first', requiredAreaIds: ['charm_altar'], optionalAreaIds: [], areaIds: ['charm_altar'] },
+      { volume: 11, beastId: 'fenghuang', title: '卷十一 · 凤凰篇', flow: 'story-first', requiredAreaIds: [], optionalAreaIds: [], areaIds: [] },
+      { volume: 12, beastId: 'kunpeng', title: '卷十二 · 鲲鹏篇', flow: 'repair-first', requiredAreaIds: ['cloud_isle'], optionalAreaIds: [], areaIds: ['cloud_isle'] }
     ],
-    nextChapter: { label: '卷二 · 九尾狐篇', hook: '穷奇玩熟了的小镜子在包袱里发亮——有位九条尾巴的客人，正等着这份梳妆礼物。' }
+    nextChapter: { label: '卷二 · 九尾狐篇', hook: '穷奇玩熟的玩具在包袱里发亮——有位九条尾巴的客人，正等着这份玩具礼物。' }
   };
 
   /* 修缮第三段“焕新”统一强化：必须额外交付一件对应卷的产物。
@@ -1451,7 +1531,7 @@
   });
 
 
-  /* === 《山海·异兽栖霞》叙事数据：由 apply_narrative_copy.js 生成 === */
+  /* === 《山海·栖霞》正式叙事数据 === */
   var VOLUME_NARRATIVE = {
   "qiongqi": {
     "epigraph": "《山海经·海内北经》：“穷奇状如虎，有翼。”",
@@ -1460,7 +1540,7 @@
     "dossier": "本相：状如虎，有翼，巡山灵兽。落魄表现：翅膀扑腾不起来；见生人先低吼，其实是吓自己；想靠近又不敢，只在门后露一只耳朵。它需要的不是“别怕”，而是一件“我守着，你慢慢来”的小事。",
     "transformLine": "穷奇的翅膀还是扑腾不起来。可它把伞举得稳稳的——它怕的从来不是风雨，是没有人等它回家。现在，它要当那个等人的人。",
     "jobLine": "门后不再藏着一只小怂虎，门口多了一位替大家守着灯光的家人。",
-    "hook": "包袱里的小镜子忽然亮了。不是月光——是青丘有九条尾巴等得发慌，把风都梳成了信。"
+    "hook": "包袱里的玩具忽然亮了。不是月光——是青丘有九条尾巴等得发慌，把笑声编成了信。"
   },
   "jiuweihu": {
     "epigraph": "《山海经·南山经》：“青丘之山……有兽焉，其状如狐而九尾。”",
@@ -1772,13 +1852,13 @@
     "deliveryText": "巢修好了。雨来时，巢里一滴水都没有。"
   },
   "小熊登山补": {
-    "symptom": "小熊明天要登山，来补几样行囊里缺的小东西。",
-    "deliveryText": "行囊补齐。小熊挥挥爪：我会带朵云回来。"
+    "symptom": "小熊明天要登山，来补几样登山包里缺的小东西。",
+    "deliveryText": "登山包补齐。小熊挥挥爪：我会带朵云回来。"
   }
 };
   var STORY_DELIVERY = {
   "点亮夜灯": "灯下，穷奇把爪子从门后伸出了一点点。",
-  "包扎旧伤": "它没有躲。包扎好，它把小梳子往你掌心推了推。",
+  "包扎旧伤": "它没有躲。包扎好，它把小玩具往你掌心推了推。",
   "门口等你": "这一次，它站在门前，把伞递给了晚归的朋友。",
   "尾巴卷成球": "它肯把尾巴伸出来一条了。软软的，还沾着一点草香。",
   "编个新游戏": "它把最蓬的一条尾巴借给新客，还教大家玩新游戏。",
@@ -1889,10 +1969,154 @@
       dailyObjectives.templates[2].title = '陪它 {target} 次';
     }
     if (sect) {
-      sect.nextChapter = { label: '卷二 · 九尾狐篇', hook: '包袱里的小镜子忽然亮了。不是月光——是青丘有九条尾巴等得发慌，把风都梳成了信。' };
+      sect.nextChapter = { label: '卷二 · 九尾狐篇', hook: '包袱里的玩具忽然亮了。不是月光——是青丘有九条尾巴等得发慌，把笑声编成了信。' };
     }
   }
+
+  /* 玩家可见术语的唯一数据源。存档与内部逻辑继续使用
+     affection / heal / xp 等旧字段，避免破坏一版兼容。 */
+  var terminology = Object.freeze({
+    brand: '山海·栖霞',
+    mergePage: '灵阵',
+    mergeBoard: '归灵台',
+    storage: '药匣',
+    storageArea: '暂存区',
+    groomArea: '梳洗阁',
+    groomFacility: '梳洗台',
+    playArea: '嬉游坪',
+    playFacility: '嬉游亭',
+    playAction: '陪玩',
+    playGame: '玩具塔',
+    clinicPage: '医馆',
+    clinicArea: '医馆·药庐',
+    playerTrust: '信任',
+    playerHealing: '疗愈',
+    playerXp: '宗门阅历',
+    storyProgress: '归灯'
+  });
+
+  /* 30 日是陪伴循环的数值调优目标，不是卷章通行证。同一天内只要
+     玩家已获得所需资源，就允许继续完成成长、委托与故事。 */
+  var companionPacing = Object.freeze({
+    targetDays: 30,
+    hardCalendarGate: false,
+    sameDayProgressAllowed: true,
+    basis: 'progress-and-resources'
+  });
   attachNarrativeCopy();
+
+  /* 卷一从“随机交订单”改为“看见旧物，再把它修好”。旧物不进入棋盘，
+     项目只消耗玩家在归灵台加工出的组件。 */
+  var materialSources = [
+    {
+      id: 'old-timber-pile', family: 'build', name: '旧木料堆', upgradedName: '木作案',
+      art: 'assets/art/v9/material_sources/old-timber-pile_initial.webp', upgradedArt: 'assets/art/v9/material_sources/old-timber-pile_upgraded.webp',
+      areaId: 'gate', unlock: { kind: 'default' }, upgradeProjectId: 'gate-sign',
+      storyReserve: 96, storyEnergyCost: 1, deterministicDrops: [1, 1, 1, 1, 1, 1, 1, 1],
+      description: '从山门旁收拢还能使用的旧木片。修缮完成后，可在木作案上加工构件。'
+    },
+    {
+      id: 'sewing-basket', family: 'cloth', name: '门房针线篮', upgradedName: '旧织箱',
+      art: 'assets/art/v9/material_sources/sewing-basket_initial.webp', upgradedArt: 'assets/art/v9/material_sources/sewing-basket_upgraded.webp',
+      areaId: 'gate', unlock: { kind: 'default' }, upgradeProjectId: 'clinic-broom',
+      storyReserve: 96, storyEnergyCost: 1, deterministicDrops: [1, 1, 1, 1, 1, 1, 1, 1],
+      description: '门房留下的麻纤与旧线。清扫药庐后，收进旧织箱继续整理。'
+    },
+    {
+      id: 'herb-basket', family: 'herb', name: '药庐百草篓', upgradedName: '温药架',
+      art: 'assets/art/v9/material_sources/herb-basket_initial.webp', upgradedArt: 'assets/art/v9/material_sources/herb-basket_upgraded.webp',
+      areaId: 'clinic', unlock: { kind: 'project', projectId: 'gate-lamp' }, upgradeProjectId: 'clinic-furnace',
+      storyReserve: 80, storyEnergyCost: 1, deterministicDrops: [1, 1, 1, 1, 1, 1, 1, 1],
+      description: '门灯照亮后才看清的百草篓。药炉重燃后，可在温药架上慢慢精炼。'
+    }
+  ];
+
+  var questObjects = [
+    { id: 'old-gate-lamp', name: '旧门灯', areaId: 'gate', brokenArt: 'assets/art/v9/quest_objects/old-gate-lamp_broken.webp', repairedArt: 'assets/art/v9/quest_objects/old-gate-lamp_repaired.webp', brokenLabel: '木框开裂、灯绳断了', repairedLabel: '暖光照见门后一对紧张的耳朵', projectId: 'gate-lamp' },
+    { id: 'rusted-gate-ring', name: '锈门环', areaId: 'gate', brokenArt: 'assets/art/v9/quest_objects/rusted-gate-ring_broken.webp', repairedArt: 'assets/art/v9/quest_objects/rusted-gate-ring_repaired.webp', brokenLabel: '铁环松动，在风里轻响', repairedLabel: '门环扣牢，远处传来试探的脚步声', projectId: 'gate-ring' },
+    { id: 'faded-sect-sign', name: '褪色匾额', areaId: 'gate', brokenArt: 'assets/art/v9/quest_objects/faded-sect-sign_broken.webp', repairedArt: 'assets/art/v9/quest_objects/faded-sect-sign_repaired.webp', brokenLabel: '背板断裂，栖霞二字蒙尘', repairedLabel: '匾额重回檐下，栖霞宗正式重开', projectId: 'gate-sign' },
+    { id: 'broken-broom', name: '断柄扫帚', areaId: 'clinic', brokenArt: 'assets/art/v9/quest_objects/broken-broom_broken.webp', repairedArt: 'assets/art/v9/quest_objects/broken-broom_repaired.webp', brokenLabel: '扫帚柄断成两截', repairedLabel: '灰尘被扫开，药庐重新露出原貌', projectId: 'clinic-broom' },
+    { id: 'cracked-medicine-cabinet', name: '裂药柜', areaId: 'clinic', brokenArt: 'assets/art/v9/quest_objects/cracked-medicine-cabinet_broken.webp', repairedArt: 'assets/art/v9/quest_objects/cracked-medicine-cabinet_repaired.webp', brokenLabel: '抽屉滑落，背板缺了两块', repairedLabel: '药材各归其位，柜后露出一把旧伞', projectId: 'clinic-cabinet' },
+    { id: 'cold-medicine-furnace', name: '冷药炉', areaId: 'clinic', brokenArt: 'assets/art/v9/quest_objects/cold-medicine-furnace_broken.webp', repairedArt: 'assets/art/v9/quest_objects/cold-medicine-furnace_repaired.webp', brokenLabel: '炉口松动，余烬早已冷透', repairedLabel: '温药火亮起，疗愈配方重新开放', projectId: 'clinic-furnace' },
+    { id: 'torn-old-umbrella', name: '破旧小伞', areaId: 'clinic', brokenArt: 'assets/art/v9/quest_objects/torn-old-umbrella_broken.webp', repairedArt: 'assets/art/v9/quest_objects/torn-old-umbrella_repaired.webp', brokenLabel: '伞骨折了，伞面漏雨', repairedLabel: '同一把小伞重新撑开，刚好护住两个人', projectId: 'qiongqi-umbrella', discoverAfterProjectId: 'clinic-cabinet' }
+  ];
+
+  var projects = [
+    {
+      id: 'gate-lamp', sequence: 1, session: 1, kind: 'renovation', areaId: 'gate', stageIndex: 0,
+      title: '修好门灯', objectId: 'old-gate-lamp', installLocation: '山门左檐', actionLabel: '装回山门',
+      requirements: [requirement('build', 2, 1), requirement('cloth', 2, 1)],
+      completeFeedback: '门灯亮了。门后先露出一只耳朵，又飞快缩了回去。', storyEventId: 'qiongqi-ear-in-light'
+    },
+    {
+      id: 'gate-ring', sequence: 2, session: 1, kind: 'renovation', areaId: 'gate', stageIndex: 1,
+      title: '加固门环', objectId: 'rusted-gate-ring', installLocation: '山门正门', actionLabel: '把门环扣牢',
+      requirements: [requirement('build', 3, 1), requirement('cloth', 2, 1)],
+      completeFeedback: '门环不再摇晃。门后的脚步靠近了一点，嬉游亭也传来旧彩球滚动的声音。', storyEventId: 'qiongqi-footsteps', unlocks: ['story-toy-tower']
+    },
+    {
+      id: 'qiongqi-night-lamp', sequence: 3, session: 1, kind: 'story', beastId: 'qiongqi', storyStep: 1,
+      title: '安抚门灯下的穷奇', objectId: null, installLocation: '修好的门灯', actionLabel: '把安睡香放进门灯',
+      requiresCare: 'play', requirements: [requirement('herb', 3, 1), requirement('herb', 1, 1)],
+      completeFeedback: '安睡香在灯里慢慢散开。穷奇把爪子伸进光里，问你明天还会不会回来。', storyEventId: 'qiongqi-will-return'
+    },
+    {
+      id: 'gate-sign', sequence: 4, session: 2, kind: 'renovation', areaId: 'gate', stageIndex: 2,
+      title: '重挂栖霞匾', objectId: 'faded-sect-sign', installLocation: '山门正檐', actionLabel: '把匾额挂正',
+      requirements: [requirement('build', 3, 1), requirement('cloth', 2, 1)],
+      completeFeedback: '匾额在檐下落稳。穷奇抬头看了很久，第一次小声念出“栖霞”。', storyEventId: 'sect-reopens'
+    },
+    {
+      id: 'clinic-broom', sequence: 5, session: 2, kind: 'renovation', areaId: 'clinic', stageIndex: 0,
+      title: '清扫药庐', objectId: 'broken-broom', installLocation: '药庐前堂', actionLabel: '修好扫帚并清扫',
+      requirements: [requirement('build', 2, 1), requirement('cloth', 2, 1)],
+      completeFeedback: '扫帚掠过地面，灰尘随光散开。穷奇没有躲，只在门边看着你。', storyEventId: 'clinic-dust-clears'
+    },
+    {
+      id: 'clinic-cabinet', sequence: 6, session: 2, kind: 'renovation', areaId: 'clinic', stageIndex: 1,
+      title: '修好药柜', objectId: 'cracked-medicine-cabinet', installLocation: '药庐西墙', actionLabel: '把抽屉装回去',
+      requirements: [requirement('build', 3, 2)],
+      completeFeedback: '最后一只抽屉推回去时，柜后掉出一把破旧小伞。穷奇立刻认出了它。', storyEventId: 'old-umbrella-found', discoversObjectId: 'torn-old-umbrella'
+    },
+    {
+      id: 'qiongqi-bandage', sequence: 7, session: 2, kind: 'story', beastId: 'qiongqi', storyStep: 2,
+      title: '照料穷奇的旧伤', objectId: null, installLocation: '穷奇后腿', actionLabel: '替它包扎',
+      requirements: [requirement('cloth', 3, 1), requirement('herb', 3, 1)],
+      completeFeedback: '药布贴住旧伤。穷奇没有咬人，也没有缩回去，只把旧彩球推到你手边。', storyEventId: 'qiongqi-accepts-bandage'
+    },
+    {
+      id: 'clinic-furnace', sequence: 8, session: 3, kind: 'renovation', areaId: 'clinic', stageIndex: 2,
+      title: '重燃药炉', objectId: 'cold-medicine-furnace', installLocation: '药庐内室', actionLabel: '点起温药火',
+      requirements: [requirement('herb', 3, 1), requirement('cloth', 2, 1)],
+      completeFeedback: '药炉重新吐出暖光，雨点也在这一刻敲上屋檐。你提起药箱，准备下山。', storyEventId: 'rain-begins'
+    },
+    {
+      id: 'qiongqi-umbrella', sequence: 9, session: 3, kind: 'story', beastId: 'qiongqi', storyStep: 3,
+      title: '回应雨中的等待', objectId: 'torn-old-umbrella', installLocation: '山门雨幕', actionLabel: '把伞递给穷奇',
+      requirements: [requirement('build', 2, 1), requirement('cloth', 4, 1)],
+      completeFeedback: '你晚归时，穷奇正举着这把伞等在门口。它第一次主动走出了门后。', storyEventId: 'qiongqi-waits-in-rain'
+    }
+  ];
+
+  var storySessions = [
+    { id: 1, title: '门后有谁' },
+    { id: 2, title: '它没有躲' },
+    { id: 3, title: '门口等你' }
+  ];
+
+  var storyEvents = [
+    { id: 'volume-one-opening', session: 1, speaker: '旁白', text: '栖霞宗荒了很久。你推开山门，门后传来一声紧张的呼噜。', blocking: true, musicKey: 'qiongqiGate', ambienceKey: 'gateWind' },
+    { id: 'qiongqi-ear-in-light', session: 1, speaker: '穷奇', text: '你是谁？先、先别再往前了。', voiceKey: 'qiongqiEar', cgArt: 'assets/art/v9/story/cg_gate_lamp.webp', actionArt: 'assets/art/v9/qiongqi_actions/qiongqi_peek.webp' },
+    { id: 'qiongqi-footsteps', session: 1, speaker: '穷奇', text: '那个旧彩球……你会玩吗？', voiceKey: 'qiongqiBall', cgArt: 'assets/art/v9/story/cg_old_ball.webp', actionArt: 'assets/art/v9/qiongqi_actions/qiongqi_old_ball.webp', unlocks: ['story-toy-tower'] },
+    { id: 'qiongqi-will-return', session: 1, speaker: '穷奇', text: '你明天……还会回来吗？', voiceKey: 'qiongqiReturn', actionArt: 'assets/art/v9/qiongqi_actions/qiongqi_paw_light.webp', choices: [{ id: 'promise-return', text: '会，我还要把这里修好。', reply: '那我……替你看着门。' }, { id: 'leave-lamp', text: '这盏灯会先陪着你。', reply: '嗯。我等灯，也等你。' }] },
+    { id: 'sect-reopens', session: 2, speaker: '穷奇', text: '栖霞……原来这里真的有名字。', voiceKey: 'qiongqiSect', ambienceKey: 'clinicFire' },
+    { id: 'clinic-dust-clears', session: 2, speaker: '穷奇', text: '我没躲。你继续吧。', voiceKey: 'qiongqiStay' },
+    { id: 'old-umbrella-found', session: 2, speaker: '穷奇', text: '这把伞……以前有人答应回来，后来没有。', voiceKey: 'qiongqiUmbrella', cgArt: 'assets/art/v9/story/cg_old_umbrella.webp' },
+    { id: 'qiongqi-accepts-bandage', session: 2, speaker: '穷奇', text: '不疼。我可以不躲。', voiceKey: 'qiongqiBandage', cgArt: 'assets/art/v9/story/cg_bandage.webp' },
+    { id: 'rain-begins', session: 3, speaker: '穷奇', text: '外面下雨了。你还要下山吗？', voiceKey: 'qiongqiRain', musicKey: 'qiongqiHome', ambienceKey: 'rain' },
+    { id: 'qiongqi-waits-in-rain', session: 3, speaker: '穷奇', text: '门口风大。我想……这次换我等你。', voiceKey: 'qiongqiFinale', cgArt: 'assets/art/v9/story/cg_rain_return.webp', actionArt: 'assets/art/v9/qiongqi_actions/qiongqi_umbrella.webp', choices: [{ id: 'share-umbrella', text: '那就一起回家。', reply: '回家。' }, { id: 'name-gatekeeper', text: '以后山门交给你了。', reply: '我会守住它，也会等大家回来。' }] },
+    { id: 'nine-tail-tease', session: 3, speaker: '旁白', text: '第一盏归灯亮起。远处灵雾中，九条尾巴的剪影一闪而过。', blocking: true }
+  ];
 
   /* 正式物品约束：每一阶都声明来源，并且要么进入委托/配方/修缮，
      要么显式作为高阶终局收藏。运行时来源可达性仍由 core 的统一解析器判定。 */
@@ -1915,8 +2139,17 @@
   });
 
   return {
-    version: 8,
+    version: 10,
+    terminology: terminology,
+    companionPacing: companionPacing,
+    pacing: companionPacing,
     sect: sect,
+    release: { publishedVolumeCount: 12, mainMergeTargetMin: 42, mainMergeTargetMax: 55 },
+    materialSources: materialSources,
+    questObjects: questObjects,
+    projects: projects,
+    storySessions: storySessions,
+    storyEvents: storyEvents,
     board: {
       cols: 7,
       rows: 7,
@@ -1933,6 +2166,7 @@
     formalItems: formalItems,
     backgrounds: backgrounds,
     audio: audio,
+    cinematics: cinematics,
     economy: {
       startJade: 120,
       startEnergy: 100,
@@ -1948,7 +2182,7 @@
       upgradeMode: 'resource',
       /* 常驻生成器在线点击只消耗灵力，不再被储能硬卡；charges 仅作为
          离线储备上限展示。合成出来的造物生成器使用有限次数，用完消散。 */
-      permanentFamilies: ['herb', 'tool', 'food', 'build', 'charm', 'treasure'],
+      permanentFamilies: ['herb', 'cloth', 'tool', 'food', 'build', 'charm', 'treasure'],
       consumableMaxPerFamily: 2,
       consumableUses: [10, 20, 30],
       partDropPity: 15,
@@ -1956,7 +2190,8 @@
       onlineIntervalMs: 0,
       upgradeEnergyCosts: [0, 15, 25, 35, 50],
       upgradeGates: {
-        herb: { level: 4, areaId: 'herb_garden', areaStage: 2, level5Product: 'PROD_GARDEN' },
+        herb: { level: 4, areaId: 'clinic', areaStage: 3, level5Product: 'PROD_GARDEN' },
+        cloth: { level: 4, areaId: 'clinic', areaStage: 1, level5Product: 'PROD_BED' },
         tool: { level: 4, areaId: 'alchemy', areaStage: 2, level5Product: 'PROD_FLAME' },
         food: { level: 4, areaId: 'canteen', areaStage: 2, level5Product: 'PROD_MEAL' },
         build: { level: 4, areaId: 'workshop', areaStage: 2, level5Product: 'PROD_HEARTH' }
@@ -1964,20 +2199,28 @@
       producerChains: {
         herb: {
           activeFromVolume: 1,
-          names: ['灵土团', '青竹篓片', '聚露苗床', '百草育圃', '灵蕴药圃'],
-          generatorNames: ['灵蕴药圃', '露华药圃', '百草灵圃', '地脉仙圃', '神农天圃'],
+          names: ['百草篓绳', '百草篓', '温药架脚', '温药架', '百草温药架'],
+          generatorNames: ['药庐百草篓', '药庐百草篓', '温药架', '温药架', '百草温药架'],
           artRoot: 'assets/art/v7/producer_parts/herb_part_'
         },
-        tool: {
+        cloth: {
           activeFromVolume: 1,
-          names: ['碎铜齿', '药炉机括', '调息炉芯', '百工药炉', '天工丹械'],
-          generatorNames: ['天工丹械', '回春药械', '百炼医台', '玄枢灵械', '岐黄天工台'],
+          names: ['旧线轴', '针线篮', '织箱木梭', '旧织箱', '栖霞织案'],
+          generatorNames: ['门房针线篮', '门房针线篮', '旧织箱', '旧织箱', '栖霞织案'],
+          /* 卷一尚未制作独立的织物生产器部件图，复用已经随正式包发布的
+             织物阶级素材，避免部件与合成生成器渲染为空白。 */
+          artRoot: 'assets/art/match3/cloth_'
+        },
+        tool: {
+          activeFromVolume: 2,
+          names: ['碎铜齿', '药炉机括', '调息炉芯', '百工药炉', '医师药箱'],
+          generatorNames: ['医师药箱', '医师药箱', '医师药箱', '医师药箱', '医师药箱'],
           artRoot: 'assets/art/v7/producer_parts/tool_part_'
         },
         build: {
-          activeFromVolume: 2,
-          names: ['榫卯木屑', '鲁班构件', '灵木机匣', '山门工台', '云阙造物台'],
-          generatorNames: ['云阙造物台', '灵木工坊', '百巧作坊', '山河营造司', '天工云阙台'],
+          activeFromVolume: 1,
+          names: ['旧木片堆', '旧木料堆', '木作案脚', '木作案', '栖霞木作案'],
+          generatorNames: ['旧木料堆', '旧木料堆', '木作案', '木作案', '栖霞木作案'],
           artRoot: 'assets/art/v7/producer_parts/build_part_'
         }
       },
@@ -1990,6 +2233,7 @@
       },
       consumableProductDrops: {
         herb: { 2: { productId: 'PROD_SOOTHE', chance: 0.1 }, 3: { productId: 'PROD_CLEAR', chance: 0.12 } },
+        cloth: { 2: { productId: 'PROD_BED', chance: 0.1 }, 3: { productId: 'PROD_BED', chance: 0.12 } },
         tool: { 2: { productId: 'PROD_SOOTHE', chance: 0.1 }, 3: { productId: 'PROD_CLEAR', chance: 0.12 } },
         food: { 2: { productId: 'PROD_MEAL', chance: 0.1 }, 3: { productId: 'PROD_MEAL', chance: 0.12 } },
         build: { 2: { productId: 'PROD_BED', chance: 0.1 }, 3: { productId: 'PROD_HEARTH', chance: 0.1 } }
@@ -2029,6 +2273,6 @@
     careGames: careGames,
     giftChain: giftChain,
     dailyObjectives: dailyObjectives,
-    featureFlags: { rewardedAds: false }
+    featureFlags: { rewardedAds: false, immersiveVolumeOne: true, publishedVolumeCount: 12 }
   };
 }));

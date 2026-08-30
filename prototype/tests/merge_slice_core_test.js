@@ -300,6 +300,7 @@ check('首兽按蜕变、首次岗位、转卷顺序完成后才出现下一兽 
   }
   resultOk(Core.recordCare(state, definition.careTypes[0], { outcome: 'complete', beastId: 'qiongqi' }, NOW + 4), '穷奇照料完成');
   resultOk(Core.acknowledgeTransformation(state, 'qiongqi'), '确认穷奇蜕变');
+  state.energy = 0;
   resultOk(Core.claimJob(state, 'qiongqi', NOW + 5), '领取穷奇首次岗位产出');
   expect(state.chapter && state.chapter.pendingTransition, '首次岗位后必须先产生卷章衔接演出');
   resultOk(Core.acknowledgeChapterTransition(state), '确认卷一至卷二衔接演出');
@@ -340,15 +341,13 @@ check('有效超时发放保底，直接跳过不发奖励也不推进', functio
     'skip 不推进每日照料或病例节点');
 });
 
-check('energy=0 仍可 claimJob，且重复 claim 幂等', function () {
+check('未蜕变岗位保持 locked，claimJob 不发奖', function () {
   const state = fresh();
   state.energy = 0;
+  const before = rewardFingerprint(state);
   const first = Core.claimJob(state, 'qiongqi', NOW);
-  resultOk(first, '零灵力 claimJob');
-  const afterFirst = rewardFingerprint(state);
-  const second = Core.claimJob(state, 'qiongqi', NOW);
-  expect(second && second.ok === false || rewardFingerprint(state) === afterFirst,
-    '同一时间重复 claim 不重复发奖');
+  expect(first && first.ok === false && first.reason === 'job-locked', '未蜕变岗位拒绝领取');
+  expect(rewardFingerprint(state) === before, 'locked 岗位不发奖、不改资源');
 });
 
 check('满盘时 generate 安全拒绝且不扣灵力/储能', function () {

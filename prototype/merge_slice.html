@@ -1,68 +1,70 @@
 ﻿<!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="qixia-v14">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#fff1df" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#294b5e" />
   <meta name="description" content="修缮栖霞宗，陪伴十二只小神兽走完故事、照料、蜕变与岗位旅程。" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="小动物山海经 · 栖霞宗" />
+  <meta property="og:title" content="山海·栖霞" />
   <meta property="og:description" content="修缮宗门，陪伴十二只小神兽慢慢找回力量。" />
   <meta property="og:image" content="assets/share/share-card.svg" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="小动物山海经 · 栖霞宗" />
+  <meta name="twitter:title" content="山海·栖霞" />
   <meta name="twitter:description" content="修缮宗门，陪伴十二只小神兽慢慢找回力量。" />
   <meta name="twitter:image" content="assets/share/share-card.svg" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/app-icon-192.png" />
   <link rel="apple-touch-icon" href="assets/icons/app-icon-192.png" />
-  <title>栖霞宗 · 小动物山海经</title>
+  <title>山海·栖霞</title>
   <link rel="stylesheet" href="merge-slice.css" />
+  <link rel="preload" href="assets/art/ui-v14/backgrounds/fullscreen/bg_launch_gate_night.webp" as="image" type="image/webp" />
+  <link rel="stylesheet" href="css/ui-v14.css" />
 </head>
-<body>
+<body class="ui-bootstrap-launch">
 <div id="slice-app">
   <header class="slice-hud" aria-label="玩家状态" data-help="hud" title="长按查看：状态栏是干什么、需要什么、有什么用">
-    <div class="brand-mark"><span class="brand-leaf" aria-hidden="true">✦</span><span>栖霞宗</span></div>
     <div id="hud-values" class="hud-values"></div>
-    <button id="how-to-play-open" class="icon-button help-button" type="button" aria-label="打开玩法说明" title="玩法说明">?</button>
-    <button id="audio-toggle" class="icon-button audio-toggle" type="button" aria-label="开启音效" aria-pressed="true">🔊</button>
-    <button id="settings-open" class="icon-button" type="button" aria-label="打开设置">⚙</button>
+    <button id="more-menu-open" class="icon-button more-menu-open" type="button" aria-label="打开更多选项" aria-haspopup="dialog"><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#more" xlink:href="assets/icons/ui-icons.svg#more"></use></svg><small>更多</small></button>
   </header>
 
   <main id="slice-main">
     <section id="merge-view" class="view active" data-layout="focus" aria-labelledby="merge-title">
       <div class="view-heading">
-        <div><span id="chapter-label" class="eyebrow">栖霞宗 · 卷一 山门重开</span><h1 id="merge-title">完成眼前这一小步</h1></div>
-        <button id="energy-help" class="pill-button" type="button" aria-label="打开灵力中心">灵力中心</button>
+        <div><span id="chapter-label" class="eyebrow">栖霞宗 · 卷一 穷奇篇</span><h1 id="merge-title">灵阵</h1></div>
       </div>
 
       <aside id="next-action" class="next-action" aria-live="polite"></aside>
 
-      <section class="order-panel" aria-labelledby="orders-title" data-help="orders" title="长按查看：委托面板说明">
-        <div class="section-title-row"><div><span class="eyebrow">五条目标 · 各有去处</span><h2 id="orders-title">卷章、修缮、医案、访客与旅程</h2></div><span class="small-note">点目标条收起委托 · 点素材看来源</span></div>
+      <section id="project-tray" class="project-tray" role="button" tabindex="0" aria-labelledby="project-tray-title" aria-live="polite" aria-haspopup="dialog">
+        <span class="project-summary-mark" aria-hidden="true"><svg class="ui-icon"><use href="assets/icons/ui-icons.svg#route" xlink:href="assets/icons/ui-icons.svg#route"></use></svg></span>
+        <div class="project-copy">
+          <span class="eyebrow">当前宗门任务 · 点击查看详情</span>
+          <h2 id="project-tray-title" data-project-title>查看当前任务</h2>
+          <div class="project-components" data-project-components></div>
+        </div>
+        <span class="project-summary-progress" data-project-summary-progress>待开始</span>
+        <svg class="ui-icon project-summary-chevron" aria-hidden="true"><use href="assets/icons/ui-icons.svg#chevron-right" xlink:href="assets/icons/ui-icons.svg#chevron-right"></use></svg>
+        <button id="project-action" class="project-action" type="button" hidden disabled>准备组件</button>
+      </section>
+
+      <section class="order-panel" aria-label="宗门任务" data-help="orders" title="长按查看：宗门任务说明">
         <div id="order-target-bar" class="order-target-bar" data-order-target-bar data-state="expanded">
-          <button id="order-target-toggle" class="order-target-toggle" data-action="toggle-orders" type="button" aria-expanded="true" aria-controls="order-drawer" aria-label="订单目标">
-            <span class="order-target-icon" aria-hidden="true">◎</span>
-            <span class="order-target-copy"><b data-order-target-label>订单目标</b><small data-order-target-summary>0 / 5</small></span>
+          <button id="order-target-toggle" class="order-target-toggle" data-action="toggle-orders" type="button" aria-expanded="true" aria-controls="order-drawer" aria-label="收起宗门任务">
+            <strong class="order-target-title">宗门任务</strong>
+            <span class="order-target-summary" data-order-target-summary>0 / 5 可推进</span>
             <span class="order-target-progress" aria-hidden="true"><i data-order-target-progress></i></span>
-            <span class="order-target-chevron" aria-hidden="true">⌄</span>
+            <span class="order-target-chevron" aria-hidden="true"></span>
           </button>
-          <div id="order-target-slots" class="order-target-slots" data-slot-count="5" role="list" aria-label="订单目标槽">
-            <span class="order-target-slot" data-order-target-slot="0" data-order-kind="main" data-slot-state="empty" role="listitem" aria-label="主线目标"></span>
-            <span class="order-target-slot" data-order-target-slot="1" data-order-kind="repair" data-slot-state="empty" role="listitem" aria-label="修缮目标"></span>
-            <span class="order-target-slot" data-order-target-slot="2" data-order-kind="clinic" data-slot-state="empty" role="listitem" aria-label="医案目标"></span>
-            <span class="order-target-slot" data-order-target-slot="3" data-order-kind="visitor" data-slot-state="empty" role="listitem" aria-label="访客目标"></span>
-            <span class="order-target-slot" data-order-target-slot="4" data-order-kind="journey" data-slot-state="empty" role="listitem" aria-label="七日旅程目标"></span>
-          </div>
         </div>
         <div id="order-drawer" class="order-drawer" data-order-drawer data-state="expanded">
           <div id="order-list" class="order-list" data-orders aria-live="polite"></div>
         </div>
       </section>
 
-      <section class="board-card" aria-labelledby="board-title" data-help="board" title="长按查看：合成棋盘说明">
-        <div class="board-topline"><div><strong id="board-title">合成棋盘</strong><span id="space-note"></span></div><div class="board-actions"><button id="storage-open" class="text-button storage-open" type="button" aria-label="打开药匣">药匣</button></div></div>
-        <div id="merge-board" class="merge-board" role="grid" aria-rowcount="7" aria-colcount="7" data-grid-columns="7" data-grid-rows="7" data-focus-layout="true" aria-label="7列7行合成棋盘"></div>
+      <section class="board-card" aria-labelledby="board-title" data-help="board" title="长按查看：归灵台说明">
+        <div class="board-topline"><div><strong id="board-title">归灵台</strong><span id="space-note"></span></div><div class="board-actions"><span id="clean-tools-note" class="clean-tools-note" hidden></span><button id="storage-open" class="text-button storage-open" type="button" aria-label="打开药匣">药匣</button></div></div>
+        <div id="merge-board" class="merge-board" role="grid" aria-rowcount="7" aria-colcount="7" data-grid-columns="7" data-grid-rows="7" data-focus-layout="true" aria-label="7列7行宗门归灵台"></div>
         <div id="selection-hint" class="selection-hint">拖动合成 · 长按素材看路线，长按任意模块看说明</div>
         <div id="item-info-root" class="item-info-root" aria-live="polite"></div>
       </section>
@@ -86,7 +88,7 @@
       </section>
 
       <section class="storage-card" aria-labelledby="storage-title" data-help="storage" title="长按查看：药匣暂存区说明">
-        <div class="section-title-row"><div><span class="eyebrow">不丢奖励 · 随身药匣</span><h2 id="storage-title">暂存区</h2></div><button id="storage-upgrade" class="text-button" type="button">扩容</button></div>
+        <div class="section-title-row"><div><span class="eyebrow">不丢组件 · 药匣</span><h2 id="storage-title">暂存区</h2></div><button id="storage-upgrade" class="text-button" type="button">扩容</button></div>
         <div id="storage-list" class="storage-list" aria-label="暂存区"></div>
         <p id="pending-note" class="storage-note"></p>
       </section>
@@ -96,26 +98,29 @@
       <div class="yard-scene scene-world" id="yard-scene" data-scene-world data-help="yard" title="长按查看：庭院场景说明">
         <div id="yard-background-layer" class="scene-layer scene-background" data-scene-node="background" aria-hidden="true"></div>
         <div class="scene-layer scene-ground" data-scene-node="ground" aria-hidden="true"><i class="ground-path"></i><i class="ground-shadow"></i></div>
-        <div class="yard-sky-copy"><span class="eyebrow">庭院回声 · 点击互动 · 长按看模块说明</span><h1 id="yard-heading">庭院疗愈目标</h1><p id="yard-copy">当前动作：观察四周</p></div>
-        <button id="yard-background-open" class="yard-background-chip" type="button" aria-label="切换庭院背景" data-help="yard-background" title="长按查看：庭院背景说明">背景 · 晨光庭院</button>
-        <div id="yard-beast-switcher" aria-label="切换庭院显示的异兽" hidden></div>
+        <h1 id="yard-heading" class="sr-only">庭院疗愈目标</h1>
+        <p id="yard-copy" class="sr-only">当前动作：观察四周</p>
+        <button id="yard-background-open" class="yard-background-chip" type="button" aria-label="切换庭院背景" data-help="yard-background" title="长按查看：庭院背景说明"><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#nav-yard" xlink:href="assets/icons/ui-icons.svg#nav-yard"></use></svg><span>切换背景</span></button>
         <div class="scene-layer scene-buildings" data-scene-node="buildings">
-          <button class="scene-building" data-scene-node="building" data-node-id="clinic" data-hotspot="clinic" data-help="yard-clinic" style="--scene-x:25;--scene-y:48" type="button" aria-label="进入医馆" title="长按查看：医馆说明"><span class="building-sprite" aria-hidden="true"><img src="assets/art/buildings/clinic_lv1.webp" alt="" /></span><b class="building-name">医馆</b><small>查看疗愈</small><span class="building-level-badge" data-building-level>Lv1</span><i class="world-state-bubble">疗愈 +8</i></button>
-          <button class="scene-building" data-scene-node="building" data-node-id="herb" data-hotspot="herb" data-help="yard-herb" style="--scene-x:22;--scene-y:82" type="button" aria-label="访问百草园" title="长按查看：百草园说明"><span class="building-sprite" aria-hidden="true"><img src="assets/art/buildings/herb_lv1.webp" alt="" /></span><b class="building-name">百草园</b><small>查看生产</small><span class="building-level-badge" data-building-level>Lv1</span><i class="world-state-bubble" data-building-bubble="herb">生产中</i></button>
-          <button class="scene-building" data-scene-node="building" data-node-id="groom" data-care="groom" data-help="yard-groom" style="--scene-x:80;--scene-y:80" type="button" aria-label="打开梳洗台" title="长按查看：梳洗台说明"><span class="building-sprite" aria-hidden="true"><img src="assets/art/buildings/groom_lv1.webp" alt="" /></span><b class="building-name">梳洗台</b><small>素材奖励不限次数</small><span class="building-level-badge" data-building-level>Lv1</span><i class="world-state-bubble" data-building-bubble="groom">奖励不限</i></button>
-          <button class="scene-building" data-scene-node="building" data-node-id="play" data-care="play" data-help="yard-play" style="--scene-x:78;--scene-y:48" type="button" aria-label="去嬉游亭陪玩玩具塔" title="长按查看：嬉游亭说明"><span class="building-sprite" aria-hidden="true"><img src="assets/art/buildings/play_lv1.webp" alt="" /></span><b class="building-name">嬉游亭</b><small>素材奖励不限次数</small><span class="building-level-badge" data-building-level>Lv1</span><i class="world-state-bubble" data-building-bubble="play">奖励不限</i></button>
+          <button class="scene-building" data-scene-node="building" data-node-id="clinic" data-hotspot="clinic" data-help="yard-clinic" style="--scene-x:24%;--scene-y:31%" type="button" aria-label="选择医馆" title="长按查看：医馆说明"><span class="building-sprite" aria-hidden="true"><img data-src="assets/art/buildings/clinic_lv1.webp" alt="" /></span><i class="world-state-bubble" aria-label="医馆状态">可查看</i></button>
+          <button class="scene-building" data-scene-node="building" data-node-id="herb" data-hotspot="herb" data-help="yard-herb" style="--scene-x:24%;--scene-y:72%" type="button" aria-label="选择百草园" title="长按查看：百草园说明"><span class="building-sprite" aria-hidden="true"><img data-src="assets/art/buildings/herb_lv1.webp" alt="" /></span><i class="world-state-bubble" data-building-bubble="herb" aria-label="百草园状态">生产中</i></button>
+          <button class="scene-building" data-scene-node="building" data-node-id="groom" data-care="groom" data-help="yard-groom" style="--scene-x:76%;--scene-y:72%" type="button" aria-label="选择梳洗台" title="长按查看：梳洗台说明"><span class="building-sprite" aria-hidden="true"><img data-src="assets/art/buildings/groom_lv1.webp" alt="" /></span><i class="world-state-bubble" data-building-bubble="groom" aria-label="梳洗台状态">可开始</i></button>
+          <button class="scene-building" data-scene-node="building" data-node-id="play" data-care="play" data-help="yard-play" style="--scene-x:76%;--scene-y:31%" type="button" aria-label="选择嬉游亭" title="长按查看：嬉游亭说明"><span class="building-sprite" aria-hidden="true"><img data-src="assets/art/buildings/play_lv1.webp" alt="" /></span><i class="world-state-bubble" data-building-bubble="play" aria-label="嬉游亭状态">可开始</i></button>
         </div>
-        <button id="yard-character" class="yard-character scene-character" data-scene-node="character" data-node-id="resident" data-help="yard-resident" style="--scene-x:50;--scene-y:90" type="button" aria-label="查看当前异兽反应" title="长按查看：庭院住客说明"><img id="yard-beast" alt="当前异兽" /><span id="yard-beast-sprite" class="yard-beast-sprite" aria-hidden="true" hidden></span></button>
-        <div class="yard-speech world-speech" id="yard-speech" data-scene-node="speech">“先慢慢来，我们不赶时间。”</div>
-        <div class="scene-layer yard-props" data-scene-node="props" aria-hidden="true"><span class="prop prop-pool" data-scene-node="prop">≈</span><span class="prop prop-flower" data-scene-node="prop">✿</span><span class="prop prop-lantern" data-scene-node="prop">♨</span></div>
+        <button id="yard-character" class="yard-character scene-character is-selected" data-scene-node="character" data-node-id="resident" data-help="yard-resident" style="--scene-x:50%;--scene-y:87%" type="button" aria-label="点击与当前异兽互动，长按查看说明" title="点击互动，长按查看：庭院住客说明"><img id="yard-beast" alt="当前异兽" decoding="async" /><span id="yard-beast-sprite" class="yard-beast-sprite" aria-hidden="true" hidden></span></button>
+        <div class="yard-speech world-speech" id="yard-speech" data-scene-node="speech" aria-live="polite"></div>
+        <div class="scene-layer yard-props" data-scene-node="props" aria-hidden="true"><span class="prop prop-pool" data-scene-node="prop"></span><span class="prop prop-flower" data-scene-node="prop"></span><span class="prop prop-lantern" data-scene-node="prop"></span></div>
         <div id="yard-fx-layer" class="scene-layer scene-fx" data-scene-node="fx" aria-hidden="true"></div>
       </div>
+
+      <section id="yard-selection-card" class="yard-selection-card" aria-live="polite" aria-label="庭院当前选择"></section>
+      <div id="yard-beast-switcher" class="yard-beast-switcher" aria-label="切换庭院显示的异兽" hidden></div>
 
       <section class="yard-goal-panel" aria-labelledby="yard-goal-title" data-help="daily-goals" title="长按查看：每日目标与七日约定说明">
         <div class="section-title-row"><div><span class="eyebrow">每日目标 · 每天均可领取</span><h2 id="yard-goal-title">今天也留下一点温柔</h2></div><span id="yard-goal-reward" class="small-note">每日：暖玉 80 · 宗门阅历 33</span></div>
         <div id="yard-goals" class="yard-goals"></div>
-        <div id="sign-in-track" class="sign-in-track" aria-label="七日约定奖励进度"></div>
         <button id="claim-yard-goal" class="goal-claim" type="button" aria-label="领取每日目标奖励">领取今日奖励</button>
+        <div id="sign-in-track" class="sign-in-track" aria-label="七日约定奖励进度"></div>
         <div id="weekly-goal" class="weekly-world-goal" aria-live="polite"></div>
         <div class="yard-quickbar" aria-label="庭院快捷入口">
           <button id="yard-facilities-open" type="button">设施升级</button>
@@ -123,12 +128,12 @@
         </div>
       </section>
 
-      <section class="building-card compact-buildings" aria-labelledby="building-title" data-help="facilities" title="长按查看：设施升级模块说明">
+        <section class="building-card compact-buildings" aria-labelledby="building-title" data-help="facilities" title="长按查看：设施升级模块说明" hidden>
         <div class="section-title-row"><div><span class="eyebrow">支线 · 庭院建设</span><h2 id="building-title">宗门设施</h2></div><span class="small-note">升级后立即生效 · 长按看说明</span></div>
         <div id="building-list" class="building-list"></div>
       </section>
 
-      <section class="job-card" aria-labelledby="job-title" data-help="jobs" title="长按查看：岗位产出模块说明">
+      <section class="job-card" aria-labelledby="job-title" data-help="jobs" title="长按查看：岗位产出模块说明" hidden>
         <div class="section-title-row"><div><span class="eyebrow">蜕变兑现 · 岗位产出</span><h2 id="job-title">住客们正在帮忙</h2></div><span class="small-note">离线最多结算 8 小时 · 长按看说明</span></div>
         <div id="job-list" class="job-list"></div>
       </section>
@@ -136,11 +141,11 @@
 
     <section id="sect-view" class="view" aria-labelledby="sect-title">
       <div class="view-heading">
-        <div><span class="eyebrow">栖霞宗 · 末法时代</span><h1 id="sect-title">把往日的风采，轻轻找回来</h1></div>
-        <span id="sect-chapter-chip" class="stage-chip">卷一 · 穷奇篇</span>
+        <div><span class="eyebrow">栖霞宗 · 拨开灵雾</span><h1 id="sect-title">宗门舆图</h1></div>
+        <div class="sect-heading-meta"><span id="sect-chapter-chip" class="stage-chip">卷一 · 穷奇篇</span><span id="goal-progress" class="sect-overall-progress">卷一 · 0%</span></div>
       </div>
       <section class="sect-card sect-map-card" aria-labelledby="sect-map-title" data-help="sect-map" title="长按查看：宗门舆图说明">
-        <div class="section-title-row"><div><span class="eyebrow">宗门舆图 · 拨开灵雾</span><h2 id="sect-map-title">整座山都记着你的每一步</h2></div><span id="sect-map-progress" class="small-note">0 / 14</span></div>
+        <div class="section-title-row"><div><span class="eyebrow">宗门舆图 · 拨开灵雾</span><h2 id="sect-map-title">栖霞宗十四境</h2></div><span id="sect-map-progress" class="small-note">0 / 14</span></div>
         <div id="sect-map-stage" class="sect-map-stage" data-sect-map-stage>
           <div class="sect-map-canvas" aria-hidden="true"></div>
           <div id="sect-map" class="sect-map" data-sect-map role="list" aria-label="宗门舆图区域列表"></div>
@@ -148,46 +153,26 @@
         </div>
         <p id="sect-map-note" class="sect-map-note">交付修缮委托后，这里会立刻变亮；小访客们会在山径上自己散步。</p>
       </section>
-      <section id="sect-scene" class="sect-scene" data-scene-world data-scene-id="sect" data-current-area="gate" data-stage="ruined" aria-labelledby="sect-scene-title" data-help="sect-scene" title="长按查看：宗门区域近景说明">
+      <section id="sect-scene" class="sect-scene" data-scene-world data-scene-id="sect" data-current-area="gate" data-stage="ruined" aria-labelledby="sect-scene-title" data-help="sect-scene" title="长按查看：宗门区域近景说明" hidden>
         <div id="sect-scene-background-layer" class="sect-scene-layer sect-scene-background" data-scene-node="background" data-asset-slot="sect-background" aria-hidden="true"></div>
         <div class="sect-scene-layer sect-scene-ground" data-scene-node="ground" aria-hidden="true"><i class="sect-ground-path"></i><i class="sect-ground-shadow"></i></div>
         <div class="sect-scene-hud" aria-live="polite">
           <div><span class="eyebrow">宗门场景</span><h2 id="sect-scene-title" data-current-area-label>山门</h2></div>
           <span id="sect-scene-stage" class="sect-stage-badge" data-stage-label data-stage="ruined">荒废</span>
-          <span id="sect-scene-progress" class="sect-scene-progress" data-scene-progress>0 / 6</span>
+          <span id="sect-scene-progress" class="sect-scene-progress" data-scene-progress>0 / 3</span>
+          <button class="sect-scene-close" data-close-sect-scene type="button" aria-label="返回宗门地图"><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#close" xlink:href="assets/icons/ui-icons.svg#close"></use></svg></button>
         </div>
-        <div id="sect-building-layer" class="sect-building-layer" data-scene-node="buildings" data-current-area="gate" data-stage="ruined" aria-live="polite">
-          <button class="sect-building-hotspot" data-scene-node="building" data-area="gate" data-stage="ruined" data-state="ruined" type="button" aria-label="山门建筑" aria-current="true">
-            <span class="sect-building-visual" data-asset-slot="gate" aria-hidden="true"></span><b data-area-label>山门</b><small data-stage-label>荒废</small>
-          </button>
-          <button class="sect-building-hotspot" data-scene-node="building" data-area="clinic" data-stage="ruined" data-state="ruined" type="button" aria-label="医馆建筑" aria-current="false">
-            <span class="sect-building-visual" data-asset-slot="clinic" aria-hidden="true"></span><b data-area-label>医馆</b><small data-stage-label>荒废</small>
-          </button>
-          <button class="sect-building-hotspot" data-scene-node="building" data-area="forecourt" data-stage="ruined" data-state="ruined" type="button" aria-label="前院建筑" aria-current="false">
-            <span class="sect-building-visual" data-asset-slot="forecourt" aria-hidden="true"></span><b data-area-label>前院</b><small data-stage-label>荒废</small>
-          </button>
-          <button class="sect-building-hotspot" data-scene-node="building" data-area="groom_pavilion" data-stage="ruined" data-state="ruined" type="button" aria-label="梳洗阁建筑" aria-current="false">
-            <span class="sect-building-visual" data-asset-slot="groom_pavilion" aria-hidden="true"></span><b data-area-label>梳洗阁</b><small data-stage-label>荒废</small>
-          </button>
-        </div>
-        <div class="sect-scene-hotspots" data-scene-node="hotspots" aria-label="宗门区域热区">
-          <button class="sect-hotspot" data-action="select-sect-area" data-area="gate" type="button" aria-label="切换山门区域"><span aria-hidden="true"></span></button>
-          <button class="sect-hotspot" data-action="select-sect-area" data-area="clinic" type="button" aria-label="切换医馆区域"><span aria-hidden="true"></span></button>
-          <button class="sect-hotspot" data-action="select-sect-area" data-area="forecourt" type="button" aria-label="切换前院区域"><span aria-hidden="true"></span></button>
-          <button class="sect-hotspot" data-action="select-sect-area" data-area="groom_pavilion" type="button" aria-label="切换梳洗阁区域"><span aria-hidden="true"></span></button>
-        </div>
+        <div class="sect-stage-track" aria-label="修缮阶段"><span data-stage="ruined">荒废</span><span data-stage="cleaned">清理</span><span data-stage="repaired">修补</span><span data-stage="renewed">焕新</span></div>
+        <div id="sect-building-layer" class="sect-building-layer" data-scene-node="buildings" data-current-area="gate" data-stage="ruined" aria-live="polite"></div>
         <nav id="sect-area-switcher" class="sect-area-switcher" data-area-switcher aria-label="宗门区域切换">
           <button class="sect-area-tab is-current" data-action="select-sect-area" data-area="gate" type="button" aria-current="true">山门</button>
-          <button class="sect-area-tab" data-action="select-sect-area" data-area="clinic" type="button" aria-current="false">医馆</button>
+          <button class="sect-area-tab" data-action="select-sect-area" data-area="clinic" type="button" aria-current="false">医馆·药庐</button>
           <button class="sect-area-tab" data-action="select-sect-area" data-area="forecourt" type="button" aria-current="false">前院</button>
           <button class="sect-area-tab" data-action="select-sect-area" data-area="groom_pavilion" type="button" aria-current="false">梳洗阁</button>
         </nav>
-        <div class="sect-stage-legend" data-stage-legend aria-label="修缮阶段">
-          <span data-stage="ruined">荒废</span><span data-stage="cleaned">清理</span><span data-stage="repaired">修补</span><span data-stage="renewed">焕新</span>
-        </div>
       </section>
 
-      <section class="sect-quote-card" aria-label="卷首语">
+      <section class="sect-quote-card" aria-label="卷首语" hidden>
         <p id="sect-quote">……</p>
         <p id="sect-note">……</p>
       </section>
@@ -195,32 +180,92 @@
         <div class="section-title-row"><div><span class="eyebrow">卷章里程碑</span><h2 id="sect-acts-title">首次山门修缮</h2></div><span id="sect-reno-progress" class="small-note">修缮度 0/6</span></div>
         <div id="sect-acts" class="sect-acts"></div>
       </section>
-      <section class="sect-card" aria-labelledby="sect-areas-title" data-help="sect-areas" title="长按查看：宗门版图说明">
+      <section class="sect-card" aria-labelledby="sect-areas-title" data-help="sect-areas" title="长按查看：宗门版图说明" hidden>
         <div class="section-title-row"><div><span class="eyebrow">宗门版图</span><h2 id="sect-areas-title">本卷区域 · 各修三段</h2></div></div>
         <div id="sect-areas" class="sect-areas"></div>
       </section>
       <section class="sect-reno-card" id="sect-reno" aria-live="polite"></section>
-      <section class="sect-hook-card" id="sect-hook" aria-live="polite"></section>
+      <section class="sect-hook-card" id="sect-hook" aria-live="polite" hidden></section>
     </section>
 
     <section id="codex-view" class="view" aria-labelledby="codex-title" data-help="codex" title="长按查看：山海册图鉴说明">
       <div class="view-heading">
-        <div><span class="eyebrow">山海册 · 十二兽疗愈图鉴</span><h1 id="codex-title">每次陪伴都会留下痕迹</h1></div>
+        <div><span class="eyebrow">十二异兽 · 让心意找到归途</span><h1 id="codex-title">山海册</h1></div>
         <span id="codex-total" class="stage-chip">0 / 12</span>
       </div>
       <aside id="chapter-goal" class="chapter-goal"></aside>
+      <div class="codex-quick-actions" aria-label="山海册快捷入口">
+        <button type="button" data-ui-open-page="journey">查看山海旅程</button>
+        <button type="button" data-ui-open-page="daily">打开今日卷册</button>
+      </div>
       <div id="codex-list" class="codex-list beast-catalog" data-catalog aria-live="polite"></div>
-      <div class="codex-pager"><button id="codex-prev" type="button">‹ 上一页</button><span id="codex-page">1 / 2</span><button id="codex-next" type="button">下一页 ›</button></div>
+      <div class="codex-pager"><button id="codex-prev" type="button"><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#chevron-left" xlink:href="assets/icons/ui-icons.svg#chevron-left"></use></svg><span>上一页</span></button><span id="codex-page">1 / 2</span><button id="codex-next" type="button"><span>下一页</span><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#chevron-right" xlink:href="assets/icons/ui-icons.svg#chevron-right"></use></svg></button></div>
       <section id="ending-card" class="ending-card" aria-live="polite"></section>
+    </section>
+
+    <section id="bag-view" class="view ui-adapter-view" aria-labelledby="bag-title">
+      <div class="view-heading">
+        <div><span class="eyebrow">高阶素材 · 配方与灵器</span><h1 id="bag-title">药匣</h1></div>
+        <span id="bag-capacity" class="stage-chip">药匣 0/3</span>
+      </div>
+      <div class="bag-primary-tabs" role="tablist" aria-label="药匣分类">
+        <button id="bag-tab-storage" class="active" type="button" role="tab" aria-selected="true" aria-controls="bag-panel-storage" tabindex="0" data-ui-bag-tab="storage">素材</button>
+        <button id="bag-tab-recipes" type="button" role="tab" aria-selected="false" aria-controls="bag-panel-recipes" tabindex="-1" data-ui-bag-tab="recipes">配方</button>
+        <button id="bag-tab-artifacts" type="button" role="tab" aria-selected="false" aria-controls="bag-panel-artifacts" tabindex="-1" data-ui-bag-tab="artifacts">灵器</button>
+      </div>
+      <section id="bag-panel-storage" class="bag-panel active" role="tabpanel" aria-labelledby="bag-tab-storage" data-ui-bag-panel="storage">
+        <div class="bag-filter-tabs" role="group" aria-label="素材筛选">
+          <button class="active" type="button" aria-pressed="true" data-ui-bag-filter="all">全部</button>
+          <button type="button" aria-pressed="false" data-ui-bag-filter="herb">药材</button>
+          <button type="button" aria-pressed="false" data-ui-bag-filter="build">木作</button>
+          <button type="button" aria-pressed="false" data-ui-bag-filter="cloth">织物</button>
+        </div>
+        <div id="bag-storage-grid" class="bag-storage-grid" aria-live="polite"></div>
+        <p id="bag-storage-note" class="bag-note">高阶素材会妥善收在这里。</p>
+        <div class="bag-actions">
+          <button class="bag-upgrade" type="button" data-ui-bag-upgrade>扩容</button>
+          <button type="button" data-ui-bag-sort>整理</button>
+        </div>
+      </section>
+      <section id="bag-panel-recipes" class="bag-panel" role="tabpanel" aria-labelledby="bag-tab-recipes" data-ui-bag-panel="recipes" hidden>
+        <div class="bag-section-title"><span>古方成品不占灵阵格</span><b>配方调配</b></div>
+        <div id="bag-recipe-list" class="bag-recipe-list" aria-live="polite"></div>
+      </section>
+      <section id="bag-panel-artifacts" class="bag-panel" role="tabpanel" aria-labelledby="bag-tab-artifacts" data-ui-bag-panel="artifacts" hidden>
+        <div class="bag-empty-illustration" aria-hidden="true">灯</div>
+        <h2>灵器会在旅程中醒来</h2>
+        <p>生成器部件与宗门至宝仍按原有规则留在灵阵；这里仅整理它们的图鉴入口。</p>
+        <button type="button" data-ui-go-view="merge-view">返回灵阵查看</button>
+      </section>
+    </section>
+
+    <section id="daily-view" class="view ui-adapter-view" aria-labelledby="daily-title">
+      <div class="view-heading ui-view-heading-with-back">
+        <button class="ui-page-back" type="button" data-ui-go-view="yard-view" aria-label="返回庭院">‹</button>
+        <div><span class="eyebrow">每日心意 · 七日约定</span><h1 id="daily-title">今日卷册</h1></div>
+      </div>
+      <div class="daily-page-tabs" role="tablist" aria-label="今日卷册分类">
+        <button id="daily-tab-today" class="active" type="button" role="tab" aria-selected="true" aria-controls="daily-page-content" tabindex="0">今日目标</button><button id="daily-tab-promise" type="button" role="tab" aria-selected="false" aria-controls="daily-page-content" tabindex="-1">七日约定</button><button id="daily-tab-weekly" type="button" role="tab" aria-selected="false" aria-controls="daily-page-content" tabindex="-1">周挑战</button>
+      </div>
+      <div id="daily-page-content" class="daily-page-content" role="tabpanel" aria-labelledby="daily-tab-today" aria-live="polite"></div>
+    </section>
+
+    <section id="journey-view" class="view ui-adapter-view" aria-labelledby="journey-title">
+      <div class="view-heading ui-view-heading-with-back">
+        <button class="ui-page-back" type="button" data-ui-go-view="codex-view" aria-label="返回山海册">‹</button>
+        <div><span class="eyebrow">十二卷 · 十二盏归灯</span><h1 id="journey-title">山海旅程</h1></div>
+      </div>
+      <div id="journey-page-content" class="journey-page-content" aria-live="polite"></div>
     </section>
   </main>
 
   <nav class="slice-nav" aria-label="页面导航" data-help="nav" title="长按查看：底部导航说明">
-    <button class="nav-button" data-view="sect-view" type="button" aria-label="打开宗门页"><span aria-hidden="true">⛩</span><small>宗门</small></button>
-    <button class="nav-button active" data-view="merge-view" type="button" aria-label="打开医馆页"><span aria-hidden="true">▦</span><small>医馆</small></button>
-    <button class="nav-button" data-view="yard-view" type="button" aria-label="打开庭院页"><span aria-hidden="true">⌂</span><small>庭院</small></button>
-    <button class="nav-button" data-view="codex-view" type="button" aria-label="打开图鉴页"><span aria-hidden="true">◇</span><small>图鉴</small></button>
-    <div class="nav-goal"><span id="goal-progress">第一卷疗愈进度 · 0%</span><i><em id="goal-bar"></em></i></div>
+    <div class="nav-progress-track" aria-hidden="true"><i id="goal-bar"></i></div>
+    <button class="nav-button active" data-view="merge-view" type="button" aria-label="打开灵阵"><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#nav-merge" xlink:href="assets/icons/ui-icons.svg#nav-merge"></use></svg><small>灵阵</small></button>
+    <button class="nav-button" data-view="sect-view" type="button" aria-label="打开宗门页"><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#nav-sect" xlink:href="assets/icons/ui-icons.svg#nav-sect"></use></svg><small>宗门</small></button>
+    <button class="nav-button" data-view="yard-view" type="button" aria-label="打开庭院页"><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#nav-yard" xlink:href="assets/icons/ui-icons.svg#nav-yard"></use></svg><small>庭院</small></button>
+    <button class="nav-button" data-view="codex-view" type="button" aria-label="打开山海册"><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#nav-codex" xlink:href="assets/icons/ui-icons.svg#nav-codex"></use></svg><small>山海册</small></button>
+    <button class="nav-button" data-view="bag-view" type="button" aria-label="打开药匣"><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#area-storage" xlink:href="assets/icons/ui-icons.svg#area-storage"></use></svg><small>药匣</small></button>
   </nav>
 
   <div id="world-change-root" aria-live="polite"></div>
@@ -229,9 +274,7 @@
   <div id="modal-root"></div>
   <div id="care-game-root" aria-live="polite" aria-hidden="true"></div>
 </div>
-<aside id="rotate-device" class="rotate-device" role="status" aria-live="polite"><span aria-hidden="true">↻</span><b>请竖屏游玩</b><small>旋转手机后会回到刚才的进度</small></aside>
-<script src="js/merge/data.js"></script>
-<script src="js/merge/core.js"></script>
+<aside id="rotate-device" class="rotate-device" role="status" aria-live="polite"><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#rotate" xlink:href="assets/icons/ui-icons.svg#rotate"></use></svg><b>请竖屏游玩</b><small>旋转手机后会回到刚才的进度</small></aside>
 <script>
 (function () {
   var assetRoot = 'assets/art/match3/';
@@ -242,11 +285,6 @@
   window.AUDIO_ASSET_ROOT = 'assets/audio/';
 }());
 </script>
-<script src="js/merge/audio.js"></script>
-<script src="js/merge/save-store.js"></script>
-<script src="js/merge/analytics.js"></script>
-<script src="js/merge/courtyard-scene.js"></script>
-<script src="js/merge/ui.js"></script>
-<script src="merge-slice.js"></script>
+<script src="js/merge/ui-v14-bootstrap.js"></script>
 </body>
 </html>

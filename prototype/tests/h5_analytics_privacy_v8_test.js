@@ -23,6 +23,7 @@ async function run() {
   const storage = memoryStorage();
   const analytics = Analytics.create({
     storage,
+    enabled: true,
     build: 'v8-test',
     endpoint: '/api/events',
     fetch(url, options) {
@@ -61,9 +62,23 @@ async function run() {
   const resetId = analytics.resetInstallId();
   assert.notStrictEqual(resetId, previousId, 'installation id must be resettable');
 
+  const defaultStorage = memoryStorage();
+  let defaultCalls = 0;
+  const defaultOff = Analytics.create({
+    storage: defaultStorage,
+    endpoint: '/api/events',
+    fetch() { defaultCalls += 1; return Promise.resolve({ ok: true }); }
+  });
+  assert.strictEqual(defaultOff.isEnabled(), false, 'anonymous analytics must default to opt-out');
+  assert.strictEqual(defaultOff.installId(), null, 'opt-out must not create an installation id');
+  assert.strictEqual(defaultOff.track('blocked', { reason: 'board_full' }), false);
+  assert.strictEqual(await defaultOff.flush(), false);
+  assert.strictEqual(defaultCalls, 0, 'opt-out must not perform network requests');
+
   let crossOriginCalls = 0;
   const crossOrigin = Analytics.create({
     storage: memoryStorage(),
+    enabled: true,
     endpoint: 'https://collector.example/api/events',
     fetch() { crossOriginCalls += 1; return Promise.resolve({ ok: true }); }
   });

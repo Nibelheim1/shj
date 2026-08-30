@@ -1,9 +1,13 @@
 {
-  "name": "shj-vertical-slice",
+  "name": "shanhai-qixia",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "description": "山海·栖霞：十二卷小神兽修缮与陪伴 H5",
   "scripts": {
     "build": "node build-dist.js",
-    "test:h5": "node prototype/tests/run_h5_release_suite.js"
+    "package:taptap": "powershell -NoProfile -ExecutionPolicy Bypass -File ./package-taptap.ps1",
+    "test:h5": "node prototype/tests/run_h5_release_suite.js",
+    "test:ui:v14": "node prototype/tests/ui_v14_asset_integrity_test.js && node prototype/tests/ui_v14_visual_gate_test.js",
+    "test:ui:v14:strict": "node prototype/tests/ui_v14_asset_integrity_test.js && node prototype/tests/ui_v14_visual_gate_test.js --strict"
   }
 }

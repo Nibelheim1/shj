@@ -106,7 +106,7 @@ function run() {
   const originalRandom = Math.random;
   Math.random = RNG;
   try {
-    check('小游戏跳过/低操作不产出，超时有效操作有保底且有效照料不受每日场数限制', () => {
+    check('小游戏跳过/教学后的普通低操作不产出，超时有效操作有保底且有效照料不受每日场数限制', () => {
       ['groom', 'play'].forEach((type) => {
         const state = fresh();
         emptyBoard(state);
@@ -131,6 +131,9 @@ function run() {
           bond: entry.bond
         }, before, type + ' skip must not advance care');
 
+        /* 首次玩具塔的低操作局另有两枚 T1 教学保底；这里验证教学后的普通局。 */
+        if (type === 'play') state.tutorial.playRewarded = true;
+
         const low = careRun(state, type, 'complete', 0.95, required - 1);
         assert.strictEqual(low.ok, true, type + ' low-action result');
         assert.strictEqual(low.noReward, true, type + ' low-action must not reward');
@@ -142,9 +145,7 @@ function run() {
         const timeout = careRun(state, type, 'timeout', 0, required);
         assert.strictEqual(timeout.rewarded, true, type + ' valid timeout receives floor reward');
         assert.strictEqual(timeout.grade, 'floor', type + ' timeout grade');
-        const expectedFloor = type === 'play'
-          ? [1, 1] /* 首次嬉游亭教学保底两枚 T1，供玩家亲手合成 T2。 */
-          : DATA.careGames.difficulties.easy.rewards.floor;
+        const expectedFloor = DATA.careGames.difficulties.easy.rewards.floor;
         assert.deepStrictEqual(timeout.rewardItems.map((item) => item.tier),
           expectedFloor,
           type + ' timeout floor tiers');

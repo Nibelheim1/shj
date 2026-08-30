@@ -3,8 +3,7 @@
  *
  * This gate keeps implementation/project language out of the player-facing
  * surface.  It intentionally scans ui.js as well as the static entry page:
- * ui.js is owned by another worker in this pass, so any remaining hits are
- * printed with line numbers for that worker to replace.
+ * ui.js is scanned as well so obsolete player-facing copy cannot return.
  */
 'use strict';
 
@@ -36,7 +35,8 @@ const COPY_RULES = [
 ];
 
 const ORGANIZE_RULES = [
-  { id: 'organize-board-id', label: 'organize board DOM/identifier', pattern: /organize(?:[-_]?(?:board|btn)|Board)/g },
+  /* The organizeBoard API is an implemented accessibility/quality-of-life
+   * action. Only the obsolete player-facing noun “棋盘” is forbidden. */
   { id: 'organize-board-copy', label: '整理棋盘', pattern: /整理棋盘/g }
 ];
 
@@ -186,11 +186,7 @@ const domCopyHits = fragments.flatMap((fragment) => scanText(fragment.value, COP
 const domOrganizeHits = fragments.flatMap((fragment) => scanText(fragment.value, ORGANIZE_RULES, `DOM ${fragment.kind}`));
 
 reportHits('merge_slice.html copy', htmlCopyHits.concat(domCopyHits));
-reportHits('merge_slice.html organize-board DOM/copy', htmlOrganizeHits.concat(domOrganizeHits));
-
-if (document.getElementById('organize-btn')) {
-  failures.push({ context: 'merge_slice.html', label: 'organize-btn must be removed', value: 'organize-btn' });
-}
+reportHits('merge_slice.html obsolete organize copy', htmlOrganizeHits.concat(domOrganizeHits));
 
 /* ui.js: only quoted literals are copy; identifiers are checked separately. */
 const jsLiterals = extractJsLiterals(ui);
@@ -205,15 +201,15 @@ const uiOrganizeCopyHits = dedupeHits(
     .concat(scanText(ui, ORGANIZE_RULES, 'ui.js', ui, 0))
 );
 
-reportHits('ui.js player copy (pending replacements)', uiCopyHits);
-reportHits('ui.js organize-board references (pending removal)', uiOrganizeCopyHits);
+reportHits('ui.js player copy', uiCopyHits);
+reportHits('ui.js obsolete organize copy', uiOrganizeCopyHits);
 
 failures.push(...htmlCopyHits, ...domCopyHits, ...htmlOrganizeHits, ...domOrganizeHits);
 failures.push(...uiCopyHits, ...uiOrganizeCopyHits);
 
 if (failures.length) {
-  console.log(`\nH5 PLAYER COPY AUDIT FAIL (${failures.length} hit(s)); see ui.js lines above for pending replacements.`);
+  console.log(`\nH5 PLAYER COPY AUDIT FAIL (${failures.length} hit(s)); see the lines above.`);
   process.exitCode = 1;
 } else {
-  console.log('\nH5 PLAYER COPY AUDIT PASS (no project copy or organize-board references)');
+  console.log('\nH5 PLAYER COPY AUDIT PASS (no project copy or obsolete organize wording)');
 }

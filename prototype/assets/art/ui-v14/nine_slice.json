@@ -1,0 +1,152 @@
+{
+  "ui/panels/panel_paper_9slice.png": {
+    "left": 82,
+    "top": 82,
+    "right": 82,
+    "bottom": 82
+  },
+  "ui/panels/panel_popup_9slice.png": {
+    "left": 104,
+    "top": 104,
+    "right": 104,
+    "bottom": 104
+  },
+  "ui/panels/panel_wood_9slice.png": {
+    "left": 82,
+    "top": 82,
+    "right": 82,
+    "bottom": 82
+  },
+  "ui/panels/panel_locked_9slice.png": {
+    "left": 78,
+    "top": 78,
+    "right": 78,
+    "bottom": 78
+  },
+  "ui/panels/panel_story_dark_9slice.png": {
+    "left": 82,
+    "top": 82,
+    "right": 82,
+    "bottom": 82
+  },
+  "ui/panels/card_paper_9slice.png": {
+    "left": 64,
+    "top": 64,
+    "right": 64,
+    "bottom": 64
+  },
+  "ui/buttons/button_primary_normal.png": {
+    "left": 96,
+    "top": 58,
+    "right": 96,
+    "bottom": 58
+  },
+  "ui/buttons/button_primary_pressed.png": {
+    "left": 96,
+    "top": 58,
+    "right": 96,
+    "bottom": 58
+  },
+  "ui/buttons/button_primary_disabled.png": {
+    "left": 96,
+    "top": 58,
+    "right": 96,
+    "bottom": 58
+  },
+  "ui/buttons/button_secondary_normal.png": {
+    "left": 96,
+    "top": 58,
+    "right": 96,
+    "bottom": 58
+  },
+  "ui/buttons/button_secondary_pressed.png": {
+    "left": 96,
+    "top": 58,
+    "right": 96,
+    "bottom": 58
+  },
+  "ui/buttons/button_secondary_disabled.png": {
+    "left": 96,
+    "top": 58,
+    "right": 96,
+    "bottom": 58
+  },
+  "ui/buttons/button_positive_normal.png": {
+    "left": 96,
+    "top": 58,
+    "right": 96,
+    "bottom": 58
+  },
+  "ui/buttons/button_positive_pressed.png": {
+    "left": 96,
+    "top": 58,
+    "right": 96,
+    "bottom": 58
+  },
+  "ui/buttons/button_positive_disabled.png": {
+    "left": 96,
+    "top": 58,
+    "right": 96,
+    "bottom": 58
+  },
+  "ui/buttons/button_danger_normal.png": {
+    "left": 96,
+    "top": 58,
+    "right": 96,
+    "bottom": 58
+  },
+  "ui/buttons/button_danger_pressed.png": {
+    "left": 96,
+    "top": 58,
+    "right": 96,
+    "bottom": 58
+  },
+  "ui/buttons/button_danger_disabled.png": {
+    "left": 96,
+    "top": 58,
+    "right": 96,
+    "bottom": 58
+  },
+  "ui/labels/resource_pill.png": {
+    "left": 92,
+    "top": 48,
+    "right": 72,
+    "bottom": 48
+  },
+  "ui/tabs/tab_active.png": {
+    "left": 70,
+    "top": 42,
+    "right": 70,
+    "bottom": 42
+  },
+  "ui/tabs/tab_inactive.png": {
+    "left": 70,
+    "top": 42,
+    "right": 70,
+    "bottom": 42
+  },
+  "ui/progress/progress_track.png": {
+    "left": 38,
+    "top": 22,
+    "right": 38,
+    "bottom": 18
+  },
+  "ui/progress/progress_fill_cinnabar.png": {
+    "left": 38,
+    "top": 22,
+    "right": 38,
+    "bottom": 18
+  },
+  "ui/progress/progress_fill_jade.png": {
+    "left": 38,
+    "top": 22,
+    "right": 38,
+    "bottom": 18
+  },
+  "ui/progress/progress_fill_gold.png": {
+    "left": 38,
+    "top": 22,
+    "right": 38,
+    "bottom": 18
+  }
+}

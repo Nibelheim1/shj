@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小动物山海经 · 面向百万DAU解压小游戏的改建诊断（历史快照）</title>
+<style>
+  :root{
+    --coral:#E8956B; --coral-deep:#D67B4F; --mint:#9FD4A6; --mint-deep:#6FB77B;
+    --cream:#F8E1A1; --brown:#6B4F3A; --brown-soft:#8A6A50;
+    --paper:#FBF6EE; --card:#FFFFFF; --line:#EFE3D0; --ink:#3B2F26; --ink-2:#6E5D4C;
+    --p0:#E4644F; --p1:#E8A23B; --p2:#5FAF8A; --accent:#7F6BC9;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+    background:var(--paper); color:var(--ink); line-height:1.7;
+    background-image:radial-gradient(circle at 12% 8%, rgba(232,149,107,.10), transparent 34%),
+      radial-gradient(circle at 88% 4%, rgba(159,212,166,.14), transparent 30%);
+  }
+  .wrap{max-width:1060px;margin:0 auto;padding:36px 22px 72px}
+
+  /* ---------- header ---------- */
+  header.hero{
+    background:linear-gradient(135deg,#FBEAD9 0%, #F6E3CF 55%, #EAF3E4 100%);
+    border:1px solid var(--line); border-radius:26px; padding:34px 34px 30px;
+    box-shadow:0 10px 30px rgba(107,79,58,.08); position:relative; overflow:hidden;
+  }
+  header.hero::after{
+    content:""; position:absolute; right:-60px; top:-60px; width:220px; height:220px;
+    background:radial-gradient(circle, rgba(232,149,107,.20), transparent 65%);
+    border-radius:50%; pointer-events:none;
+  }
+  .eyebrow{font-size:12px;letter-spacing:.18em;color:var(--coral-deep);font-weight:700;text-transform:uppercase}
+  h1{font-size:26px;line-height:1.35;margin:8px 0 14px;font-weight:800;letter-spacing:.01em}
+  h1 .soft{color:var(--coral-deep)}
+  .lede{font-size:15px;color:var(--ink-2);max-width:760px}
+  .verdict{
+    margin-top:20px; display:flex; gap:14px; align-items:center; flex-wrap:wrap;
+    background:rgba(255,255,255,.72); border:1px solid var(--line); border-radius:16px; padding:14px 18px;
+  }
+  .verdict .tag{
+    flex:0 0 auto; background:var(--brown); color:#fff; font-size:12px; font-weight:700;
+    padding:6px 12px; border-radius:999px; letter-spacing:.05em;
+  }
+  .verdict p{font-size:14px;color:var(--ink);margin:0}
+  .verdict b{color:var(--coral-deep)}
+
+  /* ---------- section ---------- */
+  section{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:26px 28px;margin-top:22px;box-shadow:0 4px 18px rgba(107,79,58,.05)}
+  .sec-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .sec-num{
+    flex:0 0 auto; width:34px;height:34px;border-radius:10px;background:var(--coral);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;
+  }
+  .sec-head h2{font-size:19px;font-weight:800}
+  .sec-head .sub{font-size:12.5px;color:var(--ink-2);margin-top:1px}
+  .sec-head.v2 .sec-num{background:var(--accent)}
+  .sec-head.v3 .sec-num{background:var(--p1)}
+  .sec-head.v4 .sec-num{background:var(--p0)}
+
+  /* ---------- radar + scorecards ---------- */
+  .diag-grid{display:grid;grid-template-columns:1fr 1.35fr;gap:24px;align-items:center}
+  @media(max-width:820px){.diag-grid{grid-template-columns:1fr}}
+  .radar-box{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .radar-box svg{width:100%;max-width:360px;height:auto}
+  .radar-cap{font-size:12px;color:var(--ink-2);text-align:center}
+
+  .gap-list{display:flex;flex-direction:column;gap:14px}
+  .gap{
+    border:1px solid var(--line);border-radius:16px;padding:14px 16px;
+    background:#fff; transition:.15s;
+  }
+  .gap:hover{box-shadow:0 6px 16px rgba(107,79,58,.10)}
+  .gap-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+  .gap h3{font-size:15px;font-weight:800}
+  .gap h3 .badge{margin-left:8px}
+  .gap p{font-size:13.5px;color:var(--ink-2)}
+  .gap p code{background:#F4EAD8;border-radius:6px;padding:1px 6px;font-size:12px;color:var(--brown);font-family:"SF Mono",Consolas,monospace}
+
+  .badge{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;vertical-align:middle}
+  .badge.p0{background:#FBE3DC;color:var(--p0)}
+  .badge.p1{background:#FBEED3;color:var(--p1)}
+  .badge.p2{background:#E1F0E4;color:var(--p2)}
+  .badge.gray{background:#EFE9DF;color:var(--ink-2)}
+
+  .score{font-size:13px;font-weight:800;color:var(--coral-deep);white-space:nowrap}
+
+  /* ---------- strategy before/after ---------- */
+  .pivot{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:820px){.pivot{grid-template-columns:1fr}}
+  .pivot-card{border-radius:18px;padding:20px 20px 16px}
+  .pivot-card.now{background:#F7EFE4;border:1px solid #EAD9C2}
+  .pivot-card.next{background:#EAF4EA;border:1px solid #CDE3CF}
+  .pivot-card h4{font-size:14px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  .pivot-card.now h4{color:var(--brown-soft)}
+  .pivot-card.next h4{color:var(--mint-deep)}
+  .pivot-card ul{list-style:none}
+  .pivot-card li{font-size:13.5px;color:var(--ink);padding:6px 0 6px 22px;position:relative;border-bottom:1px dashed rgba(107,79,58,.12)}
+  .pivot-card li:last-child{border-bottom:none}
+  .pivot-card.now li::before{content:"✕";position:absolute;left:0;top:6px;color:var(--p0);font-weight:700}
+  .pivot-card.next li::before{content:"✓";position:absolute;left:0;top:6px;color:var(--mint-deep);font-weight:700}
+
+  .loop{
+    margin-top:20px;background:linear-gradient(135deg,#FBEAD9,#EAF4EA);
+    border:1px solid var(--line);border-radius:18px;padding:18px 20px;
+  }
+  .loop h4{font-size:14px;font-weight:800;margin-bottom:10px}
+  .loop-flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .step{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 13px;font-size:13px;font-weight:700;color:var(--brown)}
+  .arrow{color:var(--coral-deep);font-weight:800}
+  .loop-note{font-size:12.5px;color:var(--ink-2);margin-top:12px}
+
+  /* ---------- plan ---------- */
+  .plan-block{margin-bottom:20px}
+  .plan-block:last-child{margin-bottom:0}
+  .plan-title{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .plan-title .ph{font-size:13px;font-weight:800;color:#fff;padding:4px 12px;border-radius:999px}
+  .plan-title .ph.p0{background:var(--p0)} .plan-title .ph.p1{background:var(--p1)} .plan-title .ph.p2{background:var(--p2)}
+  .plan-title .time{font-size:12px;color:var(--ink-2);font-weight:600}
+  .plan-title .goal{font-size:12px;color:var(--coral-deep);font-weight:700;margin-left:auto}
+  .items{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:820px){.items{grid-template-columns:1fr}}
+  .item{
+    border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:#fff;
+    display:flex;flex-direction:column;gap:4px;
+  }
+  .item .no{font-size:11px;font-weight:800;color:var(--coral-deep);letter-spacing:.04em}
+  .item .t{font-size:13.5px;font-weight:700}
+  .item .d{font-size:12.5px;color:var(--ink-2)}
+  .item .d code{background:#F4EAD8;border-radius:5px;padding:0 5px;font-size:11.5px;color:var(--brown);font-family:"SF Mono",Consolas,monospace}
+
+  /* ---------- honest truth ---------- */
+  .truth{
+    background:linear-gradient(135deg,#F9ECEC,#FBF3E8);border:1px solid #EBD5D5;border-radius:18px;
+    padding:20px 22px;margin-top:16px;
+  }
+  .truth h4{font-size:15px;font-weight:800;color:var(--p0);margin-bottom:8px}
+  .truth p{font-size:13.5px;color:var(--ink)}
+  .truth .eq{
+    display:inline-block;margin-top:10px;background:#fff;border:1px solid #EBD5D5;border-radius:12px;
+    padding:10px 14px;font-size:14px;font-weight:800;color:var(--brown);
+  }
+
+  /* ---------- facts ---------- */
+  table.facts{width:100%;border-collapse:collapse;font-size:13px}
+  table.facts th,table.facts td{border-bottom:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top}
+  table.facts th{color:var(--ink-2);font-weight:700;white-space:nowrap;width:150px}
+  table.facts td code{background:#F4EAD8;border-radius:5px;padding:0 5px;font-size:11.5px;color:var(--brown);font-family:"SF Mono",Consolas,monospace}
+  table.facts .flag-ok{color:var(--mint-deep);font-weight:700}
+  table.facts .flag-bad{color:var(--p0);font-weight:700}
+
+  footer{margin-top:26px;text-align:center;font-size:12px;color:var(--ink-2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow">Project Retrofit Diagnosis · H5 Vertical Slice</div>
+    <h1>《小动物山海经》<span class="soft">面向「百万 DAU 轻松解压小游戏」</span>的改建诊断</h1>
+    <p class="lede">评审对象：<b>prototype/merge_slice.html</b> 合成主线 MVP（7×8 棋盘 · 1–6 阶 · 4 兽 · 7 日疗愈闭环）。本文档基于实机代码走读（<b>data.js / core.js / ui.js / build-dist.js</b>）与全部设计文档（game-concept / gdd-systems / gdd-merge-game 及三审 / 全面审计）。</p>
+    <div class="verdict">
+      <span class="tag">一句话结论</span>
+      <p>这个项目<b>「设计过重、增长为零」</b>：美术与「反差萌疗愈」IP 底子极好，但产品形态与「百万 DAU 解压」目标错位——现在是「合成 + 疗愈」的混合模拟器（认知负担重），而决定 DAU 的<b>渠道、裂变、变现</b>三件套几乎全为零。建议<b>重聚焦定位</b>，把反差萌疗愈前置为钩子、把解压手感做成分钟级循环。</p>
+    </div>
+  </header>
+
+  <!-- ============ 1 诊断 ============ -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-num">1</div>
+      <div><h2>诊断：一个身份危机 + 四个致命缺口</h2>
+      <div class="sub">左图是「设计深度 vs 增长能力」的剪刀差，右侧是逐条证据</div></div>
+    </div>
+    <div class="diag-grid">
+      <div class="radar-box">
+        <svg id="radar" viewBox="0 0 320 320" role="img" aria-label="能力雷达图"></svg>
+        <div class="radar-cap">六维能力雷达：内容/美术接近满分，渠道/裂变/变现触底 —— 这是典型的「做成了精品 demo，没做成能增长的产品」。</div>
+      </div>
+      <div class="gap-list">
+        <div class="gap">
+          <div class="gap-top"><h3>① 身份危机<span class="badge gray">核心</span></h3><span class="score">合成 vs 疗愈 互相打架</span></div>
+          <p>README 明确「正式入口是合成主线 MVP」，但灵魂是「疗愈」。合成是获得资源的手段、疗愈是展示面，双重认知负担。更关键：<code>gdd-systems.md</code> 里精心设计的 Trust/Heal 双轨 + 对症矩阵（×1.5/×0.5）在 <code>core.js</code> 里基本被架空，只剩 <code>storySteps</code>（3 段故事）+ <code>careDone</code>（一次照料）就触发蜕变。设计重、落地轻。</p>
+        </div>
+        <div class="gap">
+          <div class="gap-top"><h3>② 渠道缺失<span class="badge p0">致命 · 10x</span></h3><span class="score">独立 H5 到不了百万 DAU</span></div>
+          <p>百万 DAU 本质是<b>微信 / 抖音小游戏</b>目标，靠即点即玩 + 分享裂变 + 买量。现状矛盾：<code>architecture.md</code> 规划 Cocos+微信，但实际代码是 vanilla JS + <code>build-dist.js</code> + <code>tcb hosting deploy</code>（腾讯云静态托管）。技术栈与目标渠道脱节，迟早要重写。</p>
+        </div>
+        <div class="gap">
+          <div class="gap-top"><h3>③ 裂变 / 社交为 0<span class="badge p0">致命</span></h3><span class="score">自评 3/60 社交 · 0/60 竞技</span></div>
+          <p>三审报告自己打出的最短木板。现状：<code>featureFlags.rewardedAds=false</code>，无分享卡、无排行榜、无助力、无组队。百万 DAU 在微信生态 = <b>裂变系数</b>，一个「分享解锁」就能把 DAU 拉高数倍。</p>
+        </div>
+        <div class="gap">
+          <div class="gap-top"><h3>④ 留存钩子不足<span class="badge p1"></span></h3><span class="score">「任务感」≠「我想回来」</span></div>
+          <p>有 7 日闭环、每日目标、体力回充，但都是「任务感」留存。疗愈类天然低留存——一只兽治好就完了。当前 4 兽 6 阶太薄（三审自评「4 兽后动力下降」），而 <code>beast-cast.md</code> 里 13 兽阵容完全没接入。</p>
+        </div>
+        <div class="gap">
+          <div class="gap-top"><h3>⑤ 变现为 0<span class="badge p0">致命</span></h3><span class="score">百万 DAU 无变现 = 纯烧钱</span></div>
+          <p><code>rewardedAds=false</code>，无广告位、无内购。经济闭环（暖玉/体力）存在但没有「广告/内购」的消费出口。日活百万却 0 收入，服务器成本会拖垮项目。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2 战略 ============ -->
+  <section>
+    <div class="sec-head v2">
+      <div class="sec-num">2</div>
+      <div><h2>战略：重聚焦定位 —— 从「混合模拟器」到「解压撸兽」</h2>
+      <div class="sub">把独一无二的「反差萌疗愈」提到前台，把解压手感做成分钟级循环</div></div>
+    </div>
+
+    <div class="pivot">
+      <div class="pivot-card now">
+        <h4>现在的定位</h4>
+        <ul>
+          <li>既要学合成 + 订单 + 体力，又要学照料 + 小游戏，双重认知负担</li>
+          <li>反差萌是「9 阶信物 → 登场」的结尾奖励，约 20 分钟才看得到</li>
+          <li>合成 / 订单 / 体力 = 「任务感」，与「解压」背道而驰</li>
+          <li>4 兽 6 阶，收集钩子太薄</li>
+          <li>无分享、无社交、无广告、无埋点</li>
+        </ul>
+      </div>
+      <div class="pivot-card next">
+        <h4>应该的定位</h4>
+        <ul>
+          <li>第一屏就是一只「炸毛怂包穷奇」，3 秒看懂、第一反应是「也太可爱了吧」</li>
+          <li>分钟级解压循环：撸它（摸/梳/喂/玩）→ 即时爽感 → 变软一点点 → 蜕变</li>
+          <li>合成降级为「收集撸兽材料」的副循环（可选、不设体力硬门槛）</li>
+          <li>13 兽阵容全接入（数据已备好，成本低）</li>
+          <li>蜕变瞬间 = 可一键分享的「收容所日报」+ 裂变入口</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="loop">
+      <h4>建议的核心循环（解压优先，秒懂秒爽）</h4>
+      <div class="loop-flow">
+        <span class="step">看见软萌凶兽</span><span class="arrow">→</span>
+        <span class="step">撸它（摸/梳/喂/玩）</span><span class="arrow">→</span>
+        <span class="step">即时爽感反馈</span><span class="arrow">→</span>
+        <span class="step">它变软一点点</span><span class="arrow">→</span>
+        <span class="step">蜕变瞬间</span><span class="arrow">→</span>
+        <span class="step">分享 / 解锁下一只</span>
+      </div>
+      <div class="loop-note">对照三审报告里已认可的判断：合成类适合做「资源获得层」，庭院与照料才应是「展示面 + 情感层」。当前实现恰好把这个顺序<b>做反了</b>——合成被扶正为主角，疗愈被压成收尾奖励。</div>
+    </div>
+  </section>
+
+  <!-- ============ 3 清单 ============ -->
+  <section>
+    <div class="sec-head v3">
+      <div class="sec-num">3</div>
+      <div><h2>改建清单（P0 / P1 / P2，绑定到具体代码）</h2>
+      <div class="sub">先补增长三件套，再做留存，最后做长线内容</div></div>
+    </div>
+
+    <div class="plan-block">
+      <div class="plan-title"><span class="ph p0">P0</span><span class="time">1–2 周</span><span class="goal">决定「能不能上渠道」</span></div>
+      <div class="items">
+        <div class="item"><div class="no">P0-1</div><div class="t">微信小游戏包 · 即点即玩</div><div class="d">用 Cocos（或微信原生适配层）先跑通一版可分享、可即点即玩的包。比继续堆 H5 内容重要得多，这是 10x 级因子。</div></div>
+        <div class="item"><div class="no">P0-2</div><div class="t">分享卡 + 邀请裂变</div><div class="d">蜕变 / 收容任一兽时自动生成「收容所日报」分享卡，带游戏入口。加「邀请好友双倍奖励」钩子。</div></div>
+        <div class="item"><div class="no">P0-3</div><div class="t">激励视频基建</div><div class="d"><code>featureFlags.rewardedAds</code> 从 false 翻 true，接一个广告 SDK：回体力 / 双倍离线 / 刷新委托三个广告位。</div></div>
+        <div class="item"><div class="no">P0-4</div><div class="t">埋点 / 数据管线</div><div class="d"><code>analytics: []</code> 现在是空转。接入真实事件上报，盯 4 个指标：次留 / 3 留 / 7 留、裂变系数 K、LTV、ARPU。</div></div>
+      </div>
+    </div>
+
+    <div class="plan-block">
+      <div class="plan-title"><span class="ph p1">P1</span><span class="time">2–4 周</span><span class="goal">决定「能不能留下来」</span></div>
+      <div class="items">
+        <div class="item"><div class="no">P1-1</div><div class="t">反差萌前置（重做开场）</div><div class="d">第一屏即萌兽，3 步内完成第一次「撸兽爽感」。把 20 分钟才能看到的反差萌压缩到 10 秒内建立第一印象。</div></div>
+        <div class="item"><div class="no">P1-2</div><div class="t">错峰爆发 + 13 兽接入</div><div class="d">每天 1 只新兽 + 1 个新功能解锁。<code>beast-cast.md</code> 的 13 兽设定已备好，接入成本低。</div></div>
+        <div class="item"><div class="no">P1-3</div><div class="t">养成连续性（情感留存）</div><div class="d">离线回归惊喜、兽会「想你」、随机小剧场、天气事件，把「任务感」换成「我想回来看看它」。</div></div>
+        <div class="item"><div class="no">P1-4</div><div class="t">轻社交</div><div class="d">每日互赠体力、收容所参观、纯展示排行榜（不给奖励，避免 P2W 焦虑）。</div></div>
+      </div>
+    </div>
+
+    <div class="plan-block">
+      <div class="plan-title"><span class="ph p2">P2</span><span class="time">4–8 周</span><span class="goal">决定「上限有多高」</span></div>
+      <div class="items">
+        <div class="item"><div class="no">P2-1</div><div class="t">皮肤 + 节日活动</div><div class="d">已有 2 幅付费背景可作起点，扩展皮肤 / 节日限定异兽，做长线内容节拍器。</div></div>
+        <div class="item"><div class="no">P2-2</div><div class="t">买量模型跑通</div><div class="d">先测 LTV &gt; CPA 再放量。没跑通单用户经济模型之前，不要盲目买量。</div></div>
+        <div class="item"><div class="no">P2-3</div><div class="t">技术栈收敛</div><div class="d">清算 <code>prototype/</code> 里 880+ JS（疑似 node_modules 残留），把 vanilla JS 收敛到微信小游戏工程，消除 H5 / Cocos 双轨维护成本。</div></div>
+        <div class="item"><div class="no">P2-4</div><div class="t">保留但降级合成</div><div class="d">若坚持合成主线：取消体力硬门槛（随时能爽）、把订单改为「收集撸兽材料」的副循环，别让它挡在解压前面。</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4 真相 ============ -->
+  <section>
+    <div class="sec-head v4">
+      <div class="sec-num">4</div>
+      <div><h2>一条必须直说的真相</h2>
+      <div class="sub">关于「百万 DAU」这件事的诚实结论</div></div>
+    </div>
+    <div class="truth">
+      <h4>百万 DAU 主要是「渠道 × 裂变 × 买量」的工程题，不是「内容深度」的设计题。</h4>
+      <p>这个项目在设计上已经足够深——甚至<b>过度</b>（3 份 GDD + 三审报告 + 全面审计 + 18 个系统），但增长三件套几乎为零。市面上解压小游戏很多，但「把山海经凶兽撸软」这个定位<b>还没有头部玩家</b>——这才是你唯一能差异化突围的护城河。</p>
+      <div class="eq">DAU = 即点即玩（渠道） × 分享裂变（社交） × 留存（情感钩子） × 买量（LTV&gt;CPA）</div>
+      <p style="margin-top:12px">不要把反差萌疗愈埋在合成后面——把它推到前台当钩子，把解压手感做成循环，把裂变和变现的「轨道」先铺好。内容随时能补，增长轨道不铺，永远到不了百万。</p>
+    </div>
+  </section>
+
+  <!-- ============ 5 事实 ============ -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-num">5</div>
+      <div><h2>附：我读到的项目现状（快速事实清单）</h2>
+      <div class="sub">代码走读的事实基线，供后续决策对齐</div></div>
+    </div>
+    <table class="facts">
+      <tr><th>正式入口</th><td><code>prototype/merge_slice.html</code> —— 7×8 合成棋盘、1–6 阶、4 兽（穷奇/九尾狐/相柳/饕餮）、7 日疗愈闭环</td></tr>
+      <tr><th>技术栈</th><td>vanilla JS/CSS/HTML（无框架无打包器），<code>build-dist.js</code> 构建到 <code>dist/</code>，<code>tcb hosting deploy</code> 腾讯云静态托管</td></tr>
+      <tr><th>数据配置</th><td><code>data.js</code>：5 条合成线（herb/tool/food/groom/play）、4 兽、2 幅付费背景、3 档百草园/梳洗台设施</td></tr>
+      <tr><th>核心状态</th><td><code>core.js</code>：确定性纯状态核心，能量 30 上限 / 150s 回 1 / 离线 8h 结算；Trust/Heal 双轨设计已被 storySteps+careDone 简化取代</td></tr>
+      <tr><th>照料小游戏</th><td>梳理消消乐（match3，7×8）+ 陪玩连连看（link-game，6×8），4 档难度、S/A/B 评级</td></tr>
+      <tr><th>变现</th><td class="flag-bad"><code>featureFlags.rewardedAds = false</code> —— 无任何广告 / 内购</td></tr>
+      <tr><th>分析</th><td class="flag-bad"><code>analytics = []</code> —— 无真实埋点管线</td></tr>
+      <tr><th>社交 / 裂变</th><td class="flag-bad">无分享卡、无排行榜、无助力、无组队</td></tr>
+      <tr><th>美术资产</th><td class="flag-ok">水彩「反差萌」13 兽设定完整（beast-cast.md），但当前仅接入 4 兽；相柳/饕餮 s1–s3 复用 s3 图（缺阶段图）</td></tr>
+      <tr><th>设计资产</th><td>game-concept / gdd-systems / gdd-merge-game（含 v1.1）+ 三审报告 + 全面审计，共 18 个系统、P0/P1/P2 已自列</td></tr>
+    </table>
+  </section>
+
+  <footer>小动物山海经 · H5 竖切片改建诊断 · 生成于 2026-08-13 · 面向「百万 DAU 轻松解压」目标的战略建议</footer>
+</div>
+
+<script>
+(function(){
+  var dims = [
+    {label:"美术 / IP", value:9},
+    {label:"玩法深度", value:8},
+    {label:"留存", value:4},
+    {label:"裂变 / 社交", value:1},
+    {label:"变现", value:0},
+    {label:"渠道", value:1}
+  ];
+  var cx=160, cy=160, R=104, N=dims.length;
+  var svg=document.getElementById('radar');
+  var defs='<defs><radialGradient id="g1" cx="50%" cy="50%" r="50%">'+
+    '<stop offset="0%" stop-color="#E8956B" stop-opacity="0.55"/>'+
+    '<stop offset="100%" stop-color="#E8956B" stop-opacity="0.12"/></radialGradient></defs>';
+  var out='';
+  // grid rings
+  [0.25,0.5,0.75,1.0].forEach(function(f){
+    var pts=[];
+    for(var i=0;i<N;i++){
+      var a=-Math.PI/2 + i*2*Math.PI/N;
+      pts.push((cx+R*f*Math.cos(a)).toFixed(1)+','+(cy+R*f*Math.sin(a)).toFixed(1));
+    }
+    out+='<polygon points="'+pts.join(' ')+'" fill="none" stroke="#EAD9C2" stroke-width="1"/>';
+  });
+  // axes
+  for(var i=0;i<N;i++){
+    var a=-Math.PI/2 + i*2*Math.PI/N;
+    var x=cx+R*Math.cos(a), y=cy+R*Math.sin(a);
+    out+='<line x1="'+cx+'" y1="'+cy+'" x2="'+x.toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="#EAD9C2" stroke-width="1"/>';
+  }
+  // data polygon
+  var dp=[];
+  for(var i=0;i<N;i++){
+    var a=-Math.PI/2 + i*2*Math.PI/N;
+    var r=R*dims[i].value/10;
+    dp.push((cx+r*Math.cos(a)).toFixed(1)+','+(cy+r*Math.sin(a)).toFixed(1));
+  }
+  out+='<polygon points="'+dp.join(' ')+'" fill="url(#g1)" stroke="#D67B4F" stroke-width="2" stroke-linejoin="round"/>';
+  // labels + dots
+  for(var i=0;i<N;i++){
+    var a=-Math.PI/2 + i*2*Math.PI/N;
+    var lx=cx+(R+26)*Math.cos(a), ly=cy+(R+26)*Math.sin(a);
+    var r=R*dims[i].value/10;
+    var dx=cx+r*Math.cos(a), dy=cy+r*Math.sin(a);
+    out+='<circle cx="'+dx.toFixed(1)+'" cy="'+dy.toFixed(1)+'" r="3" fill="#D67B4F"/>';
+    var anchor='middle';
+    if(Math.abs(lx-cx)<8) anchor='middle';
+    else if(lx<cx) anchor='end';
+    else anchor='start';
+    out+='<text x="'+lx.toFixed(1)+'" y="'+(ly+4).toFixed(1)+'" text-anchor="'+anchor+'" font-size="12" fill="#6E5D4C" font-weight="700">'+dims[i].label+' '+(dims[i].value)+'</text>';
+  }
+  svg.innerHTML=defs+out;
+})();
+</script>
+</body>
+</html>

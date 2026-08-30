@@ -6,10 +6,32 @@ const root = __dirname;
 const dist = path.join(root, 'dist');
 const ART_SOURCE = path.join(root, 'prototype', 'assets', 'art');
 const ART_TARGET = path.join(dist, 'assets', 'art');
+const DATA_SOURCE = path.join(root, 'prototype', 'js', 'merge', 'data.js');
 
-// The formal journey ships all twelve beasts. Keep this list in one place so
-// adding another form asset never turns into a qiongqi-only special case.
-const BEAST_IDS = ['qiongqi', 'jiuweihu', 'taotie', 'dijiang', 'bifang', 'baize', 'taowu', 'zhulong', 'pixiu', 'qilin', 'fenghuang', 'kunpeng'];
+// The release contract is data-driven: every authored volume is playable and
+// its five reviewed growth portraits must ship. Keeping a second hard-coded
+// public cap here previously made the build disagree with the runtime.
+const MERGE_DATA = require(DATA_SOURCE);
+const RELEASE_BEAST_IDS = [...new Set((MERGE_DATA.beasts || []).map((beast) => beast && beast.id).filter(Boolean))];
+if (RELEASE_BEAST_IDS.length !== 12) {
+  throw new Error(`[build] expected 12 release beasts, found ${RELEASE_BEAST_IDS.length}`);
+}
+
+const RUNTIME_MERGE_SCRIPTS = new Set([
+  'ad-manager.js',
+  'analytics.js',
+  'audio.js',
+  'core.js',
+  'courtyard-scene.js',
+  'data.js',
+  'match3.js',
+  'save-store.js',
+  'sheep-game.js',
+  'ui-v14-bootstrap.js',
+  'ui-v14-spec.js',
+  'ui-v14.js',
+  'ui.js',
+]);
 
 function toPosix(value) {
   return value.split(path.sep).join('/');
@@ -191,6 +213,10 @@ const cssRelative = firstExisting([
 if (cssRelative) writeTextAsset(cssRelative, 'merge-slice.css');
 else warnMissing('prototype/merge-slice.css');
 
+// v14 is the sole visual renderer. It lives one directory below the entry so
+// authored ../assets URLs resolve identically from prototype/ and dist/.
+copyFileIfPresent('prototype/css/ui-v14.css', 'css/ui-v14.css');
+
 const jsRelative = firstExisting([
   'prototype/merge-slice.js',
   'prototype/js/merge-slice.js',
@@ -198,15 +224,16 @@ const jsRelative = firstExisting([
 if (jsRelative) writeTextAsset(jsRelative, 'merge-slice.js');
 else warnMissing('prototype/merge-slice.js');
 
-// The modular merge implementation is optional during migration.  Copy every
-// JavaScript file, including nested files, without assuming bootstrap or UI is
-// the only entry module.  link-game.js/memory-game.js are retained for
-// headless legacy regression only and are no longer referenced by the client.
-copyDirectoryIfPresent('prototype/js/merge', 'js/merge', (relativeFile) => {
-  const name = path.posix.basename(relativeFile).toLowerCase();
-  return path.extname(relativeFile).toLowerCase() === '.js' &&
-    name !== 'link-game.js' && name !== 'memory-game.js';
-});
+// Ship only browser runtime modules. Old renderer experiments, visual fixtures
+// and legacy mini-games remain available to source-level tests but cannot drift
+// into the production package unnoticed.
+for (const scriptName of RUNTIME_MERGE_SCRIPTS) {
+  const sourceRelative = `prototype/js/merge/${scriptName}`;
+  if (!isFile(absolute(sourceRelative))) {
+    throw new Error(`[build] required runtime module not found: ${sourceRelative}`);
+  }
+  writeTextAsset(sourceRelative, `js/merge/${scriptName}`);
+}
 
 // Some intermediate layouts keep bootstrap/UI one level above js/merge.  Copy
 // those entry modules when present; missing files are intentionally harmless.
@@ -218,24 +245,16 @@ for (const entryName of ['bootstrap.js', 'ui.js']) {
   if (sourceRelative) writeTextAsset(sourceRelative, `js/${entryName}`);
 }
 
-// Ship only the reviewed five-form portraits. The old s0-s3 PNG aliases are
-// no longer referenced by the v7 client and would duplicate the same art in
-// the install package. The fox additionally owns optimized WebP atlases.
-for (const beastId of BEAST_IDS) {
+// Ship all five reviewed growth forms for every one of the twelve volumes.
+for (const beastId of RELEASE_BEAST_IDS) {
   for (let level = 1; level <= 5; level += 1) {
     const filename = `${beastId}_lv${level}.webp`;
-    copyFileIfPresent(
-      `prototype/assets/art/characters/${filename}`,
-      `assets/art/characters/${filename}`
-    );
+    const sourceRelative = `prototype/assets/art/characters/${filename}`;
+    if (!isFile(absolute(sourceRelative))) {
+      throw new Error(`[build] required character portrait not found: ${sourceRelative}`);
+    }
+    copyFileIfPresent(sourceRelative, `assets/art/characters/${filename}`);
   }
-}
-for (let level = 1; level <= 5; level += 1) {
-  const filename = `jiuweihu_lv${level}_atlas.webp`;
-  copyFileIfPresent(
-    `prototype/assets/art/characters/${filename}`,
-    `assets/art/characters/${filename}`
-  );
 }
 copyDirectoryIfPresent('prototype/assets/art/npc', 'assets/art/npc', (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp');
 
@@ -260,7 +279,20 @@ const RELEASE_SCENES = new Set([
   'bg_fox_lantern_buildingfree.webp'
 ]);
 copyDirectoryIfPresent('prototype/assets/art/scenes', 'assets/art/scenes', (relativeFile) => RELEASE_SCENES.has(toPosix(relativeFile)));
+copyDirectoryIfPresent('prototype/assets/art/ui-v14', 'assets/art/ui-v14', (relativeFile) => {
+  return ['.webp', '.json', '.svg'].includes(path.extname(relativeFile).toLowerCase());
+});
+copyDirectoryIfPresent('prototype/assets/fonts', 'assets/fonts', (relativeFile) => {
+  return ['.woff2', '.txt'].includes(path.extname(relativeFile).toLowerCase());
+});
 copyDirectoryIfPresent('prototype/assets/audio', 'assets/audio');
+// Story cinematics are lazy-loaded by the reveal flow. Keep them outside the
+// boot bundle and ship only browser-native MP4 derivatives reviewed for H5.
+copyDirectoryIfPresent(
+  'prototype/assets/video',
+  'assets/video',
+  (relativeFile) => path.extname(relativeFile).toLowerCase() === '.mp4'
+);
 copyFileIfPresent('prototype/manifest.webmanifest', 'manifest.webmanifest');
 copyDirectoryIfPresent('prototype/assets/icons', 'assets/icons', (relativeFile) => ['.png', '.svg'].includes(path.extname(relativeFile).toLowerCase()));
 copyDirectoryIfPresent('prototype/assets/share', 'assets/share', (relativeFile) => ['.png', '.webp', '.svg'].includes(path.extname(relativeFile).toLowerCase()));
@@ -275,6 +307,41 @@ copyDirectoryIfPresent(
     if (normalized === 'contact_sheet.webp') return false;
     return ['.webp', '.json'].includes(path.extname(relativeFile).toLowerCase());
   }
+);
+// v9 adds story-project objects and concrete material-source states. Atlases
+// remain authoring references; the client only ships the cropped WebP assets.
+copyDirectoryIfPresent(
+  'prototype/assets/art/v9/quest_objects',
+  'assets/art/v9/quest_objects',
+  (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp'
+);
+copyDirectoryIfPresent(
+  'prototype/assets/art/v9/material_sources',
+  'assets/art/v9/material_sources',
+  (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp'
+);
+copyDirectoryIfPresent(
+  'prototype/assets/art/v9/story',
+  'assets/art/v9/story',
+  (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp'
+);
+copyDirectoryIfPresent(
+  'prototype/assets/art/v9/qiongqi_actions',
+  'assets/art/v9/qiongqi_actions',
+  (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp'
+);
+copyDirectoryIfPresent(
+  'prototype/assets/art/v9/qiongqi_yard_actions',
+  'assets/art/v9/qiongqi_yard_actions',
+  (relativeFile) => /_atlas\.webp$/i.test(toPosix(relativeFile))
+);
+// v10 contains the final, transparent public-area landmark sprites. Stage
+// overlays remain authored in the renderer, so only one repaired base is
+// required per area.
+copyDirectoryIfPresent(
+  'prototype/assets/art/v10/sect',
+  'assets/art/v10/sect',
+  (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp'
 );
 // Four legacy, unlevelled building renders remain as generation references.
 // The live scene exclusively uses the 4 x 3 reviewed level matrix.
@@ -293,9 +360,13 @@ const manifestEntries = walkFiles(dist)
     const relative = toPosix(path.relative(dist, filePath));
     const bytes = fs.readFileSync(filePath);
     let bundle = 'boot';
-    if (relative.startsWith('assets/art/scenes/') || relative.startsWith('assets/art/buildings/') || relative.startsWith('assets/art/characters/') || relative.startsWith('assets/art/v7/sect/') || relative.startsWith('assets/art/v7/scenes/')) bundle = 'scene';
+    if (relative.startsWith('assets/art/ui-v14/backgrounds/') || relative.startsWith('assets/art/ui-v14/branding/')) bundle = 'ui-scene';
+    else if (relative.startsWith('assets/art/ui-v14/')) bundle = 'ui-components';
+    else if (relative.startsWith('assets/fonts/')) bundle = 'fonts';
+    else if (relative.startsWith('assets/art/scenes/') || relative.startsWith('assets/art/buildings/') || relative.startsWith('assets/art/characters/') || relative.startsWith('assets/art/v7/sect/') || relative.startsWith('assets/art/v7/scenes/') || relative.startsWith('assets/art/v9/') || relative.startsWith('assets/art/v10/')) bundle = 'scene';
     else if (relative.startsWith('assets/art/match3/') || relative.startsWith('assets/art/recipes/') || relative.startsWith('assets/art/v7/match3/') || relative.startsWith('assets/art/v7/producer_parts/')) bundle = 'minigame';
     else if (relative.startsWith('assets/audio/')) bundle = 'audio';
+    else if (relative.startsWith('assets/video/')) bundle = 'cinematic';
     return {
       path: relative,
       bundle,
@@ -306,7 +377,7 @@ const manifestEntries = walkFiles(dist)
   .sort((left, right) => left.path.localeCompare(right.path, 'en'));
 const manifest = {
   schema: 1,
-  generatedAt: new Date().toISOString(),
+  releaseId: crypto.createHash('sha256').update(manifestEntries.map((entry) => `${entry.path}:${entry.sha256}`).join('\n')).digest('hex'),
   totalBytes: manifestEntries.reduce((total, entry) => total + entry.bytes, 0),
   files: manifestEntries,
 };

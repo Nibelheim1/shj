@@ -16,6 +16,7 @@
   var unlocked = false;
   var unlockHandler = null;
   var sounds = {};
+  var longform = { bgm: null, ambience: null, voice: null };
   var lastClickAt = 0;
   var lastPlayAt = {};
   var MAX_SFX_MS = {
@@ -36,13 +37,22 @@
       care: 'sfx_care.wav',
       purchase: 'sfx_purchase.wav'
     },
-    sfxVolume: 0.34
+    bgm: {},
+    ambience: {},
+    voice: {},
+    sfxVolume: 0.34,
+    bgmVolume: 0.16,
+    ambienceVolume: 0.2,
+    voiceVolume: 0.72
   };
 
   function config() {
     var configured = DATA && DATA.audio;
     return Object.assign({}, defaultAudio, configured || {}, {
-      sfx: Object.assign({}, defaultAudio.sfx, configured && configured.sfx || {})
+      sfx: Object.assign({}, defaultAudio.sfx, configured && configured.sfx || {}),
+      bgm: Object.assign({}, defaultAudio.bgm, configured && configured.bgm || {}),
+      ambience: Object.assign({}, defaultAudio.ambience, configured && configured.ambience || {}),
+      voice: Object.assign({}, defaultAudio.voice, configured && configured.voice || {})
     });
   }
 
@@ -100,6 +110,14 @@
     return true;
   }
 
+  function handlePlayRejection(error) {
+    var name = error && (error.name || error.code) || '';
+    if (/NotAllowed|Abort/i.test(String(name))) {
+      unlocked = false;
+      bindUnlockListeners();
+    }
+  }
+
   function bindToggle() {
     var button = document && document.getElementById ? document.getElementById('audio-toggle') : null;
     if (!button || button.__mergeAudioBound) return;
@@ -115,7 +133,67 @@
     safeSet(PREF_KEY, enabled ? 'on' : 'off');
     updateToggle();
     if (enabled) unlock();
+    else stopLongform();
     return enabled;
+  }
+
+  function stopClip(clip) {
+    if (!clip) return;
+    try {
+      clip.pause();
+      clip.currentTime = 0;
+    } catch (error) { /* A disposed or not-yet-loaded clip is harmless. */ }
+  }
+
+  function stopLongform(kind) {
+    var kinds = kind ? [kind] : ['bgm', 'ambience', 'voice'];
+    kinds.forEach(function (name) {
+      stopClip(longform[name]);
+      longform[name] = null;
+    });
+    return true;
+  }
+
+  function playLongform(kind, name) {
+    if (!enabled || !unlocked || ['bgm', 'ambience', 'voice'].indexOf(kind) < 0) return false;
+    var AudioCtor = audioConstructor();
+    if (!AudioCtor) return false;
+    var settings = config();
+    var filename = settings[kind] && settings[kind][name];
+    if (!filename) return false;
+    var current = longform[kind];
+    if (kind !== 'voice' && current && current.__mergeCueName === name &&
+        (current.__mergePlayState === 'pending' || current.__mergePlayState === 'playing')) return true;
+    stopClip(current);
+    try {
+      var clip = new AudioCtor(assetPath(filename));
+      clip.__mergeCueName = name;
+      clip.volume = Math.max(0, Math.min(1, Number(settings[kind + 'Volume']) || defaultAudio[kind + 'Volume']));
+      clip.preload = 'metadata';
+      clip.loop = kind !== 'voice';
+      clip.__mergePlayState = 'pending';
+      longform[kind] = clip;
+      var pending = clip.play();
+      if (pending && typeof pending.then === 'function') {
+        pending.then(function () {
+          if (longform[kind] === clip) clip.__mergePlayState = 'playing';
+        }).catch(function (error) {
+          clip.__mergePlayState = 'failed';
+          if (longform[kind] === clip) longform[kind] = null;
+          handlePlayRejection(error);
+        });
+      } else clip.__mergePlayState = 'playing';
+      return true;
+    } catch (error) { return false; }
+  }
+
+  function playStoryEvent(event) {
+    if (!event) return false;
+    var played = false;
+    if (event.musicKey) played = playLongform('bgm', event.musicKey) || played;
+    if (event.ambienceKey) played = playLongform('ambience', event.ambienceKey) || played;
+    if (event.voiceKey) played = playLongform('voice', event.voiceKey) || played;
+    return played;
   }
 
   function play(name) {
@@ -141,9 +219,13 @@
       clip.preload = 'auto';
       clip.currentTime = 0;
       if (clip.src && clip.src.indexOf(assetPath(filename)) < 0) clip.src = assetPath(filename);
-      sounds[name] = source || clip;
       var pending = clip.play();
-      if (pending && typeof pending.catch === 'function') pending.catch(function () { /* Missing/blocked cue is non-fatal. */ });
+      if (pending && typeof pending.then === 'function') {
+        pending.then(function () { sounds[name] = source || clip; }).catch(function (error) {
+          if (sounds[name] === source || sounds[name] === clip) delete sounds[name];
+          handlePlayRejection(error);
+        });
+      } else sounds[name] = source || clip;
       var stopAfter = MAX_SFX_MS[name] || 240;
       if (root.setTimeout) root.setTimeout(function () {
         try {
@@ -169,6 +251,11 @@
     init: init,
     unlock: unlock,
     play: play,
+    playBgm: function (name) { return playLongform('bgm', name); },
+    playAmbience: function (name) { return playLongform('ambience', name); },
+    playVoice: function (name) { return playLongform('voice', name); },
+    playStoryEvent: playStoryEvent,
+    stopLongform: stopLongform,
     setEnabled: setEnabled,
     isEnabled: function () { return enabled; },
     isUnlocked: function () { return unlocked; },

@@ -298,8 +298,9 @@ function collectMergeData(report, data, roots) {
     const id = background && background.id;
     const key = `background:${id == null ? '(missing-id)' : id}`;
     addKey(report, key, 'MERGE_DATA.backgrounds');
-    if (background && background.file) {
-      const record = addResource(report, `${key}:file`, sceneRoot + background.file, report.entryFile, 'MERGE_DATA background');
+    if (background && (background.assetPath || background.file)) {
+      const rawUrl = background.assetPath || sceneRoot + background.file;
+      const record = addResource(report, `${key}:file`, rawUrl, report.entryFile, 'MERGE_DATA background');
       if (record) report.dataResources.push(record);
     }
   }
@@ -315,6 +316,25 @@ function collectMergeData(report, data, roots) {
     });
   }
 
+  for (const area of data.sect && Array.isArray(data.sect.areas) ? data.sect.areas : []) {
+    const id = area && area.id;
+    const key = `sect-area:${id == null ? '(missing-id)' : id}`;
+    addKey(report, key, 'MERGE_DATA.sect.areas');
+    const layered = area && area.visualMode === 'layered';
+    const stagedArt = area && Array.isArray(area.art) ? area.art.filter(Boolean) : [];
+    if (layered) {
+      assert.ok(area.baseArt, `${report.mode} layered sect area ${id} must declare baseArt`);
+      const record = addResource(report, `${key}:base`, area.baseArt, report.entryFile, 'MERGE_DATA layered sect area');
+      if (record) report.dataResources.push(record);
+    } else {
+      assert.strictEqual(stagedArt.length, 4, `${report.mode} staged sect area ${id} must declare exactly four art states`);
+      stagedArt.forEach((rawUrl, index) => {
+        const record = addResource(report, `${key}:stage:${index}`, rawUrl, report.entryFile, 'MERGE_DATA staged sect area');
+        if (record) report.dataResources.push(record);
+      });
+    }
+  }
+
   const sfx = data.audio && data.audio.sfx && typeof data.audio.sfx === 'object' ? data.audio.sfx : {};
   for (const [name, filename] of Object.entries(sfx)) {
     const key = `audio:${name}`;
@@ -323,12 +343,57 @@ function collectMergeData(report, data, roots) {
     if (record) report.dataResources.push(record);
   }
 
+  for (const groupName of ['bgm', 'ambience', 'voice']) {
+    const group = data.audio && data.audio[groupName] && typeof data.audio[groupName] === 'object' ? data.audio[groupName] : {};
+    for (const [name, filename] of Object.entries(group)) {
+      const key = `audio:${groupName}:${name}`;
+      addKey(report, key, `MERGE_DATA.audio.${groupName}`);
+      const record = addResource(report, `${key}:file`, audioRoot + filename, report.entryFile, `MERGE_DATA ${groupName}`);
+      if (record) report.dataResources.push(record);
+    }
+  }
+
   for (const recipe of Array.isArray(data.recipes) ? data.recipes : []) {
     const id = recipe && recipe.id;
     const key = `recipe:${id == null ? '(missing-id)' : id}`;
     addKey(report, key, 'MERGE_DATA.recipes');
     if (recipe && recipe.art) {
       const record = addResource(report, `${key}:art`, recipe.art, report.entryFile, 'MERGE_DATA recipe');
+      if (record) report.dataResources.push(record);
+    }
+  }
+
+  for (const source of Array.isArray(data.materialSources) ? data.materialSources : []) {
+    const id = source && source.id;
+    const key = `material-source:${id == null ? '(missing-id)' : id}`;
+    addKey(report, key, 'MERGE_DATA.materialSources');
+    const art = source ? { initial: source.art, upgraded: source.upgradedArt } : {};
+    for (const [stateName, rawUrl] of Object.entries(art)) {
+      if (!rawUrl) continue;
+      const record = addResource(report, `${key}:art:${stateName}`, rawUrl, report.entryFile, 'MERGE_DATA material source');
+      if (record) report.dataResources.push(record);
+    }
+  }
+
+  for (const object of Array.isArray(data.questObjects) ? data.questObjects : []) {
+    const id = object && object.id;
+    const key = `quest-object:${id == null ? '(missing-id)' : id}`;
+    addKey(report, key, 'MERGE_DATA.questObjects');
+    const art = object ? { broken: object.brokenArt, repaired: object.repairedArt } : {};
+    for (const [stateName, rawUrl] of Object.entries(art)) {
+      if (!rawUrl) continue;
+      const record = addResource(report, `${key}:art:${stateName}`, rawUrl, report.entryFile, 'MERGE_DATA quest object');
+      if (record) report.dataResources.push(record);
+    }
+  }
+
+  for (const event of Array.isArray(data.storyEvents) ? data.storyEvents : []) {
+    const id = event && event.id;
+    const key = `story-event:${id == null ? '(missing-id)' : id}`;
+    addKey(report, key, 'MERGE_DATA.storyEvents');
+    for (const [slot, rawUrl] of Object.entries(event ? { cg: event.cgArt, action: event.actionArt } : {})) {
+      if (!rawUrl) continue;
+      const record = addResource(report, `${key}:art:${slot}`, rawUrl, report.entryFile, 'MERGE_DATA story event');
       if (record) report.dataResources.push(record);
     }
   }
@@ -443,7 +508,10 @@ for (const entry of manifest.files) {
   const bytes = fs.readFileSync(filePath);
   assert.strictEqual(entry.bytes, bytes.length, `manifest byte size mismatch: ${entry.path}`);
   assert.strictEqual(entry.sha256, crypto.createHash('sha256').update(bytes).digest('hex'), `manifest SHA-256 mismatch: ${entry.path}`);
-  assert.ok(['boot', 'scene', 'minigame', 'audio'].includes(entry.bundle), `unknown manifest bundle: ${entry.bundle}`);
+  assert.ok([
+    'boot', 'scene', 'minigame', 'audio', 'cinematic',
+    'ui-scene', 'ui-components', 'fonts'
+  ].includes(entry.bundle), `unknown manifest bundle: ${entry.bundle}`);
   manifestBytes += bytes.length;
 }
 assert.strictEqual(manifest.totalBytes, manifestBytes, 'manifest totalBytes mismatch');

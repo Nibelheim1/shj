@@ -33,6 +33,7 @@ function ok(result, message) {
 function requirePublicJourneyApi() {
   [
     'createFresh', 'ensureOrders', 'currentRenovation', 'deliverRenovation',
+    'currentOptionalRenovation', 'deliverOptionalRenovation',
     'deliverOrder', 'canDeliver', 'recordCare', 'beginCare',
     'acknowledgeTransformation', 'claimJob', 'acknowledgeJob',
     'acknowledgeChapterTransition', 'chapterProgress', 'nextActionHint',
@@ -117,6 +118,16 @@ function repairOne(state, volume) {
   prepare(state, current.order);
   ok(Core.deliverRenovation(state, NOW + serial++),
     '交付卷' + volume + '·' + current.areaId + '·' + (current.stageIndex + 1));
+  Core.ensureOrders(state, RNG);
+}
+
+function repairOptionalOne(state, volume) {
+  openAreas(state, volume);
+  const current = Core.currentOptionalRenovation(state, volume);
+  expect(current && current.order, '卷' + volume + ' 必须有可选修缮委托');
+  prepare(state, current.order);
+  ok(Core.deliverOptionalRenovation(state, current.areaId, NOW + serial++, volume),
+    '交付卷' + volume + '可选·' + current.areaId + '·' + (current.stageIndex + 1));
   Core.ensureOrders(state, RNG);
 }
 
@@ -230,6 +241,18 @@ function driveVolume(state, volume, beastId, dayIndex) {
   expect(Core.chapterProgress(state).storiesDone === true, '卷' + volume + ' 三段故事完成');
   expect(Core.chapterProgress(state).renovationDone === Core.chapterProgress(state).renovationTarget,
     '卷' + volume + ' 修缮达到目标');
+
+  if (volume === 2) {
+    const progressWithOptionalPending = Core.chapterProgress(state);
+    expect(progressWithOptionalPending.optionalRenovationDone < progressWithOptionalPending.optionalRenovationTarget,
+      '卷二工坊/静室应作为未完成支线存在');
+    expect(progressWithOptionalPending.phase === 'care', '卷二支线未完成不得阻断必修主线进入照料');
+    let optionalGuard = 20;
+    while (optionalGuard-- > 0 && Core.currentOptionalRenovation(state, volume)) repairOptionalOne(state, volume);
+    expect(!Core.currentOptionalRenovation(state, volume), '卷二全部支线修缮可独立完成');
+    expect(Core.chapterProgress(state).optionalRenovationDone === Core.chapterProgress(state).optionalRenovationTarget,
+      '卷二支线完成度达到目标');
+  }
 
   care(state, beastId, volume, dayIndex);
   jobAndTransition(state, beastId, volume);

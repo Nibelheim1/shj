@@ -1,6 +1,6 @@
-# 小动物山海经 · 栖霞宗 H5
+# 山海·栖霞 H5
 
-这是一个可直接运行的竖屏合成与神兽陪伴游戏。正式入口为 `prototype/merge_slice.html`，部署入口为 `dist/index.html`；`prototype/index.html` 仅是旧版照料原型，不属于正式验收范围。
+这是一个可直接运行的竖屏合成、宗门修缮与神兽陪伴游戏。正式入口为 `prototype/merge_slice.html`，部署入口为 `dist/index.html`。
 
 ## 运行与构建
 
@@ -10,29 +10,30 @@ python -m http.server 8080
 
 npm run build
 # 构建后打开 dist/index.html
+
+npm run package:taptap
+# 生成 release/shanhai-qixia-h5-taptap.zip
 ```
 
-完整发布回归：
+TapTap 包体解压后只有 `shanhai-qixia-h5/` 一个顶层文件夹，入口为该文件夹内的 `index.html`。打包脚本会自动校验这一结构与 300MB 上限。
+
+完整发布回归会先重建当前 `dist/`，避免用陈旧构建得到假绿：
 
 ```powershell
 npm run test:h5
-node prototype/tests/h5_chapter_journey_v8_test.js
-node prototype/tests/h5_item_source_invariant_v8_test.js
-node prototype/tests/h5_daily_retention_v8_test.js
-node prototype/tests/h5_save_recovery_v8_test.js
-node prototype/tests/h5_analytics_privacy_v8_test.js
-node prototype/tests/h5_browser_resilience_v8_test.js
 ```
 
 ## 正式内容契约
 
 - 12 只神兽、12 卷篇章、14 个宗门区域；每只神兽有 5 个成长形态。
+- 陪伴节奏以约 30 日为数值目标，不设自然日硬锁；玩家可按自己的频率连续推进。
 - 合成棋盘为 7×7，共 49 格；新档先开放 35 格，并至少保留一半可操作空位。
 - 药材、药具、膳食、建材最高 10 阶；梳妆、陪玩、符箓、至宝最高 8 阶。订单和礼物阶位始终受所属家族上限约束。
 - 卷一含山门、医馆两个区域，修缮从 0/6 开始；卷二四个区域为 0/12；其余有区域卷每区 3 段。无区域卷自动满足修缮条件，不显示虚假 0/9。
 - 唯一卷章顺序：首次山门修缮 → 故事与本卷修缮 → 庭院照料 → 神兽蜕变 → 首次岗位 → 本卷完成与衔接演出。任一节点未完成都不能跳卷。
 - 第一段故事在卷一山门首次修缮后开放；之后故事和修缮并行，照料必须等待三段故事与本卷全部修缮完成。
 - “第一段结局”在前三只神兽篇章完成后解锁；“山海终章”仅在 12 只神兽全部完成后解锁。
+- 山门、医馆·药庐、前庭与梳洗阁保留四张实绘修缮阶段；其余十区使用一张正式底图与破败/清扫/修缮/焕新叠加层，不再发布四张重复占位图。
 
 ## 玩法闭环
 
@@ -59,9 +60,10 @@ node prototype/tests/h5_browser_resilience_v8_test.js
 - 前七个不同领取日额外发放七日约定奖励；第 8 天起每日奖励继续有效，七日加奖不再重复。
 - 所有领取先校验再改状态；失败调用不会改变领取标记、货币、物品或存档。
 - 奖励灵力可暂时超过上限；自然恢复在降回上限前暂停，奖励不会被吞。
-- 好感永不因离线或未互动下降；欢迎回来只结算正向设施与岗位产出。
-- v8 存档支持幂等迁移、最近三份有效备份、JSON 导出/导入/恢复。高版本存档以只读模式打开，可导出或安全重开。
-- 匿名统计可在设置中关闭，使用随机可重置安装 ID 与会话 ID，批量同源上报到 `POST /api/events`；不会上传完整存档、自由文本或设备指纹。
+- 信任永不因离线或未互动下降；欢迎回来只结算正向设施与岗位产出。
+- v10 存档在本地 A/B 与 IndexedDB 镜像之间按 revision 仲裁；支持乐观并发、显式冲突合并、关键结算 checkpoint、JSON 导入导出和未来版本只读保护。内容未变化不会制造新 revision。
+- 匿名统计默认关闭；只有显式启用并配置同源 endpoint 后才创建可重置安装/会话 ID 和发起批量上报。不会上传完整存档、自由文本或设备指纹。
+- 首发版本的激励广告默认关闭，运行时不会触碰广告 SDK；未来启用时奖励必须携带幂等 receipt。
 
 ## 主要文件
 

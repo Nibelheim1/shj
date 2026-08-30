@@ -90,8 +90,11 @@ async function runProfile(profile, url) {
       `${profile.id}: touch emulation missing`);
     assert.deepStrictEqual(await page.evaluate(() => [innerWidth, innerHeight]), [390, 844],
       `${profile.id}: mobile viewport mismatch`);
-    assert.strictEqual(await page.locator('.nav-button[data-view="yard-view"]').isVisible().catch(() => false), false,
-      `${profile.id}: staged yard navigation visible too early`);
+    const stagedYardNav = page.locator('.nav-button[data-view="yard-view"]');
+    assert.strictEqual(await stagedYardNav.isVisible().catch(() => false), true,
+      `${profile.id}: staged yard navigation should remain visible`);
+    assert.strictEqual(await stagedYardNav.getAttribute('data-feature-locked'), 'yard',
+      `${profile.id}: staged yard navigation did not expose its locked state`);
 
     const closeWelcome = page.locator('#modal-root [data-close-modal]').first();
     if (await closeWelcome.isVisible().catch(() => false)) await closeWelcome.click();
@@ -133,20 +136,34 @@ async function runProfile(profile, url) {
     });
     const yard = page.locator('.nav-button[data-view="yard-view"]').first();
     assert.strictEqual(await yard.isVisible(), true, `${profile.id}: yard did not unlock after first repair`);
+    assert.strictEqual(await yard.getAttribute('data-feature-locked'), null,
+      `${profile.id}: yard retained its locked state after first repair`);
     await yard.click();
     await page.locator('.scene-building[data-node-id="play"]').click();
-    await page.locator('[data-care-difficulty="easy"]').click();
+    // UI v13 follows the approved courtyard comp: facilities are direct routes.
+    // The legacy selection-card action is still generated as an adapter target,
+    // but it is deliberately not exposed as a second visible step.
+    await page.locator('#modal-root .care-difficulty-modal').waitFor({ state: 'visible', timeout: 10000 });
+    const careExpectation = await page.evaluate(() => {
+      const state = window.MergeUI.state();
+      const firstStoryTowerFree = !!(state.storyExperience && state.storyExperience.active && !state.storyExperience.storyToyTowerCompleted);
+      return { energy: state.energy, cost: firstStoryTowerFree ? 0 : 1 };
+    });
+    await page.locator('[data-care-difficulty-tab="easy"]').click();
+    await page.locator('[data-care-start]').click();
 
     const retry = page.locator('.care-loading-modal [data-retry-care-engine]');
     await retry.waitFor({ state: 'visible', timeout: 10000 });
     assert.strictEqual(await page.locator('.care-loading-modal [role="progressbar"]').isVisible(), true,
       `${profile.id}: weak-network loading progress missing`);
     const energyAfterFailure = await page.evaluate(() => window.MergeUI.state().energy);
+    assert.strictEqual(energyAfterFailure, careExpectation.energy,
+      `${profile.id}: failed lazy load was not fully refunded`);
     await retry.click();
     await page.locator('#care-game-root.is-open').waitFor({ state: 'visible', timeout: 15000 });
     const energyAfterRetry = await page.evaluate(() => window.MergeUI.state().energy);
-    assert.strictEqual(energyAfterRetry, energyAfterFailure - 1,
-      `${profile.id}: failed lazy load charged energy or retry charged more than once`);
+    assert.strictEqual(energyAfterRetry, careExpectation.energy - careExpectation.cost,
+      `${profile.id}: retry cost did not match the free story-tower / normal-care rule`);
     assert.strictEqual(sheepAttempts, 2, `${profile.id}: lazy game retry did not perform exactly one retry`);
 
     const unexpectedConsole = consoleErrors.filter((entry) => !/sheep-game\.js/.test(entry.url));
