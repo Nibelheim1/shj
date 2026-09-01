@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "releaseId": "70fe8219db7b36839ca9ca7f814707df14c9c10726d334f727cebfd45e1122c1",
-  "totalBytes": 53061259,
+  "releaseId": "32cac405e7d401dac8743397dc2ce0bca46c1598ed3baaf90e5d7e6e324eb7d4",
+  "totalBytes": 53416307,
   "files": [
     {
       "path": "assets/art/buildings/clinic_lv1.webp",
@@ -3186,8 +3186,8 @@
     {
       "path": "assets/art/ui-v14/manifest.json",
       "bundle": "ui-components",
-      "bytes": 191656,
-      "sha256": "e76774425b634b5795b11e2c7057f82ab3fc899780b976a3fef74f09dcf3b35b"
+      "bytes": 193641,
+      "sha256": "9e14fd492999c787c7ef61c8f05f2f008685ebfc6fcaf5de55692033ca0f4dfd"
     },
     {
       "path": "assets/art/ui-v14/nine_slice.json",
@@ -3548,6 +3548,12 @@
       "bundle": "ui-components",
       "bytes": 22102,
       "sha256": "c83dc22bb85f96aa336dceb3efd34213aaa6ddd6e8410aa22324806910b5d08a"
+    },
+    {
+      "path": "assets/art/ui-v14/ui/labels/resource_pill_design.webp",
+      "bundle": "ui-components",
+      "bytes": 112990,
+      "sha256": "6575a4974514e0bf95708fdf9ef0e97e31eb35a6722cf607c69474230a18fadd"
     },
     {
       "path": "assets/art/ui-v14/ui/labels/resource_pill.webp",
@@ -4078,16 +4084,34 @@
       "sha256": "6101de5ab51e7f41b47dac85271e05104ad8ce6eba2e22bd6df14824f0ad7f62"
     },
     {
+      "path": "assets/art/ui-v14/ui/resources/resource_chronicle_design.webp",
+      "bundle": "ui-components",
+      "bytes": 49898,
+      "sha256": "788f08245f46c99eee95732adfe840c481c4d5e36e974043fcc04d4ebcf61879"
+    },
+    {
       "path": "assets/art/ui-v14/ui/resources/resource_chronicle.webp",
       "bundle": "ui-components",
       "bytes": 11666,
       "sha256": "d33d5c2b38d4e1e384555cff8cc9af896aa549897bfa7263b115cea27987e7eb"
     },
     {
+      "path": "assets/art/ui-v14/ui/resources/resource_energy_design.webp",
+      "bundle": "ui-components",
+      "bytes": 71136,
+      "sha256": "1c8448ddeccf52f49ac096c2f6c83275461d59f0cc040549badeb8e474d04fea"
+    },
+    {
       "path": "assets/art/ui-v14/ui/resources/resource_energy.webp",
       "bundle": "ui-components",
       "bytes": 10274,
       "sha256": "1de530a668129766d14b6a3e13eff13d03ea2f51b4f60e8afd6be320b5ca90f6"
+    },
+    {
+      "path": "assets/art/ui-v14/ui/resources/resource_jade_design.webp",
+      "bundle": "ui-components",
+      "bytes": 62116,
+      "sha256": "21dbb45151094a19fbdf73d7de37c53d6473ec6dda5d6bcc987d38491ba930ba"
     },
     {
       "path": "assets/art/ui-v14/ui/resources/resource_jade.webp",
@@ -4914,14 +4938,14 @@
     {
       "path": "css/ui-v14.css",
       "bundle": "boot",
-      "bytes": 163091,
-      "sha256": "3e3a97d9405fa96b802bd903df93face0db6ae6382c3687caa7de9afee97a14e"
+      "bytes": 217378,
+      "sha256": "7a5f5ad1c2eba5b6be1bfa64aaf23427970b840428e83b79cacfb114e809bc2c"
     },
     {
       "path": "index.html",
       "bundle": "boot",
-      "bytes": 27377,
-      "sha256": "170af1d9e13f9fccff33f1fe36f30b62db3f7fa83a680ce7e1c5e0a35a38c3c8"
+      "bytes": 27988,
+      "sha256": "efbbe8bb760483ff783a9acc3fb12b79755bce179987b8b7a92c797caf3cdb1e"
     },
     {
       "path": "js/merge/ad-manager.js",
@@ -4986,20 +5010,20 @@
     {
       "path": "js/merge/ui-v14-spec.js",
       "bundle": "boot",
-      "bytes": 5562,
-      "sha256": "3115fb967bfef2379a5094bd7da012341112d693c6f1510ece2af0b02edb7145"
+      "bytes": 5568,
+      "sha256": "409abab1551462a84b253a2b949063bc30d564150f877a0a33ee73b3a38cba41"
     },
     {
       "path": "js/merge/ui-v14.js",
       "bundle": "boot",
-      "bytes": 74138,
-      "sha256": "df2fa553f9d0c94f2ea28c93970781b89a6b1ac54144ebe000be7c0295c850ee"
+      "bytes": 75271,
+      "sha256": "7a70c7d34bc2e8d657aaebf4a40bd8f2f9b3ba254297139a246709baaf9236d4"
     },
     {
       "path": "js/merge/ui.js",
       "bundle": "boot",
-      "bytes": 343440,
-      "sha256": "9490c5c21c5e42c1188c4796aae9499bbe5560d78ac712f05f0b3aee23aa3bbd"
+      "bytes": 344326,
+      "sha256": "12f1979ff508161375947769a9f48fc834b226737a760eda754298de2ce8161c"
     },
     {
       "path": "manifest.webmanifest",

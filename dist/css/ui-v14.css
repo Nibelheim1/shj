@@ -2918,3 +2918,1120 @@
 .qixia-v14 .sect-building-visual.area-visual-layered.area-stage-cleaned { filter:drop-shadow(0 10px 6px rgba(50,37,25,.28)) saturate(.76) brightness(.88) sepia(.08); }
 .qixia-v14 .sect-building-visual.area-visual-layered.area-stage-repaired { filter:drop-shadow(0 10px 6px rgba(50,37,25,.26)) saturate(.94) brightness(.98); }
 .qixia-v14 .sect-building-visual.area-visual-layered.area-stage-renewed { filter:drop-shadow(0 12px 7px rgba(50,37,25,.24)) saturate(1.1) brightness(1.08); }
+
+/* --------------------------------------------------------------------------
+   Design-spec top chrome (1170×2532 reference, measured at 390×844 @ DPR 3).
+   The neutral frame and each resource icon stay as separate authored layers so
+   the energy swirl, warm-jade disc and chronicle scroll retain their measured
+   proportions instead of inheriting the pill's horizontal stretch.
+   -------------------------------------------------------------------------- */
+
+.qixia-v14 .slice-hud {
+  height:var(--qv14-content-top);
+  min-height:var(--qv14-content-top);
+  padding:0;
+  display:block;
+  overflow:visible;
+  border:0;
+  background:transparent;
+  box-shadow:none;
+}
+.qixia-v14 .slice-hud::before,
+.qixia-v14 .slice-hud::after { display:none; }
+.qixia-v14 #more-menu-open { display:none !important; }
+
+.qixia-v14 .slice-hud .ui-chapter-pill {
+  position:absolute;
+  z-index:2;
+  top:26px;
+  left:5px;
+  width:101px;
+  height:66px;
+  min-height:0;
+  padding:0 7px 21px 28px;
+  display:grid;
+  place-items:center;
+  overflow:visible;
+  color:#fff0cc;
+  font-family:var(--qixia-font-kai);
+  font-size:11px;
+  font-weight:600;
+  line-height:1;
+  letter-spacing:.02em;
+  text-align:center;
+  background:url("../assets/art/ui-v14/ui/labels/chapter_pill_red.webp") center / 100% 100% no-repeat;
+  filter:drop-shadow(0 2px 2px rgba(72,43,28,.18));
+  pointer-events:auto;
+}
+.qixia-v14 .slice-hud .ui-chapter-pill .ui-chapter-seal {
+  position:absolute;
+  top:11px;
+  left:8px;
+  width:21px;
+  height:21px;
+  display:grid;
+  place-items:center;
+  color:#b95b42;
+  font-size:0;
+  background:transparent;
+  box-shadow:none;
+}
+.qixia-v14 .slice-hud .ui-chapter-pill .ui-chapter-seal::before { content:"✥"; font-size:15px; }
+.qixia-v14 .slice-hud .ui-chapter-pill > i { display:none; }
+.qixia-v14 .slice-hud .ui-chapter-pill > b { font:inherit; white-space:nowrap; }
+
+.qixia-v14 .slice-hud .hud-values {
+  position:absolute;
+  z-index:3;
+  inset:0;
+  display:block;
+  min-width:0;
+  pointer-events:none;
+}
+.qixia-v14 .slice-hud .hud-pill {
+  position:absolute;
+  min-width:0;
+  min-height:0;
+  margin:0;
+  padding:0 15px 0 27px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:visible;
+  color:#493827;
+  border:0;
+  border-radius:0;
+  background-position:center;
+  background-size:100% 100%;
+  background-repeat:no-repeat;
+  box-shadow:none;
+  pointer-events:auto;
+}
+.qixia-v14 .slice-hud .hud-energy { left:109px; top:37px; width:96px; height:26px; background-image:url("../assets/art/ui-v14/ui/resources/hud_energy_blank.webp"); }
+.qixia-v14 .slice-hud .hud-jade { left:205px; top:37px; width:94px; height:26px; background-image:url("../assets/art/ui-v14/ui/resources/hud_jade_blank.webp"); }
+.qixia-v14 .slice-hud .hud-level { left:299px; top:37px; width:88px; height:26px; padding-right:5px; background-image:url("../assets/art/ui-v14/ui/resources/hud_chronicle_blank.webp"); }
+.qixia-v14 .slice-hud .hud-pill > .ui-icon,
+.qixia-v14 .slice-hud .hud-level-bar,
+.qixia-v14 .slice-hud .hud-copy small { display:none !important; }
+.qixia-v14 .slice-hud .hud-copy {
+  display:block;
+  width:100%;
+  min-width:0;
+  line-height:1;
+  text-align:center;
+}
+.qixia-v14 .slice-hud .hud-pill .hud-copy b {
+  display:block;
+  margin:0;
+  overflow:visible;
+  color:#493827;
+  font-family:var(--qixia-font-kai);
+  font-size:12px;
+  font-weight:600;
+  line-height:1;
+  letter-spacing:.01em;
+  white-space:nowrap;
+}
+.qixia-v14 .slice-hud .hud-energy .hud-copy b::before { content:"灵力 "; }
+.qixia-v14 .slice-hud .hud-jade .hud-copy b::before { content:"暖玉 "; }
+.qixia-v14 .slice-hud .hud-level .hud-copy b::before { content:"阅历 "; }
+.qixia-v14 .slice-hud .hud-energy::after,
+.qixia-v14 .slice-hud .hud-jade::after {
+  content:"+";
+  position:absolute;
+  top:50%;
+  right:5px;
+  translate:0 -53%;
+  color:#6d4b35;
+  font:700 13px/1 var(--qixia-font-kai);
+}
+
+/* Page-specific production HUD variants. */
+.qixia-v14[data-ui-screen="bag"] .slice-hud .ui-chapter-pill,
+.qixia-v14[data-ui-screen="recipe"] .slice-hud .ui-chapter-pill,
+.qixia-v14[data-ui-screen="daily"] .slice-hud .ui-chapter-pill,
+.qixia-v14[data-ui-screen="journey"] .slice-hud .ui-chapter-pill { display:none; }
+
+.qixia-v14[data-ui-screen="bag"] .slice-hud .hud-energy { left:15px; top:18px; width:119px; height:31px; }
+.qixia-v14[data-ui-screen="bag"] .slice-hud .hud-jade { left:151px; top:19px; width:104px; height:30px; }
+.qixia-v14[data-ui-screen="bag"] .slice-hud .hud-level { left:271px; top:21px; width:103px; height:28px; }
+.qixia-v14[data-ui-screen="bag"] .slice-hud .hud-pill .hud-copy b { font-size:14px; }
+
+.qixia-v14[data-ui-screen="recipe"] .slice-hud .hud-energy { left:24px; top:16px; width:120px; height:31px; }
+.qixia-v14[data-ui-screen="recipe"] .slice-hud .hud-jade { left:149px; top:16px; width:116px; height:31px; }
+.qixia-v14[data-ui-screen="recipe"] .slice-hud .hud-level { left:270px; top:18px; width:97px; height:28px; }
+.qixia-v14[data-ui-screen="recipe"] .slice-hud .hud-pill .hud-copy b { font-size:14px; }
+
+.qixia-v14[data-ui-screen="daily"] .slice-hud .hud-energy { left:72px; top:18px; width:104px; height:30px; }
+.qixia-v14[data-ui-screen="daily"] .slice-hud .hud-jade { left:181px; top:18px; width:101px; height:30px; }
+.qixia-v14[data-ui-screen="daily"] .slice-hud .hud-level { left:288px; top:18px; width:91px; height:29px; }
+.qixia-v14[data-ui-screen="daily"] .slice-hud .hud-pill .hud-copy b { font-size:12px; }
+
+.qixia-v14[data-ui-screen="journey"] .slice-hud::after {
+  content:"";
+  position:absolute;
+  top:0;
+  left:16px;
+  width:29px;
+  height:78px;
+  display:block;
+  background:url("../assets/art/ui-v14/ui/labels/chapter_pill_red.webp") left top / 182px 78px no-repeat;
+  filter:drop-shadow(0 2px 2px rgba(72,43,28,.18));
+}
+.qixia-v14[data-ui-screen="journey"] .slice-hud .hud-energy { left:47px; top:14px; width:105px; height:28px; }
+.qixia-v14[data-ui-screen="journey"] .slice-hud .hud-jade { left:158px; top:14px; width:104px; height:28px; }
+.qixia-v14[data-ui-screen="journey"] .slice-hud .hud-level { left:267px; top:15px; width:98px; height:27px; }
+.qixia-v14[data-ui-screen="journey"] .slice-hud .hud-pill .hud-copy b { font-size:13px; }
+
+.qixia-v14[data-ui-screen="background"] .slice-hud .ui-chapter-pill { top:17px; left:44px; width:90px; height:48px; padding:0 5px 16px 25px; font-size:10px; }
+.qixia-v14[data-ui-screen="background"] .slice-hud .ui-chapter-pill .ui-chapter-seal { top:7px; left:7px; width:17px; height:17px; }
+.qixia-v14[data-ui-screen="background"] .slice-hud .ui-chapter-pill .ui-chapter-seal::before { font-size:12px; }
+.qixia-v14[data-ui-screen="background"] .slice-hud .hud-energy { left:137px; top:18px; width:83px; height:24px; }
+.qixia-v14[data-ui-screen="background"] .slice-hud .hud-jade { left:225px; top:18px; width:80px; height:24px; }
+.qixia-v14[data-ui-screen="background"] .slice-hud .hud-level { left:310px; top:18px; width:70px; height:24px; }
+.qixia-v14[data-ui-screen="background"] .slice-hud .hud-pill { padding-left:22px; padding-right:10px; }
+.qixia-v14[data-ui-screen="background"] .slice-hud .hud-level { padding-right:3px; }
+.qixia-v14[data-ui-screen="background"] .slice-hud .hud-pill .hud-copy b { font-size:10px; }
+.qixia-v14[data-ui-screen="background"] .slice-hud .hud-energy::after,
+.qixia-v14[data-ui-screen="background"] .slice-hud .hud-jade::after { right:3px; font-size:11px; }
+
+.qixia-v14[data-ui-screen="codex"] .slice-hud .ui-chapter-pill,
+.qixia-v14[data-ui-screen="codex-detail"] .slice-hud .ui-chapter-pill {
+  padding:0 10px;
+  color:#fff4dd;
+  background-image:url("../assets/art/ui-v14/ui/navigation/nav_bar_wood.webp");
+  filter:drop-shadow(0 3px 3px rgba(57,40,25,.24));
+}
+.qixia-v14[data-ui-screen="codex"] .slice-hud .ui-chapter-pill { top:14px; left:14px; width:148px; height:54px; font-size:27px; letter-spacing:.12em; }
+.qixia-v14[data-ui-screen="codex-detail"] .slice-hud .ui-chapter-pill { top:9px; left:15px; width:137px; height:52px; font-size:28px; letter-spacing:.18em; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud .ui-chapter-seal,
+.qixia-v14[data-ui-screen="codex-detail"] .slice-hud .ui-chapter-seal { display:none; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-energy { left:168px; top:34px; width:73px; height:27px; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-jade { left:244px; top:34px; width:70px; height:27px; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-level { left:318px; top:34px; width:64px; height:27px; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-pill { padding-left:20px; padding-right:7px; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-level { padding-right:2px; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-pill .hud-copy b { font-size:9px; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-energy::after,
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-jade::after { right:2px; font-size:9px; }
+.qixia-v14[data-ui-screen="codex-detail"] .slice-hud .hud-energy { left:158px; top:17px; width:105px; height:31px; }
+.qixia-v14[data-ui-screen="codex-detail"] .slice-hud .hud-jade { left:269px; top:17px; width:102px; height:31px; }
+.qixia-v14[data-ui-screen="codex-detail"] .slice-hud .hud-level { left:269px; top:51px; width:102px; height:29px; }
+.qixia-v14[data-ui-screen="codex-detail"] .slice-hud .hud-pill .hud-copy b { font-size:13px; }
+
+/* Layered visual fixtures use the same production resource component. */
+.qixia-v14 .qv14-fixture-hud {
+  position:absolute;
+  z-index:40;
+  inset:0 auto auto 0;
+  width:100%;
+  height:92px;
+  padding:0;
+  display:block;
+  overflow:visible;
+  background:transparent;
+  box-shadow:none;
+}
+.qixia-v14 .qv14-fixture-resource {
+  position:absolute;
+  min-width:0;
+  height:26px;
+  padding:0 15px 0 27px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:0;
+  color:#493827;
+  font-family:var(--qixia-font-kai);
+  line-height:1;
+  background-position:center;
+  background-size:100% 100%;
+  background-repeat:no-repeat;
+}
+.qixia-v14 .qv14-fixture-resource.energy { left:109px; top:37px; width:96px; background-image:url("../assets/art/ui-v14/ui/resources/hud_energy_blank.webp"); }
+.qixia-v14 .qv14-fixture-resource.jade { left:205px; top:37px; width:94px; background-image:url("../assets/art/ui-v14/ui/resources/hud_jade_blank.webp"); }
+.qixia-v14 .qv14-fixture-resource.chronicle { left:299px; top:37px; width:88px; padding-right:5px; background-image:url("../assets/art/ui-v14/ui/resources/hud_chronicle_blank.webp"); }
+.qixia-v14 .qv14-fixture-resource > i { display:none; }
+.qixia-v14 .qv14-fixture-resource > b {
+  display:block;
+  width:100%;
+  color:#493827;
+  font-family:var(--qixia-font-kai);
+  font-size:12px;
+  font-weight:600;
+  line-height:1;
+  letter-spacing:.01em;
+  text-align:center;
+  white-space:nowrap;
+}
+.qixia-v14 .qv14-fixture-resource > b span { font:inherit; }
+.qixia-v14 .qv14-fixture-resource > em {
+  position:absolute;
+  top:50%;
+  right:5px;
+  translate:0 -53%;
+  color:#6d4b35;
+  font:700 13px/1 var(--qixia-font-kai);
+}
+.qixia-v14 .qv14-fixture-chapter {
+  position:absolute;
+  top:26px;
+  left:5px;
+  width:101px;
+  height:66px;
+  padding:0 7px 21px 28px;
+  display:grid;
+  place-items:center;
+  overflow:visible;
+  color:#fff0cc;
+  font:600 11px/1 var(--qixia-font-kai);
+  letter-spacing:.02em;
+  text-align:center;
+  background:url("../assets/art/ui-v14/ui/labels/chapter_pill_red.webp") center / 100% 100% no-repeat;
+  filter:drop-shadow(0 2px 2px rgba(72,43,28,.18));
+}
+.qixia-v14 .qv14-fixture-chapter::before { display:none; }
+.qixia-v14 .qv14-fixture-chapter > i { position:absolute; top:11px; left:8px; width:21px; height:21px; display:grid; place-items:center; color:#b95b42; font:700 10px/1 var(--qixia-font-kai); }
+.qixia-v14 .qv14-fixture-chapter > b { font:inherit; white-space:nowrap; }
+
+.qixia-v14 .qv14-fixture-hud.energy-only .qv14-fixture-resource.energy { left:237px; top:17px; width:119px; height:29px; padding-left:34px; font-size:13px; }
+.qixia-v14 .qv14-fixture-hud.energy-only .qv14-fixture-resource.energy > b { font-size:13px; }
+
+.qixia-v14 .qv14-fixture-hud.bag .qv14-fixture-resource.energy { left:15px; top:18px; width:119px; height:31px; }
+.qixia-v14 .qv14-fixture-hud.bag .qv14-fixture-resource.jade { left:151px; top:19px; width:104px; height:30px; }
+.qixia-v14 .qv14-fixture-hud.bag .qv14-fixture-resource.chronicle { left:271px; top:21px; width:103px; height:28px; }
+.qixia-v14 .qv14-fixture-hud.bag .qv14-fixture-resource > b { font-size:14px; }
+
+.qixia-v14 .qv14-fixture-hud.recipe .qv14-fixture-resource.energy { left:24px; top:16px; width:120px; height:31px; }
+.qixia-v14 .qv14-fixture-hud.recipe .qv14-fixture-resource.jade { left:149px; top:16px; width:116px; height:31px; }
+.qixia-v14 .qv14-fixture-hud.recipe .qv14-fixture-resource.chronicle { left:270px; top:18px; width:97px; height:28px; }
+.qixia-v14 .qv14-fixture-hud.recipe .qv14-fixture-resource > b { font-size:14px; }
+
+.qixia-v14 .qv14-fixture-hud.daily .qv14-fixture-resource.energy { left:72px; top:18px; width:104px; height:30px; }
+.qixia-v14 .qv14-fixture-hud.daily .qv14-fixture-resource.jade { left:181px; top:18px; width:101px; height:30px; }
+.qixia-v14 .qv14-fixture-hud.daily .qv14-fixture-resource.chronicle { left:288px; top:18px; width:91px; height:29px; }
+
+.qixia-v14 .qv14-fixture-hud.journey .qv14-fixture-resource.energy { left:47px; top:14px; width:105px; height:28px; }
+.qixia-v14 .qv14-fixture-hud.journey .qv14-fixture-resource.jade { left:158px; top:14px; width:104px; height:28px; }
+.qixia-v14 .qv14-fixture-hud.journey .qv14-fixture-resource.chronicle { left:267px; top:15px; width:98px; height:27px; }
+.qixia-v14 .qv14-fixture-chapter-orb { position:absolute; top:0; left:16px; width:29px; height:78px; background:url("../assets/art/ui-v14/ui/labels/chapter_pill_red.webp") left top / 182px 78px no-repeat; filter:drop-shadow(0 2px 2px rgba(72,43,28,.18)); }
+
+.qixia-v14 .qv14-fixture-hud.background .qv14-fixture-chapter { top:17px; left:44px; width:90px; height:48px; padding:0 5px 16px 25px; font-size:10px; }
+.qixia-v14 .qv14-fixture-hud.background .qv14-fixture-chapter > i { top:7px; left:7px; width:17px; height:17px; font-size:8px; }
+.qixia-v14 .qv14-fixture-hud.background .qv14-fixture-resource.energy { left:137px; top:18px; width:83px; height:24px; }
+.qixia-v14 .qv14-fixture-hud.background .qv14-fixture-resource.jade { left:225px; top:18px; width:80px; height:24px; }
+.qixia-v14 .qv14-fixture-hud.background .qv14-fixture-resource.chronicle { left:310px; top:18px; width:70px; height:24px; }
+.qixia-v14 .qv14-fixture-hud.background .qv14-fixture-resource { padding-left:22px; padding-right:10px; }
+.qixia-v14 .qv14-fixture-hud.background .qv14-fixture-resource.chronicle { padding-right:3px; }
+.qixia-v14 .qv14-fixture-hud.background .qv14-fixture-resource > b { font-size:10px; }
+.qixia-v14 .qv14-fixture-hud.background .qv14-fixture-resource > em { right:3px; font-size:11px; }
+
+.qixia-v14 .qv14-fixture-hud.codex,
+.qixia-v14 .qv14-fixture-hud.codex-detail { height:82px; padding:0; display:block; }
+.qixia-v14 .qv14-fixture-hud.codex .qv14-codex-heading,
+.qixia-v14 .qv14-fixture-hud.codex-detail .qv14-codex-heading {
+  position:absolute;
+  padding:0 10px;
+  display:grid;
+  place-items:center;
+  color:#fff4dd;
+  font-family:var(--qixia-font-kai);
+  font-weight:600;
+  line-height:1;
+  text-align:center;
+  background:url("../assets/art/ui-v14/ui/navigation/nav_bar_wood.webp") center / 100% 100% no-repeat;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  filter:drop-shadow(0 3px 3px rgba(57,40,25,.24));
+}
+.qixia-v14 .qv14-fixture-hud.codex .qv14-codex-heading { top:14px; left:14px; width:148px; height:54px; font-size:27px; letter-spacing:.12em; }
+.qixia-v14 .qv14-fixture-hud.codex .qv14-fixture-resource.energy { left:168px; top:34px; width:73px; height:27px; }
+.qixia-v14 .qv14-fixture-hud.codex .qv14-fixture-resource.jade { left:244px; top:34px; width:70px; height:27px; }
+.qixia-v14 .qv14-fixture-hud.codex .qv14-fixture-resource.chronicle { left:318px; top:34px; width:64px; height:27px; }
+.qixia-v14 .qv14-fixture-hud.codex .qv14-fixture-resource { padding-left:20px; padding-right:7px; }
+.qixia-v14 .qv14-fixture-hud.codex .qv14-fixture-resource.chronicle { padding-right:2px; }
+.qixia-v14 .qv14-fixture-hud.codex .qv14-fixture-resource > b { font-size:9px; }
+.qixia-v14 .qv14-fixture-hud.codex .qv14-fixture-resource > em { right:2px; font-size:9px; }
+.qixia-v14 .qv14-fixture-hud.codex-detail .qv14-codex-heading { top:9px; left:15px; width:137px; height:52px; font-size:28px; letter-spacing:.18em; }
+.qixia-v14 .qv14-fixture-hud.codex-detail .qv14-fixture-resource.energy { left:158px; top:17px; width:105px; height:31px; }
+.qixia-v14 .qv14-fixture-hud.codex-detail .qv14-fixture-resource.jade { left:269px; top:17px; width:102px; height:31px; }
+.qixia-v14 .qv14-fixture-hud.codex-detail .qv14-fixture-resource.chronicle { left:269px; top:51px; width:102px; height:29px; }
+.qixia-v14 .qv14-fixture-hud.codex-detail .qv14-fixture-resource > b { font-size:13px; }
+
+/* Back controls: reuse the layered ring and tassel; page-specific positions
+   follow the reference instead of sharing the previous oversized 49×62 rule. */
+.qixia-v14 .qv14-fixture-back,
+.qixia-v14 .ui-page-back {
+  overflow:visible;
+  color:transparent;
+  border:0;
+  border-radius:0;
+  background:url("../assets/art/ui-v14/ui/buttons/button_back.webp") center top / 100% auto no-repeat;
+  filter:sepia(.22) saturate(1.18) brightness(1.12) drop-shadow(0 2px 2px rgba(49,39,28,.22));
+}
+.qixia-v14 .qv14-fixture-back::after,
+.qixia-v14 .ui-page-back::after {
+  content:"";
+  position:absolute;
+  z-index:-1;
+  top:82%;
+  left:31%;
+  width:38%;
+  height:150%;
+  background:url("../assets/art/ui-v14/decor/tassel_cinnabar.webp") center top / contain no-repeat;
+  pointer-events:none;
+}
+.qixia-v14 .qv14-fixture:has(.qv14-page-toy-mode) > .qv14-fixture-back { top:16px; left:15px; width:37px; height:37px; }
+.qixia-v14 .qv14-fixture:has(.qv14-page-recipe) > .qv14-fixture-back { top:50px; left:20px; width:37px; height:37px; }
+.qixia-v14 .qv14-fixture:has(.qv14-page-daily) > .qv14-fixture-back { top:16px; left:9px; width:43px; height:43px; }
+.qixia-v14 .qv14-fixture:has(.qv14-page-background) > .qv14-fixture-back { top:16px; left:13px; width:29px; height:29px; }
+.qixia-v14 .qv14-fixture:has(.qv14-page-settings) > .qv14-fixture-back { top:20px; left:16px; width:38px; height:38px; }
+
+.qixia-v14[data-ui-screen="daily"] .ui-page-back,
+.qixia-v14[data-ui-screen="recipe"] .ui-page-back,
+.qixia-v14[data-ui-screen="background"] .ui-page-back,
+.qixia-v14[data-ui-screen="settings"] .ui-page-back {
+  position:fixed;
+  z-index:81;
+  margin:0;
+  padding:0;
+}
+.qixia-v14[data-ui-screen="daily"] .ui-page-back { top:16px; left:max(calc(50% - 186px),9px); width:43px; height:43px; }
+.qixia-v14[data-ui-screen="recipe"] .ui-page-back { top:50px; left:max(calc(50% - 175px),20px); width:37px; height:37px; }
+.qixia-v14[data-ui-screen="background"] .ui-page-back { top:16px; left:max(calc(50% - 182px),13px); width:29px; height:29px; }
+.qixia-v14[data-ui-screen="settings"] .ui-page-back { top:20px; left:max(calc(50% - 179px),16px); width:38px; height:38px; }
+.qixia-v14[data-ui-screen="journey"] .ui-page-back { display:none; }
+
+@media (max-width:370px) {
+  .qixia-v14 .slice-hud,
+  .qixia-v14 .qv14-fixture-hud { transform:scale(.9231); transform-origin:top left; width:108.333%; }
+}
+
+/* Fine calibration against the authored resource medallions. The neutral pill
+   and the icon remain separate DOM layers, but their measured size is fixed per
+   HUD variant so they cannot drift with text length. */
+.qixia-v14 .slice-hud .hud-pill,
+.qixia-v14 .qv14-fixture-resource {
+  --qv14-resource-icon-size:18px;
+  padding-left:21px;
+  background-image:url("../assets/art/ui-v14/ui/labels/resource_pill.webp");
+}
+.qixia-v14 .slice-hud .hud-energy,
+.qixia-v14 .slice-hud .hud-jade,
+.qixia-v14 .slice-hud .hud-level,
+.qixia-v14 .qv14-fixture-resource.energy,
+.qixia-v14 .qv14-fixture-resource.jade,
+.qixia-v14 .qv14-fixture-resource.chronicle { background-image:url("../assets/art/ui-v14/ui/labels/resource_pill.webp"); }
+.qixia-v14 .slice-hud .hud-pill > .ui-icon,
+.qixia-v14 .qv14-fixture-resource > i {
+  position:absolute;
+  top:50%;
+  left:2px;
+  width:var(--qv14-resource-icon-size);
+  height:var(--qv14-resource-icon-size);
+  display:block !important;
+  translate:0 -50%;
+  color:transparent;
+  background-position:center;
+  background-size:contain;
+  background-repeat:no-repeat;
+}
+.qixia-v14 .slice-hud .hud-energy > .ui-icon,
+.qixia-v14 .qv14-fixture-resource.energy > i { background-image:url("../assets/art/ui-v14/ui/resources/resource_energy.webp"); }
+.qixia-v14 .slice-hud .hud-jade > .ui-icon,
+.qixia-v14 .qv14-fixture-resource.jade > i { background-image:url("../assets/art/ui-v14/ui/resources/resource_jade.webp"); }
+.qixia-v14 .slice-hud .hud-level > .ui-icon,
+.qixia-v14 .qv14-fixture-resource.chronicle > i { background-image:url("../assets/art/ui-v14/ui/resources/resource_chronicle.webp"); }
+.qixia-v14 .slice-hud .hud-pill .hud-copy b,
+.qixia-v14 .qv14-fixture-resource > b { font-size:11px; font-weight:600; }
+.qixia-v14 .qv14-fixture-resource > em { font-size:0; }
+.qixia-v14 .qv14-fixture-resource > em::before { content:"+"; font:700 12px/1 var(--qixia-font-kai); }
+
+.qixia-v14 .qv14-fixture-hud.energy-only .qv14-fixture-resource.energy > i { background-image:url("../assets/art/ui-v14/ui/resources/resource_jade.webp"); }
+.qixia-v14 .qv14-fixture-hud.energy-only { left:0; right:auto; width:100%; }
+
+.qixia-v14[data-ui-screen="bag"] .slice-hud .hud-pill,
+.qixia-v14[data-ui-screen="recipe"] .slice-hud .hud-pill,
+.qixia-v14 .qv14-fixture-hud.bag .qv14-fixture-resource,
+.qixia-v14 .qv14-fixture-hud.recipe .qv14-fixture-resource { --qv14-resource-icon-size:24px; padding-left:26px; }
+.qixia-v14[data-ui-screen="bag"] .slice-hud .hud-pill .hud-copy b,
+.qixia-v14[data-ui-screen="recipe"] .slice-hud .hud-pill .hud-copy b,
+.qixia-v14 .qv14-fixture-hud.bag .qv14-fixture-resource > b,
+.qixia-v14 .qv14-fixture-hud.recipe .qv14-fixture-resource > b { font-size:13px; }
+
+.qixia-v14[data-ui-screen="daily"] .slice-hud .hud-pill,
+.qixia-v14 .qv14-fixture-hud.daily .qv14-fixture-resource { --qv14-resource-icon-size:21px; padding-left:23px; }
+.qixia-v14[data-ui-screen="journey"] .slice-hud .hud-pill,
+.qixia-v14 .qv14-fixture-hud.journey .qv14-fixture-resource { --qv14-resource-icon-size:20px; padding-left:22px; }
+.qixia-v14[data-ui-screen="daily"] .slice-hud .hud-pill .hud-copy b,
+.qixia-v14[data-ui-screen="journey"] .slice-hud .hud-pill .hud-copy b,
+.qixia-v14 .qv14-fixture-hud.daily .qv14-fixture-resource > b,
+.qixia-v14 .qv14-fixture-hud.journey .qv14-fixture-resource > b { font-size:12px; }
+
+.qixia-v14[data-ui-screen="background"] .slice-hud .hud-pill,
+.qixia-v14 .qv14-fixture-hud.background .qv14-fixture-resource { --qv14-resource-icon-size:17px; padding-left:19px; }
+.qixia-v14[data-ui-screen="background"] .slice-hud .hud-pill .hud-copy b,
+.qixia-v14 .qv14-fixture-hud.background .qv14-fixture-resource > b { font-size:9px; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-pill,
+.qixia-v14 .qv14-fixture-hud.codex .qv14-fixture-resource { --qv14-resource-icon-size:15px; padding-left:17px; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-pill .hud-copy b,
+.qixia-v14 .qv14-fixture-hud.codex .qv14-fixture-resource > b { font-size:8px; }
+.qixia-v14[data-ui-screen="codex-detail"] .slice-hud .hud-pill,
+.qixia-v14 .qv14-fixture-hud.codex-detail .qv14-fixture-resource { --qv14-resource-icon-size:21px; padding-left:23px; }
+.qixia-v14[data-ui-screen="codex-detail"] .slice-hud .hud-pill .hud-copy b,
+.qixia-v14 .qv14-fixture-hud.codex-detail .qv14-fixture-resource > b { font-size:11px; }
+
+.qixia-v14 .qv14-fixture-chapter > i { font-size:0; }
+.qixia-v14 .qv14-fixture-chapter > i::before { content:"✥"; font-size:14px; }
+
+.qixia-v14[data-ui-screen="journey"] .slice-hud::after,
+.qixia-v14 .qv14-fixture-chapter-orb {
+  width:22px;
+  height:66px;
+  background:
+    url("../assets/art/ui-v14/ui/buttons/button_icon_circle.webp") center top / 22px 22px no-repeat,
+    url("../assets/art/ui-v14/decor/tassel_cinnabar.webp") center 19px / 11px 43px no-repeat;
+}
+.qixia-v14 .qv14-fixture-chapter-orb::before {
+  content:"✥";
+  position:absolute;
+  top:6px;
+  left:5px;
+  width:12px;
+  height:12px;
+  display:grid;
+  place-items:center;
+  color:#b95b42;
+  font:700 8px/1 var(--qixia-font-kai);
+}
+
+.qixia-v14 .qv14-fixture-objective::before {
+  content:"";
+  background:url("../assets/art/ui-v14/items/game_tokens/charm/charm_03.webp") center / contain no-repeat;
+  border-radius:0;
+}
+
+.qixia-v14 .qv14-fixture-back,
+.qixia-v14 .ui-page-back {
+  background:url("../assets/art/ui-v14/ui/buttons/button_icon_circle.webp") center / contain no-repeat;
+  filter:drop-shadow(0 2px 2px rgba(49,39,28,.2));
+}
+.qixia-v14 .qv14-fixture-back::before,
+.qixia-v14 .ui-page-back::before {
+  content:"";
+  position:absolute;
+  top:50%;
+  left:53%;
+  width:30%;
+  height:30%;
+  border-left:3px solid #9a6a3e;
+  border-bottom:3px solid #9a6a3e;
+  transform:translate(-50%,-50%) rotate(45deg);
+  pointer-events:none;
+}
+.qixia-v14 .qv14-fixture:has(.qv14-page-daily) > .qv14-fixture-back,
+.qixia-v14[data-ui-screen="daily"] .ui-page-back {
+  background:
+    radial-gradient(circle at 50% 47%,#cd654d 0 59%,transparent 61%),
+    url("../assets/art/ui-v14/ui/buttons/button_icon_circle.webp") center / contain no-repeat;
+}
+.qixia-v14 .qv14-fixture:has(.qv14-page-daily) > .qv14-fixture-back::before,
+.qixia-v14[data-ui-screen="daily"] .ui-page-back::before { border-color:#fff0d1; }
+
+.qixia-v14 .qv14-fixture[data-screen-number="02"] .qv14-fixture-resource > em,
+.qixia-v14 .qv14-fixture[data-screen-number="05"] .qv14-fixture-resource > em { display:none; }
+
+/* The production chapter control has a stable ID in the legacy DOM. Repeat
+   the authored component with ID-level specificity so obsolete 44px rules do
+   not win merely because of selector weight. */
+.qixia-v14 .slice-hud #ui-chapter-pill {
+  flex:none;
+  min-width:0;
+  max-width:none;
+  width:101px;
+  height:66px;
+  min-height:0;
+  padding:0 7px 21px 28px;
+  overflow:visible;
+  border:0;
+  border-radius:0;
+  background:url("../assets/art/ui-v14/ui/labels/chapter_pill_red.webp") center / 100% 100% no-repeat;
+  box-shadow:none;
+}
+.qixia-v14 .slice-hud #ui-chapter-pill > b {
+  min-width:0;
+  overflow:visible;
+  color:inherit;
+  font:inherit;
+  text-overflow:clip;
+  white-space:nowrap;
+}
+.qixia-v14[data-ui-screen="background"] .slice-hud #ui-chapter-pill { width:90px; height:48px; padding:0 5px 16px 25px; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud #ui-chapter-pill,
+.qixia-v14[data-ui-screen="codex-detail"] .slice-hud #ui-chapter-pill {
+  padding:0 10px;
+  background:url("../assets/art/ui-v14/ui/navigation/nav_bar_wood.webp") center / 100% 100% no-repeat;
+}
+.qixia-v14[data-ui-screen="codex"] .slice-hud #ui-chapter-pill { width:148px; height:54px; }
+.qixia-v14[data-ui-screen="codex-detail"] .slice-hud #ui-chapter-pill { width:137px; height:52px; }
+
+/* The authored resource frame is 24–31px tall, while the energy control must
+   remain a 44px phone target. Draw that frame on a centred pseudo-layer and
+   keep the button itself transparent; this preserves both requirements. */
+.qixia-v14 .slice-hud .hud-energy {
+  --qv14-frame-height:26px;
+  top:28px;
+  height:44px;
+  background-image:none;
+}
+.qixia-v14 .slice-hud #energy-pill { height:44px; background-image:none; }
+.qixia-v14 .slice-hud .hud-energy::before {
+  content:"";
+  position:absolute;
+  z-index:0;
+  top:calc((44px - var(--qv14-frame-height)) / 2);
+  left:0;
+  width:100%;
+  height:var(--qv14-frame-height);
+  background:url("../assets/art/ui-v14/ui/labels/resource_pill.webp") center / 100% 100% no-repeat;
+  pointer-events:none;
+}
+.qixia-v14 .slice-hud .hud-energy > .ui-icon,
+.qixia-v14 .slice-hud .hud-energy > .hud-copy,
+.qixia-v14 .slice-hud .hud-energy::after { z-index:1; }
+.qixia-v14[data-ui-screen="bag"] .slice-hud .hud-energy { --qv14-frame-height:31px; top:11.5px; }
+.qixia-v14[data-ui-screen="recipe"] .slice-hud .hud-energy { --qv14-frame-height:31px; top:9.5px; }
+.qixia-v14[data-ui-screen="daily"] .slice-hud .hud-energy { --qv14-frame-height:30px; top:11px; }
+.qixia-v14[data-ui-screen="journey"] .slice-hud .hud-energy { --qv14-frame-height:28px; top:6px; }
+.qixia-v14[data-ui-screen="background"] .slice-hud .hud-energy { --qv14-frame-height:24px; top:8px; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-energy { --qv14-frame-height:27px; top:25.5px; }
+.qixia-v14[data-ui-screen="codex-detail"] .slice-hud .hud-energy { --qv14-frame-height:31px; top:10.5px; }
+
+/* Below the 390px reference width, only horizontal anchors compress. Vertical
+   dimensions, circular icons and 44px hit targets stay undistorted. */
+@media (max-width:389px) {
+  .qixia-v14 .slice-hud { width:100%; transform:none; }
+  .qixia-v14 .slice-hud #ui-chapter-pill { left:1.2821%; width:25.8974%; }
+  .qixia-v14 .slice-hud .hud-energy { left:27.9487%; width:24.6154%; }
+  .qixia-v14 .slice-hud .hud-jade { left:52.5641%; width:24.1026%; }
+  .qixia-v14 .slice-hud .hud-level { left:76.6667%; width:22.5641%; }
+
+  .qixia-v14[data-ui-screen="bag"] .slice-hud .hud-energy { left:3.8462%; width:30.5128%; }
+  .qixia-v14[data-ui-screen="bag"] .slice-hud .hud-jade { left:38.7179%; width:26.6667%; }
+  .qixia-v14[data-ui-screen="bag"] .slice-hud .hud-level { left:69.4872%; width:26.4103%; }
+
+  .qixia-v14[data-ui-screen="recipe"] .slice-hud .hud-energy { left:6.1538%; width:30.7692%; }
+  .qixia-v14[data-ui-screen="recipe"] .slice-hud .hud-jade { left:38.2051%; width:29.7436%; }
+  .qixia-v14[data-ui-screen="recipe"] .slice-hud .hud-level { left:69.2308%; width:24.8718%; }
+
+  .qixia-v14[data-ui-screen="daily"] .slice-hud .hud-energy { left:18.4615%; width:26.6667%; }
+  .qixia-v14[data-ui-screen="daily"] .slice-hud .hud-jade { left:46.4103%; width:25.8974%; }
+  .qixia-v14[data-ui-screen="daily"] .slice-hud .hud-level { left:73.8462%; width:23.3333%; }
+
+  .qixia-v14[data-ui-screen="journey"] .slice-hud::after { left:4.1026%; }
+  .qixia-v14[data-ui-screen="journey"] .slice-hud .hud-energy { left:12.0513%; width:26.9231%; }
+  .qixia-v14[data-ui-screen="journey"] .slice-hud .hud-jade { left:40.5128%; width:26.6667%; }
+  .qixia-v14[data-ui-screen="journey"] .slice-hud .hud-level { left:68.4615%; width:25.1282%; }
+
+  .qixia-v14[data-ui-screen="background"] .slice-hud #ui-chapter-pill { left:11.2821%; width:23.0769%; }
+  .qixia-v14[data-ui-screen="background"] .slice-hud .hud-energy { left:35.1282%; width:21.2821%; }
+  .qixia-v14[data-ui-screen="background"] .slice-hud .hud-jade { left:57.6923%; width:20.5128%; }
+  .qixia-v14[data-ui-screen="background"] .slice-hud .hud-level { left:79.4872%; width:17.9487%; }
+
+  .qixia-v14[data-ui-screen="codex"] .slice-hud #ui-chapter-pill { left:3.5897%; width:37.9487%; }
+  .qixia-v14[data-ui-screen="codex"] .slice-hud .hud-energy { left:43.0769%; width:18.7179%; }
+  .qixia-v14[data-ui-screen="codex"] .slice-hud .hud-jade { left:62.5641%; width:17.9487%; }
+  .qixia-v14[data-ui-screen="codex"] .slice-hud .hud-level { left:81.5385%; width:16.4103%; }
+
+  .qixia-v14[data-ui-screen="codex-detail"] .slice-hud #ui-chapter-pill { left:3.8462%; width:35.1282%; }
+  .qixia-v14[data-ui-screen="codex-detail"] .slice-hud .hud-energy { left:40.5128%; width:26.9231%; }
+  .qixia-v14[data-ui-screen="codex-detail"] .slice-hud .hud-jade,
+  .qixia-v14[data-ui-screen="codex-detail"] .slice-hud .hud-level { left:68.9744%; width:26.1538%; }
+}
+
+/* Final authored top-resource art. These reference-edited assets replace the
+   former droplet, ornate jade coin and ribbon scroll that did not occur in the
+   design PNGs. Icon layers may extend outside the thin paper frame, as they do
+   in the 1170px artwork. */
+.qixia-v14 .slice-hud .hud-jade,
+.qixia-v14 .slice-hud .hud-level,
+.qixia-v14 .qv14-fixture-resource.energy,
+.qixia-v14 .qv14-fixture-resource.jade,
+.qixia-v14 .qv14-fixture-resource.chronicle {
+  background-image:url("../assets/art/ui-v14/ui/labels/resource_pill.webp");
+}
+.qixia-v14 .slice-hud .hud-energy > .ui-icon,
+.qixia-v14 .qv14-fixture-resource.energy > i {
+  background-image:url("../assets/art/ui-v14/ui/resources/resource_energy_design.webp");
+}
+.qixia-v14 .slice-hud .hud-jade > .ui-icon,
+.qixia-v14 .qv14-fixture-resource.jade > i {
+  background-image:url("../assets/art/ui-v14/ui/resources/resource_jade_design.webp");
+}
+.qixia-v14 .slice-hud .hud-level > .ui-icon,
+.qixia-v14 .qv14-fixture-resource.chronicle > i {
+  background-image:url("../assets/art/ui-v14/ui/resources/resource_chronicle_design.webp");
+}
+.qixia-v14 .slice-hud .hud-energy,
+.qixia-v14 .qv14-fixture-resource.energy { --qv14-resource-icon-size:27px; padding-left:29px; }
+.qixia-v14 .slice-hud .hud-jade,
+.qixia-v14 .qv14-fixture-resource.jade { --qv14-resource-icon-size:25px; padding-left:27px; }
+.qixia-v14 .slice-hud .hud-level,
+.qixia-v14 .qv14-fixture-resource.chronicle { --qv14-resource-icon-size:22px; padding-left:24px; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-energy,
+.qixia-v14 .qv14-fixture-hud.codex .qv14-fixture-resource.energy { --qv14-resource-icon-size:19px; padding-left:20px; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-jade,
+.qixia-v14 .qv14-fixture-hud.codex .qv14-fixture-resource.jade { --qv14-resource-icon-size:18px; padding-left:19px; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-level,
+.qixia-v14 .qv14-fixture-hud.codex .qv14-fixture-resource.chronicle { --qv14-resource-icon-size:16px; padding-left:17px; }
+.qixia-v14 .qv14-fixture-hud.energy-only .qv14-fixture-resource.energy > i {
+  background-image:url("../assets/art/ui-v14/ui/resources/resource_jade_design.webp");
+}
+
+/* The five core pages do not share one top-bar layout in the authored PNGs.
+   Keep their measured frames independent instead of forcing the courtyard's
+   lower safe-area placement onto every page. */
+.qixia-v14[data-ui-screen="merge"] .slice-hud #ui-chapter-pill { left:6px; top:16px; width:94px; height:66px; }
+.qixia-v14[data-ui-screen="merge"] .slice-hud .hud-energy { --qv14-frame-height:25px; left:106px; top:11.5px; width:91px; }
+.qixia-v14[data-ui-screen="merge"] .slice-hud .hud-jade { left:202px; top:21px; width:91px; height:25px; }
+.qixia-v14[data-ui-screen="merge"] .slice-hud .hud-level { left:297px; top:21px; width:86px; height:25px; }
+.qixia-v14[data-ui-screen="merge"] .slice-hud .hud-energy > .ui-icon { --qv14-resource-icon-size:32px; }
+
+.qixia-v14[data-ui-screen="sect-map"] .slice-hud #ui-chapter-pill { left:6px; top:13px; width:110px; height:66px; }
+.qixia-v14[data-ui-screen="sect-map"] .slice-hud .hud-energy { --qv14-frame-height:27px; left:121px; top:9.5px; width:92px; }
+.qixia-v14[data-ui-screen="sect-map"] .slice-hud .hud-jade { left:218px; top:18px; width:85px; height:27px; }
+.qixia-v14[data-ui-screen="sect-map"] .slice-hud .hud-level { left:307px; top:18px; width:73px; height:27px; }
+
+.qixia-v14[data-ui-screen="sect-area"] .slice-hud #ui-chapter-pill { left:6px; top:18px; width:98px; height:66px; }
+.qixia-v14[data-ui-screen="sect-area"] .slice-hud .hud-energy { --qv14-frame-height:26px; left:107px; top:14px; width:95px; }
+.qixia-v14[data-ui-screen="sect-area"] .slice-hud .hud-jade { left:206px; top:22px; width:94px; height:27px; }
+.qixia-v14[data-ui-screen="sect-area"] .slice-hud .hud-level { left:304px; top:23px; width:80px; height:27px; }
+
+.qixia-v14[data-ui-screen="care"] .slice-hud #ui-chapter-pill { left:5px; top:12px; width:110px; height:66px; }
+.qixia-v14[data-ui-screen="care"] .slice-hud .hud-energy { --qv14-frame-height:31px; left:118px; top:7.5px; width:99px; }
+.qixia-v14[data-ui-screen="care"] .slice-hud .hud-jade { left:221px; top:14px; width:92px; height:31px; }
+.qixia-v14[data-ui-screen="care"] .slice-hud .hud-level { left:317px; top:15px; width:68px; height:30px; }
+
+.qixia-v14 .qv14-fixture-hud.merge .qv14-fixture-chapter { left:6px; top:16px; width:94px; height:66px; }
+.qixia-v14 .qv14-fixture-hud.merge .qv14-fixture-resource.energy { left:106px; top:21px; width:91px; height:25px; --qv14-resource-icon-size:32px; }
+.qixia-v14 .qv14-fixture-hud.merge .qv14-fixture-resource.jade { left:202px; top:21px; width:91px; height:25px; }
+.qixia-v14 .qv14-fixture-hud.merge .qv14-fixture-resource.chronicle { left:297px; top:21px; width:86px; height:25px; }
+.qixia-v14 .qv14-fixture-hud.sect-map .qv14-fixture-chapter { left:6px; top:13px; width:110px; height:66px; }
+.qixia-v14 .qv14-fixture-hud.sect-map .qv14-fixture-resource.energy { left:121px; top:18px; width:92px; height:27px; }
+.qixia-v14 .qv14-fixture-hud.sect-map .qv14-fixture-resource.jade { left:218px; top:18px; width:85px; height:27px; }
+.qixia-v14 .qv14-fixture-hud.sect-map .qv14-fixture-resource.chronicle { left:307px; top:18px; width:73px; height:27px; }
+.qixia-v14 .qv14-fixture-hud.sect-area .qv14-fixture-chapter { left:6px; top:18px; width:98px; height:66px; }
+.qixia-v14 .qv14-fixture-hud.sect-area .qv14-fixture-resource.energy { left:107px; top:23px; width:95px; height:26px; }
+.qixia-v14 .qv14-fixture-hud.sect-area .qv14-fixture-resource.jade { left:206px; top:22px; width:94px; height:27px; }
+.qixia-v14 .qv14-fixture-hud.sect-area .qv14-fixture-resource.chronicle { left:304px; top:23px; width:80px; height:27px; }
+.qixia-v14 .qv14-fixture-hud.care .qv14-fixture-chapter { left:5px; top:12px; width:110px; height:66px; }
+.qixia-v14 .qv14-fixture-hud.care .qv14-fixture-resource.energy { left:118px; top:14px; width:99px; height:31px; }
+.qixia-v14 .qv14-fixture-hud.care .qv14-fixture-resource.jade { left:221px; top:14px; width:92px; height:31px; }
+.qixia-v14 .qv14-fixture-hud.care .qv14-fixture-resource.chronicle { left:317px; top:15px; width:68px; height:30px; }
+
+@media (max-width:389px) {
+  .qixia-v14[data-ui-screen="merge"] .slice-hud #ui-chapter-pill { left:1.5385%; width:24.1026%; }
+  .qixia-v14[data-ui-screen="merge"] .slice-hud .hud-energy { left:27.1795%; width:23.3333%; }
+  .qixia-v14[data-ui-screen="merge"] .slice-hud .hud-jade { left:51.7949%; width:23.3333%; }
+  .qixia-v14[data-ui-screen="merge"] .slice-hud .hud-level { left:76.1538%; width:22.0513%; }
+  .qixia-v14[data-ui-screen="sect-map"] .slice-hud #ui-chapter-pill { left:1.5385%; width:28.2051%; }
+  .qixia-v14[data-ui-screen="sect-map"] .slice-hud .hud-energy { left:31.0256%; width:23.5897%; }
+  .qixia-v14[data-ui-screen="sect-map"] .slice-hud .hud-jade { left:55.8974%; width:21.7949%; }
+  .qixia-v14[data-ui-screen="sect-map"] .slice-hud .hud-level { left:78.7179%; width:18.7179%; }
+  .qixia-v14[data-ui-screen="sect-area"] .slice-hud #ui-chapter-pill { left:1.5385%; width:25.1282%; }
+  .qixia-v14[data-ui-screen="sect-area"] .slice-hud .hud-energy { left:27.4359%; width:24.3590%; }
+  .qixia-v14[data-ui-screen="sect-area"] .slice-hud .hud-jade { left:52.8205%; width:24.1026%; }
+  .qixia-v14[data-ui-screen="sect-area"] .slice-hud .hud-level { left:77.9487%; width:20.5128%; }
+  .qixia-v14[data-ui-screen="care"] .slice-hud #ui-chapter-pill { left:1.2821%; width:28.2051%; }
+  .qixia-v14[data-ui-screen="care"] .slice-hud .hud-energy { left:30.2564%; width:25.3846%; }
+  .qixia-v14[data-ui-screen="care"] .slice-hud .hud-jade { left:56.6667%; width:23.5897%; }
+  .qixia-v14[data-ui-screen="care"] .slice-hud .hud-level { left:81.2821%; width:17.4359%; }
+}
+
+/* ============================================================
+   Runtime correction: one stable five-entry nav and one modal veil
+   ============================================================ */
+
+/* The previous runtime swapped five separately baked full-width bars whenever
+   the active page changed. Their icon and lettering bounds are not identical,
+   so the same control appeared to stretch between pages. Keep the timber bar
+   fixed, render each control in its own fixed box and change only its glow. */
+.qixia-v14 .slice-nav,
+.qixia-v14 .slice-nav:has(.nav-button.active) {
+  background-image:url("../assets/art/ui-v14/ui/navigation/nav_bar_wood.webp") !important;
+  background-position:center bottom;
+  background-size:100% 100%;
+}
+.qixia-v14 .slice-nav .nav-button {
+  position:relative;
+  z-index:0;
+  isolation:isolate;
+  overflow:visible;
+  background-position:center bottom !important;
+  background-size:contain !important;
+  transform:none !important;
+  translate:none !important;
+  rotate:none !important;
+  scale:none !important;
+  filter:none !important;
+}
+.qixia-v14 .slice-nav .nav-button.active { z-index:1; }
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button[data-view="merge-view"],
+.qixia-v14 .slice-nav .nav-button[data-view="merge-view"] { background-image:url("../assets/art/ui-v14/ui/navigation/composed/nav_merge_normal.webp") !important; }
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button[data-view="sect-view"],
+.qixia-v14 .slice-nav .nav-button[data-view="sect-view"] { background-image:url("../assets/art/ui-v14/ui/navigation/composed/nav_sect_normal.webp") !important; }
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button[data-view="yard-view"],
+.qixia-v14 .slice-nav .nav-button[data-view="yard-view"] { background-image:url("../assets/art/ui-v14/ui/navigation/composed/nav_yard_normal.webp") !important; }
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button[data-view="codex-view"],
+.qixia-v14 .slice-nav .nav-button[data-view="codex-view"] { background-image:url("../assets/art/ui-v14/ui/navigation/composed/nav_codex_normal.webp") !important; }
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button[data-view="bag-view"],
+.qixia-v14 .slice-nav .nav-button[data-view="bag-view"] { background-image:url("../assets/art/ui-v14/ui/navigation/composed/nav_bag_normal.webp") !important; }
+
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button.active[data-view="merge-view"] { background-image:url("../assets/art/ui-v14/ui/navigation/composed/nav_merge_selected.webp") !important; }
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button.active[data-view="sect-view"] { background-image:url("../assets/art/ui-v14/ui/navigation/composed/nav_sect_selected.webp") !important; }
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button.active[data-view="yard-view"] { background-image:url("../assets/art/ui-v14/ui/navigation/composed/nav_yard_selected.webp") !important; }
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button.active[data-view="codex-view"] { background-image:url("../assets/art/ui-v14/ui/navigation/composed/nav_codex_selected.webp") !important; }
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button.active[data-view="bag-view"] { background-image:url("../assets/art/ui-v14/ui/navigation/composed/nav_bag_selected.webp") !important; }
+
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button small,
+.qixia-v14 .slice-nav .nav-button small,
+.qixia-v14 .slice-nav .nav-button.active small {
+  position:absolute;
+  z-index:3;
+  right:8%;
+  bottom:8px;
+  left:8%;
+  height:23px;
+  margin:0;
+  display:grid;
+  place-items:center;
+  visibility:visible !important;
+  color:#5f422d;
+  font:700 14px/1 var(--qixia-font-kai);
+  letter-spacing:.04em;
+  text-shadow:0 1px rgba(255,247,224,.9);
+  transform:none !important;
+  translate:none !important;
+  rotate:none !important;
+  scale:none !important;
+}
+.qixia-v14 .slice-nav .nav-button .ui-icon,
+.qixia-v14 .slice-nav .nav-button.active .ui-icon {
+  visibility:hidden;
+  transform:none !important;
+  translate:none !important;
+  rotate:none !important;
+  scale:none !important;
+}
+
+/* Keep the actual artwork node mounted for the lifetime of the application.
+   Only the halo changes on selection; neither the image nor the label is
+   replaced, scaled or translated. This also avoids fixed-layer repaint gaps
+   seen when five large WebPs were swapped as CSS backgrounds. */
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button,
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button.active,
+.qixia-v14 .slice-nav .nav-button,
+.qixia-v14 .slice-nav .nav-button.active { background-image:none !important; }
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button[data-view],
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button.active[data-view] { background-image:none !important; }
+.qixia-v14 .slice-nav .qv14-nav-art {
+  position:absolute;
+  z-index:1;
+  inset:0;
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:contain;
+  object-position:center bottom;
+  pointer-events:none;
+  transform:none !important;
+  translate:none !important;
+  rotate:none !important;
+  scale:none !important;
+  filter:none !important;
+}
+.qixia-v14 .slice-nav .nav-button::before,
+.qixia-v14 .slice-nav .nav-button.active::before {
+  content:"" !important;
+  position:absolute;
+  z-index:0;
+  top:3px;
+  bottom:auto;
+  left:50%;
+  width:62px;
+  height:62px;
+  border:0;
+  border-radius:50%;
+  background:transparent;
+  box-shadow:none;
+  transform:translateX(-50%);
+  pointer-events:none;
+}
+.qixia-v14 .slice-nav .nav-button.active::before {
+  background:radial-gradient(circle,rgba(255,238,137,.78) 0 48%,rgba(250,202,62,.38) 59%,transparent 73%);
+  box-shadow:0 0 10px 3px rgba(255,214,73,.66);
+}
+@media (max-height:700px) {
+  .qixia-v14 .slice-nav .nav-button { background-size:contain !important; }
+  .qixia-v14 .slice-nav:has(.nav-button.active) .nav-button small,
+  .qixia-v14 .slice-nav .nav-button small,
+  .qixia-v14 .slice-nav .nav-button.active small { bottom:5px; height:19px; font-size:12px; }
+}
+
+/* modal_dim_night.webp is an opaque navy bitmap. Using it as a live backdrop
+   hid the complete merge page instead of tinting it. A translucent veil keeps
+   the authored page legible and, together with the synchronous drawer close,
+   guarantees that recycle confirmation has exactly one dimming layer. */
+.qixia-v14 #modal-root .modal-backdrop:not(.qv14-page-backdrop),
+.qixia-v14 #modal-root .modal-backdrop[data-ui-screen="30-recycle"] {
+  opacity:1;
+  background-color:rgba(20,39,47,.68);
+  background-image:none;
+  backdrop-filter:none;
+}
+.qixia-v14 #modal-root .modal-backdrop:not(.qv14-page-backdrop) .recycle-confirm-modal[data-ui-screen="30-recycle"] {
+  width:min(268px,calc(100% - 28px));
+  min-height:0;
+  max-height:calc(100dvh - 72px);
+  padding:66px 18px 24px;
+  box-sizing:border-box;
+  overflow:auto;
+}
+.qixia-v14 #modal-root .recycle-confirm-modal[data-ui-screen="30-recycle"] > .eyebrow,
+.qixia-v14 #modal-root .recycle-confirm-modal[data-ui-screen="30-recycle"] > .qv14-system-hero { display:none; }
+.qixia-v14 #modal-root .recycle-confirm-question {
+  margin:5px 0 8px;
+  color:#5c402d;
+  font:700 12px/1.4 var(--qixia-font-kai);
+  text-align:center;
+}
+.qixia-v14 #modal-root .recycle-confirm-visual {
+  min-height:100px;
+  margin:0;
+  padding:1px 0 3px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr);
+  align-items:center;
+  gap:4px;
+  border:0;
+  background:transparent;
+}
+.qixia-v14 #modal-root .recycle-confirm-side {
+  min-width:0;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  gap:2px;
+  text-align:center;
+}
+.qixia-v14 #modal-root .recycle-confirm-item > img,
+.qixia-v14 #modal-root .recycle-confirm-jade {
+  width:54px;
+  height:54px;
+  padding:0;
+  display:block;
+  object-fit:contain;
+  border:0;
+  border-radius:0;
+  background-color:transparent;
+  filter:drop-shadow(0 3px 2px rgba(75,52,31,.2));
+}
+.qixia-v14 #modal-root .recycle-confirm-jade {
+  background:url("../assets/art/ui-v14/ui/resources/resource_jade_design.webp") center / contain no-repeat;
+}
+.qixia-v14 #modal-root .recycle-confirm-side b {
+  max-width:100%;
+  overflow:hidden;
+  color:#5e412e;
+  font:700 11px/1.25 var(--qixia-font-kai);
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.qixia-v14 #modal-root .recycle-confirm-side small { color:#705643; font-size:9px; white-space:nowrap; }
+.qixia-v14 #modal-root .recycle-confirm-arrow { color:#634431; font:700 21px/1 var(--qixia-font-kai); font-style:normal; text-align:center; }
+.qixia-v14 #modal-root .recycle-confirm-reward {
+  min-height:72px;
+  padding:6px 4px;
+  box-sizing:border-box;
+  border:1px solid rgba(180,123,65,.25);
+  border-radius:5px;
+  background:rgba(255,247,222,.35);
+}
+.qixia-v14 #modal-root .recycle-confirm-modal .confirm-warning {
+  margin:3px 0 0;
+  padding:9px 8px;
+  display:block;
+  color:#b34f37;
+  border:1px solid rgba(180,123,65,.42);
+  border-radius:0;
+  background:rgba(246,222,176,.3);
+  text-align:center;
+}
+.qixia-v14 #modal-root .recycle-confirm-modal .confirm-warning b { color:#b34f37; font-size:10px; }
+.qixia-v14 #modal-root .recycle-confirm-modal .confirm-warning span { font-size:9px; line-height:1.4; }
+.qixia-v14 #modal-root .recycle-confirm-modal .confirmation-actions {
+  margin-top:11px;
+  display:grid;
+  grid-template-columns:1fr 1.18fr;
+  gap:7px;
+}
+.qixia-v14 #modal-root .recycle-confirm-modal .confirmation-actions button {
+  min-height:44px;
+  padding:7px 8px;
+  color:#fff1d4;
+  font:700 14px/1 var(--qixia-font-kai);
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  background:url("../assets/art/ui-v14/ui/buttons/button_secondary_normal.webp") center / 100% 100% no-repeat;
+}
+.qixia-v14 #modal-root .recycle-confirm-modal .confirmation-actions .modal-secondary { color:#614331; }
+.qixia-v14 #modal-root .recycle-confirm-modal .confirmation-actions .danger-action {
+  background-image:url("../assets/art/ui-v14/ui/buttons/button_primary_normal.webp");
+}
+
+/* The merge reference icon is about one paper-frame high; the previous 32px
+   override overlapped the dynamic value. */
+.qixia-v14[data-ui-screen="merge"] .slice-hud .hud-energy > .ui-icon { --qv14-resource-icon-size:27px; }
+.qixia-v14 .qv14-fixture-hud.merge .qv14-fixture-resource.energy { --qv14-resource-icon-size:27px; }
+
+/* Final top-bar calibration against 03_灵阵合并页. Use the authored simple
+   parchment silhouette (the former generic pill had oversized corner scrolls),
+   then reserve fixed lanes for icon, live copy and plus. Long real values such
+   as 100/100 stay inside the 91px frame instead of painting over its icon. */
+.qixia-v14 .slice-hud .hud-jade,
+.qixia-v14 .slice-hud .hud-level,
+.qixia-v14 .qv14-fixture-resource.energy,
+.qixia-v14 .qv14-fixture-resource.jade,
+.qixia-v14 .qv14-fixture-resource.chronicle {
+  background-image:url("../assets/art/ui-v14/ui/labels/resource_pill_design.webp");
+}
+.qixia-v14 .slice-hud .hud-energy::before {
+  background-image:url("../assets/art/ui-v14/ui/labels/resource_pill_design.webp");
+}
+.qixia-v14 .slice-hud #ui-chapter-pill > b {
+  overflow:hidden;
+  text-overflow:clip;
+}
+.qixia-v14 .slice-hud .hud-energy {
+  --qv14-resource-icon-size:24px;
+  padding-left:26px;
+  padding-right:7px;
+}
+.qixia-v14 .slice-hud .hud-energy .hud-copy b {
+  font-size:8.5px;
+  letter-spacing:0;
+}
+.qixia-v14 .slice-hud .hud-energy .hud-copy b::before { content:"灵力"; }
+.qixia-v14 .slice-hud .hud-jade {
+  --qv14-resource-icon-size:23px;
+  padding-left:25px;
+  padding-right:7px;
+}
+.qixia-v14 .slice-hud .hud-jade .hud-copy b {
+  font-size:10px;
+  letter-spacing:0;
+}
+.qixia-v14[data-ui-screen="merge"] .slice-hud #ui-chapter-pill {
+  padding-right:2px;
+  letter-spacing:0;
+}
+.qixia-v14[data-ui-screen="merge"] .slice-hud .hud-energy {
+  --qv14-resource-icon-size:24px;
+  padding-left:26px;
+  padding-right:7px;
+}
+.qixia-v14[data-ui-screen="merge"] .slice-hud .hud-jade {
+  --qv14-resource-icon-size:23px;
+  padding-left:25px;
+  padding-right:10px;
+}
+.qixia-v14[data-ui-screen="merge"] .slice-hud .hud-level {
+  --qv14-resource-icon-size:20px;
+  padding-left:22px;
+  padding-right:4px;
+}
+.qixia-v14[data-ui-screen="merge"] .slice-hud .hud-energy .hud-copy b {
+  font-size:8.5px;
+  letter-spacing:0;
+}
+.qixia-v14[data-ui-screen="merge"] .slice-hud .hud-jade .hud-copy b,
+.qixia-v14[data-ui-screen="merge"] .slice-hud .hud-level .hud-copy b {
+  font-size:10px;
+  letter-spacing:0;
+}
+.qixia-v14[data-ui-screen="merge"] .slice-hud .hud-energy::after,
+.qixia-v14[data-ui-screen="merge"] .slice-hud .hud-jade::after { right:4px; }
+.qixia-v14 .qv14-fixture-hud.merge .qv14-fixture-chapter > b {
+  letter-spacing:0;
+}
+.qixia-v14 .qv14-fixture-hud.merge .qv14-fixture-resource.energy {
+  --qv14-resource-icon-size:24px;
+  padding-left:26px;
+  padding-right:7px;
+  font-size:8.5px;
+}
+.qixia-v14 .qv14-fixture-hud.merge .qv14-fixture-resource.jade {
+  --qv14-resource-icon-size:23px;
+  padding-left:25px;
+  padding-right:10px;
+  font-size:10px;
+}
+.qixia-v14 .qv14-fixture-hud.merge .qv14-fixture-resource.chronicle {
+  --qv14-resource-icon-size:20px;
+  padding-left:22px;
+  padding-right:4px;
+  font-size:10px;
+}
+
+/* 11_山海册总览页 lets the resource row continue toward the right safe edge.
+   The former 73px energy slot was an implementation shortcut and could not
+   contain the authored label plus a real 100/100 value. */
+.qixia-v14[data-ui-screen="codex"] .slice-hud #ui-chapter-pill {
+  left:15px;
+  top:12px;
+  width:144px;
+  height:47px;
+  font-size:24px;
+  letter-spacing:.12em;
+}
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-energy {
+  --qv14-frame-height:27px;
+  left:163px;
+  top:16.5px;
+  width:91px;
+}
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-jade {
+  left:259px;
+  top:25px;
+  width:82px;
+  height:27px;
+}
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-level {
+  left:346px;
+  top:25px;
+  width:44px;
+  height:27px;
+  padding-left:17px;
+  padding-right:2px;
+}
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-level .hud-copy b { font-size:8px; }
+.qixia-v14[data-ui-screen="codex"] .slice-hud .hud-level .hud-copy b::before { content:""; }
+.qixia-v14[data-ui-screen="background"] .slice-hud .hud-energy .hud-copy b {
+  font-size:7.5px;
+  letter-spacing:0;
+}
+@media (max-width:345px) {
+  .qixia-v14[data-ui-screen="codex"] .slice-hud .hud-level { display:none; }
+}
+@media (max-width:389px) {
+  .qixia-v14[data-ui-screen="codex"] .slice-hud #ui-chapter-pill { left:3.8462%; width:36.9231%; }
+  .qixia-v14[data-ui-screen="codex"] .slice-hud .hud-energy { left:41.7949%; width:23.3333%; }
+  .qixia-v14[data-ui-screen="codex"] .slice-hud .hud-jade { left:66.4103%; width:21.0256%; }
+  .qixia-v14[data-ui-screen="codex"] .slice-hud .hud-level { right:0; left:auto; width:11.2821%; }
+}
+@media (max-width:345px) {
+  .qixia-v14[data-ui-screen="codex"] .slice-hud .hud-energy .hud-copy b { font-size:7.5px; }
+  .qixia-v14[data-ui-screen="codex"] .slice-hud .hud-jade .hud-copy b { font-size:7.5px; }
+}

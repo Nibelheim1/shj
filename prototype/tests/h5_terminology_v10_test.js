@@ -33,10 +33,12 @@ const runtimeFiles = [
   'prototype/js/merge/core.js'
 ];
 const visibleRuntime = runtimeFiles.map((relative) => fs.readFileSync(path.join(root, relative), 'utf8')).join('\n');
-['小动物山海经', '七七灵盘', '随行匣', '行囊', '好感', '成长经验', '庭院经验', '宗门经验', '委托经验'].forEach((term) => {
+/* v14 follows the authored screen hierarchy: 行囊 is the page shell while
+   药匣 remains the canonical storage tab/mechanic. */
+['小动物山海经', '七七灵盘', '随行匣', '好感', '成长经验', '庭院经验', '宗门经验', '委托经验'].forEach((term) => {
   assert.ok(!visibleRuntime.includes(term), `formal runtime still contains retired player-facing term: ${term}`);
 });
-['山海·栖霞', '灵阵', '归灵台', '药匣', '暂存区', '信任', '疗愈', '宗门阅历'].forEach((term) => {
+['山海·栖霞', '灵阵', '归灵台', '行囊', '药匣', '暂存区', '信任', '疗愈', '宗门阅历'].forEach((term) => {
   assert.ok(visibleRuntime.includes(term), `formal runtime does not expose canonical term: ${term}`);
 });
 

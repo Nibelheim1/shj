@@ -354,11 +354,24 @@ async function evaluateYardComposition(page) {
     const characterRect = rect(character);
     const hud = [...document.querySelectorAll('.hud-values > .hud-pill')].slice(0, 3).map((element) => {
       const style = getComputedStyle(element);
+      const elementRect = rect(element);
+      const frameStyle = getComputedStyle(element, '::before');
+      const splitTouchTarget = element.matches('.hud-energy') && frameStyle.content !== 'none';
+      const frameRect = splitTouchTarget ? {
+        left:elementRect.left + (parseFloat(frameStyle.left) || 0),
+        top:elementRect.top + (parseFloat(frameStyle.top) || 0),
+        width:parseFloat(frameStyle.width) || elementRect.width,
+        height:parseFloat(frameStyle.height) || elementRect.height
+      } : elementRect;
+      if (splitTouchTarget) {
+        frameRect.right = frameRect.left + frameRect.width;
+        frameRect.bottom = frameRect.top + frameRect.height;
+      }
       return {
-        rect: rect(element),
-        radius: parseFloat(style.borderRadius) || 0,
+        rect: frameRect,
+        radius: parseFloat(splitTouchTarget ? frameStyle.borderRadius : style.borderRadius) || 0,
         fontSize: parseFloat(style.fontSize) || 0,
-        backgroundImage: style.backgroundImage || ''
+        backgroundImage: (splitTouchTarget ? frameStyle.backgroundImage : style.backgroundImage) || ''
       };
     });
     return {
@@ -415,7 +428,7 @@ function checkYardComposition(report, scenario, composition) {
     if (Math.max(...heights) - Math.min(...heights) > 1) {
       fail(report, scenario.id, 'hud-resource-shape', `HUD resource heights differ: ${heights.map((height) => height.toFixed(1)).join('/')}`, composition.hud);
     }
-    if (composition.hud.some((entry) => !/resource_pill\.webp/i.test(entry.backgroundImage) && (entry.radius < 8 || entry.radius > 16))) {
+    if (composition.hud.some((entry) => !/resource_pill(?:_design)?\.webp/i.test(entry.backgroundImage) && (entry.radius < 8 || entry.radius > 16))) {
       fail(report, scenario.id, 'hud-resource-shape', 'HUD resources use neither the authored v14 resource frame nor the fallback rounded-rectangle grammar', composition.hud);
     }
   }

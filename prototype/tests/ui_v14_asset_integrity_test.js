@@ -22,7 +22,7 @@ check(/ui-v14-spec\.js/.test(bootstrap) && /ui-v14\.js/.test(bootstrap), 'v14 bo
 check(/MergeUI\.whenReady/.test(bootstrap), 'launcher must wait for the real renderer/save arbitration before dismissal');
 check(!/ui-redesign\.js|ui-design-v13\.js|ui-design-v13\.css/.test(html), 'formal entry still loads legacy overlay');
 check(!/design\/.*\.png|设计_手机竖屏_1170x2532/.test(css + renderer + fixtures), 'runtime references a full-screen design PNG');
-check(!/(七七灵盘|随行匣|行囊|好感|成长经验|0\s*\/\s*0)/.test(html + runtime + renderer + fixtures), 'visible runtime copy contains retired terminology or 0/0 placeholders');
+check(!/(七七灵盘|随行匣|好感|成长经验|0\s*\/\s*0)/.test(html + runtime + renderer + fixtures), 'visible runtime copy contains retired terminology or 0/0 placeholders');
 check(/area-visual-layered/.test(css) && /data-visual-mode=/.test(runtime), 'layered region baseArt renderer contract is missing');
 check(fs.existsSync(path.join(PROTOTYPE, 'assets', 'fonts', 'lxgw-wenkai-lite-v14.woff2')), 'missing WenKai subset');
 check(fs.existsSync(path.join(PROTOTYPE, 'assets', 'fonts', 'noto-sans-sc-v14.woff2')), 'missing Noto subset');

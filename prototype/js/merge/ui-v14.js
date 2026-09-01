@@ -301,8 +301,9 @@
     var beast = currentBeastDefinition(currentState);
     var pill = q('#ui-chapter-pill');
     if (pill) {
-      var label = '卷' + chapterNumber(volume) + ' · ' + (beast.name || '穷奇') + '篇';
-      if (pill.textContent !== label) pill.innerHTML = '<span class="ui-chapter-seal">灯</span><b>' + esc(label) + '</b><i aria-hidden="true"></i>';
+      var visibleScreen = document.documentElement.getAttribute('data-ui-screen') || document.body.getAttribute('data-ui-screen') || '';
+      var label = visibleScreen === 'codex' ? term('codexPage', '山海册') : visibleScreen === 'codex-detail' ? (beast.name || '穷奇') : '卷' + chapterNumber(volume) + '·' + (beast.name || '穷奇') + '篇';
+      if (pill.textContent !== label) pill.innerHTML = '<span class="ui-chapter-seal" aria-hidden="true">卷</span><b>' + esc(label) + '</b><i aria-hidden="true"></i>';
     }
     var level = q('.hud-level');
     if (level) {
@@ -597,8 +598,8 @@
       return true;
     }
     if (id === 'codex-detail') {
-      setActiveScreen(id, options);
       root.MergeUI.switchView('codex-view');
+      setActiveScreen('codex', { replace: true });
       clickLater('#codex-list [data-beast-id="qiongqi"]');
       return true;
     }
@@ -954,6 +955,11 @@
 
   function addSystemHero(modal, screen) {
     if (!modal || q('.qv14-system-hero', modal)) return;
+    /* Native dialogs such as recycle confirmation already carry their own
+       authored illustration. Adding the generic system medallion above that
+       content duplicates the hero and pushes the real controls below the
+       fold. */
+    if (q('.confirm-visual, .qv14-live-modal-content', modal)) return;
     var icons = {
       '22-offline': 'route', '28-energy': 'energy', '29-board-full': 'nav-merge',
       '30-recycle': 'material-tool', '31-import': 'route', '32-daily-reward': 'check'
@@ -1160,7 +1166,11 @@
     backdrop.className = 'qv14-recycle-backdrop';
     backdrop.type = 'button';
     backdrop.setAttribute('aria-label', '关闭回收面板');
-    document.body.appendChild(backdrop);
+    /* #slice-app and #slice-main form isolated stacking contexts. A body- or
+       shell-level backdrop is therefore painted above the drawer even when
+       the drawer has the larger numeric z-index, intercepting every item tap.
+       Keep the veil and merge-tools as siblings inside the merge view. */
+    (q('#merge-view') || q('#slice-app') || document.body).appendChild(backdrop);
     var first = q('[data-recycle-index]', drawer) || toggle;
     root.setTimeout(function () { safeFocus(first); }, 0);
   }
@@ -1181,7 +1191,10 @@
         return;
       }
       if (target.closest('#recycle-drawer-list [data-recycle-index]')) {
-        root.setTimeout(function () { closeRecycleDrawer(false); }, 0);
+        /* Remove the drawer veil in the same event turn. Waiting for a timer
+           briefly stacks it below the confirmation veil and can leave the
+           whole merge page looking like a flat grey sheet. */
+        closeRecycleDrawer(false);
         return;
       }
       var generatedClose = target.closest('[data-qv14-close-system]');

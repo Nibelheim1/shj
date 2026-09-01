@@ -1497,11 +1497,23 @@ var MODULE_HELP = {
 
   function openRecycleConfirmation(index, item) {
     if (!item || Number(item.tier) < 4) return recycleItemFromUi(index);
+    var held = state.grid.slice(0, state.unlockedCells).filter(function (entry) {
+      return entry && entry.family === item.family && Number(entry.tier) === Number(item.tier) && entry.kind === item.kind;
+    }).length;
+    var previewJade = 0;
+    try {
+      var previewState = JSON.parse(JSON.stringify(state));
+      var preview = Core.recycleItem(previewState, index, true);
+      previewJade = Math.max(0, Number(preview && preview.rewards && preview.rewards.jade || 0));
+    } catch (error) {
+      previewJade = 0;
+    }
     var modal = modalShell(
-      '<span class="eyebrow">灵阵 · 高阶素材</span><h2>确认回收？</h2>' +
-      '<div class="confirm-visual recycle-confirm-visual"><img src="' + esc(itemPath(item)) + '" alt="" /><span><b>' + esc(itemName(item)) + '</b><small>' + Number(item.tier || 1) + ' 阶素材</small></span></div>' +
-      '<div class="confirm-warning"><b>回收后无法撤回</b><span>所得暖玉仍按原有数值规则结算；如果暂时拿不定主意，可以先收入药匣。</span></div>' +
-      '<div class="confirmation-actions"><button class="modal-secondary" data-cancel-recycle type="button">先留着</button><button class="danger-action" data-confirm-recycle type="button">确认回收</button></div>',
+      '<span class="eyebrow">灵阵 · 高阶素材</span><h2>确认回收</h2>' +
+      '<div class="confirm-visual recycle-confirm-visual"><span class="recycle-confirm-side recycle-confirm-item"><img src="' + esc(itemPath(item)) + '" alt="" /><b>' + esc(itemName(item)) + '</b><small>持有 ×' + held + ' · ' + Number(item.tier || 1) + ' 阶</small></span><i class="recycle-confirm-arrow" aria-hidden="true">→</i><span class="recycle-confirm-side recycle-confirm-reward"><span class="recycle-confirm-jade" aria-hidden="true"></span><b>暖玉</b><small>可得 ×' + (previewJade || '按规则') + '</small></span></div>' +
+      '<p class="recycle-confirm-question">确定回收这件' + esc(itemName(item)) + '吗？</p>' +
+      '<div class="confirm-warning"><span>回收后无法撤销，请确认当前医案不再需要。</span></div>' +
+      '<div class="confirmation-actions"><button class="modal-secondary" data-cancel-recycle type="button">取消</button><button class="danger-action" data-confirm-recycle type="button">确认回收</button></div>',
       'task-modal recycle-confirm-modal',
       { variant: 'dialog', closeOnBackdrop: false, closeOnEscape: true }
     );

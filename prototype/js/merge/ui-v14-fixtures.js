@@ -35,16 +35,18 @@
   }
 
   function hud(mode, headerTitle) {
-    if (mode === 'codex') {
-      return '<header class="qv14-fixture-hud codex"><span class="qv14-codex-heading">' + esc(headerTitle || '山海册') + '</span>' +
+    if (mode === 'codex' || mode === 'codex-detail') {
+      return '<header class="qv14-fixture-hud ' + esc(mode) + '"><span class="qv14-codex-heading">' + esc(headerTitle || '山海册') + '</span>' +
         '<span class="qv14-fixture-resource energy"><i></i><b><span>灵力</span> 72/100</b><em>＋</em></span>' +
         '<span class="qv14-fixture-resource jade"><i></i><b><span>暖玉</span> 680</b><em>＋</em></span>' +
-        '<span class="qv14-fixture-resource chronicle"><i></i><b><span>宗门阅历</span> 6</b></span></header>';
+        '<span class="qv14-fixture-resource chronicle"><i></i><b><span>阅历</span> 6</b></span></header>';
     }
-    var chapter = mode === 'resources' || mode === 'energy-only' ? '' : '<span class="qv14-fixture-chapter">卷一 · 穷奇篇</span>';
+    var resourceOnly = /^(resources|bag|recipe|daily|journey|energy-only)$/.test(mode || '');
+    var chapter = resourceOnly ? '' : '<span class="qv14-fixture-chapter"><i aria-hidden="true">卷</i><b>卷一 · 穷奇篇</b></span>';
+    if (mode === 'journey') chapter = '<span class="qv14-fixture-chapter-orb" aria-hidden="true"></span>';
     var resources = '<span class="qv14-fixture-resource energy"><i></i><b><span>灵力</span> 72/100</b><em>＋</em></span>' +
       '<span class="qv14-fixture-resource jade"><i></i><b><span>暖玉</span> 680</b><em>＋</em></span>' +
-      '<span class="qv14-fixture-resource chronicle"><i></i><b><span>宗门阅历</span> 6</b></span>';
+      '<span class="qv14-fixture-resource chronicle"><i></i><b><span>阅历</span> 6</b></span>';
     if (mode === 'energy-only') resources = '<span class="qv14-fixture-resource energy"><i></i><b><span>灵力</span> 72/100</b><em>＋</em></span>';
     return '<header class="qv14-fixture-hud ' + esc(mode || 'standard') + '">' + chapter + resources + '</header>';
   }
@@ -101,7 +103,7 @@
     return pageShell(screen,
       '<button class="qv14-fixture-objective"><b>当前目标｜修好门灯</b><span>木条 0/1 · 麻绳 1/1</span><em>前往</em></button>' +
       '<section class="qv14-yard-stage">' + buildings.map(function (b) { return '<figure style="left:' + b[2] + '%;top:' + b[3] + '%">' + image(BUILD + b[0] + '_lv1.webp', b[1]) + '<figcaption>' + b[1] + '</figcaption></figure>'; }).join('') +
-      '<div class="qv14-yard-speech">今天也一起守门吗？</div>' + image(CHAR + 'qiongqi_lv1.webp', '穷奇', 'qv14-yard-beast') + '</section>');
+      '<div class="qv14-yard-speech">今天也一起守门吗？</div>' + image(CHAR + 'qiongqi_lv1.webp', '穷奇', 'qv14-yard-beast') + '</section>', { hud:'yard' });
   }
 
   function boardCells(count, locked) {
@@ -123,7 +125,7 @@
       '<div class="qv14-fixture-tabs"><b>卷章</b><b class="active">修缮</b><b>医案</b><b>访客</b><b>旅程</b></div>' +
       '<section class="qv14-fixture-merge"><div class="qv14-fixture-grid grid-7">' + boardCells(49,21) + '</div></section>' +
       '<aside class="qv14-fixture-rail"><b data-icon="chest">药匣<br><small>3/6</small></b><b data-icon="cabinet">配方柜</b><b data-icon="broom">整理</b><b data-icon="recycle">回收</b></aside>' +
-      '<button class="qv14-fixture-objective bottom"><b>修好门灯</b><span>木条 0/1 · 麻绳 1/1</span><em>查看目标</em></button>');
+      '<button class="qv14-fixture-objective bottom"><b>修好门灯</b><span>木条 0/1 · 麻绳 1/1</span><em>查看目标</em></button>', { hud:'merge' });
   }
 
   function mapPage(screen) {
@@ -131,13 +133,13 @@
     return pageShell(screen, title('宗门舆图') +
       '<div class="qv14-map-meta"><b>修缮 1/14</b><b>归灯 2/12</b></div>' +
       '<section class="qv14-map-route">' + labels.map(function (label,i) { return '<span class="node n' + i + ' ' + (i===0?'current':i<2?'done':'locked') + '"><i></i><b>' + label + '<small>' + (i < 2 ? '○ ○ ○' : '🔒') + '</small></b></span>'; }).join('') + '</section>' +
-      '<button class="qv14-map-next">下一步｜重修栖霞匾 <em>查看</em></button>');
+      '<button class="qv14-map-next">下一步｜重修栖霞匾 <em>查看</em></button>', { hud:'sect-map' });
   }
 
   function areaPage(screen) {
     return pageShell(screen, title('山门') + '<div class="qv14-stage-lights"><b class="on">荒废</b><i></i><b class="on">清理</b><i></i><b>焕新</b></div>' +
       '<section class="qv14-gate-focus"><strong>栖霞</strong></section>' +
-      '<section class="qv14-area-panel"><h2>当前修缮｜重挂栖霞匾</h2><div class="qv14-material-row">' + token(0,'木板 1/1','build') + token(3,'麻绳 0/1','cloth') + '</div>' + progress(55,'修缮进度 55%','jade') + '<button class="qv14-fixture-button">去灵阵准备</button><button>下一步｜清理修补山门</button></section>');
+      '<section class="qv14-area-panel"><h2>当前修缮｜重挂栖霞匾</h2><div class="qv14-material-row">' + token(0,'木板 1/1','build') + token(3,'麻绳 0/1','cloth') + '</div>' + progress(55,'修缮进度 55%','jade') + '<button class="qv14-fixture-button">去灵阵准备</button><button>下一步｜清理修补山门</button></section>', { hud:'sect-area' });
   }
 
   function carePage(screen) {
@@ -147,7 +149,7 @@
       '<div class="qv14-care-actions">' + [
         ['feed',5,'喂食'],['clean',1,'清洁'],['groom',1,'梳洗'],['play',1,'陪玩']
       ].map(function (x,i) { return '<button class="action-' + x[0] + '">' + tokenAsset(x[0],x[1],'') + '<b>' + x[2] + '</b>' + (i === 3 ? '<em>推荐</em>' : '') + '</button>'; }).join('') + '</div>' +
-      '<button class="qv14-care-letter"><span>🎁</span>　灯信｜彩球　<em>›</em></button>');
+      '<button class="qv14-care-letter"><span>🎁</span>　灯信｜彩球　<em>›</em></button>', { hud:'care' });
   }
 
   function groomPage(screen) {
@@ -183,7 +185,7 @@
   }
 
   function codexDetailPage(screen) {
-    return pageShell(screen,'<div class="qv14-fixture-tabs"><b class="active">本相</b><b>宗门实录</b><b>牵挂</b></div><section class="qv14-codex-detail"><div><small>初来</small>'+image(CHAR+'qiongqi_lv1.webp','初来')+'</div><div><small>如今</small>'+image(CHAR+'qiongqi_lv5.webp','如今')+'</div></section><div class="qv14-growth"><b>成长 5/5</b><span>✿ ✿ ✿ ✿ ✿</span></div><div class="qv14-trait">🐾　状如虎，有翼。</div><section class="qv14-detail-cards"><article><b>♢　职责</b><strong>门卫 / 安保</strong><div class="qv14-story-mini"><b>卷一故事　3/3</b><span>✓　✓　✓　›</span></div><button>选择形态</button></article><article><b>♧　职责收益</b><span>每 90 分钟带回<br><em>3</em> 份补给</span>'+image(BUILD+'clinic_lv1.webp','山门','qv14-duty-building')+'<button>去庭院看看</button></article></section>',{hud:'codex',headerTitle:'穷奇'});
+    return pageShell(screen,'<div class="qv14-fixture-tabs"><b class="active">本相</b><b>宗门实录</b><b>牵挂</b></div><section class="qv14-codex-detail"><div><small>初来</small>'+image(CHAR+'qiongqi_lv1.webp','初来')+'</div><div><small>如今</small>'+image(CHAR+'qiongqi_lv5.webp','如今')+'</div></section><div class="qv14-growth"><b>成长 5/5</b><span>✿ ✿ ✿ ✿ ✿</span></div><div class="qv14-trait">🐾　状如虎，有翼。</div><section class="qv14-detail-cards"><article><b>♢　职责</b><strong>门卫 / 安保</strong><div class="qv14-story-mini"><b>卷一故事　3/3</b><span>✓　✓　✓　›</span></div><button>选择形态</button></article><article><b>♧　职责收益</b><span>每 90 分钟带回<br><em>3</em> 份补给</span>'+image(BUILD+'clinic_lv1.webp','山门','qv14-duty-building')+'<button>去庭院看看</button></article></section>',{hud:'codex-detail',headerTitle:'穷奇'});
   }
 
   function storyPage(screen) {
@@ -195,24 +197,24 @@
   }
 
   function bagPage(screen, recipe) {
-    if (recipe) return pageShell(screen,title('配方')+'<div class="qv14-fixture-tabs primary"><b>药匣</b><b class="active">配方</b><b>灵器</b></div><div class="qv14-fixture-tabs filters"><b class="active">全部</b><b>药材</b><b>木作</b><b>织物</b></div><section class="qv14-recipe-focus"><h2>安神药包</h2><p>用于穷奇疗愈与卷一医案</p><div>'+tokenAsset('herb',3,'宁神草 1/1')+'<b>＋</b>'+tokenAsset('cloth',4,'布条 1/1')+'<b>→</b>'+tokenAsset('charm',3,'安神药包')+'</div><button class="qv14-fixture-button">开始调配</button></section><section class="qv14-locked-recipes"><article>'+image(UI+'items/recipes/prod_bed.webp','灵木床','qv14-locked-recipe-art')+'<b>灵木床</b><span>卷二　🔒</span><button>查看条件</button></article><article>'+image(UI+'items/recipes/prod_meal.webp','疗愈餐','qv14-locked-recipe-art')+'<b>疗愈餐</b><span>卷三　🔒</span><button>查看条件</button></article></section>',{hud:'resources',back:true});
+    if (recipe) return pageShell(screen,title('配方')+'<div class="qv14-fixture-tabs primary"><b>药匣</b><b class="active">配方</b><b>灵器</b></div><div class="qv14-fixture-tabs filters"><b class="active">全部</b><b>药材</b><b>木作</b><b>织物</b></div><section class="qv14-recipe-focus"><h2>安神药包</h2><p>用于穷奇疗愈与卷一医案</p><div>'+tokenAsset('herb',3,'宁神草 1/1')+'<b>＋</b>'+tokenAsset('cloth',4,'布条 1/1')+'<b>→</b>'+tokenAsset('charm',3,'安神药包')+'</div><button class="qv14-fixture-button">开始调配</button></section><section class="qv14-locked-recipes"><article>'+image(UI+'items/recipes/prod_bed.webp','灵木床','qv14-locked-recipe-art')+'<b>灵木床</b><span>卷二　🔒</span><button>查看条件</button></article><article>'+image(UI+'items/recipes/prod_meal.webp','疗愈餐','qv14-locked-recipe-art')+'<b>疗愈餐</b><span>卷三　🔒</span><button>查看条件</button></article></section>',{hud:'recipe',back:true});
     var bagItems=[tokenAsset('herb',3,'宁神草　×12'),tokenAsset('cloth',4,'麻线　×8'),tokenAsset('build',2,'木板　×15')];
-    return pageShell(screen,title('药匣')+'<div class="qv14-fixture-tabs primary"><b class="active">素材</b><b>配方</b><b>灵器</b></div><div class="qv14-fixture-tabs filters"><b class="active">全部</b><b>药材</b><b>木作</b><b>织物</b></div><p class="qv14-capacity">药匣 3/6</p><section class="qv14-bag-grid">'+new Array(6).fill(0).map(function(_,i){return '<article class="'+(i<3?'filled':'empty')+'">'+(i<3?bagItems[i]+'<em>二阶</em>':'<i>＋</i><small>空闲栏位</small>')+'</article>';}).join('')+'</section><p class="qv14-bag-note">高阶素材先收在这里。</p><div class="qv14-bag-footer"><span>扩容｜暖玉 160</span><button class="qv14-fixture-button">整理</button></div>',{hud:'resources'});
+    return pageShell(screen,title('药匣')+'<div class="qv14-fixture-tabs primary"><b class="active">素材</b><b>配方</b><b>灵器</b></div><div class="qv14-fixture-tabs filters"><b class="active">全部</b><b>药材</b><b>木作</b><b>织物</b></div><p class="qv14-capacity">药匣 3/6</p><section class="qv14-bag-grid">'+new Array(6).fill(0).map(function(_,i){return '<article class="'+(i<3?'filled':'empty')+'">'+(i<3?bagItems[i]+'<em>二阶</em>':'<i>＋</i><small>空闲栏位</small>')+'</article>';}).join('')+'</section><p class="qv14-bag-note">高阶素材先收在这里。</p><div class="qv14-bag-footer"><span>扩容｜暖玉 160</span><button class="qv14-fixture-button">整理</button></div>',{hud:'bag'});
   }
 
   function dailyPage(screen) {
     var beasts=[CHAR+'qiongqi_lv1.webp',NPC+'daily_guardian_aqua.webp',BEAST+'jiuweihu/jiuweihu_lv5.webp'];
-    return pageShell(screen,title('今日卷册')+'<div class="qv14-fixture-tabs"><b class="active">今日目标</b><b>七日约定</b><b>周挑战</b></div><section class="qv14-daily-list">'+['完成 5 次合并','收取 2 封灯信','完成 1 次照料'].map(function(x,i){return '<article><em>'+(i+1)+'</em>'+image(beasts[i],x)+'<div><b>'+x+'</b>'+progress([60,50,100][i],[3,1,1][i]+'/'+[5,2,1][i],i===2?'jade':'gold')+'</div><aside><small>奖励</small>暖玉 '+[25,35,20][i]+'<br>宗门阅历 '+[10,15,8][i]+'</aside></article>';}).join('')+'</section><section class="qv14-daily-total"><b>今日可得　暖玉 80　宗门阅历 33</b></section><section class="qv14-week-track"><b>七日约定</b>'+new Array(7).fill(0).map(function(_,i){return '<i class="'+(i<4?'on':'')+'">'+(i+1)+'</i>';}).join('')+'</section>',{hud:'resources',back:true});
+    return pageShell(screen,title('今日卷册')+'<div class="qv14-fixture-tabs"><b class="active">今日目标</b><b>七日约定</b><b>周挑战</b></div><section class="qv14-daily-list">'+['完成 5 次合并','收取 2 封灯信','完成 1 次照料'].map(function(x,i){return '<article><em>'+(i+1)+'</em>'+image(beasts[i],x)+'<div><b>'+x+'</b>'+progress([60,50,100][i],[3,1,1][i]+'/'+[5,2,1][i],i===2?'jade':'gold')+'</div><aside><small>奖励</small>暖玉 '+[25,35,20][i]+'<br>宗门阅历 '+[10,15,8][i]+'</aside></article>';}).join('')+'</section><section class="qv14-daily-total"><b>今日可得　暖玉 80　宗门阅历 33</b></section><section class="qv14-week-track"><b>七日约定</b>'+new Array(7).fill(0).map(function(_,i){return '<i class="'+(i<4?'on':'')+'">'+(i+1)+'</i>';}).join('')+'</section>',{hud:'daily',back:true});
   }
 
   function journeyPage(screen) {
     var names=['穷奇','九尾狐','饕餮','帝江','毕方','白泽','梼杌','烛龙','貔貅','麒麟','凤凰','鲲鹏'];
-    return pageShell(screen,title('山海旅程')+'<section class="qv14-journey-route">'+names.map(function(n,i){return '<span class="j'+i+' '+(i===0?'current':'locked')+'"><i>'+(i===0?image(CHAR+'qiongqi_lv1.webp',n):'')+'</i><b>卷'+(i+1)+' · '+n+'</b></span>';}).join('')+'</section><button class="qv14-journey-cta">'+image(BEAST+'jiuweihu/jiuweihu_lv5.webp','九尾狐')+'<span>准备九尾狐的灯信<br><em>前往当前卷</em></span></button><section class="qv14-journey-metrics"><b>第一段结局<br><em>1/3</em></b><strong>当前目标<br>准备九尾狐的灯信</strong><b>山海终章<br><em>1/12</em></b></section>',{hud:'resources'});
+    return pageShell(screen,title('山海旅程')+'<section class="qv14-journey-route">'+names.map(function(n,i){return '<span class="j'+i+' '+(i===0?'current':'locked')+'"><i>'+(i===0?image(CHAR+'qiongqi_lv1.webp',n):'')+'</i><b>卷'+(i+1)+' · '+n+'</b></span>';}).join('')+'</section><button class="qv14-journey-cta">'+image(BEAST+'jiuweihu/jiuweihu_lv5.webp','九尾狐')+'<span>准备九尾狐的灯信<br><em>前往当前卷</em></span></button><section class="qv14-journey-metrics"><b>第一段结局<br><em>1/3</em></b><strong>当前目标<br>准备九尾狐的灯信</strong><b>山海终章<br><em>1/12</em></b></section>',{hud:'journey'});
   }
 
   function backgroundPage(screen) {
     var cards=[['bg_courtyard_spring_day_thumb.webp','晨光庭院'],['bg_courtyard_sunset_thumb.webp','桃霞山庭'],['bg_courtyard_moonlit_thumb.webp','月影竹径'],['bg_toy_tower_fox_lantern_thumb.webp','狐灯夜庭']];
-    return pageShell(screen,title('庭院换景')+'<section class="qv14-scene-stage">'+image(BUILD+'clinic_lv1.webp','医馆','clinic')+image(BUILD+'play_lv1.webp','嬉游亭','play')+'</section><section class="qv14-scene-grid">'+cards.map(function(c,i){return '<article class="'+(i===1?'selected':'')+'">'+image(THUMB+c[0],c[1])+'<b>'+c[1]+'</b><small>'+(i===0?'已拥有':i===1?'暖玉 180':'解锁条件')+'</small></article>';}).join('')+'</section><section class="qv14-scene-preview">'+image(THUMB+'bg_courtyard_sunset_thumb.webp','桃霞山庭')+'<b>桃霞山庭</b><p>晚霞落在山间和庭院里，适合安静陪伴。</p><button class="qv14-fixture-button">购买并使用｜暖玉 180</button><button>返回庭院</button></section>',{back:true});
+    return pageShell(screen,title('庭院换景')+'<section class="qv14-scene-stage">'+image(BUILD+'clinic_lv1.webp','医馆','clinic')+image(BUILD+'play_lv1.webp','嬉游亭','play')+'</section><section class="qv14-scene-grid">'+cards.map(function(c,i){return '<article class="'+(i===1?'selected':'')+'">'+image(THUMB+c[0],c[1])+'<b>'+c[1]+'</b><small>'+(i===0?'已拥有':i===1?'暖玉 180':'解锁条件')+'</small></article>';}).join('')+'</section><section class="qv14-scene-preview">'+image(THUMB+'bg_courtyard_sunset_thumb.webp','桃霞山庭')+'<b>桃霞山庭</b><p>晚霞落在山间和庭院里，适合安静陪伴。</p><button class="qv14-fixture-button">购买并使用｜暖玉 180</button><button>返回庭院</button></section>',{hud:'background',back:true});
   }
 
   function settingsPage(screen) {

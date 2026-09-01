@@ -29,8 +29,8 @@
     ],
     "stages_per_authored_area": 4
   },
-  "asset_count": 502,
-  "total_bytes": 33546999,
+  "asset_count": 506,
+  "total_bytes": 33843139,
   "fonts": [
     {
       "family": "Qixia WenKai",
@@ -5639,6 +5639,54 @@
       "bytes": 10782,
       "sha256": "e105ee69a4807f501264a9f1edcb5ce649a60e8f283b333823b34c37183ae1f1",
       "bundle": "story"
+    },
+    {
+      "path": "ui/labels/resource_pill_design.webp",
+      "source": "03_灵阵合并页.png / top resource pill",
+      "source_type": "imagegen_reference_edit",
+      "width": 600,
+      "height": 194,
+      "alpha": true,
+      "bytes": 112990,
+      "sha256": "6575a4974514e0bf95708fdf9ef0e97e31eb35a6722cf607c69474230a18fadd",
+      "bundle": "ui-common",
+      "prompt": "Blank compact cream parchment resource pill matching the authored top bar, no icon or text, transparent background."
+    },
+    {
+      "path": "ui/resources/resource_energy_design.webp",
+      "source": "03_灵阵合并页.png / 灵力 icon",
+      "source_type": "imagegen_reference_edit",
+      "width": 256,
+      "height": 277,
+      "alpha": true,
+      "bytes": 71136,
+      "sha256": "1c8448ddeccf52f49ac096c2f6c83275461d59f0cc040549badeb8e474d04fea",
+      "bundle": "ui-common",
+      "prompt": "Large aqua-blue circular spirit-water swirl from the authored top bar, icon only, transparent background."
+    },
+    {
+      "path": "ui/resources/resource_jade_design.webp",
+      "source": "03_灵阵合并页.png / 暖玉 icon",
+      "source_type": "imagegen_reference_edit",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "bytes": 62116,
+      "sha256": "21dbb45151094a19fbdf73d7de37c53d6473ec6dda5d6bcc987d38491ba930ba",
+      "bundle": "ui-common",
+      "prompt": "Rounded green notched warm-jade disc from the authored top bar, icon only, transparent background."
+    },
+    {
+      "path": "ui/resources/resource_chronicle_design.webp",
+      "source": "03_灵阵合并页.png / 阅历 icon",
+      "source_type": "imagegen_reference_edit",
+      "width": 212,
+      "height": 256,
+      "alpha": true,
+      "bytes": 49898,
+      "sha256": "788f08245f46c99eee95732adfe840c481c4d5e36e974043fcc04d4ebcf61879",
+      "bundle": "ui-common",
+      "prompt": "Warm parchment experience tally-scroll from the authored top bar, icon only, transparent background."
     }
   ]
 }
