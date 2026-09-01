@@ -692,7 +692,9 @@
 
   function releaseLongPress() {
     if (!longPressState) return;
-    if (longPressState.timer) root.clearTimeout(longPressState.timer);
+    var record = longPressState;
+    if (record.timer) root.clearTimeout(record.timer);
+    if (record.target && record.target.classList) record.target.classList.remove('longpress-armed');
     longPressState = null;
   }
 
@@ -702,16 +704,20 @@
     var record = {
       target: target,
       pointerId: event.pointerId,
+      pointerType: event.pointerType || 'mouse',
       startX: event.clientX,
       startY: event.clientY,
       fired: false,
       timer: null
     };
+    if (target.classList) target.classList.add('longpress-armed');
     record.timer = root.setTimeout(function () {
       if (longPressState !== record) return;
       record.fired = true;
+      if (record.target && record.target.classList) record.target.classList.remove('longpress-armed');
       longPressState = null;
       suppressClickUntil = Date.now() + 850;
+      if (root.navigator && typeof root.navigator.vibrate === 'function') root.navigator.vibrate(8);
       openLongPressDetails(record.target);
     }, LONG_PRESS_MS);
     longPressState = record;
@@ -721,7 +727,8 @@
     if (!longPressState || longPressState.pointerId !== event.pointerId) return;
     var dx = Number(event.clientX) - Number(longPressState.startX);
     var dy = Number(event.clientY) - Number(longPressState.startY);
-    if (dx * dx + dy * dy > 14 * 14) releaseLongPress();
+    var tolerance = longPressState.pointerType === 'touch' ? 20 : 14;
+    if (dx * dx + dy * dy > tolerance * tolerance) releaseLongPress();
   }
 
   function bindLongPress(container, selector) {
@@ -1908,8 +1915,33 @@ var MODULE_HELP = {
     labels['assemble-project'] = '查看修缮案';
     var action = hint && hint.action || 'show-objective';
     var progress = hint && hint.progress && hint.progress.label ? '<span class="next-action-progress">' + esc(hint.progress.label) + '</span>' : '';
+    var objectiveArt = '';
+    var objectiveAlt = hint && hint.text || '当前目标';
+    var projectStatus = hint && hint.project;
+    if (!projectStatus && hint && hint.order && hint.order.projectId && Core.projectStatus) projectStatus = Core.projectStatus(state, hint.order.projectId);
+    /* 设计稿的目标条使用修复后的成果小像（如点亮的门灯），不是通用路线符号。 */
+    if (projectStatus && projectStatus.object) objectiveArt = projectStatus.object.repairedArt || projectStatus.object.brokenArt || '';
+    if (!objectiveArt && hint && hint.family) objectiveArt = itemPath(Core.makeItem(hint.family, Math.max(1, Number(hint.tier) || 1)));
+    if (!objectiveArt && hint && hint.order && hint.order.productNeed) {
+      objectiveArt = recipeArtPath(recipeDefinition(hint.order.productNeed.productId));
+    }
+    if (!objectiveArt && hint && hint.type === 'care') {
+      var careBuilding = DATA.buildings && DATA.buildings[hint.careType || 'play'];
+      objectiveArt = careBuilding && careBuilding.art && careBuilding.art[0] || '';
+    }
+    if (!objectiveArt && hint && hint.type === 'visitor_response') {
+      var pendingVisitor = state.visitors && state.visitors.pending;
+      var visitor = pendingVisitor && visitorDef(pendingVisitor.visitorId);
+      objectiveArt = visitor && visitor.art || '';
+    }
+    if (!objectiveArt && hint && (hint.type === 'transformation' || hint.type === 'job')) {
+      var objectiveBeast = beastDef(hint.beastId || display.id);
+      var objectiveEntry = state.beastCases && state.beastCases[objectiveBeast.id];
+      objectiveArt = objectiveEntry && beastArt(objectiveBeast, objectiveEntry) || '';
+    }
+    if (!objectiveArt) objectiveArt = 'assets/art/ui-v14/decor/lantern_lit.webp';
     node.title = String(hint && hint.text || '继续旅程') + (hint && hint.detail ? '：' + hint.detail : '');
-    node.innerHTML = '<button class="next-action-button" data-objective-action="' + esc(action) + '" data-objective-order="' + esc(hint && hint.order && hint.order.id || '') + '" data-objective-area="' + esc(hint && hint.areaId || '') + '" data-objective-care="' + esc(hint && hint.careType || '') + '" data-objective-family="' + esc(hint && hint.family || '') + '" data-objective-tier="' + esc(hint && hint.tier || '') + '" type="button" aria-label="' + esc((labels[action] || '查看当前目标') + '：' + (hint && hint.text || '') + (hint && hint.detail ? '。' + hint.detail : '')) + '">' + uiIcon('route') + '</button>' +
+    node.innerHTML = '<button class="next-action-button" data-objective-action="' + esc(action) + '" data-objective-order="' + esc(hint && hint.order && hint.order.id || '') + '" data-objective-area="' + esc(hint && hint.areaId || '') + '" data-objective-care="' + esc(hint && hint.careType || '') + '" data-objective-family="' + esc(hint && hint.family || '') + '" data-objective-tier="' + esc(hint && hint.tier || '') + '" type="button" aria-label="' + esc((labels[action] || '查看当前目标') + '：' + (hint && hint.text || '') + (hint && hint.detail ? '。' + hint.detail : '')) + '"><img class="next-action-art" src="' + esc(objectiveArt) + '" alt="' + esc(objectiveAlt) + '" /></button>' +
       '<div class="next-action-copy"><strong>当前目标：' + esc(hint && hint.text || '继续旅程') + '</strong><span>' + esc(hint && hint.detail || '') + '</span></div>' + progress;
   }
 
@@ -2249,7 +2281,7 @@ var MODULE_HELP = {
       if (index === cabinetIndex) {
         classes.push('recipe-cabinet-cell');
         label = '配方柜：查看成品与配方台';
-        content = '<span class="recipe-cabinet-cell-icon" aria-hidden="true">' + uiIcon('recipe') + '</span><em>配方柜</em>';
+        content = '<img class="recipe-cabinet-board-art" src="assets/art/ui-v14/ui/gameplay/tool_icons/tool_recipe.webp" alt="" aria-hidden="true" /><em>配方柜</em>';
         cells.push('<button class="' + classes.join(' ') + '" data-grid-index="' + index + '" data-recipe-cabinet type="button" aria-label="' + esc(label) + '">' + content + '</button>');
         continue;
       }
@@ -2284,7 +2316,8 @@ var MODULE_HELP = {
         content = '<img src="' + esc(itemPath(item)) + '" alt="" /><b>' + item.tier + '</b>';
       }
       var longPress = item && item.kind === 'generator' ? ' data-longpress-generator="' + esc(item.family) + '"' : item && (!item.kind || item.kind === 'generator_part') ? ' data-longpress-family="' + esc(item.family) + '" data-longpress-tier="' + item.tier + '" data-longpress-source="' + (item.kind === 'generator_part' ? '生产器部件' : '归灵台') + '"' : '';
-      cells.push('<button class="' + classes.join(' ') + '" data-grid-index="' + index + '"' + longPress + ' role="gridcell" type="button" aria-label="' + esc(label) + '">' + content + '</button>');
+      var longPressTitle = item && (item.kind === 'generator' || !item.kind || item.kind === 'generator_part') ? ' title="长按查看' + esc(label) + '的说明与合成路线"' : '';
+      cells.push('<button class="' + classes.join(' ') + '" data-grid-index="' + index + '"' + longPress + longPressTitle + ' role="gridcell" type="button" aria-label="' + esc(label) + '">' + content + '</button>');
     }
     board.innerHTML = cells.join('');
     boardMotionFeedback = null;
@@ -3754,6 +3787,7 @@ var MODULE_HELP = {
     if (index >= state.unlockedCells || !item || item.kind && item.kind !== 'generator' && item.kind !== 'generator_part') return;
     boardDragState = {
       pointerId: event.pointerId,
+      pointerType: event.pointerType || 'mouse',
       fromIndex: index,
       startX: Number(event.clientX) || 0,
       startY: Number(event.clientY) || 0,
@@ -3767,7 +3801,8 @@ var MODULE_HELP = {
     var dx = (Number(event.clientX) || 0) - boardDragState.startX;
     var dy = (Number(event.clientY) || 0) - boardDragState.startY;
     if (!boardDragState.dragging) {
-      if (dx * dx + dy * dy < 8 * 8) return;
+      var dragThreshold = boardDragState.pointerType === 'touch' ? 22 : 8;
+      if (dx * dx + dy * dy < dragThreshold * dragThreshold) return;
       boardDragState.dragging = true;
       releaseLongPress();
       var board = q('merge-board');
@@ -5214,6 +5249,8 @@ var MODULE_HELP = {
     /* 长按弹出说明后，紧随其后的 click 会被吞掉，避免“想长按看说明却误触了模块”。 */
     document.addEventListener('click', function (event) {
       if (readOnlyNewerSave && event.target.closest(mutationSelector)) { stopReadOnlyMutation(event); return; }
+      /* 防误触只针对原页面；说明已经打开后，关闭/前往等弹窗操作必须立即可用。 */
+      if (event.target.closest('#modal-root')) { suppressClickUntil = 0; return; }
       if (!consumeSuppressedClick()) return;
       event.stopImmediatePropagation();
       event.preventDefault();

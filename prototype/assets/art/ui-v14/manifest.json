@@ -5687,6 +5687,54 @@
       "sha256": "788f08245f46c99eee95732adfe840c481c4d5e36e974043fcc04d4ebcf61879",
       "bundle": "ui-common",
       "prompt": "Warm parchment experience tally-scroll from the authored top bar, icon only, transparent background."
+    },
+    {
+      "path": "ui/gameplay/tool_icons/tool_storage.webp",
+      "source": "03_灵阵合并页.png / 药匣 tool reference",
+      "source_type": "imagegen_reference_edit",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "bytes": 18342,
+      "sha256": "7530abccfe1a5646a2c35aef76b8aca6ad926208f558b2d65484bd0a9b2fbb1b",
+      "bundle": "ui-merge",
+      "prompt": "Ancient Chinese wooden medicine chest with brass corners and tied tools, warm hand-painted mobile game UI style, isolated icon, transparent background, no frame or text."
+    },
+    {
+      "path": "ui/gameplay/tool_icons/tool_recipe.webp",
+      "source": "03_灵阵合并页.png / 配方柜 tool reference",
+      "source_type": "imagegen_reference_edit",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "bytes": 14112,
+      "sha256": "1f4f1071d05f568933a389921292ad236d2a19e4bb2954aa2a6b5d7460354544",
+      "bundle": "ui-merge",
+      "prompt": "Ancient Chinese wooden recipe cabinet with lattice doors and brass fittings, warm hand-painted mobile game UI style, isolated icon, transparent background, no frame or text."
+    },
+    {
+      "path": "ui/gameplay/tool_icons/tool_sort.webp",
+      "source": "03_灵阵合并页.png / 整理 tool reference",
+      "source_type": "imagegen_reference_edit",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "bytes": 14958,
+      "sha256": "c6ba16f7bda82ffc2cebe134905d9c60e72dc90d82cf115289ef3225054ed6b2",
+      "bundle": "ui-merge",
+      "prompt": "Traditional Chinese straw hand broom with bamboo handle, green collar and leaf accents, warm hand-painted mobile game UI style, isolated icon, transparent background, no frame or text."
+    },
+    {
+      "path": "ui/gameplay/tool_icons/tool_recycle.webp",
+      "source": "03_灵阵合并页.png / 回收 tool reference",
+      "source_type": "imagegen_reference_edit",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "bytes": 15474,
+      "sha256": "61bb5efd56d4a9a9b1859021087f6ec8219d963caa511927fbc08f1db7d19998",
+      "bundle": "ui-merge",
+      "prompt": "Small beige cloth recycling sack with green rope and clear three-arrow recycle emblem, warm hand-painted mobile game UI style, isolated icon, transparent background, no frame or text."
     }
   ]
 }

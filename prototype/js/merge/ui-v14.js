@@ -743,10 +743,10 @@
     rail.className = 'qv14-board-rail ui-v13-board-rail';
     rail.setAttribute('aria-label', '灵阵快捷工具');
     rail.innerHTML =
-      '<button type="button" data-qv14-tool="storage">' + icon('area-storage') + '<span>' + esc(term('storage', '药匣')) + '</span></button>' +
-      '<button type="button" data-qv14-tool="recipe">' + icon('recipe') + '<span>配方</span></button>' +
-      '<button type="button" data-qv14-tool="sort" aria-label="整理归灵台，生成器保持原位">' + icon('daily-merge') + '<span>整理</span></button>' +
-      '<button type="button" data-qv14-tool="recycle">' + icon('material-tool') + '<span>回收</span></button>';
+      '<button type="button" data-qv14-tool="storage">' + assetImage('ui/gameplay/tool_icons/tool_storage.webp', '', 'qv14-board-tool-icon') + '<span>' + esc(term('storage', '药匣')) + '</span></button>' +
+      '<button type="button" data-qv14-tool="recipe">' + assetImage('ui/gameplay/tool_icons/tool_recipe.webp', '', 'qv14-board-tool-icon') + '<span>配方</span></button>' +
+      '<button type="button" data-qv14-tool="sort" aria-label="整理归灵台，生成器保持原位">' + assetImage('ui/gameplay/tool_icons/tool_sort.webp', '', 'qv14-board-tool-icon') + '<span>整理</span></button>' +
+      '<button type="button" data-qv14-tool="recycle">' + assetImage('ui/gameplay/tool_icons/tool_recycle.webp', '', 'qv14-board-tool-icon') + '<span>回收</span></button>';
     stage.appendChild(rail);
   }
 

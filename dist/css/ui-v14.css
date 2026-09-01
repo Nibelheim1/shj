@@ -4035,3 +4035,124 @@
   .qixia-v14[data-ui-screen="codex"] .slice-hud .hud-energy .hud-copy b { font-size:7.5px; }
   .qixia-v14[data-ui-screen="codex"] .slice-hud .hud-jade .hud-copy b { font-size:7.5px; }
 }
+
+/* ============================================================
+   Merge polish: authored tool art, reliable hold help and aligned grid
+   ============================================================ */
+
+/* The design board already paints the complete 7x7 lattice. DOM cells remain
+   transparent hit targets so a second rounded grid cannot drift over it. */
+.qixia-v14 #merge-board .merge-cell:not(.locked):not(.recipe-cabinet-cell) {
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+.qixia-v14 #merge-board .merge-cell.longpress-armed {
+  outline:2px solid rgba(211,91,60,.74);
+  outline-offset:-2px;
+  background:rgba(255,244,204,.2);
+}
+.qixia-v14 #merge-board .recipe-cabinet-board-art {
+  width:76%;
+  height:70%;
+  object-fit:contain;
+  filter:drop-shadow(0 2px 2px rgba(71,45,27,.24));
+}
+
+.qixia-v14 .qv14-board-rail button {
+  gap:2px;
+}
+.qixia-v14 .qv14-board-rail .qv14-board-tool-icon {
+  position:relative;
+  width:31px;
+  height:31px;
+  flex:0 0 31px;
+  object-fit:contain;
+  filter:drop-shadow(0 1px 1px rgba(70,43,24,.25));
+  pointer-events:none;
+}
+.qixia-v14[data-ui-layout="compact"] #merge-view .qv14-board-rail .qv14-board-tool-icon {
+  width:27px;
+  height:27px;
+  flex-basis:27px;
+}
+
+/* Authored objective tabs are text plaques; remove the old generic circles. */
+.qixia-v14 .ui-objective-tabs button::before { display:none; }
+.qixia-v14 .ui-objective-tabs button { padding:5px 3px; }
+
+/* Current objective always uses the live quest/material/facility artwork. */
+.qixia-v14 #merge-view #next-action .next-action-button {
+  width:54px;
+  height:54px;
+  min-height:54px;
+  padding:2px;
+  overflow:visible;
+  border-radius:0;
+  background:transparent;
+}
+.qixia-v14 #merge-view #next-action .next-action-art {
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:contain;
+  filter:drop-shadow(0 2px 2px rgba(74,48,30,.25));
+}
+
+/* A ten-tier route must remain readable without turning the explanation into a
+   several-screen list. Pair the live tiers while preserving every step. */
+.qixia-v14 #modal-root .item-route-modal .item-route-list {
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+}
+.qixia-v14 #modal-root .item-route-modal .route-step {
+  min-width:0;
+  min-height:54px;
+  padding:5px 7px;
+  grid-template-columns:36px minmax(0,1fr);
+  grid-template-rows:auto auto;
+  gap:0 6px;
+  border-radius:7px;
+}
+.qixia-v14 #modal-root .item-route-modal .route-step img {
+  grid-row:1 / 3;
+  width:36px;
+  height:36px;
+}
+.qixia-v14 #modal-root .item-route-modal .route-step b,
+.qixia-v14 #modal-root .item-route-modal .route-step small {
+  min-width:0;
+  overflow:hidden;
+  font-size:10px;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+
+/* The base sheet enlarged only the /max child. Both halves inherit the same
+   calibrated type size so 100/100 reads as one value. */
+.qixia-v14 .slice-hud .hud-energy .hud-copy b,
+.qixia-v14[data-ui-screen="merge"] .slice-hud .hud-energy .hud-copy b {
+  font-size:8.5px !important;
+  letter-spacing:0;
+}
+.qixia-v14 .slice-hud .hud-energy .energy-current,
+.qixia-v14 .slice-hud .hud-energy .energy-max {
+  font-size:inherit !important;
+  font-weight:inherit;
+  line-height:inherit;
+  letter-spacing:inherit;
+}
+
+/* Keep all five labels inside the lower paper plaques, including 山海册. */
+.qixia-v14 .slice-nav:has(.nav-button.active) .nav-button small,
+.qixia-v14 .slice-nav .nav-button small,
+.qixia-v14 .slice-nav .nav-button.active small {
+  bottom:3px;
+  height:22px;
+}
+@media (max-height:700px) {
+  .qixia-v14 .slice-nav:has(.nav-button.active) .nav-button small,
+  .qixia-v14 .slice-nav .nav-button small,
+  .qixia-v14 .slice-nav .nav-button.active small { bottom:1px; height:19px; }
+}

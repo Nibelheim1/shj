@@ -130,6 +130,7 @@ function near(a, b, tolerance = 0.05) {
             labelBox:rect(label),
             labelFont:labelStyle.fontFamily,
             labelSize:labelStyle.fontSize,
+            labelBottom:Number.parseFloat(labelStyle.bottom),
             labelTransform:labelStyle.transform,
             labelTranslate:labelStyle.translate,
             labelScale:labelStyle.scale
@@ -149,6 +150,7 @@ function near(a, b, tolerance = 0.05) {
         assert(button.labelTranslate === 'none', `${screen}/${button.view}: label translate=${button.labelTranslate}`);
         assert(button.labelScale === 'none', `${screen}/${button.view}: label scale=${button.labelScale}`);
         assert(/Qixia WenKai/.test(button.labelFont), `${screen}/${button.view}: label is not the Kaiti-family font`);
+        assert(button.labelBottom >= 0 && button.labelBottom <= 4, `${screen}/${button.view}: label was not moved into the lower plaque (${button.labelBottom}px)`);
         assert(button.background === 'none', `${screen}/${button.view}: button still swaps CSS artwork ${button.background}`);
         assert(/_normal\.webp$/.test(button.artSource), `${screen}/${button.view}: stable normal artwork is missing`);
         assert(button.artTransform === 'none' && button.artTranslate === 'none' && button.artScale === 'none', `${screen}/${button.view}: artwork is transformed`);
@@ -173,6 +175,70 @@ function near(a, b, tolerance = 0.05) {
 
     await page.locator('.slice-nav .nav-button[data-view="merge-view"]').click();
     await page.waitForFunction(() => document.documentElement.getAttribute('data-ui-screen') === 'merge');
+
+    const mergePolish = await page.evaluate(() => {
+      const energy = document.querySelector('.slice-hud .hud-energy');
+      const current = energy && energy.querySelector('.energy-current');
+      const max = energy && energy.querySelector('.energy-max');
+      const objective = document.querySelector('#next-action .next-action-button');
+      const objectiveArt = objective && objective.querySelector('.next-action-art');
+      const sampleCell = document.querySelector('#merge-board .merge-cell[data-longpress-family]:not(.locked)') || document.querySelector('#merge-board .merge-cell:not(.locked):not(.recipe-cabinet-cell)');
+      const tabs = document.querySelector('.ui-objective-tabs button');
+      const toolButtons = Array.from(document.querySelectorAll('.qv14-board-rail [data-qv14-tool]'));
+      return {
+        energyCurrentSize:current && getComputedStyle(current).fontSize,
+        energyMaxSize:max && getComputedStyle(max).fontSize,
+        energyParentSize:current && getComputedStyle(current.parentElement).fontSize,
+        screen:document.documentElement.getAttribute('data-ui-screen'),
+        objectiveImage:objectiveArt && objectiveArt.getAttribute('src'),
+        objectiveHasSvg:!!(objective && objective.querySelector('svg')),
+        tabBeforeDisplay:tabs && getComputedStyle(tabs, '::before').display,
+        boardBackground:getComputedStyle(document.querySelector('.qv14-board-stage')).backgroundImage,
+        cellBackground:getComputedStyle(sampleCell).backgroundImage,
+        cellBackgroundColor:getComputedStyle(sampleCell).backgroundColor,
+        cellBoxShadow:getComputedStyle(sampleCell).boxShadow,
+        tools:toolButtons.map((button) => {
+          const image = button.querySelector('.qv14-board-tool-icon');
+          return {
+            id:button.dataset.qv14Tool,
+            source:image && image.getAttribute('src'),
+            loaded:!!image && image.complete && image.naturalWidth > 0,
+            hasSvg:!!button.querySelector('svg')
+          };
+        })
+      };
+    });
+    assert(mergePolish.energyCurrentSize === mergePolish.energyMaxSize, `merge: energy value sizes differ (${mergePolish.energyCurrentSize}/${mergePolish.energyMaxSize})`);
+    assert(Number.parseFloat(mergePolish.energyCurrentSize) <= 9, `merge: energy 100 is still oversized (${JSON.stringify({ screen:mergePolish.screen, current:mergePolish.energyCurrentSize, max:mergePolish.energyMaxSize, parent:mergePolish.energyParentSize })})`);
+    assert(mergePolish.objectiveImage && !mergePolish.objectiveHasSvg, 'merge: current objective is still a generic SVG schematic');
+    assert(mergePolish.tabBeforeDisplay === 'none', `merge: generic objective-tab circles remain (${mergePolish.tabBeforeDisplay})`);
+    assert(/merge_board_7x7\.webp/.test(mergePolish.boardBackground), 'merge: authored board lattice is missing');
+    assert(mergePolish.cellBackground === 'none' && mergePolish.cellBackgroundColor === 'rgba(0, 0, 0, 0)' && mergePolish.cellBoxShadow === 'none', `merge: live cells still paint a second grid (${JSON.stringify(mergePolish)})`);
+    assert(mergePolish.tools.length === 4 && mergePolish.tools.every((tool) => tool.loaded && /tool_(?:storage|recipe|sort|recycle)\.webp$/.test(tool.source) && !tool.hasSvg), `merge: authored tool icons are incomplete ${JSON.stringify(mergePolish.tools)}`);
+
+    const beforeHoldGrid = await page.evaluate(() => JSON.stringify(window.MergeUI.state().grid));
+    const holdCell = page.locator('#merge-board .merge-cell[data-longpress-family]').first();
+    assert(await holdCell.count() === 1, 'merge: no material cell exposes long-press metadata');
+    const holdBox = await holdCell.boundingBox();
+    assert(holdBox, 'merge: long-press material cell has no geometry');
+    const holdPoint = { x:holdBox.x + holdBox.width / 2, y:holdBox.y + holdBox.height / 2 };
+    await holdCell.dispatchEvent('pointerdown', { pointerId:77, pointerType:'touch', isPrimary:true, button:0, buttons:1, clientX:holdPoint.x, clientY:holdPoint.y });
+    await holdCell.dispatchEvent('pointermove', { pointerId:77, pointerType:'touch', isPrimary:true, button:0, buttons:1, clientX:holdPoint.x + 12, clientY:holdPoint.y + 4 });
+    await page.waitForSelector('#modal-root .item-route-modal', { timeout:2000 });
+    await holdCell.dispatchEvent('pointerup', { pointerId:77, pointerType:'touch', isPrimary:true, button:0, buttons:0, clientX:holdPoint.x + 12, clientY:holdPoint.y + 4 });
+    const holdHelp = await page.locator('#modal-root .item-route-modal').evaluate((modal) => ({
+      text:modal.textContent,
+      routeSteps:modal.querySelectorAll('.route-step').length,
+      source:!!modal.querySelector('.route-source-hint'),
+      use:!!modal.querySelector('.route-use-hint')
+    }));
+    assert(/物品说明/.test(holdHelp.text) && /合成/.test(holdHelp.text) && holdHelp.routeSteps >= 2 && holdHelp.source && holdHelp.use, `merge: long-press help is incomplete ${JSON.stringify(holdHelp)}`);
+    assert(await page.evaluate(() => JSON.stringify(window.MergeUI.state().grid)) === beforeHoldGrid, 'merge: long-press mutated the board');
+    await page.screenshot({ path:path.join(OUTPUT, 'merge-polish-longpress.png'), scale:'device', animations:'disabled' });
+    await page.locator('#modal-root [data-close-modal]').click();
+    await page.waitForFunction(() => !document.querySelector('#modal-root .modal-backdrop'));
+    console.log('PASS merge tool art, objective art, hold help, energy type and single lattice');
+
     await page.locator('[data-qv14-tool="recycle"]').click();
     await page.waitForFunction(() => document.body.classList.contains('qv14-recycle-open'));
     const highTier = page.locator('#recycle-drawer-list [data-recycle-index]').filter({ hasText:'需确认' }).first();

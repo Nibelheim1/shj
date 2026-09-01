@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "releaseId": "32cac405e7d401dac8743397dc2ce0bca46c1598ed3baaf90e5d7e6e324eb7d4",
-  "totalBytes": 53416307,
+  "releaseId": "518b940d99ab558ae7c93922142730353329c91aed5f5470d07717a49b30ab92",
+  "totalBytes": 53488358,
   "files": [
     {
       "path": "assets/art/buildings/clinic_lv1.webp",
@@ -3186,8 +3186,8 @@
     {
       "path": "assets/art/ui-v14/manifest.json",
       "bundle": "ui-components",
-      "bytes": 193641,
-      "sha256": "9e14fd492999c787c7ef61c8f05f2f008685ebfc6fcaf5de55692033ca0f4dfd"
+      "bytes": 195949,
+      "sha256": "4240eb587facaf06ebb832c562ca22c23f79eb7845932994e3e721ca8e881aa0"
     },
     {
       "path": "assets/art/ui-v14/nine_slice.json",
@@ -3494,6 +3494,30 @@
       "bundle": "ui-components",
       "bytes": 27222,
       "sha256": "d96c30d0c2e4457ab2b46f4976aa7b06a48d5d7f121d08646c2b2c7f04619bc1"
+    },
+    {
+      "path": "assets/art/ui-v14/ui/gameplay/tool_icons/tool_recipe.webp",
+      "bundle": "ui-components",
+      "bytes": 14112,
+      "sha256": "1f4f1071d05f568933a389921292ad236d2a19e4bb2954aa2a6b5d7460354544"
+    },
+    {
+      "path": "assets/art/ui-v14/ui/gameplay/tool_icons/tool_recycle.webp",
+      "bundle": "ui-components",
+      "bytes": 15474,
+      "sha256": "61bb5efd56d4a9a9b1859021087f6ec8219d963caa511927fbc08f1db7d19998"
+    },
+    {
+      "path": "assets/art/ui-v14/ui/gameplay/tool_icons/tool_sort.webp",
+      "bundle": "ui-components",
+      "bytes": 14958,
+      "sha256": "c6ba16f7bda82ffc2cebe134905d9c60e72dc90d82cf115289ef3225054ed6b2"
+    },
+    {
+      "path": "assets/art/ui-v14/ui/gameplay/tool_icons/tool_storage.webp",
+      "bundle": "ui-components",
+      "bytes": 18342,
+      "sha256": "7530abccfe1a5646a2c35aef76b8aca6ad926208f558b2d65484bd0a9b2fbb1b"
     },
     {
       "path": "assets/art/ui-v14/ui/gameplay/toy_tile_blocked.webp",
@@ -4938,8 +4962,8 @@
     {
       "path": "css/ui-v14.css",
       "bundle": "boot",
-      "bytes": 217378,
-      "sha256": "7a5f5ad1c2eba5b6be1bfa64aaf23427970b840428e83b79cacfb114e809bc2c"
+      "bytes": 221081,
+      "sha256": "2beafdfb2347bd8b72a080af8fbfbe1754d8f7b09a29d24ab9fcdfc577761a92"
     },
     {
       "path": "index.html",
@@ -5016,14 +5040,14 @@
     {
       "path": "js/merge/ui-v14.js",
       "bundle": "boot",
-      "bytes": 75271,
-      "sha256": "7a70c7d34bc2e8d657aaebf4a40bd8f2f9b3ba254297139a246709baaf9236d4"
+      "bytes": 75521,
+      "sha256": "bdcdcb36fff4d29168229ffc4a9d6fd96f3476d482f0e12982847c08de91f498"
     },
     {
       "path": "js/merge/ui.js",
       "bundle": "boot",
-      "bytes": 344326,
-      "sha256": "12f1979ff508161375947769a9f48fc834b226737a760eda754298de2ce8161c"
+      "bytes": 347230,
+      "sha256": "5636612bd64bc486d0ae115e0d94b7593d715956d2b6aa6801b1c81a81481ca7"
     },
     {
       "path": "manifest.webmanifest",
