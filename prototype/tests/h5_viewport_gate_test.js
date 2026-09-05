@@ -560,6 +560,16 @@ async function run() {
           // The formal entry uses one welcome card. Close it, then stage the
           // first gate repair so the viewport pass can inspect systems that
           // are intentionally hidden before their onboarding milestone.
+          await page.evaluate(() => {
+            const state = MergeUI.state();
+            state.welcomeSeen = true;
+            state.tutorial.completed = true; // layout fixture; gameplay runtime covers teaching
+            let event;
+            while ((event = MergeCore.peekStoryEvent(state))) {
+              if (event.choices && event.choices.length && !event.selectedChoice) MergeCore.resolveStoryChoice(state, event.id, event.choices[0].id);
+              MergeCore.acknowledgeStoryEvent(state, event.id);
+            }
+          });
           for (let sheet = 0; sheet < 3; sheet += 1) {
             const closeButton = page.locator('#modal-root [data-close-modal]').first();
             if (!(await closeButton.isVisible().catch(() => false))) break;

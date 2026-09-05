@@ -571,7 +571,8 @@ function cardCount(root, selectors) {
     expect(state.projectState.installed['gate-lamp'], '同一次确认已推进安装状态，不再停留在待安装阶段');
     expect(!/待安装/.test(W.document.getElementById('project-tray').textContent || ''), '任务栏不再出现待安装重复任务');
     expect(result && /旧门灯修好了/.test(result.textContent || ''), '完成修缮后弹出成果说明');
-    expect(result && /old-gate-lamp_repaired\.webp/.test((result.querySelector('img') || {}).src || ''), '成果弹窗使用修复后的旧物图');
+    expect(result && /cg_gate_ears_v2\.png/.test((result.querySelector('img') || {}).src || ''), '门灯成果弹窗展示门后耳朵专属图');
+    expect(result.querySelectorAll('button').length === 1 && result.querySelector('button').textContent === '推开门', '首次相遇只有推开门这一个选择');
   });
 
   check('首次获得穷奇先播放七秒山门动画，再进入获得信息卡', function () {
@@ -587,6 +588,9 @@ function cardCount(root, selectors) {
     state.beastRevealQueue = [reveal];
     state.seenBeastReveals[reveal.id] = true;
     W.document.getElementById('modal-root').innerHTML = '';
+    W.document.getElementById('world-change-root').innerHTML = ''; // previous isolated repair fixture
+    const launch = W.document.getElementById('qixia-launch');
+    if (launch) launch.remove(); // renderer fixture; actual launch is covered by gameplay runtime
     W.MergeUI.showPendingBeastReveal();
     const cinematic = W.document.querySelector('#modal-root .beast-acquisition-video-modal');
     const video = cinematic && cinematic.querySelector('video.beast-acquisition-video');
@@ -752,10 +756,13 @@ function cardCount(root, selectors) {
   check('剧情弹窗有主 CG 时不再叠加第二张穷奇动作素材', function () {
     const state = W.MergeUI.reset();
     state.welcomeSeen = true;
-    state.storyExperience.queue = ['qiongqi-ear-in-light'];
+    state.storyExperience.queue = ['qiongqi-footsteps'];
     state.storyExperience.position = 0;
     state.storyExperience.acknowledged = {};
     W.document.getElementById('modal-root').innerHTML = '';
+    W.document.getElementById('world-change-root').innerHTML = '';
+    const launch = W.document.getElementById('qixia-launch');
+    if (launch) launch.remove();
     const modal = W.MergeUI.showPendingStoryEvent();
     expect(modal && /穷奇篇 · 门后有谁/.test(modal.textContent || ''), '目标剧情弹窗已打开');
     expect(modal.querySelectorAll('.story-event-cg').length === 1, '剧情主 CG 只渲染一次');

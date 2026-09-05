@@ -14,11 +14,7 @@
   var ASSET_ROOT = SPEC.assetRoot || 'assets/art/ui-v14/';
   var TERMS = SPEC.terms || {};
   var syncFrame = 0;
-  var bagTab = 'storage';
-  var bagFilter = 'all';
-  var bagSorted = false;
   var lastOrderSignature = '';
-  var lastBagSignature = '';
   var lastDailySignature = '';
   var lastJourneySignature = '';
   var screenStack = [];
@@ -38,7 +34,6 @@
     'yard-view': 'yard',
     'sect-view': 'sect-map',
     'codex-view': 'codex',
-    'bag-view': 'bag',
     'daily-view': 'daily',
     'journey-view': 'journey'
   };
@@ -138,6 +133,8 @@
       '12-codex-detail': 'codex-detail',
       '13-story-choice': 'story-choice',
       '14-transformation': 'transformation',
+      '15-bag': 'storage',
+      '16-recipe': 'recipe',
       '19-background': 'background',
       '20-settings': 'settings',
       '21-care-result': 'care-result',
@@ -164,8 +161,6 @@
     if (modal) return screenIdFromModal(modal);
     var sectScene = q('#sect-scene:not([hidden])');
     if (sectScene) return 'sect-area';
-    var recipePanel = q('#bag-view.active [data-ui-bag-panel="recipes"].active');
-    if (recipePanel) return 'recipe';
     var activeView = q('.view.active');
     return activeView && VIEW_TO_SCREEN[activeView.id] || 'merge';
   }
@@ -181,8 +176,6 @@
           scrollTop: activeView ? activeView.scrollTop : q('#slice-main') ? q('#slice-main').scrollTop : 0,
           dailyTab: dailyTab,
           codexFilter: codexFilter,
-          bagTab: bagTab,
-          bagFilter: bagFilter,
           trigger: document.activeElement && document.activeElement !== document.body ? document.activeElement : null
         });
         if (screenStack.length > 24) screenStack.shift();
@@ -236,8 +229,6 @@
         if (!modalPrevious) { syncScreenState(); return; }
         dailyTab = modalPrevious.dailyTab || dailyTab;
         codexFilter = modalPrevious.codexFilter || codexFilter;
-        bagTab = modalPrevious.bagTab || bagTab;
-        bagFilter = modalPrevious.bagFilter || bagFilter;
         setActiveScreen(modalPrevious.id, { replace: true });
         syncAll();
         var revealedView = q('.view.active');
@@ -255,8 +246,6 @@
     if (previous) {
       dailyTab = previous.dailyTab || dailyTab;
       codexFilter = previous.codexFilter || codexFilter;
-      bagTab = previous.bagTab || bagTab;
-      bagFilter = previous.bagFilter || bagFilter;
       openPage(previous.id, { replace: true });
       root.setTimeout(function () {
         var view = q('.view.active');
@@ -282,8 +271,8 @@
     button.id = 'ui-chapter-pill';
     button.className = 'ui-chapter-pill';
     button.type = 'button';
-    button.setAttribute('data-ui-open-page', 'daily');
-    button.setAttribute('aria-label', '打开今日卷册');
+    button.setAttribute('data-ui-open-page', 'journey');
+    button.setAttribute('aria-label', '查看当前卷与旅程进度');
     hud.insertBefore(button, q('#hud-values', hud));
   }
 
@@ -361,88 +350,6 @@
     }).join('');
   }
 
-  function sourceStorageSignature() {
-    var source = q('#storage-list');
-    var workbench = q('#recipe-workbench');
-    var currentState = state();
-    return JSON.stringify({
-      storage: source ? source.innerHTML : '',
-      recipes: workbench ? workbench.innerHTML : '',
-      slots: currentState && currentState.storage ? currentState.storage.slots : 0,
-      pending: currentState && currentState.pendingRewards ? currentState.pendingRewards.length : 0,
-      tab: bagTab,
-      filter: bagFilter,
-      sorted: bagSorted
-    });
-  }
-
-  function renderBag(force) {
-    var view = q('#bag-view');
-    var currentState = state();
-    if (!view || !currentState) return;
-    var signature = sourceStorageSignature();
-    if (!force && signature === lastBagSignature) return;
-    lastBagSignature = signature;
-
-    qa('[data-ui-bag-tab]', view).forEach(function (button) {
-      var active = button.getAttribute('data-ui-bag-tab') === bagTab;
-      button.classList.toggle('active', active);
-      button.setAttribute('aria-selected', active ? 'true' : 'false');
-      button.setAttribute('tabindex', active ? '0' : '-1');
-    });
-    qa('[data-ui-bag-panel]', view).forEach(function (panel) {
-      var active = panel.getAttribute('data-ui-bag-panel') === bagTab;
-      panel.classList.toggle('active', active);
-      panel.hidden = !active;
-    });
-    qa('[data-ui-bag-filter]', view).forEach(function (button) {
-      var active = button.getAttribute('data-ui-bag-filter') === bagFilter;
-      button.classList.toggle('active', active);
-      button.setAttribute('aria-pressed', active ? 'true' : 'false');
-    });
-
-    var source = q('#storage-list');
-    var grid = q('#bag-storage-grid');
-    if (grid) {
-      grid.innerHTML = source ? source.innerHTML : '';
-      var slots = qa('.storage-slot', grid);
-      slots.forEach(function (slot, index) {
-        slot.setAttribute('data-ui-storage-index', slot.getAttribute('data-storage-index') || index);
-        slot.removeAttribute('data-storage-index');
-        var family = slot.getAttribute('data-longpress-family') || '';
-        var visible = bagFilter === 'all' || !family || family === bagFilter;
-        slot.hidden = !visible;
-      });
-      if (bagSorted) {
-        slots.sort(function (left, right) {
-          var leftEmpty = left.classList.contains('empty') ? 1 : 0;
-          var rightEmpty = right.classList.contains('empty') ? 1 : 0;
-          return leftEmpty - rightEmpty || String(left.getAttribute('data-longpress-family') || '').localeCompare(String(right.getAttribute('data-longpress-family') || ''), 'zh-CN');
-        }).forEach(function (slot) { grid.appendChild(slot); });
-      }
-    }
-    var occupied = currentState.storage && currentState.storage.items ? currentState.storage.items.filter(Boolean).length : 0;
-    var capacity = currentState.storage ? currentState.storage.slots : 0;
-    var cap = q('#bag-capacity');
-    if (cap) cap.textContent = '药匣 ' + occupied + '/' + capacity;
-    var note = q('#bag-storage-note');
-    if (note) note.textContent = (currentState.pendingRewards && currentState.pendingRewards.length ? '另有 ' + currentState.pendingRewards.length + ' 份心意在待入盘队列。' : '高阶素材会妥善收在这里。');
-    var sourceUpgrade = q('#storage-upgrade');
-    var bagUpgrade = q('[data-ui-bag-upgrade]');
-    if (bagUpgrade && sourceUpgrade) {
-      bagUpgrade.textContent = sourceUpgrade.textContent;
-      bagUpgrade.disabled = sourceUpgrade.disabled;
-    }
-
-    var recipeList = q('#bag-recipe-list');
-    var workbench = q('#recipe-workbench');
-    if (recipeList) {
-      recipeList.innerHTML = workbench && workbench.innerHTML
-        ? workbench.innerHTML
-        : '<div class="bag-recipe-empty"><b>配方仍在沉睡</b><span>推进卷章后，古方会依次记入药匣。</span></div>';
-    }
-  }
-
   function dailySignature(currentState) {
     return JSON.stringify({
       day: currentState.daily,
@@ -460,7 +367,7 @@
     lastDailySignature = signature;
     var goals = [
       { label: '完成 5 次合并', short: '让旧物在灵阵重逢', icon: 'daily-merge', current: Number(currentState.daily.merges) || 0, target: 5, jade: 25, xp: 10, view: 'merge-view' },
-      { label: '收取 2 封灯信', short: '回应宗门伙伴的牵挂', icon: 'daily-order', current: Number(currentState.daily.orders) || 0, target: 2, jade: 35, xp: 15, view: 'merge-view' },
+      { label: '完成 2 次委托', short: '交付修缮或其他委托' , icon: 'daily-order', current: Number(currentState.daily.orders) || 0, target: 2, jade: 35, xp: 15, view: 'merge-view' },
       { label: '完成 1 次照料', short: '今天也陪它坐一会儿', icon: 'daily-care', current: Number(currentState.daily.care) || 0, target: 1, jade: 20, xp: 8, view: 'yard-view' }
     ];
     var complete = goals.every(function (goal) { return goal.current >= goal.target; });
@@ -507,24 +414,24 @@
     if (!force && signature === lastJourneySignature) return;
     lastJourneySignature = signature;
     var currentVolume = Math.max(1, Number(currentState.chapter && currentState.chapter.volume) || 1);
-    var transformed = (DATA.beasts || []).filter(function (beast) {
-      return currentState.beastCases && currentState.beastCases[beast.id] && currentState.beastCases[beast.id].transformed;
-    }).length;
+    var completed = currentState.chapter.completedVolumes || [];
+    var transformed = completed.length;
+    var objective = root.MergeCore.getCurrentObjective(currentState);
     var nodes = (DATA.beasts || []).map(function (beast, index) {
       var volume = index + 1;
       var entry = currentState.beastCases && currentState.beastCases[beast.id];
-      var done = !!(entry && entry.transformed);
+      var done = completed.indexOf(volume) >= 0;
       var active = !done && volume === currentVolume;
       var status = done ? 'done' : active ? 'current' : 'locked';
       var portrait = done || active ? beastPortrait(beast, entry) : '';
       return '<article class="journey-node ' + status + '" style="--journey-index:' + index + '">' +
         '<div class="journey-lantern">' + (portrait ? '<img src="' + esc(portrait) + '" alt="" />' : icon('lock')) + '</div>' +
-        '<div class="journey-node-copy"><small>卷' + chapterNumber(volume) + '</small><h2>' + esc(beast.name || '未名异兽') + '篇</h2><span>' + (done ? '已归灯' : active ? '当前卷 · 灯信将至' : '静候相遇') + '</span></div>' +
+        '<div class="journey-node-copy"><small>卷' + chapterNumber(volume) + '</small><h2>' + esc(beast.name || '未名异兽') + '篇</h2><span>' + (done ? '已归灯' : active ? objective.chapter.phaseName : '静候相遇') + '</span></div>' +
         (active ? '<button type="button" data-ui-go-view="merge-view">前往当前卷</button>' : '') + '</article>';
     }).join('');
     target.innerHTML = '<section class="journey-summary"><span>第一段结局 <b>' + Math.min(3, transformed) + '/3</b></span><span>山海终章 <b>' + transformed + '/12</b></span></section>' +
       '<div class="journey-road" aria-label="十二卷旅程路线">' + nodes + '</div>' +
-      '<section class="journey-current-card"><span>当前目标</span><b>准备' + esc(currentBeastDefinition(currentState).name || '伙伴') + '的灯信</b><button type="button" data-ui-go-view="merge-view">前往当前卷</button></section>';
+      '<section class="journey-current-card"><span>当前目标</span><b>' + esc(objective.text) + '</b><button type="button" data-ui-action="open-objective">查看当前任务</button></section>';
   }
 
   function highlightAuxiliaryNav() {
@@ -553,23 +460,24 @@
     if (!root.MergeUI || typeof root.MergeUI.switchView !== 'function') return false;
     var viewMap = {
       merge: 'merge-view', yard: 'yard-view', 'sect-map': 'sect-view', codex: 'codex-view',
-      bag: 'bag-view', daily: 'daily-view', journey: 'journey-view'
+      daily: 'daily-view', journey: 'journey-view'
     };
     if (id === 'launch') { installLauncher(true); setActiveScreen(id, options); return true; }
     if (viewMap[id]) {
       if (id === 'daily') renderDailyPage(true);
       if (id === 'journey') renderJourneyPage(true);
-      if (id === 'bag') renderBag(true);
       setActiveScreen(id, options);
       root.MergeUI.switchView(viewMap[id]);
       highlightAuxiliaryNav();
       return true;
     }
-    if (id === 'recipe') {
-      setActiveScreen(id, options);
-      root.MergeUI.switchView('bag-view');
-      bagTab = 'recipes';
-      renderBag(true);
+    // Older links to the bag now open the same in-board storage drawer.
+    if (id === 'bag' || id === 'storage' || id === 'recipe') {
+      root.MergeUI.switchView('merge-view');
+      setActiveScreen('merge', { replace: true });
+      setActiveScreen(id === 'recipe' ? 'recipe' : 'storage', options);
+      if (id === 'recipe') root.MergeUI.openRecipeCabinet();
+      else root.MergeUI.openStorageDrawer();
       return true;
     }
     if (id === 'sect-area') {
@@ -622,8 +530,7 @@
       return true;
     }
     if (id === 'settings') {
-      clickLater('#more-menu-open');
-      clickLater('#modal-root', '[data-more-settings]');
+      if (root.MergeUI.openSettings) root.MergeUI.openSettings();
       setActiveScreen(id, options);
       return true;
     }
@@ -766,7 +673,8 @@
       care.type = 'button';
       care.className = 'qv14-yard-care-entry ui-v13-yard-care-entry';
       care.setAttribute('data-ui-action', 'open-care');
-      care.innerHTML = '<span data-qv14-yard-speech>今天也一起守门吗？</span><i aria-hidden="true"></i>';
+      care.innerHTML = '<span data-qv14-yard-speech>今天也一起守门吗？</span><small>住客详情 · 切换陪伴 ›</small><i aria-hidden="true"></i>';
+      care.setAttribute('aria-label', '查看住客详情与切换陪伴住客');
       scene.appendChild(care);
     }
     if (!q('.qv14-yard-actions', scene)) {
@@ -782,13 +690,23 @@
   }
 
   function syncYardOverlay() {
-    var sourceTitle = q('#project-tray-title');
+    if (root.QixiaCourtyardArt) root.QixiaCourtyardArt.layout();
+    var currentState = state();
+    if (!currentState || !root.MergeCore) return;
+    var objective = root.MergeCore.getCurrentObjective(currentState);
     var targetTitle = q('[data-qv14-objective-copy]');
-    if (sourceTitle && targetTitle) targetTitle.textContent = sourceTitle.textContent || '修缮宗门';
+    var copy = objective.text || '查看当前任务';
+    if (targetTitle && targetTitle.textContent !== copy) targetTitle.textContent = copy;
+    var progress = objective.progress || {};
+    var bar = q('.qv14-yard-objective em');
+    if (bar) bar.style.width = Math.round(Math.min(1, (Number(progress.current) || 0) / Math.max(1, Number(progress.target) || 1)) * 100) + '%';
+    var label = q('.qv14-yard-objective small');
+    var progressCopy = '卷' + chapterNumber(objective.chapter.volume) + ' · ' + (progress.label || objective.chapter.phaseName);
+    if (label && label.textContent !== progressCopy) label.textContent = progressCopy;
     var sourceSpeech = q('#yard-speech');
     var targetSpeech = q('[data-qv14-yard-speech]');
-    var copy = sourceSpeech && (sourceSpeech.textContent || '').trim();
-    if (targetSpeech && copy) targetSpeech.textContent = copy;
+    var speech = sourceSpeech && (sourceSpeech.textContent || '').trim();
+    if (targetSpeech && speech && targetSpeech.textContent !== speech) targetSpeech.textContent = speech;
   }
 
   function installDailyTabs() {
@@ -859,7 +777,7 @@
   function installPageChrome() {
     var mapping = {
       'merge-view': 'merge', 'yard-view': 'yard', 'sect-view': 'sect-map', 'codex-view': 'codex',
-      'bag-view': 'bag', 'daily-view': 'daily', 'journey-view': 'journey'
+      'daily-view': 'daily', 'journey-view': 'journey'
     };
     Object.keys(mapping).forEach(function (viewId) {
       var view = q('#' + viewId);
@@ -919,16 +837,19 @@
   }
 
   function addCareActions(modal) {
-    if (!modal || q('.qv14-care-actions', modal)) return;
-    var actions = document.createElement('section');
-    actions.className = 'qv14-care-actions ui-v13-care-actions';
-    actions.setAttribute('aria-label', '照料方式');
-    actions.innerHTML =
-      '<button type="button" data-qv14-care="feed" disabled aria-disabled="true"><span class="qv14-care-icon ui-v13-care-icon feed">' + assetImage('items/game_tokens/feed/feed_05.webp', '') + '</span><b>喂食</b><small>随卷章开放</small></button>' +
-      '<button type="button" data-qv14-care="clean" disabled aria-disabled="true"><span class="qv14-care-icon ui-v13-care-icon clean">' + assetImage('items/game_tokens/clean/clean_01.webp', '') + '</span><b>清洁</b><small>随卷章开放</small></button>' +
-      '<button type="button" data-qv14-care="groom"><span class="qv14-care-icon ui-v13-care-icon groom">' + assetImage('items/game_tokens/groom/groom_01.webp', '') + '</span><b>梳洗</b><small>交换消除</small></button>' +
-      '<button type="button" data-qv14-care="play"><span class="qv14-care-icon ui-v13-care-icon play">' + assetImage('items/game_tokens/play/play_01.webp', '') + '</span><b>陪玩</b><small>挑战玩具塔</small></button>';
-    modal.appendChild(actions);
+    if (!modal || !state() || !root.MergeCore) return;
+    var actions = q('.qv14-care-actions', modal);
+    if (!actions) {
+      actions = document.createElement('section');
+      actions.className = 'qv14-care-actions ui-v13-care-actions';
+      actions.setAttribute('aria-label', '照料方式');
+      modal.appendChild(actions);
+    }
+    var markup = ['groom', 'play'].map(function (type) {
+      var available = root.MergeCore.careAvailability(state(), type, 'easy');
+      return '<button type="button" data-qv14-care="' + type + '" class="' + (available.available ? '' : 'is-locked') + '"><span class="qv14-care-icon ui-v13-care-icon ' + type + '">' + assetImage('items/game_tokens/' + type + '/' + type + '_01.webp', '') + '</span><b>' + (type === 'groom' ? '梳洗' : '陪玩') + '</b><small>' + esc(available.available ? available.storyRound ? '首次剧情免费' : type === 'groom' ? '交换消除' : '挑战玩具塔' : available.condition) + '</small></button>';
+    }).join('');
+    if (actions.innerHTML !== markup) actions.innerHTML = markup;
   }
 
   function addCareModeHero(modal) {
@@ -1127,12 +1048,6 @@
     }, 260);
   }
 
-  function proxyOriginalStorage(index) {
-    var original = q('#storage-list [data-storage-index="' + String(index).replace(/"/g, '') + '"]');
-    if (original) original.click();
-    root.setTimeout(function () { renderBag(true); }, 0);
-  }
-
   function closeRecycleDrawer(restoreFocus) {
     var toggle = q('#recycle-open');
     if (toggle && toggle.getAttribute('aria-expanded') === 'true') toggle.click();
@@ -1205,8 +1120,6 @@
         if (generatedPrevious) {
           dailyTab = generatedPrevious.dailyTab || dailyTab;
           codexFilter = generatedPrevious.codexFilter || codexFilter;
-          bagTab = generatedPrevious.bagTab || bagTab;
-          bagFilter = generatedPrevious.bagFilter || bagFilter;
           setActiveScreen(generatedPrevious.id, { replace: true });
           syncAll();
           var generatedView = q('.view.active');
@@ -1241,7 +1154,7 @@
       var tool = target.closest('[data-qv14-tool]');
       if (tool) {
         var toolId = tool.getAttribute('data-qv14-tool');
-        if (toolId === 'storage') openPage('bag');
+        if (toolId === 'storage') openPage('storage');
         else if (toolId === 'recipe') openPage('recipe');
         else if (toolId === 'sort' && root.MergeUI && root.MergeUI.organizeBoard) root.MergeUI.organizeBoard();
         else if (toolId === 'recycle') openRecycleDrawer(tool);
@@ -1252,8 +1165,7 @@
       if (yardNative) { activateYardNative(yardNative.getAttribute('data-qv14-yard-native')); return; }
 
       if (target.closest('[data-ui-action="open-objective"]')) {
-        var tray = q('#project-tray');
-        if (tray) tray.click();
+        if (root.MergeUI && root.MergeUI.openCurrentObjective) root.MergeUI.openCurrentObjective();
         return;
       }
       if (target.closest('[data-ui-action="open-care"]')) {
@@ -1295,55 +1207,11 @@
         return;
       }
 
-      var nav = target.closest('.nav-button[data-view="bag-view"]');
-      if (nav) { renderBag(true); return; }
-
       var order = target.closest('[data-ui-order-id]');
       if (order) {
         var orderId = order.getAttribute('data-ui-order-id');
         var original = orderId ? q('#order-list [data-order-id="' + orderId.replace(/"/g, '') + '"] .order-card-open') : null;
         if (original) original.click();
-        return;
-      }
-
-      var tab = target.closest('[data-ui-bag-tab]');
-      if (tab) {
-        bagTab = tab.getAttribute('data-ui-bag-tab') || 'storage';
-        renderBag(true);
-        setActiveScreen(bagTab === 'recipes' ? 'recipe' : 'bag', { replace: true });
-        return;
-      }
-
-      var filter = target.closest('[data-ui-bag-filter]');
-      if (filter) {
-        bagFilter = filter.getAttribute('data-ui-bag-filter') || 'all';
-        renderBag(true);
-        return;
-      }
-
-      var slot = target.closest('#bag-view [data-ui-storage-index]');
-      if (slot) { proxyOriginalStorage(Number(slot.getAttribute('data-ui-storage-index')) || 0); return; }
-
-      if (target.closest('[data-ui-bag-upgrade]')) {
-        var upgrade = q('#storage-upgrade');
-        if (upgrade && !upgrade.disabled) upgrade.click();
-        root.setTimeout(function () { renderBag(true); }, 0);
-        return;
-      }
-
-      if (target.closest('[data-ui-bag-sort]')) {
-        bagSorted = !bagSorted;
-        renderBag(true);
-        return;
-      }
-
-      var recipe = target.closest('#bag-view [data-longpress-recipe]');
-      if (recipe) {
-        var recipeId = recipe.getAttribute('data-longpress-recipe');
-        if (recipe.hasAttribute('data-craft-recipe')) {
-          var craft = q('#recipe-workbench [data-craft-recipe="' + String(recipeId).replace(/"/g, '') + '"]');
-          if (craft && !craft.disabled) craft.click();
-        } else if (root.MergeUI && root.MergeUI.openRecipeDetails) root.MergeUI.openRecipeDetails(recipeId);
         return;
       }
 
@@ -1383,7 +1251,6 @@
     syncDailyTabs();
     syncCodexFilters();
     highlightAuxiliaryNav();
-    if (q('#bag-view.active')) renderBag(false);
     if (q('#daily-view.active')) renderDailyPage(false);
     if (q('#journey-view.active')) renderJourneyPage(false);
     if (!q('#modal-root .care-modal')) setDialogBackgroundInert(false);
@@ -1443,7 +1310,6 @@
     active: function () { return activeScreen; },
     stack: function () { return screenStack.slice(); },
     prefetchBundle: prefetchBundle,
-    renderBag: function () { renderBag(true); },
     renderDaily: function () { renderDailyPage(true); },
     renderJourney: function () { renderJourneyPage(true); },
     showLauncher: installLauncher,

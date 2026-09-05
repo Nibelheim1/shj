@@ -25,7 +25,7 @@
 <div id="slice-app">
   <header class="slice-hud" aria-label="玩家状态" data-help="hud" title="长按查看：状态栏是干什么、需要什么、有什么用">
     <div id="hud-values" class="hud-values"></div>
-    <button id="more-menu-open" class="icon-button more-menu-open" type="button" aria-label="打开更多选项" aria-haspopup="dialog"><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#more" xlink:href="assets/icons/ui-icons.svg#more"></use></svg><small>更多</small></button>
+    <button id="more-menu-open" class="icon-button more-menu-open hud-settings" type="button" title="设置与旅程记录" aria-label="打开设置与旅程记录" aria-haspopup="dialog"><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#settings" xlink:href="assets/icons/ui-icons.svg#settings"></use></svg><small>设置</small></button>
   </header>
 
   <main id="slice-main">
@@ -96,20 +96,24 @@
 
     <section id="yard-view" class="view" aria-labelledby="yard-heading">
       <div class="yard-scene scene-world" id="yard-scene" data-scene-world data-help="yard" title="长按查看：庭院场景说明">
-        <div id="yard-background-layer" class="scene-layer scene-background" data-scene-node="background" aria-hidden="true"></div>
+        <div id="yard-world" class="yard-world">
+        <div id="yard-background-layer" class="scene-layer scene-background" data-scene-node="background" aria-hidden="true"><img id="yard-flat-art" alt="" decoding="async" /></div>
         <div class="scene-layer scene-ground" data-scene-node="ground" aria-hidden="true"><i class="ground-path"></i><i class="ground-shadow"></i></div>
         <h1 id="yard-heading" class="sr-only">庭院疗愈目标</h1>
         <p id="yard-copy" class="sr-only">当前动作：观察四周</p>
-        <button id="yard-background-open" class="yard-background-chip" type="button" aria-label="切换庭院背景" data-help="yard-background" title="长按查看：庭院背景说明"><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#nav-yard" xlink:href="assets/icons/ui-icons.svg#nav-yard"></use></svg><span>切换背景</span></button>
+
         <div class="scene-layer scene-buildings" data-scene-node="buildings">
-          <button class="scene-building" data-scene-node="building" data-node-id="clinic" data-hotspot="clinic" data-help="yard-clinic" style="--scene-x:24%;--scene-y:31%" type="button" aria-label="选择医馆" title="长按查看：医馆说明"><span class="building-sprite" aria-hidden="true"><img data-src="assets/art/buildings/clinic_lv1.webp" alt="" /></span><i class="world-state-bubble" aria-label="医馆状态">可查看</i></button>
-          <button class="scene-building" data-scene-node="building" data-node-id="herb" data-hotspot="herb" data-help="yard-herb" style="--scene-x:24%;--scene-y:72%" type="button" aria-label="选择百草园" title="长按查看：百草园说明"><span class="building-sprite" aria-hidden="true"><img data-src="assets/art/buildings/herb_lv1.webp" alt="" /></span><i class="world-state-bubble" data-building-bubble="herb" aria-label="百草园状态">生产中</i></button>
-          <button class="scene-building" data-scene-node="building" data-node-id="groom" data-care="groom" data-help="yard-groom" style="--scene-x:76%;--scene-y:72%" type="button" aria-label="选择梳洗台" title="长按查看：梳洗台说明"><span class="building-sprite" aria-hidden="true"><img data-src="assets/art/buildings/groom_lv1.webp" alt="" /></span><i class="world-state-bubble" data-building-bubble="groom" aria-label="梳洗台状态">可开始</i></button>
-          <button class="scene-building" data-scene-node="building" data-node-id="play" data-care="play" data-help="yard-play" style="--scene-x:76%;--scene-y:31%" type="button" aria-label="选择嬉游亭" title="长按查看：嬉游亭说明"><span class="building-sprite" aria-hidden="true"><img data-src="assets/art/buildings/play_lv1.webp" alt="" /></span><i class="world-state-bubble" data-building-bubble="play" aria-label="嬉游亭状态">可开始</i></button>
+          <button class="scene-building" data-scene-node="building" data-node-id="clinic" data-hotspot="clinic" data-help="yard-clinic" style="--scene-x:24%;--scene-y:31%" type="button" aria-label="选择医馆" title="长按查看：医馆说明"><i class="world-state-bubble" aria-label="医馆状态">可查看</i></button>
+          <button class="scene-building" data-scene-node="building" data-node-id="herb" data-hotspot="herb" data-help="yard-herb" style="--scene-x:24%;--scene-y:72%" type="button" aria-label="选择百草园" title="长按查看：百草园说明"><i class="world-state-bubble" data-building-bubble="herb" aria-label="百草园状态">生产中</i></button>
+          <button class="scene-building" data-scene-node="building" data-node-id="groom" data-care="groom" data-help="yard-groom" style="--scene-x:76%;--scene-y:72%" type="button" aria-label="选择梳洗台" title="长按查看：梳洗台说明"><i class="world-state-bubble" data-building-bubble="groom" aria-label="梳洗台状态">可开始</i></button>
+          <button class="scene-building" data-scene-node="building" data-node-id="play" data-care="play" data-help="yard-play" style="--scene-x:76%;--scene-y:31%" type="button" aria-label="选择嬉游亭" title="长按查看：嬉游亭说明"><i class="world-state-bubble" data-building-bubble="play" aria-label="嬉游亭状态">可开始</i></button>
         </div>
         <button id="yard-character" class="yard-character scene-character is-selected" data-scene-node="character" data-node-id="resident" data-help="yard-resident" style="--scene-x:50%;--scene-y:87%" type="button" aria-label="点击与当前异兽互动，长按查看说明" title="点击互动，长按查看：庭院住客说明"><img id="yard-beast" alt="当前异兽" decoding="async" /><span id="yard-beast-sprite" class="yard-beast-sprite" aria-hidden="true" hidden></span></button>
         <div class="yard-speech world-speech" id="yard-speech" data-scene-node="speech" aria-live="polite"></div>
         <div class="scene-layer yard-props" data-scene-node="props" aria-hidden="true"><span class="prop prop-pool" data-scene-node="prop"></span><span class="prop prop-flower" data-scene-node="prop"></span><span class="prop prop-lantern" data-scene-node="prop"></span></div>
+        </div>
+        <button id="yard-background-open" class="yard-background-chip" type="button" aria-label="切换庭院背景" data-help="yard-background" title="长按查看：庭院背景说明"><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#nav-yard" xlink:href="assets/icons/ui-icons.svg#nav-yard"></use></svg><span>切换背景</span></button>
+        <button id="yard-art-retry" class="yard-art-retry" type="button" hidden>庭院画面未加载，点击重试</button>
         <div id="yard-fx-layer" class="scene-layer scene-fx" data-scene-node="fx" aria-hidden="true"></div>
       </div>
 
@@ -203,42 +207,6 @@
       <section id="ending-card" class="ending-card" aria-live="polite"></section>
     </section>
 
-    <section id="bag-view" class="view ui-adapter-view" aria-labelledby="bag-title">
-      <div class="view-heading">
-        <div><span class="eyebrow">高阶素材 · 配方与灵器</span><h1 id="bag-title">药匣</h1></div>
-        <span id="bag-capacity" class="stage-chip">药匣 0/3</span>
-      </div>
-      <div class="bag-primary-tabs" role="tablist" aria-label="药匣分类">
-        <button id="bag-tab-storage" class="active" type="button" role="tab" aria-selected="true" aria-controls="bag-panel-storage" tabindex="0" data-ui-bag-tab="storage">素材</button>
-        <button id="bag-tab-recipes" type="button" role="tab" aria-selected="false" aria-controls="bag-panel-recipes" tabindex="-1" data-ui-bag-tab="recipes">配方</button>
-        <button id="bag-tab-artifacts" type="button" role="tab" aria-selected="false" aria-controls="bag-panel-artifacts" tabindex="-1" data-ui-bag-tab="artifacts">灵器</button>
-      </div>
-      <section id="bag-panel-storage" class="bag-panel active" role="tabpanel" aria-labelledby="bag-tab-storage" data-ui-bag-panel="storage">
-        <div class="bag-filter-tabs" role="group" aria-label="素材筛选">
-          <button class="active" type="button" aria-pressed="true" data-ui-bag-filter="all">全部</button>
-          <button type="button" aria-pressed="false" data-ui-bag-filter="herb">药材</button>
-          <button type="button" aria-pressed="false" data-ui-bag-filter="build">木作</button>
-          <button type="button" aria-pressed="false" data-ui-bag-filter="cloth">织物</button>
-        </div>
-        <div id="bag-storage-grid" class="bag-storage-grid" aria-live="polite"></div>
-        <p id="bag-storage-note" class="bag-note">高阶素材会妥善收在这里。</p>
-        <div class="bag-actions">
-          <button class="bag-upgrade" type="button" data-ui-bag-upgrade>扩容</button>
-          <button type="button" data-ui-bag-sort>整理</button>
-        </div>
-      </section>
-      <section id="bag-panel-recipes" class="bag-panel" role="tabpanel" aria-labelledby="bag-tab-recipes" data-ui-bag-panel="recipes" hidden>
-        <div class="bag-section-title"><span>古方成品不占灵阵格</span><b>配方调配</b></div>
-        <div id="bag-recipe-list" class="bag-recipe-list" aria-live="polite"></div>
-      </section>
-      <section id="bag-panel-artifacts" class="bag-panel" role="tabpanel" aria-labelledby="bag-tab-artifacts" data-ui-bag-panel="artifacts" hidden>
-        <div class="bag-empty-illustration" aria-hidden="true">灯</div>
-        <h2>灵器会在旅程中醒来</h2>
-        <p>生成器部件与宗门至宝仍按原有规则留在灵阵；这里仅整理它们的图鉴入口。</p>
-        <button type="button" data-ui-go-view="merge-view">返回灵阵查看</button>
-      </section>
-    </section>
-
     <section id="daily-view" class="view ui-adapter-view" aria-labelledby="daily-title">
       <div class="view-heading ui-view-heading-with-back">
         <button class="ui-page-back" type="button" data-ui-go-view="yard-view" aria-label="返回庭院">‹</button>
@@ -265,7 +233,6 @@
     <button class="nav-button" data-view="sect-view" type="button" aria-label="打开宗门页"><img class="qv14-nav-art" src="assets/art/ui-v14/ui/navigation/composed/nav_sect_normal.webp" alt="" aria-hidden="true" /><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#nav-sect" xlink:href="assets/icons/ui-icons.svg#nav-sect"></use></svg><small>宗门</small></button>
     <button class="nav-button" data-view="yard-view" type="button" aria-label="打开庭院页"><img class="qv14-nav-art" src="assets/art/ui-v14/ui/navigation/composed/nav_yard_normal.webp" alt="" aria-hidden="true" /><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#nav-yard" xlink:href="assets/icons/ui-icons.svg#nav-yard"></use></svg><small>庭院</small></button>
     <button class="nav-button" data-view="codex-view" type="button" aria-label="打开山海册"><img class="qv14-nav-art" src="assets/art/ui-v14/ui/navigation/composed/nav_codex_normal.webp" alt="" aria-hidden="true" /><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#nav-codex" xlink:href="assets/icons/ui-icons.svg#nav-codex"></use></svg><small>山海册</small></button>
-    <button class="nav-button" data-view="bag-view" type="button" aria-label="打开行囊"><img class="qv14-nav-art" src="assets/art/ui-v14/ui/navigation/composed/nav_bag_normal.webp" alt="" aria-hidden="true" /><svg class="ui-icon" aria-hidden="true"><use href="assets/icons/ui-icons.svg#area-storage" xlink:href="assets/icons/ui-icons.svg#area-storage"></use></svg><small>行囊</small></button>
   </nav>
 
   <div id="world-change-root" aria-live="polite"></div>

@@ -23,6 +23,7 @@ const RUNTIME_MERGE_SCRIPTS = new Set([
   'audio.js',
   'core.js',
   'courtyard-scene.js',
+  'courtyard-art.js',
   'data.js',
   'match3.js',
   'save-store.js',
@@ -309,7 +310,7 @@ copyDirectoryIfPresent(
   }
 );
 // v9 adds story-project objects and concrete material-source states. Atlases
-// remain authoring references; the client only ships the cropped WebP assets.
+// remain authoring references; ship WebP crops and the authored first-encounter CG.
 copyDirectoryIfPresent(
   'prototype/assets/art/v9/quest_objects',
   'assets/art/v9/quest_objects',
@@ -323,7 +324,7 @@ copyDirectoryIfPresent(
 copyDirectoryIfPresent(
   'prototype/assets/art/v9/story',
   'assets/art/v9/story',
-  (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp'
+  (relativeFile) => path.extname(relativeFile).toLowerCase() === '.webp' || relativeFile === 'cg_gate_ears_v2.png'
 );
 copyDirectoryIfPresent(
   'prototype/assets/art/v9/qiongqi_actions',

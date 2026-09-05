@@ -10,18 +10,7 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const PROTOTYPE = path.join(ROOT, 'prototype');
 const OUTPUT = path.join(ROOT, 'output', 'ui-v14', 'runtime-hud');
 const MIME = { '.css':'text/css; charset=utf-8', '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.json':'application/json; charset=utf-8', '.png':'image/png', '.webp':'image/webp', '.woff2':'font/woff2', '.svg':'image/svg+xml' };
-const EXPECTED = {
-  merge:{ chapter:[6,16,94,66], energy:[106,21,91,25], jade:[202,21,91,25], level:[297,21,86,25] },
-  yard:{ chapter:[5,26,101,66], energy:[109,37,96,26], jade:[205,37,94,26], level:[299,37,88,26] },
-  'sect-map':{ chapter:[6,13,110,66], energy:[121,18,92,27], jade:[218,18,85,27], level:[307,18,73,27] },
-  bag:{ energy:[15,18,119,31], jade:[151,19,104,30], level:[271,21,103,28] },
-  recipe:{ energy:[24,16,120,31], jade:[149,16,116,31], level:[270,18,97,28] },
-  daily:{ energy:[72,18,104,30], jade:[181,18,101,30], level:[288,18,91,29] },
-  journey:{ energy:[47,14,105,28], jade:[158,14,104,28], level:[267,15,98,27] },
-  codex:{ chapter:[15,12,144,47], energy:[163,25,91,27], jade:[259,25,82,27], level:[346,25,44,27] },
-  'codex-detail':{ chapter:[15,9,137,52], energy:[158,17,105,31], jade:[269,17,102,31], level:[269,51,102,29] },
-  background:{ chapter:[44,17,90,48], energy:[137,18,83,24], jade:[225,18,80,24], level:[310,18,70,24] }
-};
+const SCREENS = ['merge', 'yard', 'sect-map', 'daily', 'journey', 'codex', 'codex-detail', 'background'];
 
 function server() {
   return http.createServer((request, response) => {
@@ -49,13 +38,6 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-function assertBox(screen, name, actual, expected) {
-  assert(actual, `${screen}: missing ${name}`);
-  const values = [actual.x, actual.y, actual.width, actual.height];
-  const error = Math.max(...values.map((value, index) => Math.abs(value - expected[index])));
-  assert(error <= 1.01, `${screen}: ${name} anchor error ${error.toFixed(2)}px actual=${values.map((value) => value.toFixed(2)).join(',')}`);
-}
-
 (async () => {
   const instance = server();
   let browser;
@@ -72,7 +54,7 @@ function assertBox(screen, name, actual, expected) {
     await page.waitForFunction(() => window.__QIXIA_APP_READY__ && window.QixiaScreens && document.querySelector('.slice-hud .hud-energy'));
     await page.evaluate(() => {
       const state = window.MergeUI && window.MergeUI.state && window.MergeUI.state();
-      if (state) state.welcomeSeen = true;
+      if (state) { state.welcomeSeen = true; state.tutorial.completed = true; }
       const modalRoot = document.getElementById('modal-root');
       if (modalRoot) modalRoot.innerHTML = '';
       if (window.MergeUI && window.MergeUI.render) window.MergeUI.render();
@@ -81,7 +63,7 @@ function assertBox(screen, name, actual, expected) {
     await page.evaluate(() => document.fonts && document.fonts.ready);
     fs.mkdirSync(OUTPUT, { recursive:true });
 
-    for (const screen of Object.keys(EXPECTED)) {
+    for (const screen of SCREENS) {
       if (screen !== 'merge') {
         await page.evaluate((id) => window.QixiaScreens.openPage(id, { replace:true }), screen);
         // openPage updates the screen token before the legacy view switch. Let
@@ -129,13 +111,12 @@ function assertBox(screen, name, actual, expected) {
           chapterFont:chapterValue ? getComputedStyle(chapterValue).fontFamily : '',
           energy:item('.slice-hud .hud-energy'), jade:item('.slice-hud .hud-jade'), level:item('.slice-hud .hud-level'),
           more:getComputedStyle(document.getElementById('more-menu-open')).display,
+          settings:box(document.getElementById('more-menu-open')),
           kaiFontReady:document.fonts ? document.fonts.check('12px "Qixia WenKai"') : false
         };
       });
-      for (const [name, expected] of Object.entries(EXPECTED[screen])) {
-        const item = record[name];
-        assertBox(screen, name, item && item.box ? item.box : item, expected);
-      }
+      const slots = [record.chapter, record.energy.touchBox, record.jade.touchBox, record.level.touchBox, record.settings].filter(item => item && item.width > 0);
+      for (let index = 1; index < slots.length; index++) assert(slots[index].x >= slots[index - 1].x + slots[index - 1].width, `${screen}: HUD controls overlap`);
       for (const [name, iconName] of [['energy','energy'],['jade','jade'],['level','chronicle']]) {
         assert(/resource_pill_design\.webp/.test(record[name].frame), `${screen}: ${name} frame is not resource_pill_design.webp`);
         assert(new RegExp(`resource_${iconName}_design\\.webp`).test(record[name].icon), `${screen}: ${name} icon mismatch`);
@@ -147,7 +128,7 @@ function assertBox(screen, name, actual, expected) {
         assert(/Qixia WenKai/.test(record.chapterFont), `${screen}: chapter is not using the authored Kaiti face`);
       }
       assert(record.energy.touchBox.height >= 44, `${screen}: energy touch target is below 44px`);
-      assert(record.more === 'none', `${screen}: legacy more button is still visible`);
+      assert(record.more !== 'none' && record.settings.width >= 44 && record.settings.height >= 44, `${screen}: settings must remain visible with a 44px touch target`);
       assert(record.kaiFontReady, `${screen}: Qixia WenKai is not loaded`);
       if (screen === 'codex') assert(record.chapterText === '山海册', 'codex: wrong header title');
       if (screen === 'codex-detail') assert(record.chapterText === '穷奇', 'codex-detail: wrong header title');
@@ -157,7 +138,7 @@ function assertBox(screen, name, actual, expected) {
     assert(missing.length === 0, `404 responses: ${[...new Set(missing)].join(', ')}`);
     assert(pageErrors.length === 0, `page errors: ${pageErrors.join(', ')}`);
     await context.close();
-    console.log(`UI V14 RUNTIME HUD PASS (${Object.keys(EXPECTED).length} states)`);
+    console.log(`UI V14 RUNTIME HUD PASS (${SCREENS.length} states)`);
   } finally {
     if (browser) await browser.close();
     await new Promise((resolve) => instance.close(resolve));

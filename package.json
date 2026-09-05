@@ -7,6 +7,9 @@
     "build": "node build-dist.js",
     "package:taptap": "powershell -NoProfile -ExecutionPolicy Bypass -File ./package-taptap.ps1",
     "test:h5": "node prototype/tests/run_h5_release_suite.js",
+    "test:gameplay": "node prototype/tests/h5_ui_gameplay_loop_test.js && node prototype/tests/h5_two_volume_sources_test.js && node prototype/tests/ui_v14_gameplay_runtime_test.js",
+    "test:ui:storage": "node prototype/tests/ui_v14_storage_runtime_test.js",
+    "test:ui:courtyard": "node prototype/tests/courtyard_flat_runtime_test.js",
     "test:ui:v14": "node prototype/tests/ui_v14_asset_integrity_test.js && node prototype/tests/ui_v14_hud_runtime_test.js && node prototype/tests/ui_v14_nav_recycle_runtime_test.js && node prototype/tests/ui_v14_visual_gate_test.js",
     "test:ui:v14:strict": "node prototype/tests/ui_v14_asset_integrity_test.js && node prototype/tests/ui_v14_hud_runtime_test.js && node prototype/tests/ui_v14_nav_recycle_runtime_test.js && node prototype/tests/ui_v14_visual_gate_test.js --strict"
   }

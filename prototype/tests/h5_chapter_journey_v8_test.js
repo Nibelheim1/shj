@@ -236,7 +236,11 @@ function driveVolume(state, volume, beastId, dayIndex) {
     if (step < 3 && Core.currentRenovation(state)) repairOne(state, volume);
   }
   let guard = 60;
-  while (guard-- > 0 && Core.currentRenovation(state)) repairOne(state, volume);
+  while (guard-- > 0) {
+    openAreas(state, volume); // completing an area can open the next required one
+    if (!Core.currentRenovation(state)) break;
+    repairOne(state, volume);
+  }
   expect(!Core.currentRenovation(state), '卷' + volume + ' 三段故事后仍须完成全部修缮');
   expect(Core.chapterProgress(state).storiesDone === true, '卷' + volume + ' 三段故事完成');
   expect(Core.chapterProgress(state).renovationDone === Core.chapterProgress(state).renovationTarget,

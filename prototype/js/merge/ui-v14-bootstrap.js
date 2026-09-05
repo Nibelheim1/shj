@@ -12,7 +12,7 @@
   var loadedSources = Object.create(null);
   var applicationSources = Object.freeze([
     'js/merge/data.js', 'js/merge/core.js', 'js/merge/audio.js', 'js/merge/save-store.js',
-    'js/merge/analytics.js', 'js/merge/courtyard-scene.js', 'js/merge/ad-manager.js',
+    'js/merge/analytics.js', 'js/merge/courtyard-scene.js', 'js/merge/courtyard-art.js', 'js/merge/ad-manager.js',
     'js/merge/ui-v14-spec.js', 'js/merge/ui.js', 'merge-slice.js', 'js/merge/ui-v14.js'
   ]);
 

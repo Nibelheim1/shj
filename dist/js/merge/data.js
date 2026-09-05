@@ -312,7 +312,7 @@
       id: 'jiuweihu',
       name: '九尾狐',
       unlockFamily: 'groom',
-      unlockTier: 6,
+      unlockTier: 3,
       careTypes: ['groom', 'play'],
       careRoutes: {
         groom: { family: 'groom', label: '梳洗台顺好的蓬松小礼' },
@@ -350,13 +350,13 @@
       },
       jobTitle: '迎宾 / 形象大使',
       storySteps: [
-        storyStep(1, '尾巴卷成球', '九尾狐对着水坑发愁：九条尾巴各想各的，越想漂亮越乱。陪它玩一会儿，尾巴才肯合作。', [
+        storyStep(1, '尾巴卷成球', '九尾狐对着水坑发愁：蓬松尾巴总不听话，越想漂亮越乱。陪它玩一会儿，尾巴才肯合作。', [
           sourcedRequirement('play', 2, 1, 'jiuweihu'), requirement('herb', 1, 1)
         ]),
         storyStep(2, '编个新游戏', '它愿意把最蓬的一条尾巴借给害羞的新客，还把笑声编成大家都想玩的新游戏。', [
           sourcedRequirement('play', 3, 1, 'jiuweihu'), requirement('herb', 2, 1)
         ]),
-        storyStep(3, '喜欢自己', '九条尾巴整齐摇摆，它把玩出来的糖塔摆上窗台，主动带大家熟悉收容所。', [
+        storyStep(3, '喜欢自己', '尾巴自在地摇摆，它把一起玩过的玩具摆上窗台，主动带大家熟悉宗门。', [
           sourcedRequirement('play', 4, 1, 'jiuweihu'), requirement('groom', 3, 1)
         ])
       ]
@@ -1068,7 +1068,7 @@
 
   var recipes = [
     { id: 'PROD_SOOTHE', name: '安神药包', volume: 1, inputs: [requirement('herb', 3, 1), requirement('cloth', 3, 1)], use: '穷奇疗愈与卷一医案', art: 'assets/art/recipes/prod_soothe.webp', brief: '把宁神草收进柔软药布包，让不安的心在清润药香里慢慢安顿下来。' },
-    { id: 'PROD_BED', name: '灵木床', volume: 2, inputs: [requirement('build', 4, 1), requirement('groom', 3, 1)], use: '九尾狐静室与卷二修缮', art: 'assets/art/recipes/prod_bed.webp', brief: '用方石做床脚、蝴蝶结编成柔软铺面，搭一张能让尾巴都舒展开的灵木小床。' },
+    { id: 'PROD_BED', name: '灵木床', volume: 2, inputs: [requirement('build', 4, 1), requirement('groom', 3, 1)], use: '九尾狐静室与卷二修缮', art: 'assets/art/recipes/prod_bed.webp', brief: '用榫卯件接稳床架、蝴蝶结系好柔软铺面，搭一张能让尾巴都舒展开的灵木小床。' },
     { id: 'PROD_MEAL', name: '疗愈餐', volume: 3, inputs: [requirement('food', 6, 1), requirement('herb', 4, 1)], use: '饕餮卷医案', art: 'assets/art/recipes/prod_meal.webp', brief: '把最受欢迎的山海小食与暖阳花一起装盘，吃饱了才有力气继续疗愈。' },
     { id: 'PROD_CLEAR', name: '清心丹', volume: 3, inputs: [requirement('tool', 6, 1), requirement('herb', 6, 1)], use: '焦虑类医案', art: 'assets/art/recipes/prod_clear.webp', brief: '医馆印记配上舒神叶，在青玉药罐里炼成一粒让呼吸慢下来的清心丹。' },
     { id: 'PROD_GARDEN', name: '药圃阵盘', volume: 4, inputs: [requirement('herb', 5, 1), requirement('build', 3, 1)], use: '百草园区域信物', art: 'assets/art/recipes/prod_garden.webp', brief: '把花蜜露和原木摆成聚灵阵，百草园的新区域会顺着阵盘自己生长。' },
@@ -1259,9 +1259,9 @@
           stageBonus(3, '访客委托刷新再 -15 分钟', 'order.refreshMs', { add: -15 * 60 * 1000 })
         ],
         stages: [
-          { order: { title: '扫开青石径', text: '青石径被落叶埋了。扫开它，客人走得进来。', requirements: [requirement('herb', 2, 1), requirement('play', 1, 1)], reward: { jade: 35, xp: 22 } } },
-          { order: { title: '摆好迎客凳', text: '给远来的小神兽留个歇脚的地方。', requirements: [requirement('groom', 2, 1), requirement('herb', 2, 1)], reward: { jade: 50, xp: 30 } } },
-          { order: { title: '挂上迎宾灯', text: '夜里也亮堂堂的，谁都不会找不到家。', requirements: [requirement('herb', 3, 1), requirement('tool', 2, 1)], reward: { jade: 60, xp: 35 } } }
+          { order: { title: '扫开青石径', text: '用草叶束扎一把小扫帚。再带一枚彩球给穷奇，请它帮忙把落叶赶到路边，一起迎接新住客。', assistance: { beastId: 'qiongqi', text: '穷奇收下彩球，扑扇小翅膀把落叶赶到两旁。你拿草叶束扎的小扫帚扫净台阶，青石径露出来了。' }, requirements: [requirement('herb', 2, 1), requirement('play', 1, 1)], reward: { jade: 35, xp: 22 } } },
+          { order: { title: '摆好迎客凳', text: '旧凳子已经找到了。用毛刷刷净旧凳，再用草叶束擦去浮尘，请穷奇帮忙把它搬到门边。', assistance: { beastId: 'qiongqi', text: '你把旧凳刷洗干净，穷奇顶住凳脚，和你一起将它挪到门边。远客终于有地方歇脚。' }, requirements: [requirement('groom', 2, 1), requirement('herb', 2, 1)], reward: { jade: 50, xp: 30 } } },
+          { order: { title: '挂上迎宾灯', text: '用木板修好灯架，再用布条把灯系稳。夜里亮堂堂的，谁都不会找不到家。', requirements: [requirement('build', 3, 1), requirement('cloth', 3, 1)], reward: { jade: 60, xp: 35 } } }
         ]
       },
       {
@@ -1271,7 +1271,7 @@
         visualMode: 'staged',
         art: ['assets/art/v7/sect/groom_pavilion_stage0.webp', 'assets/art/v7/sect/groom_pavilion_stage1.webp', 'assets/art/v7/sect/groom_pavilion_stage2.webp', 'assets/art/v7/sect/groom_pavilion_stage3.webp'],
         stageLines: ['旧竹席落满灰，尾巴们没处舒展。', '竹席收好，空出了转身的地方。', '梳洗镜架起，今天的样子被认真照见。', '九尾灯沿檐亮起，九条尾巴有了自在转身的地方。'],
-        unlock: { kind: 'product', volume: 2, productId: 'PROD_BED', productCount: 1 },
+        unlock: { kind: 'areaStage', volume: 2, requireAreaId: 'forecourt', requireStage: 3 },
         stageBonuses: [
           stageBonus(1, '梳洗局 A 评级奖励 +5%', 'minigame.bonusChance', { family: 'groom', add: 0.05 }),
           stageBonus(2, '梳洗局 S 评级奖励 +5%', 'minigame.bonusChance', { family: 'groom', add: 0.05 }),
@@ -1279,8 +1279,8 @@
         ],
         stages: [
           { order: { title: '理清旧竹席', text: '先把落满灰的竹席收好，给尾巴们腾出舒展的地方。', requirements: [requirement('build', 2, 1), requirement('groom', 2, 1)], reward: { jade: 45, xp: 25 } } },
-          { order: { title: '架起梳洗镜', text: '镜子不评价谁，只把今天精神一点的样子认真照回来。', requirements: [requirement('build', 3, 1), requirement('groom', 3, 1)], reward: { jade: 65, xp: 38 } } },
-          { order: { title: '点亮九尾灯', text: '灯火沿着檐角一盏盏亮起，九条尾巴终于有了自在转身的地方。', requirements: [requirement('build', 4, 1), requirement('groom', 3, 1)], productNeed: { productId: 'PROD_BED', count: 1 }, reward: { jade: 95, xp: 55 } } }
+          { order: { title: '架起梳洗镜', text: '用木板加固旧镜框，系上九尾狐送来的蝴蝶结。镜子会把今天精神一点的样子认真照回来。', requirements: [requirement('build', 3, 1), requirement('groom', 3, 1)], reward: { jade: 65, xp: 38 } } },
+          { order: { title: '点亮九尾灯', text: '用木条加固灯架，把灵木床安置在灯下。最后用梳子替九尾狐梳顺尾巴，它就能在这里安心休息。', requirements: [requirement('build', 2, 1), requirement('groom', 1, 1)], productNeed: { productId: 'PROD_BED', count: 1 }, reward: { jade: 95, xp: 55 } } }
         ]
       },
       {
@@ -1484,8 +1484,7 @@
     nextChapter: { label: '卷二 · 九尾狐篇', hook: '穷奇玩熟的玩具在包袱里发亮——有位九条尾巴的客人，正等着这份玩具礼物。' }
   };
 
-  /* 修缮第三段“焕新”统一强化：必须额外交付一件对应卷的产物。
-     卷二起若没有 5 阶材料，也把一项需求抬到 5 阶，让后期修缮与合成深度同步。 */
+  /* 卷二主线先学会来源与一张灵木床配方；可选建设和后续卷章再强化成本。 */
   (function () {
     var finalProducts = {
       gate: 'PROD_SOOTHE', clinic: 'PROD_SOOTHE',
@@ -1497,10 +1496,10 @@
     sect.areas.forEach(function (area) {
       var finalStage = area.stages && area.stages[2] && area.stages[2].order;
       if (!finalStage) return;
-      if (!finalStage.productNeed) {
+      if (!finalStage.productNeed && area.id !== 'forecourt') {
         finalStage.productNeed = { productId: finalProducts[area.id] || 'PROD_SOOTHE', count: 1 };
       }
-      if (area.volume >= 2) {
+      if (area.volume >= 2 && area.id !== 'forecourt' && area.id !== 'groom_pavilion') {
         var hasTier5 = finalStage.requirements.some(function (need) { return need.tier >= 5; });
         if (!hasTier5) {
           finalStage.requirements[0] = requirement(finalStage.requirements[0].family, 5, finalStage.requirements[0].count);
@@ -2032,7 +2031,7 @@
   ];
 
   var questObjects = [
-    { id: 'old-gate-lamp', name: '旧门灯', areaId: 'gate', brokenArt: 'assets/art/v9/quest_objects/old-gate-lamp_broken.webp', repairedArt: 'assets/art/v9/quest_objects/old-gate-lamp_repaired.webp', brokenLabel: '木框开裂、灯绳断了', repairedLabel: '暖光照见门后一对紧张的耳朵', projectId: 'gate-lamp' },
+    { id: 'old-gate-lamp', name: '旧门灯', areaId: 'gate', brokenArt: 'assets/art/v9/quest_objects/old-gate-lamp_broken.webp', repairedArt: 'assets/art/v9/quest_objects/old-gate-lamp_repaired.webp', completionArt: 'assets/art/v9/story/cg_gate_ears_v2.png', brokenLabel: '木框开裂、灯绳断了', repairedLabel: '暖光照见门后一对紧张的耳朵', projectId: 'gate-lamp' },
     { id: 'rusted-gate-ring', name: '锈门环', areaId: 'gate', brokenArt: 'assets/art/v9/quest_objects/rusted-gate-ring_broken.webp', repairedArt: 'assets/art/v9/quest_objects/rusted-gate-ring_repaired.webp', brokenLabel: '铁环松动，在风里轻响', repairedLabel: '门环扣牢，远处传来试探的脚步声', projectId: 'gate-ring' },
     { id: 'faded-sect-sign', name: '褪色匾额', areaId: 'gate', brokenArt: 'assets/art/v9/quest_objects/faded-sect-sign_broken.webp', repairedArt: 'assets/art/v9/quest_objects/faded-sect-sign_repaired.webp', brokenLabel: '背板断裂，栖霞二字蒙尘', repairedLabel: '匾额重回檐下，栖霞宗正式重开', projectId: 'gate-sign' },
     { id: 'broken-broom', name: '断柄扫帚', areaId: 'clinic', brokenArt: 'assets/art/v9/quest_objects/broken-broom_broken.webp', repairedArt: 'assets/art/v9/quest_objects/broken-broom_repaired.webp', brokenLabel: '扫帚柄断成两截', repairedLabel: '灰尘被扫开，药庐重新露出原貌', projectId: 'clinic-broom' },
@@ -2046,7 +2045,7 @@
       id: 'gate-lamp', sequence: 1, session: 1, kind: 'renovation', areaId: 'gate', stageIndex: 0,
       title: '修好门灯', objectId: 'old-gate-lamp', installLocation: '山门左檐', actionLabel: '装回山门',
       requirements: [requirement('build', 2, 1), requirement('cloth', 2, 1)],
-      completeFeedback: '门灯亮了。门后先露出一只耳朵，又飞快缩了回去。', storyEventId: 'qiongqi-ear-in-light'
+      completeFeedback: '门灯亮了。暖光照见门后一对紧张的耳朵。', storyEventId: 'qiongqi-ear-in-light'
     },
     {
       id: 'gate-ring', sequence: 2, session: 1, kind: 'renovation', areaId: 'gate', stageIndex: 1,
@@ -2105,8 +2104,8 @@
   ];
 
   var storyEvents = [
-    { id: 'volume-one-opening', session: 1, speaker: '旁白', text: '栖霞宗荒了很久。你推开山门，门后传来一声紧张的呼噜。', blocking: true, musicKey: 'qiongqiGate', ambienceKey: 'gateWind' },
-    { id: 'qiongqi-ear-in-light', session: 1, speaker: '穷奇', text: '你是谁？先、先别再往前了。', voiceKey: 'qiongqiEar', cgArt: 'assets/art/v9/story/cg_gate_lamp.webp', actionArt: 'assets/art/v9/qiongqi_actions/qiongqi_peek.webp' },
+    { id: 'volume-one-opening', session: 1, speaker: '旁白', text: '栖霞宗荒了很久。你握住门环，门后传来一声紧张的呼噜。', blocking: true, musicKey: 'qiongqiGate', ambienceKey: 'gateWind' },
+    { id: 'qiongqi-ear-in-light', session: 1, speaker: '旁白', text: '暖光照见门后一对紧张的耳朵', cgArt: 'assets/art/v9/story/cg_gate_ears_v2.png', choices: [{ id: 'push-gate', text: '推开门' }] },
     { id: 'qiongqi-footsteps', session: 1, speaker: '穷奇', text: '那个旧彩球……你会玩吗？', voiceKey: 'qiongqiBall', cgArt: 'assets/art/v9/story/cg_old_ball.webp', actionArt: 'assets/art/v9/qiongqi_actions/qiongqi_old_ball.webp', unlocks: ['story-toy-tower'] },
     { id: 'qiongqi-will-return', session: 1, speaker: '穷奇', text: '你明天……还会回来吗？', voiceKey: 'qiongqiReturn', actionArt: 'assets/art/v9/qiongqi_actions/qiongqi_paw_light.webp', choices: [{ id: 'promise-return', text: '会，我还要把这里修好。', reply: '那我……替你看着门。' }, { id: 'leave-lamp', text: '这盏灯会先陪着你。', reply: '嗯。我等灯，也等你。' }] },
     { id: 'sect-reopens', session: 2, speaker: '穷奇', text: '栖霞……原来这里真的有名字。', voiceKey: 'qiongqiSect', ambienceKey: 'clinicFire' },

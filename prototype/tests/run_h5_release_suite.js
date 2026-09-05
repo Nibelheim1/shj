@@ -42,6 +42,9 @@ const TESTS = [
   'prototype/tests/h5_visitor_experience_v9_test.js',
   'prototype/tests/h5_toy_tower_v11_test.js',
   'prototype/tests/h5_immersive_volume_one_v9_test.js',
+  'prototype/tests/h5_ui_gameplay_loop_test.js',
+  'prototype/tests/h5_two_volume_sources_test.js',
+  'prototype/tests/ui_v14_gameplay_runtime_test.js',
   'prototype/tests/h5_browser_resilience_v8_test.js'
 ];
 

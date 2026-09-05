@@ -1,4 +1,4 @@
-/* Verify stable five-entry navigation and the native recycle-confirm flow. */
+/* Verify stable four-entry navigation and the native recycle-confirm flow. */
 'use strict';
 
 const fs = require('fs');
@@ -14,8 +14,7 @@ const VIEWS = [
   ['merge-view', 'merge'],
   ['sect-view', 'sect-map'],
   ['yard-view', 'yard'],
-  ['codex-view', 'codex'],
-  ['bag-view', 'bag']
+  ['codex-view', 'codex']
 ];
 
 function server() {
@@ -65,6 +64,9 @@ function near(a, b, tolerance = 0.05) {
     await page.evaluate(() => {
       const current = window.MergeUI.state();
       current.welcomeSeen = true;
+      current.tutorial.completed = true;
+      current.storyExperience.queue = [];
+      current.beastRevealQueue = [];
       if (current.sect && current.sect.stages) current.sect.stages.gate = Math.max(1, Number(current.sect.stages.gate || 0));
       current.codex = current.codex || {};
       current.codex.qiongqi = Object.assign({}, current.codex.qiongqi || {}, { discovered:true });
@@ -140,6 +142,9 @@ function near(a, b, tolerance = 0.05) {
       });
       assert(/nav_bar_wood\.webp/.test(record.navBackground), `${screen}: full navigation background is not stable`);
       assert(!/design_nav_/.test(record.navBackground), `${screen}: page-specific baked navigation is still active`);
+      assert(record.buttons.length === 4, `${screen}: expected four equal navigation slots`);
+      assert(record.buttons.every(button => near(button.box.width, record.buttons[0].box.width)), `${screen}: uneven navigation widths`);
+      assert(near(record.buttons[0].box.x, 390 - record.buttons[3].box.x - record.buttons[3].box.width), `${screen}: unequal outer margins`);
       assert(record.buttons.filter((button) => button.active).length === 1, `${screen}: expected exactly one active navigation item`);
       for (const button of record.buttons) {
         assert(button.transform === 'none', `${screen}/${button.view}: button transform=${button.transform}`);
@@ -216,7 +221,7 @@ function near(a, b, tolerance = 0.05) {
     assert(mergePolish.cellBackground === 'none' && mergePolish.cellBackgroundColor === 'rgba(0, 0, 0, 0)' && mergePolish.cellBoxShadow === 'none', `merge: live cells still paint a second grid (${JSON.stringify(mergePolish)})`);
     assert(mergePolish.tools.length === 4 && mergePolish.tools.every((tool) => tool.loaded && /tool_(?:storage|recipe|sort|recycle)\.webp$/.test(tool.source) && !tool.hasSvg), `merge: authored tool icons are incomplete ${JSON.stringify(mergePolish.tools)}`);
 
-    const beforeHoldGrid = await page.evaluate(() => JSON.stringify(window.MergeUI.state().grid));
+    const beforeHoldGrid = await page.evaluate(() => JSON.stringify(window.MergeUI.state().grid, (key, value) => key === 'lastRechargeAt' ? undefined : value));
     const holdCell = page.locator('#merge-board .merge-cell[data-longpress-family]').first();
     assert(await holdCell.count() === 1, 'merge: no material cell exposes long-press metadata');
     const holdBox = await holdCell.boundingBox();
@@ -233,7 +238,9 @@ function near(a, b, tolerance = 0.05) {
       use:!!modal.querySelector('.route-use-hint')
     }));
     assert(/物品说明/.test(holdHelp.text) && /合成/.test(holdHelp.text) && holdHelp.routeSteps >= 2 && holdHelp.source && holdHelp.use, `merge: long-press help is incomplete ${JSON.stringify(holdHelp)}`);
-    assert(await page.evaluate(() => JSON.stringify(window.MergeUI.state().grid)) === beforeHoldGrid, 'merge: long-press mutated the board');
+    const afterHoldGrid = await page.evaluate(() => JSON.stringify(window.MergeUI.state().grid, (key, value) => key === 'lastRechargeAt' ? undefined : value));
+    // The normal five-second tick updates recharge timestamps even on a full generator.
+    assert(afterHoldGrid === beforeHoldGrid, 'merge: long-press mutated board contents');
     await page.screenshot({ path:path.join(OUTPUT, 'merge-polish-longpress.png'), scale:'device', animations:'disabled' });
     await page.locator('#modal-root [data-close-modal]').click();
     await page.waitForFunction(() => !document.querySelector('#modal-root .modal-backdrop'));

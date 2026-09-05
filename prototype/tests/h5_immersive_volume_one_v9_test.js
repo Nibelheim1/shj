@@ -38,7 +38,7 @@ function drainStory(state) {
   assert.ok(safety > 0, '剧情队列不得死循环');
 }
 
-function runPublicJourney() {
+function runPublicJourney(options = {}) {
   const state = Core.createFresh(NOW, '2026-09-01');
   assert.strictEqual(Core.setPublicRelease(state, true).ok, true, '公开模式可开启');
   drainStory(state);
@@ -81,7 +81,7 @@ function runPublicJourney() {
     assert.strictEqual(begun.cost, 0, '首局剧情玩具塔免费');
     const settled = Core.recordCare(state, 'play', {
       beastId: 'qiongqi', difficulty: 'easy', outcome: 'complete', token: begun.token,
-      game: { game: 'sheep', version: 11, storyRound: true, cleared: true, validActions: 7, triplesCleared: 7, totalTiles: 21, slots: 5, perf: 1, score: 900 }
+      game: options.storyTower ? options.storyTower() : { game: 'sheep', version: 11, storyRound: true, cleared: true, validActions: 7, triplesCleared: 7, totalTiles: 21, slots: 5, perf: 1, score: 900 }
     }, clock++);
     assert.strictEqual(settled.ok, true, '剧情玩具塔可结算');
     assert.strictEqual(state.energy, beforeEnergy, '剧情玩具塔不扣灵力');
@@ -134,6 +134,12 @@ function runPublicJourney() {
     assert.strictEqual(Core.canAssembleProject(state, project.id).ok, true, project.title + ' 可装配');
     const result = Core.completeProject(state, project.id, clock++);
     assert.strictEqual(result.ok, true, project.title + ' 一次确认完成修缮');
+    if (project.id === 'gate-lamp') {
+      const change = Core.worldChanges(state, 1)[0];
+      assert.ok(change.unlockedSources.some(source => source.family === 'herb'), '首修明确提示草药来源开放');
+      assert.ok(change.bonusCondition.includes('卷一'), '访客加成明确实际生效条件');
+      assert.ok(Core.journeyProgress(state).percent > 0, '首修后本卷进度前进');
+    }
     assert.strictEqual(result.status, 'installed', project.title + ' 不再停留于待安装状态');
     installed.push(project.id);
     mergeTimeline.push(project.id + ':' + (state.daily.merges - mergesBeforeProject));
@@ -177,9 +183,13 @@ function runPublicJourney() {
       assert.strictEqual(Core.orderDomainAudit(order).ok, true, order.id + ' 通过领域审计');
     }
   });
+  if (options.metrics) Object.assign(options.metrics, { sourceClicks, merges: state.projectState.mergeCount, crafts: state.projectState.purposefulCraftCount, careRuns: 1, energyEnd: state.energy });
   return state;
 }
 
+module.exports = { runPublicJourney, NOW };
+
+if (require.main === module) {
 console.log('\n== H5 immersive volume-one v9 ==');
 
 let completedState = null;
@@ -295,3 +305,4 @@ check('故事选择、播放位置、回看、卷终状态可跨存档恢复', f
 console.log('\n== immersive volume-one result ==');
 console.log(failures === 0 ? 'ALL PASS' : failures + ' FAIL');
 process.exitCode = failures === 0 ? 0 : 1;
+}
