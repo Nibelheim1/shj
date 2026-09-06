@@ -21,15 +21,28 @@ const server = http.createServer((req, res) => {
 });
 (async () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, path.dirname(ENTRY), 'assets/art/ui-v14/courtyard-flat/manifest.json')));
-  assert.strictEqual(manifest.frames.length, 324);
-  assert.strictEqual(new Set(manifest.frames.map(frame => frame.theme + '/' + frame.key)).size, 324);
+  assert.strictEqual(manifest.frames.length, 648);
+  assert.strictEqual(new Set(manifest.frames.map(frame => frame.theme + '/' + frame.key)).size, 648);
   for (const frame of manifest.frames) {
-    const state = { backgrounds:{ active:frame.theme }, facilities:{} };
-    ART.order.forEach((id, index) => { state.facilities[id] = { level:Number(frame.key[index]) }; });
-    assert.strictEqual(ART.levels(state), frame.key);
+    const state = { backgrounds:{ active:frame.theme }, facilities:{}, sect:{ stages:{ clinic:frame.clinicRepairPhase } } };
+    ART.order.forEach((id, index) => { state.facilities[id] = { level:Number(frame.levels[index]) }; });
+    assert.strictEqual(ART.levels(state), frame.levels);
+    assert.ok(ART.urlFor(state).endsWith('/' + frame.key + '.webp'));
     assert.strictEqual(fs.statSync(path.join(ROOT, path.dirname(ENTRY), ART.urlFor(state))).size, frame.bytes);
   }
-  console.log('PASS all 324 theme / independent level combinations resolve to shipped frames');
+  const earlyState = { facilities:{ clinic:{ level:1 } }, sect:{ stages:{ clinic:0 } } };
+  assert.ok(ART.urlFor(earlyState).endsWith('/p0-1111.webp'));
+  assert.ok(ART.urlFor(earlyState, { clinic:2 }).endsWith('/2111.webp'), 'paid upgrade preview retains completed appearance');
+  earlyState.facilities.clinic.level = 2;
+  assert.ok(ART.urlFor(earlyState).endsWith('/2111.webp'), 'already purchased clinic is not visually downgraded');
+  earlyState.facilities.clinic.level = 1;
+  earlyState.storyExperience = { volumeOneCompleted:true };
+  assert.ok(ART.urlFor(earlyState).endsWith('/1111.webp'), 'old completed story retains repaired appearance');
+  earlyState.storyExperience.volumeOneCompleted = false;
+  earlyState.chapter = { completedVolumes:[1] };
+  assert.strictEqual(ART.clinicRepairPhase(earlyState), 3);
+  console.log('PASS all 648 theme / repair / independent level combinations and paid-save compatibility');
+  if (process.argv.includes('--manifest-only')) return;
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const browser = await chromium.launch({ headless:true });
   let page;
@@ -42,6 +55,7 @@ const server = http.createServer((req, res) => {
     page.on('request', request => { if (/courtyard-flat\/.+\.webp/.test(request.url())) requests.push(request.url()); });
     await page.goto(`http://127.0.0.1:${server.address().port}/${ENTRY}`, { waitUntil:'networkidle' });
     await page.waitForFunction(() => window.MergeUI && window.__QIXIA_APP_READY__);
+    requests.length = 0;
     await page.evaluate(() => {
       const state = MergeUI.state();
       state.welcomeSeen = true;
@@ -51,6 +65,7 @@ const server = http.createServer((req, res) => {
       MERGE_DATA.storyEvents.forEach(event => { state.storyExperience.acknowledged[event.id] = true; });
       state.beastRevealQueue = [];
       state.sect.stages.gate = 1;
+      state.sect.stages.clinic = 3;
       state.codex.qiongqi.discovered = true;
       state.codex.jiuweihu.discovered = true;
       state.jade = 10000;
@@ -100,6 +115,48 @@ const server = http.createServer((req, res) => {
     }
     console.log('PASS artwork / hotspots stay aligned at 320, 390 and 430 widths');
     await page.setViewportSize({ width:390, height:844 });
+    for (const theme of ART.themes) for (const phase of [0, 1, 2, 3]) {
+      await page.evaluate(({ phase, theme }) => {
+        const state = MergeUI.state();
+        state.storyExperience.volumeOneCompleted = false;
+        state.chapter.completedVolumes = [];
+        state.sect.stages.clinic = phase;
+        state.backgrounds.active = theme;
+        MergeUI.render();
+      }, { phase, theme });
+      await applied(phase < 3 ? `p${phase}-1111` : '1111', theme);
+      const clinicCaption = await page.locator('#yard-world [data-node-id="clinic"]').getAttribute('data-facility-caption');
+      if (phase < 3) assert.ok(clinicCaption.replace(/\s/g, '').includes(`修缮${phase}/3`), 'clinic label follows its rendered repair phase');
+      await page.screenshot({ path:path.join(OUTPUT, `clinic-repair-${theme}-${phase}.png`) });
+      if (theme === 'courtyard' && phase === 0) {
+        for (const size of [{ width:320, height:568 }, { width:390, height:844 }, { width:430, height:932 }]) {
+          await page.setViewportSize(size);
+          await page.waitForTimeout(200);
+          const lockedLabel = await page.locator('#yard-world [data-node-id="groom"]').evaluate(node => {
+            const label = getComputedStyle(node, '::after'), lock = getComputedStyle(node, '::before');
+            const canvas = document.createElement('canvas'), context = canvas.getContext('2d');
+            context.font = label.font || [label.fontWeight, label.fontSize, label.fontFamily].join(' ');
+            const lines = (node.dataset.facilityCaption || '').split('\n');
+            return { text:node.dataset.facilityCaption, lines:lines.length, widths:lines.map(line => context.measureText(line).width), contentWidth:parseFloat(label.width) - parseFloat(label.paddingLeft) - parseFloat(label.paddingRight), fontSize:label.fontSize, lineHeight:label.lineHeight, height:label.height, lockDisplay:lock.display };
+          });
+          assert.strictEqual(lockedLabel.lines, 2, 'locked facility has exactly a name and condition line');
+          assert.ok(lockedLabel.widths.every(width => width <= lockedLabel.contentWidth + 1), 'locked facility text does not wrap into extra lines');
+          assert.notStrictEqual(lockedLabel.lockDisplay, 'none');
+          fs.writeFileSync(path.join(OUTPUT, `locked-label-${size.width}.json`), JSON.stringify(lockedLabel, null, 2));
+          await page.screenshot({ path:path.join(OUTPUT, `clinic-repair-locked-${size.width}.png`) });
+        }
+        await page.setViewportSize({ width:390, height:844 });
+      }
+    }
+    await page.evaluate(() => {
+      const state = MergeUI.state();
+      state.storyExperience.volumeOneCompleted = true;
+      state.sect.stages.clinic = 3;
+      state.backgrounds.active = state.yardBackground = 'courtyard';
+      MergeUI.render();
+    });
+    await applied('1111');
+    console.log('PASS clinic repair phases 0–3 visibly resolve across all four themes');
     const close = () => page.locator('#modal-root [data-close-modal]').click();
     const open = async id => {
       await page.locator('[data-qv14-yard-native="facilities"]').click();

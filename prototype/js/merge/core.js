@@ -1242,7 +1242,9 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
         if (result.unlockedStories.indexOf(storyLevel) < 0) result.unlockedStories.push(storyLevel);
       }
     }
-    result.transformed = !!raw.transformed || result.level >= 5;
+    // A grown form is not a completed recovery story. Preserve explicit old
+    // recovery records, but never infer a completed chapter from level alone.
+    result.transformed = !!raw.transformed;
     if (result.transformed) {
       result.status = 'transformed';
       result.stage = 3;
@@ -1774,6 +1776,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     }
     /* 未完成的旧订单按新项目重建，避免医疗、修缮继续引用已经退出卷一的药具链。 */
     state.activeOrders = incomingVersion < 9 ? [] : (Array.isArray(raw.activeOrders) ? raw.activeOrders.map(normalizeOrder).filter(Boolean).slice(0, 5) : []);
+    migrateGrowthOrders(state);
     state.pendingTransformation = raw.pendingTransformation || null;
     finalizeLegacyAssembledProjects(state, now);
     ensureYardBeast(state);
@@ -1811,6 +1814,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       mainline: raw.mainline != null ? !!raw.mainline : ['story', 'arrival', 'care_gate'].indexOf(raw.kind) >= 0
     });
     copied.rewards = Object.assign({}, raw.rewards || raw.reward || {});
+    if (copied.kind === 'growth') delete copied.rewards.xp;
     if (raw.productNeed && raw.productNeed.productId) {
       copied.productNeed = { productId: raw.productNeed.productId, count: Math.max(1, Math.floor(number(raw.productNeed.count, 1))) };
     }
@@ -2008,7 +2012,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var featureOpen = careFeatureUnlocked(state, careType);
     var residentOpen = isYardBeastAvailable(state, beastId);
     var difficultyOpen = careDifficultyUnlocked(state, difficulty, careType);
-    var storyRound = careType === 'play' && beastId === 'qiongqi' && state.storyExperience && state.storyExperience.active && !state.storyExperience.storyToyTowerCompleted;
+    var storyRound = careType === 'play' && beastId === 'qiongqi' && difficulty !== 'challenge' && state.storyExperience && state.storyExperience.active && !state.storyExperience.storyToyTowerCompleted;
     var cost = storyRound ? 0 : Math.max(1, Math.floor(number(CARE_COSTS[difficulty], 1)));
     var reason = !featureOpen ? 'feature-locked' : !residentOpen ? 'beast-locked' : !difficultyOpen ? 'difficulty-locked' : null;
     var condition = !featureOpen ? (careType === 'play' ? '完成山门第一次修缮后开放' : careType === 'groom' ? '完成卷一并迎来九尾狐后开放' : '当前版本未开放')
@@ -2330,63 +2334,112 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     return clone(rewards[Math.min(4, Math.max(1, level))] || { beastExp: 20, heal: 8, jade: 25 });
   }
 
-  function makeGrowthOrder(state, beastId, rng) {
-    beastId = beastId || state.yardBeastId || state.activeCaseId || BEAST_IDS[0];
-    var entry = state.beastCases && state.beastCases[beastId];
+  function growthOrderKey(order) {
+    return (order.boundDate || '') + ':' + order.beastId + ':' + Math.max(1, Math.floor(number(order.growthSequence, 1)));
+  }
+
+  function buildGrowthOrder(state, beastId, identity) {
+    var entry = state.beastCases[beastId];
     var definition = beastDefinition(beastId);
-    if (!entry || !definition || !isYardBeastAvailable(state, beastId)) {
-      beastId = BEAST_IDS.find(function (id) { return isYardBeastAvailable(state, id); }) || BEAST_IDS[0];
-      entry = state.beastCases[beastId];
-      definition = beastDefinition(beastId);
-    }
-    var date = state.daily && state.daily.date || isoDate(Date.now());
-    state.growthCounters = state.growthCounters || {};
-    var sequence = Math.max(0, Math.floor(number(state.growthCounters[beastId], 0))) + 1;
-    var keyName = date + ':' + beastId + ':' + sequence;
-    if (state.growthOrders[keyName]) return normalizeOrder(state.growthOrders[keyName]);
     var level = clamp(Math.floor(number(entry.level, 1)), 1, 5);
-    var rank = Math.max(playerOrderRank(state), level);
+    if (level >= 5) return normalizeOrder({
+      id: identity && identity.id || 'growth-maxed-' + beastId, slot: 'medical', kind: 'growth_maxed', status: 'COMPLETE',
+      boundDate: identity && identity.boundDate, growthSequence: identity && identity.growthSequence,
+      beastId: beastId, beastLevel: 5, growthRulesVersion: 2,
+      title: definition.name + '已满阶', symptom: '这位伙伴已经长成。切换住客，继续陪伴其他伙伴。', requirements: [], rewards: {}
+    });
+    var date = identity && identity.boundDate || state.daily.date;
+    var sequence = identity && identity.growthSequence || Math.max(0, Math.floor(number(state.growthCounters[beastId], 0))) + 1;
     var gift = careGiftInfo(definition);
-    var primaryTiers = [2, 3, 4, 5, 6, 7, 8, 8];
-    var supportTiers = [1, 2, 2, 3, 4, 5, 6, 7];
-    var primaryTier = clamp(Math.floor(number(primaryTiers[rank - 1], 1)), 1, familyTierCap(gift.family));
-    var supportTier = clamp(Math.floor(number(supportTiers[rank - 1], 1)), 1, familyTierCap(gift.family));
     var requirements = [
-      normalizeRequirement({ family: gift.family, tier: primaryTier, count: rank >= 8 ? 3 : rank >= 4 ? 2 : 1 }),
-      normalizeRequirement({ family: gift.family, tier: supportTier, count: rank >= 6 ? 2 : 1 })
+      normalizeRequirement({ family: gift.family, tier: [2, 3, 4, 5][level - 1], count: level === 4 ? 2 : 1 }),
+      normalizeRequirement({ family: gift.family, tier: [1, 2, 2, 3][level - 1], count: 1 })
     ];
-    var productNeed = null;
-    var generatorNeed = null;
-    var generatorFamily = producerChain(gift.family) ? gift.family : 'herb';
-    if (rank >= 4) {
-      var productByRank = { 4: 'PROD_SOOTHE', 5: 'PROD_SOOTHE', 6: 'PROD_BED', 7: 'PROD_CLEAR', 8: 'PROD_GARDEN' };
-      productNeed = { productId: productByRank[rank] || 'PROD_SOOTHE', count: 1 };
-      if (rank >= 7 && hasConsumableGenerator(state)) {
-        generatorNeed = { family: generatorFamily, minLevel: 2, count: 1 };
-      }
-    }
+    var productNeed = level === 4 && recipeUnlocked(state, 'PROD_SOOTHE') &&
+      resolveItemAvailability(state, { productId: 'PROD_SOOTHE', count: 1 }).status === 'available'
+      ? { productId: 'PROD_SOOTHE', count: 1 } : null;
     var reward = growthRewardForLevel(level);
     var effort = requirementEffort(requirements);
-    var order = annotateOrderDifficulty(normalizeOrder({
-      id: 'growth-' + keyName,
-      slot: 'growth', kind: 'growth', beastId: beastId, boundDate: date, growthSequence: sequence, beastLevel: level,
-      title: '成长心愿',
-      symptom: '这份心意只属于' + definition.name + '：和它一起' + gift.careLabel + '，才能把' + gift.item + '系列素材带回来。',
-      requirements: requirements,
-      productNeed: productNeed,
-      generatorNeed: generatorNeed,
+    return annotateOrderDifficulty(normalizeOrder({
+      id: identity && identity.id || 'growth-' + date + ':' + beastId + ':' + sequence,
+      slot: 'medical', kind: 'growth', beastId: beastId, boundDate: date, growthSequence: sequence,
+      beastLevel: level, growthRulesVersion: 2,
+      title: definition.name + '的成长心愿',
+      symptom: '陪' + definition.name + '一起' + gift.careLabel + '，准备成长所需的心意。',
+      requirements: requirements, productNeed: productNeed, generatorNeed: null,
       giftChain: { from: beastId, family: gift.family, care: gift.care, note: gift.note },
-      rewards: {
-        jade: Math.max(reward.jade, 18 + effort * 4 + rank * 3),
-        xp: 10 + effort * 2 + rank * 2,
-        beastExp: reward.beastExp + Math.max(0, rank - level) * 5,
-        heal: reward.heal,
-        energy: rank >= 5 ? (rank >= 7 ? 30 : 20) : 0,
-        generatorParts: rank >= 6 ? [{ family: generatorFamily, tier: 1 }] : []
-      }
-    }), rank);
-    state.growthOrders[keyName] = clone(order);
+      rewards: { jade: Math.max(reward.jade, 18 + effort * 4 + level * 3), beastExp: reward.beastExp, heal: reward.heal }
+    }), level);
+  }
+
+  function makeGrowthOrder(state, beastId, rng) {
+    beastId = beastId || state.yardBeastId || state.activeCaseId || BEAST_IDS[0];
+    if (!state.beastCases[beastId] || !isYardBeastAvailable(state, beastId)) {
+      beastId = BEAST_IDS.find(function (id) { return isYardBeastAvailable(state, id); }) || BEAST_IDS[0];
+    }
+    state.growthCounters = state.growthCounters || {};
+    state.growthOrders = state.growthOrders || {};
+    var sequence = Math.max(0, Math.floor(number(state.growthCounters[beastId], 0))) + 1;
+    var key = state.daily.date + ':' + beastId + ':' + sequence;
+    var cached = state.growthOrders[key];
+    if (cached && cached.kind === 'growth' && cached.legacyGrowthContract) return normalizeOrder(cached);
+    if (state.beastCases[beastId].level >= 5) return buildGrowthOrder(state, beastId);
+    if (cached && cached.growthRulesVersion === 2 && cached.status !== 'COMPLETE') return normalizeOrder(cached);
+    var order = buildGrowthOrder(state, beastId);
+    state.growthOrders[key] = clone(order);
     return order;
+  }
+
+  function migrateGrowthOrders(state) {
+    var protectedKeys = {};
+    (state.activeOrders || []).forEach(function (order) {
+      if (order.kind !== 'growth') return;
+      order.rewards = order.rewards || {};
+      delete order.rewards.xp;
+      var key = growthOrderKey(order);
+      if (order.growthRulesVersion !== 2) order.legacyGrowthContract = true;
+      protectedKeys[key] = true;
+      state.growthOrders[key] = clone(order);
+    });
+    Object.keys(state.growthOrders || {}).forEach(function (key) {
+      var order = state.growthOrders[key];
+      if (!order || order.kind !== 'growth' || order.status === 'COMPLETE') return;
+      order.rewards = order.rewards || {};
+      delete order.rewards.xp;
+      if (!protectedKeys[key] && order.growthRulesVersion !== 2 && !order.legacyGrowthContract) delete state.growthOrders[key];
+    });
+    state.migrations.growthRulesV2 = true;
+  }
+
+  function previewGrowthOrderRefresh(state, orderId) {
+    var old = (state.activeOrders || []).find(function (order) { return order && order.id === orderId; });
+    if (!old || old.kind !== 'growth' || !old.legacyGrowthContract || old.growthRefreshUsed || old.status === 'COMPLETE') {
+      return { available: false, reason: 'growth-refresh-unavailable' };
+    }
+    var replacement = buildGrowthOrder(state, old.beastId, old);
+    replacement.growthRefreshUsed = true;
+    return { available: true, oldOrder: clone(old), newOrder: replacement };
+  }
+
+  function refreshGrowthOrder(state, orderId) {
+    var preview = previewGrowthOrderRefresh(state, orderId);
+    if (!preview.available) return { ok: false, reason: preview.reason };
+    var index = state.activeOrders.findIndex(function (order) { return order && order.id === orderId; });
+    state.activeOrders[index] = clone(preview.newOrder);
+    state.growthOrders[growthOrderKey(preview.oldOrder)] = clone(preview.newOrder);
+    state.orders = state.activeOrders;
+    return { ok: true, order: clone(preview.newOrder), previousOrder: preview.oldOrder };
+  }
+
+  function orderRewardPreview(state, order) {
+    var rewards = clone(order && order.rewards || {});
+    if (order && order.kind === 'growth') {
+      delete rewards.xp;
+      var clinic = facilityAvailability(state, 'clinic');
+      var config = DATA.facilities.clinic.levels[clinic.level - 1];
+      rewards.beastExp = Math.max(0, Math.round(number(rewards.beastExp, 0) * number(config.beastXpMultiplier, 1)));
+    }
+    return rewards;
   }
 
   function makeV6SupplyOrder(state) {
@@ -2660,7 +2713,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var visitorOpen = !immersiveVolumeOne && (!!state.firstStoryCompleted || BEAST_IDS.some(function (id) { return number(state.beastCases && state.beastCases[id] && state.beastCases[id].storyProgress, 0) >= 1; }));
     var journeyOpen = !immersiveVolumeOne && (state.transformedOrder || []).length >= 1;
     if (!medicalOpen) bySlot.medical = lockedSlot('medical', '医案未开', immersiveVolumeOne ? '完成穷奇篇后开放普通医案。' : '完成医馆首段修缮后开放。');
-    else if (!bySlot.medical || bySlot.medical.kind === 'growth_complete' || bySlot.medical.status === 'LOCKED' || !isOrderReachable(state, bySlot.medical)) bySlot.medical = makeMedicalOrder(state, rng);
+    else if (!bySlot.medical || bySlot.medical.beastId !== (state.yardBeastId || state.activeCaseId) || bySlot.medical.kind === 'growth_complete' || bySlot.medical.status === 'LOCKED' || !isOrderReachable(state, bySlot.medical)) bySlot.medical = makeMedicalOrder(state, rng);
     var now = number(state.lastSeenAt, Date.now());
     if (!visitorOpen) bySlot.visitor = lockedSlot('visitor', '访客未开', immersiveVolumeOne ? '完成穷奇篇后开放普通访客。' : '完成第一段故事后，山门才会迎来访客。');
     else if (state.visitors && state.visitors.pending) bySlot.visitor = makeVisitorResponseOrder(state);
@@ -3535,7 +3588,11 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var entry = state.beastCases && state.beastCases[beastId];
     var definition = beastDefinition(beastId);
     var storyTarget = definition && Array.isArray(definition.storySteps) ? definition.storySteps.length : 3;
-    if (!entry || entry.transformed || entry.storyProgress < storyTarget || !entry.careDone) return false;
+    if (!entry || entry.storyProgress < storyTarget || !entry.careDone) return false;
+    // Old Lv5 saves could mark recovery without opening its job. Allow only
+    // that incomplete record to finish the real recovery sequence once.
+    var recoveryJob = state.jobs && state.jobs[beastId];
+    if (entry.transformed && (entry.recoveryFormGranted || recoveryJob && (recoveryJob.status === 'ready' || recoveryJob.status === 'active'))) return false;
     var progress = chapterProgress(state);
     if (progress.beastId !== beastId || !progress.renovationComplete || !progress.storiesDone) return false;
     entry.transformed = true;
@@ -3722,7 +3779,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     if (!canDeliver(state, order)) return { ok: false, reason: 'requirements', missing: missingRequirements(state, order) };
     order.requirements.forEach(function (need) { consumeRequirement(state, need); });
     if (order.productNeed) state.products[order.productNeed.productId] -= number(order.productNeed.count, 1);
-    var rewards = order.rewards || {};
+    var rewards = orderRewardPreview(state, order);
     state.jade += Math.max(0, number(rewards.jade, 0));
     if (rewards.energy) state.energy += Math.max(0, Math.floor(number(rewards.energy, 0)));
     (rewards.generatorParts || []).forEach(function (part) {
@@ -3746,9 +3803,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     if (order.kind === 'growth') {
       var growthEntry = state.beastCases[order.beastId];
       if (!growthEntry) return { ok: false, reason: 'growth-complete' };
-      var clinicLevel = state.facilities && state.facilities.clinic ? clamp(number(state.facilities.clinic.level, 1), 1, 3) : 1;
-      var xpMultiplier = number(DATA.facilities.clinic.levels[clinicLevel - 1].beastXpMultiplier, 1);
-      var beastExpAward = Math.max(0, Math.round(number(rewards.beastExp, 0) * xpMultiplier));
+      var beastExpAward = Math.max(0, Math.round(number(rewards.beastExp, 0)));
       growthEntry.exp = Math.max(0, number(growthEntry.exp, 0)) + beastExpAward;
       growthEntry.heal = Math.max(0, number(growthEntry.heal, 0)) + Math.max(0, number(rewards.heal, 0));
       state.daily.growthCompleted[order.beastId] = true;
@@ -3761,7 +3816,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       state.growthOrders[growthKey] = normalizeOrder({
         id: order.id, slot: 'growth', kind: 'growth_complete', status: 'COMPLETE', beastId: order.beastId,
         boundDate: order.boundDate || state.daily.date, title: '今日收获',
-        symptom: '宗门阅历、疗愈和暖玉都已经记下。', requirements: [], rewards: {}
+        symptom: '住客成长、疗愈和暖玉都已经记下。', requirements: [], rewards: {}
       });
     } else if (order.slot === 'recruit' || order.kind === 'recruit') {
       var recruited = activateCase(state, order.beastId, now);
@@ -4351,7 +4406,55 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     return false;
   }
 
-  function beginCare(state, careType, difficulty, beastId, now) {
+  function validateCareSourceContext(state, careType, beastId, supplied) {
+    if (!supplied) return { ok: true, context: null };
+    var family = careRouteForBeast(beastId, careType).family;
+    if (supplied.family && supplied.family !== family) return { ok: false, reason: 'care-source-family' };
+    var order = supplied.orderId && (state.activeOrders || []).find(function (item) { return item && item.id === supplied.orderId; });
+    if (supplied.orderId && (!order || order.status === 'COMPLETE' || order.status === 'LOCKED')) return { ok: false, reason: 'care-source-order' };
+    var recipeId = supplied.recipeId;
+    var recipe = recipeId && recipeDefinition(recipeId);
+    var requirements;
+    if (supplied.kind === 'recipe') {
+      if (!recipe || !recipeUnlocked(state, recipeId)) return { ok: false, reason: 'care-source-recipe' };
+      if (order && (!order.productNeed || order.productNeed.productId !== recipeId)) return { ok: false, reason: 'care-source-order' };
+      requirements = recipe.inputs || [];
+    } else if (supplied.kind === 'order' && order) {
+      requirements = (order.requirements || []).slice();
+      if (order.productNeed) {
+        recipe = recipeDefinition(order.productNeed.productId);
+        requirements = requirements.concat(recipe && recipe.inputs || []);
+      }
+    } else return { ok: false, reason: 'care-source-context' };
+    var need = requirements.find(function (item) { return item.family === family && (!supplied.tier || Number(supplied.tier) === item.tier); });
+    if (!need) return { ok: false, reason: 'care-source-material' };
+    return { ok: true, context: { kind: supplied.kind, recipeId: recipeId || null, orderId: order && order.id || null, family: family, tier: need.tier } };
+  }
+
+  function careRewardPlan(state, careType, difficulty, grade, context) {
+    context = context || {};
+    var config = DATA.careGames.difficulties[difficulty] || DATA.careGames.difficulties.easy;
+    var level = clamp(Math.floor(number(context && context.facilityLevel,
+      state.facilities && state.facilities[careType] && state.facilities[careType].level)), 1, 3);
+    var cost = Math.max(1, number(CARE_COSTS[difficulty], 1));
+    var tiers = config.challenge ? [] : (config.rewards[grade] || config.rewards.floor || []).slice();
+    var bonuses = [];
+    if (!config.challenge && !(context && context.storyRound) && (grade === 'A' || grade === 'S')) {
+      var facilityChance = careType === 'groom' ? number(context && context.facilityBonusChance, DATA.facilities.groom.levels[level - 1].bonusTierChance) : 0;
+      var sectChance = number(context && context.sectBonusChance, stageBonusForFamily(state, 'minigame.bonusChance', careType, 'add'));
+      if (facilityChance > 0) bonuses.push({ kind: 'facility', chance: clamp(facilityChance, 0, 1), tier: 1 });
+      if (sectChance > 0) bonuses.push({ kind: 'sect', chance: clamp(sectChance, 0, 0.5), tier: 1 });
+    }
+    if (context && context.storyRound) { tiers = []; cost = 0; }
+    var value = tiers.reduce(function (sum, tier) { return sum + Math.pow(2, tier - 1); }, 0);
+    return { tiers: tiers, bonuses: bonuses, cost: cost, value: value,
+      expectedValue: value + bonuses.reduce(function (sum, bonus) { return sum + bonus.chance; }, 0),
+      facilityLevel: level, maxTier: tiers.reduce(function (max, tier) { return Math.max(max, tier); }, 1), challenge: !!config.challenge };
+  }
+
+  function beginCare(state, careType, difficulty, beastId, now, options) {
+    options = options || {};
+    if (careType !== 'groom' && careType !== 'play') return { ok: false, reason: 'unknown-care-type' };
     difficulty = DATA.careGames.difficulties[difficulty] ? difficulty : 'easy';
     beastId = beastId || state.yardBeastId || state.activeCaseId;
     var entry = state.beastCases && state.beastCases[beastId];
@@ -4359,23 +4462,41 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     if (!entry || !definition || !isYardBeastAvailable(state, beastId)) return { ok: false, reason: 'beast-locked' };
     if (!careFeatureUnlocked(state, careType)) return { ok: false, reason: 'feature-locked', feature: careType };
     if (!careDifficultyUnlocked(state, difficulty, careType)) return { ok: false, reason: 'difficulty-locked', difficulty: difficulty };
-    var storyRound = careType === 'play' && beastId === 'qiongqi' && state.storyExperience && state.storyExperience.active && !state.storyExperience.storyToyTowerCompleted;
+    var facilityLevel = clamp(number(state.facilities[careType].level, 1), 1, 3);
+    if (options.facilityLevel != null && Number(options.facilityLevel) !== facilityLevel) return { ok: false, reason: 'care-facility-changed' };
+    var formLevel = Math.floor(number(options.formLevel, entry.activeFormLevel || entry.level));
+    if ((entry.unlockedForms || [1]).indexOf(formLevel) < 0 || formLevel > entry.level) return { ok: false, reason: 'form-locked' };
+    var source = validateCareSourceContext(state, careType, beastId, options.sourceContext);
+    if (!source.ok) return source;
+    var storyRound = careType === 'play' && beastId === 'qiongqi' && difficulty !== 'challenge' && state.storyExperience && state.storyExperience.active && !state.storyExperience.storyToyTowerCompleted;
     var cost = storyRound ? 0 : Math.max(1, Math.floor(number(CARE_COSTS[difficulty], 1)));
     if (state.energy < cost) return { ok: false, reason: 'energy', cost: cost, energy: state.energy };
+    var context = {
+      beastId: beastId, formLevel: formLevel, facilityLevel: facilityLevel,
+      clinicLevel: clamp(number(state.facilities.clinic.level, 1), 1, 3),
+      sourceContext: source.context, storyRound: !!storyRound,
+      facilityBonusChance: careType === 'groom' ? DATA.facilities.groom.levels[facilityLevel - 1].bonusTierChance : 0,
+      sectBonusChance: clamp(stageBonusForFamily(state, 'minigame.bonusChance', careType, 'add'), 0, 0.5),
+      affectionMult: stageBonusProduct(state, 'care.affectionMult', 'mult'),
+      healBonus: Math.max(0, Math.floor(stageBonusSum(state, 'beast.dailyHeal', 'add'))),
+      scoreThresholdMult: careType === 'play' && jobIsActive(state, 'taowu') ? 0.8 : 1
+    };
     state.energy -= cost;
     state.careTransactions = state.careTransactions || {};
     var tokenId = allocateId(state, 'care', 'care');
     state.careSerial = Math.max(Math.floor(number(state.careSerial, 0)), ensureIdState(state).care);
     var startedAt = number(now, Date.now());
-    var token = { id: tokenId, type: careType, difficulty: difficulty, beastId: beastId, cost: cost, startedAt: startedAt };
+    var token = { id: tokenId, type: careType, difficulty: difficulty, beastId: beastId, cost: cost, startedAt: startedAt, context: context };
     var objective = getCurrentObjective(state);
-    if (objective.type === 'care' && objective.careType === careType && objective.order) {
+    if (source.context && source.context.orderId) {
+      token.goal = { orderId: source.context.orderId, family: source.context.family };
+    } else if (objective.type === 'care' && objective.careType === careType && objective.order) {
       token.goal = { orderId: objective.order.id, title: objective.order.title, family: careRouteForBeast(beastId, careType).family };
     }
     state.careTransactions[token.id] = { token: clone(token), status: 'started', startedAt: startedAt };
     state.tutorial = Object.assign({}, state.tutorial || {});
     if (careType === 'play') state.tutorial.playOpened = true;
-    return { ok: true, token: token, cost: cost, energy: state.energy };
+    return { ok: true, token: token, context: clone(context), cost: cost, energy: state.energy };
   }
 
   function refundCare(state, token) {
@@ -4399,15 +4520,31 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var tokenId = careToken && careToken.id || careToken;
     var transaction = state.careTransactions && state.careTransactions[tokenId];
     if (!transaction || transaction.status !== 'settled' || transaction.rewardConverted || !(transaction.rewardItems || []).length) return { available: false };
+    var source = transaction.token.context && transaction.token.context.sourceContext;
     var objective = getCurrentObjective(state);
     var goal = transaction.token.goal;
     var order = goal ? ensureOrders(state, Math.random).find(function (item) { return item.id === goal.orderId; }) : objective.order;
-    if (!order || order.status === 'LOCKED' || order.kind === 'care_gate') return { available: false };
     var family = transaction.rewardItems[0].family;
-    var needs = (order.requirements || []).slice();
-    if (order.productNeed && number(state.products && state.products[order.productNeed.productId], 0) < order.productNeed.count) {
-      var recipe = (DATA.recipes || []).find(function (item) { return item.id === order.productNeed.productId; });
-      if (recipe) needs = needs.concat((recipe.inputs || []).map(function (need) { return Object.assign({}, need, { count: need.count * order.productNeed.count }); }));
+    var recipe = source && source.kind === 'recipe' && recipeDefinition(source.recipeId);
+    if (recipe && !source.orderId) order = null;
+    var needs = [];
+    var title;
+    if (recipe) {
+      if (!recipeUnlocked(state, recipe.id)) return { available: false };
+      var targetCount = order && order.productNeed && order.productNeed.productId === recipe.id ? order.productNeed.count : 1;
+      var remaining = Math.max(0, targetCount - number(state.products && state.products[recipe.id], 0));
+      if (!remaining) return { available: false };
+      needs = (recipe.inputs || []).map(function (need) { return Object.assign({}, need, { count: need.count * remaining }); });
+      title = '制作' + recipe.name;
+    } else {
+      if (!order || order.status === 'LOCKED' || order.status === 'COMPLETE' || order.kind === 'care_gate') return { available: false };
+      needs = (order.requirements || []).slice();
+      title = order.title;
+      if (order.productNeed && number(state.products && state.products[order.productNeed.productId], 0) < order.productNeed.count) {
+        var orderRecipe = recipeDefinition(order.productNeed.productId);
+        var count = order.productNeed.count - number(state.products && state.products[order.productNeed.productId], 0);
+        if (orderRecipe) needs = needs.concat((orderRecipe.inputs || []).map(function (need) { return Object.assign({}, need, { count: need.count * count }); }));
+      }
     }
     var need = needs.filter(function (item) { return item.family === family && countItems(state, family, item.tier) < item.count; }).sort(function (a, b) { return a.tier - b.tier; })[0];
     if (!need || !transaction.rewardItems.some(function (item) { return item.family === family && item.tier > need.tier; })) return { available: false };
@@ -4416,7 +4553,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       var targetTier = item.family === family ? Math.min(item.tier, need.tier) : item.tier;
       for (var i = 0; i < Math.pow(2, item.tier - targetTier); i++) converted.push(makeItem(item.family, targetTier, transaction.token.beastId));
     });
-    return { available: true, orderId: order.id, title: order.title, family: family, tier: need.tier, items: converted, originalItems: clone(transaction.rewardItems) };
+    return { available: true, orderId: order && order.id || null, recipeId: recipe && recipe.id || null,
+      sourceContext: clone(source || null), title: title, family: family, tier: need.tier, items: converted, originalItems: clone(transaction.rewardItems) };
   }
 
   function convertCareReward(state, careToken) {
@@ -4473,20 +4611,34 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
   function recommendCareDifficulty(state, careType) {
     var config = DATA.careGames || {};
     var order = config.order || ['easy', 'normal', 'hard', 'master'];
-    var unlocked = order.filter(function (id) { return careDifficultyUnlocked(state, id, careType); });
-    var history = state.daily && state.daily.careHistory && state.daily.careHistory[careType] || [];
-    if (!history.length) return unlocked[unlocked.length > 1 ? 1 : 0] || 'easy';
+    var available = order.filter(function (id) {
+      var gate = careAvailability(state, careType, id);
+      return gate.available && gate.enoughEnergy;
+    });
+    if (!available.length) return null;
+    var history = (state.daily && state.daily.careHistory && state.daily.careHistory[careType] || []).filter(function (item) {
+      return item && !item.challenge && order.indexOf(item.difficulty) >= 0;
+    });
+    if (!history.length) return available[0];
     var last = history[history.length - 1];
-    var currentIndex = Math.max(0, unlocked.indexOf(last.difficulty));
+    var currentIndex = order.indexOf(last.difficulty);
     var recent = history.slice(-2);
-    var average = recent.reduce(function (sum, item) { return sum + number(item.perf, 0); }, 0) / recent.length;
-    if (recent.length >= 2 && average >= 0.85 && currentIndex < unlocked.length - 1) return unlocked[currentIndex + 1];
-    if (recent.length >= 2 && average < 0.35 && currentIndex > 0) return unlocked[currentIndex - 1];
-    return unlocked[currentIndex] || unlocked[0] || 'easy';
+    // Legacy records without explicit engine completion facts cannot prove a
+    // clear. High partial scores, skipped runs and reward caps are not losses.
+    if (recent.length === 2 && recent.every(function (item) {
+      return item.difficulty === last.difficulty && item.finished === true && item.cleared === true &&
+        item.failed !== true && item.outcome !== 'skip' && (item.grade === 'A' || item.grade === 'S');
+    })) currentIndex = Math.min(order.length - 1, currentIndex + 1);
+    else if (recent.length === 2 && recent.every(function (item) { return item.failed === true && item.outcome !== 'skip'; })) {
+      currentIndex = Math.max(0, currentIndex - 1);
+    }
+    var affordable = available.filter(function (id) { return order.indexOf(id) <= currentIndex; });
+    return affordable[affordable.length - 1] || available[0];
   }
 
-  function recordCare(state, careType, result, now) {
+  function recordCare(state, careType, result, now, rng) {
     result = result || {};
+    rng = typeof rng === 'function' ? rng : Math.random;
     var careToken = result.careToken || result.token;
     var transaction = null;
     var beastId;
@@ -4502,6 +4654,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       beastId = transaction.token.beastId;
       difficulty = transaction.token.difficulty;
     }
+    var careContext = transaction && transaction.token.context || null;
     beastId = beastId || result.beastId || state.activeCaseId;
     var entry = state.beastCases && state.beastCases[beastId];
     var definition = beastDefinition(beastId);
@@ -4509,12 +4662,16 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var outcome = result.outcome || 'complete';
     difficulty = difficulty || result.difficulty || result.game && result.game.difficulty || recommendCareDifficulty(state, careType) || 'easy';
     if (!DATA.careGames.difficulties[difficulty]) difficulty = 'easy';
-    if (!careDifficultyUnlocked(state, difficulty, careType)) return { ok: false, reason: 'difficulty-locked', difficulty: difficulty };
+    if (!transaction && !careDifficultyUnlocked(state, difficulty, careType)) return { ok: false, reason: 'difficulty-locked', difficulty: difficulty };
     var game = result.game && typeof result.game === 'object' ? result.game : null;
     var effectiveActions = careEffectiveActions(careType, game, outcome);
     var requiredActions = number(DATA.careGames.effectiveActions[careType], careType === 'groom' ? 3 : 4);
     var perf = clamp(number(game && game.perf, outcome === 'mastery' ? 1 : outcome === 'complete' ? 0.6 : 0), 0, 1);
-    var grade = careGrade(outcome, perf);
+    var failedRound = outcome === 'timeout' || !!(game && game.failed);
+    var finished = !!(game && game.finished === true);
+    var failed = outcome !== 'skip' && !!(game && game.failed === true);
+    var cleared = outcome !== 'skip' && !failed && finished && !!(game && game.cleared === true);
+    var grade = difficulty !== 'challenge' && failedRound && outcome !== 'skip' ? 'floor' : careGrade(outcome, perf);
     /* The first Qiongqi tower is the onboarding contract: the player must
        actually finish or lose a run, but cannot lose the two T1 materials
        needed for the next tutorial merge. Later rounds still require three
@@ -4524,7 +4681,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     var qualified = outcome !== 'skip' && (effectiveActions >= requiredActions || tutorialPlayGuarantee);
     var challenge = difficulty === 'challenge';
     var score = Math.max(0, Math.floor(number(game && game.score, 0)));
-    var scoreThresholdMult = careType === 'play' && jobIsActive(state, 'taowu') ? 0.8 : 1;
+    var scoreThresholdMult = number(careContext ? careContext.scoreThresholdMult : undefined, careType === 'play' && jobIsActive(state, 'taowu') ? 0.8 : 1);
     if (challenge) {
       var challengeRewardConfig = DATA.careGames && DATA.careGames.challengeRewards || {};
       var scoreConfig = challengeRewardConfig[careType] || {};
@@ -4554,7 +4711,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       settleCareTransaction(transaction, now);
       if (transaction) transaction.rewardItems = clone(challengeItems);
       return {
-        ok: true, outcome: outcome, difficulty: difficulty, challenge: true, grade: grade,
+        ok: true, context: clone(careContext), outcome: outcome, difficulty: difficulty, challenge: true, grade: grade,
         qualified: qualified, rewarded: challengeItems.length > 0, noReward: challengeItems.length === 0,
         noProgress: true, effectiveActions: effectiveActions, requiredActions: requiredActions,
         rewardItem: clone(challengeItems[0]), rewardItems: clone(challengeItems), rewardCount: challengeItems.length,
@@ -4580,22 +4737,23 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
          useful for story requirements and material routing, not as a hard
          good-will gate. */
       var gradeAffection = { S: 4, A: 3, B: 2, floor: 1 };
-      var affectionMult = stageBonusProduct(state, 'care.affectionMult', 'mult');
+      var affectionMult = number(careContext ? careContext.affectionMult : undefined, stageBonusProduct(state, 'care.affectionMult', 'mult'));
       affectionGained = grantAffection(state, beastId, Math.max(1, Math.round((gradeAffection[grade] || 1) * affectionMult)));
-      var clinicLevel = state.facilities && state.facilities.clinic ? clamp(number(state.facilities.clinic.level, 1), 1, 3) : 1;
+      var clinicLevel = careContext ? careContext.clinicLevel : state.facilities && state.facilities.clinic ? clamp(number(state.facilities.clinic.level, 1), 1, 3) : 1;
       var clinicConfig = DATA.facilities.clinic.levels[clinicLevel - 1];
-      healGained = Math.max(0, number(clinicConfig.healReward, 8)) + Math.max(0, Math.floor(stageBonusSum(state, 'beast.dailyHeal', 'add')));
+      healGained = Math.max(0, number(clinicConfig.healReward, 8)) + number(careContext ? careContext.healBonus : undefined, Math.max(0, Math.floor(stageBonusSum(state, 'beast.dailyHeal', 'add'))));
       entry.heal = Math.max(0, number(entry.heal, 0)) + healGained;
     }
     if (!rewarded) {
       careHistory(state, careType, {
         difficulty: difficulty, grade: grade, perf: perf, score: Math.max(0, number(game && game.score, 0)),
+        outcome: outcome, finished: finished, cleared: cleared, failed: failed,
         effectiveActions: effectiveActions, rewarded: false, at: number(now, Date.now())
       });
       syncLegacyAliases(state);
       settleCareTransaction(transaction, now);
       return {
-        ok: true, outcome: outcome, difficulty: difficulty, grade: grade, qualified: qualified,
+        ok: true, context: clone(careContext), outcome: outcome, difficulty: difficulty, grade: grade, qualified: qualified,
         noReward: true, noProgress: true, practice: !unlimited && qualified && used >= cap,
         rewardLimited: !unlimited && qualified && used >= cap, effectiveActions: effectiveActions,
         requiredActions: requiredActions, rewardItems: [], rewardCount: 0,
@@ -4607,10 +4765,12 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     }
     var giftRoute = careRouteForBeast(beastId, careType);
     var difficultyConfig = DATA.careGames.difficulties[difficulty];
-    var tiers = (difficultyConfig.rewards[grade] || difficultyConfig.rewards.floor || [1]).slice();
+    var rewardPlan = careRewardPlan(state, careType, difficulty, grade, careContext);
+    var tiers = rewardPlan.tiers.slice();
+    var bonusRewards = [];
     state.tutorial = Object.assign({}, state.tutorial || {});
     var immersiveStoryTower = qualified && careType === 'play' && beastId === 'qiongqi' &&
-      state.storyExperience && state.storyExperience.active && !state.storyExperience.storyToyTowerCompleted;
+      (careContext ? careContext.storyRound : state.storyExperience && state.storyExperience.active && !state.storyExperience.storyToyTowerCompleted);
     if (immersiveStoryTower) {
       tiers = [];
       state.storyExperience.storyToyTowerCompleted = true;
@@ -4623,14 +4783,11 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     if (careType === 'play' && beastId === 'qiongqi' && !state.tutorial.playRewarded) {
       state.tutorial.playRewarded = true;
     }
-    if (difficulty === 'master' && grade === 'S') {
-      if (state.daily.masteryFirst[careType]) tiers = (difficultyConfig.rewards.repeatS || [3, 2]).slice();
-      state.daily.masteryFirst[careType] = true;
-    }
-    var gradeBonusChance = clamp(stageBonusForFamily(state, 'minigame.bonusChance', careType, 'add'), 0, 0.5);
-    if ((grade === 'A' || grade === 'S') && gradeBonusChance > 0 && Math.random() < gradeBonusChance) {
-      tiers.push(1);
-    }
+    // Mastery is repeatable: the saved old daily flag remains compatible,
+    // but no longer downgrades a later successful run.
+    if (!immersiveStoryTower) rewardPlan.bonuses.forEach(function (bonus) {
+      if (randomUnit(rng) < bonus.chance) { tiers.push(bonus.tier); bonusRewards.push(clone(bonus)); }
+    });
     var rewardItems = [];
     var pendingBefore = state.pendingRewards.length;
     tiers.forEach(function (tier) {
@@ -4650,6 +4807,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     state.weekly.care++;
     careHistory(state, careType, {
       difficulty: difficulty, grade: grade, perf: perf, score: Math.max(0, number(game && game.score, 0)),
+      outcome: outcome, finished: finished, cleared: cleared, failed: failed,
       effectiveActions: effectiveActions, rewarded: true, at: number(now, Date.now())
     });
     var transformed = maybeTransform(state, beastId);
@@ -4660,7 +4818,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     ensureOrders(state, Math.random);
     syncLegacyAliases(state);
     settleCareTransaction(transaction, now);
-    if (transaction) transaction.rewardItems = clone(rewardItems);
+    if (transaction) { transaction.rewardItems = clone(rewardItems); transaction.bonusRewards = clone(bonusRewards); }
     return {
       ok: true,
       outcome: outcome,
@@ -4673,6 +4831,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
       rewardCount: rewardItems.length,
       rewardPlacement: { board: rewardItems.length - Math.max(0, state.pendingRewards.length - pendingBefore), pending: Math.max(0, state.pendingRewards.length - pendingBefore) },
       storyRound: immersiveStoryTower,
+      context: clone(careContext),
+      bonusRewards: clone(bonusRewards),
       keepsake: immersiveStoryTower ? clone(state.storyExperience.keepsakes['qiongqi-old-ball']) : null,
       firstCare: firstCare,
       transformed: transformed,
@@ -5224,18 +5384,32 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     };
   }
 
-  function upgradeFacility(state, facilityId) {
-    var facility = state.facilities[facilityId];
+  function facilityAvailability(state, facilityId) {
     var definition = DATA.facilities[facilityId];
-    if (!facility || !definition) return { ok: false, reason: 'unknown-facility' };
-    var nextLevel = facility.level + 1;
-    if (nextLevel > definition.levels.length) return { ok: false, reason: 'max-level' };
-    var config = definition.levels[nextLevel - 1];
-    if (state.jade < config.cost) return { ok: false, reason: 'jade', cost: config.cost };
-    state.jade -= config.cost;
-    facility.level = nextLevel;
-    state.buildings[facilityId] = nextLevel;
-    return { ok: true, level: nextLevel, cost: config.cost };
+    var facility = state && state.facilities && state.facilities[facilityId];
+    if (!definition || !facility) return { available: false, canUpgrade: false, reason: 'unknown-facility', condition: '设施不存在' };
+    var level = clamp(Math.floor(number(facility.level, 1)), 1, definition.levels.length);
+    var clinicRepaired = sectStageCount(state, 'clinic') >= 3 || !!(state.storyExperience && state.storyExperience.volumeOneCompleted) || !!(state.chapter && (state.chapter.completedVolumes || []).indexOf(1) >= 0);
+    var nextLevel = level < definition.levels.length ? level + 1 : null;
+    var cost = nextLevel ? definition.levels[nextLevel - 1].cost : 0;
+    var available = facilityId !== 'clinic' || clinicRepaired;
+    var enoughJade = number(state.jade, 0) >= cost;
+    var reason = !available ? 'clinic-repair-required' : !nextLevel ? 'max-level' : !enoughJade ? 'jade' : null;
+    var condition = !available ? '先完成医馆剧情修缮，再升级医馆' : !nextLevel ? '设施已满级' : !enoughJade ? '暖玉不足' : '';
+    return { id: facilityId, available: available, reason: reason, condition: condition, level: level,
+      nextLevel: nextLevel, maxLevel: definition.levels.length, canUpgrade: available && !!nextLevel && enoughJade,
+      cost: cost, enoughJade: enoughJade, clinicRepaired: clinicRepaired, repaired: facilityId === 'clinic' ? clinicRepaired : true,
+      featureOpen: facilityId === 'groom' || facilityId === 'play' ? careFeatureUnlocked(state, facilityId) : available,
+      featureCondition: facilityId === 'groom' || facilityId === 'play' ? careAvailability(state, facilityId, 'easy', state.yardBeastId || state.activeCaseId).condition : condition };
+  }
+
+  function upgradeFacility(state, facilityId) {
+    var info = facilityAvailability(state, facilityId);
+    if (!info.canUpgrade) return Object.assign({ ok: false }, info);
+    state.jade -= info.cost;
+    state.facilities[facilityId].level = info.nextLevel;
+    state.buildings[facilityId] = info.nextLevel;
+    return { ok: true, level: info.nextLevel, cost: info.cost };
   }
 
   function effectiveStorageSlots(state) {
@@ -5327,6 +5501,7 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
   function selectYardBeast(state, beastId) {
     if (!isYardBeastAvailable(state, beastId)) return { ok: false, reason: 'beast-locked' };
     state.yardBeastId = beastId;
+    ensureOrders(state, Math.random);
     return { ok: true, beastId: beastId };
   }
 
@@ -5369,12 +5544,8 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     entry.unlockedStories.push(nextLevel);
     // 等级成长不吞掉尚未确认的剧情康复与岗位演出。
     if (state.codex && state.codex[beastId]) state.codex[beastId].seenStage = Math.max(state.codex[beastId].seenStage, entry.stage);
-    if (nextLevel >= 5) {
-      entry.transformed = true;
-      entry.status = 'transformed';
-      if (state.transformedOrder.indexOf(beastId) < 0) state.transformedOrder.push(beastId);
-      if (state.codex && state.codex[beastId]) state.codex[beastId].transformed = true;
-    }
+    // Level five unlocks the grown form; chapter recovery and jobs still
+    // advance only through maybeTransform and their acknowledgement steps.
     var levelConfig = definition.levels[nextLevel - 1];
     var story = definition.growthStories && definition.growthStories[nextLevel - 1] || {
       level: nextLevel, title: levelConfig.title, text: definition.dialogue[Math.min(nextLevel - 1, definition.dialogue.length - 1)]
@@ -5574,6 +5745,11 @@ var RECIPE_CABINET_INDEX = DATA.board.recipeCabinetIndex != null
     refundCare: refundCare,
     careDifficultyUnlocked: careDifficultyUnlocked,
     recommendCareDifficulty: recommendCareDifficulty,
+    careRewardPlan: careRewardPlan,
+    facilityAvailability: facilityAvailability,
+    orderRewardPreview: orderRewardPreview,
+    previewGrowthOrderRefresh: previewGrowthOrderRefresh,
+    refreshGrowthOrder: refreshGrowthOrder,
     advanceTime: advanceTime,
     claimJob: claimJob,
     acknowledgeJob: acknowledgeJob,

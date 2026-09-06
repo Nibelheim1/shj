@@ -376,7 +376,7 @@ check('低形态切换限制：未升级不能切换到高形态', function () {
   expect(Number(entry(state, 'qiongqi').activeFormLevel) === 1, 'failed form switch must keep form 1 active');
 });
 
-check('growth 任务绑定兽；切换展示兽不刷新；XP 不串兽/不入全局', function () {
+check('成长卡随住客切换且缓存旧心愿；XP 不串兽/不入全局', function () {
   /* v8 不允许 activateCase 绕过卷章；这里用迁移后的合法双住客旧档验证绑定。 */
   const state = migratedFoxState();
   const growth = ensureGrowthOrder(state);
@@ -389,13 +389,18 @@ check('growth 任务绑定兽；切换展示兽不刷新；XP 不串兽/不入�
   const switched = activateForSwitch(state, other);
   expect(resultOk(switched), 'public beast switch must be available for binding test');
   const afterSwitch = findOrder(state, 'growth');
-  expect(afterSwitch && afterSwitch.id === growth.id && afterSwitch.beastId === bound,
-    'switching the displayed/active beast must not refresh a bound growth order');
+  expect(afterSwitch && afterSwitch.beastId === other && afterSwitch.id !== growth.id,
+    'switching residents must display the selected resident growth wish');
+  expect(resultOk(activateForSwitch(state, bound)), 'original resident remains selectable');
+  const returned = findOrder(state, 'growth');
+  expect(returned && returned.id === growth.id && JSON.stringify(returned.requirements) === JSON.stringify(growth.requirements),
+    'switching back restores the original cached wish without rerolling its requirements');
+  expect(resultOk(activateForSwitch(state, other)), 'select the second resident again');
   const globalXp = Number(state.xp);
   clearFixtureMaterials(state);
   deliver(state, afterSwitch, NOW + 4);
-  expect(Number(entry(state, bound).exp) > before[bound], 'growth XP must enter the order-bound beast');
-  expect(Number(entry(state, other).exp) === before[other], 'growth XP must not enter the displayed beast');
+  expect(Number(entry(state, other).exp) > before[other], 'growth XP must enter the newly selected order-bound beast');
+  expect(Number(entry(state, bound).exp) === before[bound], 'growth XP must not enter the previously selected beast');
   expect(Number(state.xp) === globalXp, 'growth XP must not be credited to global player XP');
 });
 

@@ -36,6 +36,7 @@ async function patch(image, id) {
   fs.mkdirSync(output, { recursive:true });
   const frames = [];
   const themes = process.argv.includes('--day-only') ? ['courtyard'] : spec.themes;
+  const repairOnly = process.argv.includes('--repair-only');
   for (const theme of themes) {
     const masters = {};
     for (const level of [1, 2, 3]) {
@@ -54,11 +55,25 @@ async function patch(image, id) {
       const key = levels.join('');
       const overlays = spec.order.flatMap((id, index) => levels[index] > 1 ? [patches[id][levels[index]]] : []);
       const file = path.join(output, theme, `${key}.webp`);
-      await sharp(masters[1]).composite(overlays).webp({ quality:84, effort:4 }).toFile(file);
-      frames.push({ theme, key, bytes:fs.statSync(file).size });
+      if (!repairOnly) await sharp(masters[1]).composite(overlays).webp({ quality:84, effort:4 }).toFile(file);
+      frames.push({ theme, key, levels:key, clinicRepairPhase:3, bytes:fs.statSync(file).size });
     }
-    console.log(`Baked ${theme}: 81 complete courtyard images`);
+    for (const phase of [0, 1, 2]) {
+      const sourceFile = path.join(source, `${theme}-clinic-p${phase}.png`);
+      if (!fs.existsSync(sourceFile)) throw new Error(`Missing clinic repair source: ${sourceFile}`);
+      const repairMaster = await sharp(sourceFile).resize(width, height, { fit:'fill' }).png().toBuffer();
+      const clinicPatch = await patch(repairMaster, 'clinic');
+      for (let b = 1; b <= 3; b++) for (let c = 1; c <= 3; c++) for (let d = 1; d <= 3; d++) {
+        const levels = [1,b,c,d];
+        const key = `p${phase}-${levels.join('')}`;
+        const overlays = [clinicPatch].concat(spec.order.flatMap((id, index) => levels[index] > 1 ? [patches[id][levels[index]]] : []));
+        const file = path.join(output, theme, `${key}.webp`);
+        await sharp(masters[1]).composite(overlays).webp({ quality:84, effort:4 }).toFile(file);
+        frames.push({ theme, key, levels:levels.join(''), clinicRepairPhase:phase, bytes:fs.statSync(file).size });
+      }
+    }
+    console.log(`Baked ${theme}: 81 facility combinations + 81 clinic repair combinations`);
   }
-  fs.writeFileSync(path.join(output, 'manifest.json'), JSON.stringify({ version:1, width, height, order:spec.order, themes, regions, frames }, null, 2) + '\n');
+  fs.writeFileSync(path.join(output, 'manifest.json'), JSON.stringify({ version:2, width, height, order:spec.order, themes, regions, clinicRepairPhases:[0,1,2,3], frames }, null, 2) + '\n');
   console.log(`Total ${frames.length} images, ${(frames.reduce((n, frame) => n + frame.bytes, 0) / 1048576).toFixed(1)} MiB, maximum ${(Math.max(...frames.map(frame => frame.bytes)) / 1024).toFixed(0)} KiB`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

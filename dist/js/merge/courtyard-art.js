@@ -25,8 +25,19 @@
     var id = selected || state.backgrounds && state.backgrounds.active || state.yardBackground || 'courtyard';
     return THEMES.indexOf(id) >= 0 ? id : 'courtyard';
   }
+  function clinicRepairPhase(state) {
+    state = state || {};
+    if (state.storyExperience && state.storyExperience.volumeOneCompleted ||
+        state.chapter && Array.isArray(state.chapter.completedVolumes) && state.chapter.completedVolumes.indexOf(1) >= 0) return 3;
+    return Math.max(0, Math.min(3, Math.floor(Number(state.sect && state.sect.stages && state.sect.stages.clinic) || 0)));
+  }
   function urlFor(state, override, selected) {
-    return 'assets/art/ui-v14/courtyard-flat/' + theme(state, selected) + '/' + levels(state, override) + '.webp';
+    var key = levels(state, override);
+    var phase = clinicRepairPhase(state);
+    var purchasedLevel = Number(state.facilities && state.facilities.clinic && state.facilities.clinic.level) || 1;
+    // Paid clinic appearances survive old saves; level-two previews use their own frame.
+    if (phase < 3 && purchasedLevel < 2 && Number(key[0]) < 2) key = 'p' + phase + '-' + key;
+    return 'assets/art/ui-v14/courtyard-flat/' + theme(state, selected) + '/' + key + '.webp';
   }
   function geometry(id) { return Object.assign({ scale:1 }, REGIONS[id]); }
   function preload(url) {
@@ -42,7 +53,7 @@
       image.src = url;
     });
     pending[url] = promise;
-    // Keep decoded image ownership with the browser, not a gallery of 324 nodes.
+    // Keep decoded image ownership with the browser, not a gallery of 648 nodes.
     var keys = Object.keys(pending);
     if (keys.length > 12) delete pending[keys[0]];
     return promise;
@@ -102,5 +113,5 @@
     root.setTimeout(function () { node.classList.remove('yard-upgrade-flash'); }, 950);
   }
   return { width:WIDTH, height:HEIGHT, order:ORDER, themes:THEMES, regions:REGIONS,
-    levels:levels, urlFor:urlFor, geometry:geometry, preload:preload, render:render, layout:layout, celebrate:celebrate };
+    levels:levels, clinicRepairPhase:clinicRepairPhase, urlFor:urlFor, geometry:geometry, preload:preload, render:render, layout:layout, celebrate:celebrate };
 }));

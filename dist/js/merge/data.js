@@ -1157,19 +1157,19 @@
         id: 'normal', name: '标准', unlock: 'firstStory',
         groom: { cols: 6, rows: 6, typeCount: 6, timeLimit: 90, moveLimit: 23, minLegalMoves: 4, objective: { mode: 'score', targetMultiplier: 0.90, label: '收集目标图案并解开混合毛结' }, knotMode: 'mixed', timePickupBudget: 3, itemCounts: { hammer: 2, shuffle: 2, theme: 1 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
         play: { cols: 5, rows: 5, layers: 4, typeCount: 9, tilesPerType: 6, slots: 5, reserveStacks: 4, timeLimit: 150, scoreTarget: 3900, failPerfCap: 0.60, comboWindow: 1.9, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
-        rewards: { floor: [1], B: [2], A: [2, 1], S: [3] }
+        rewards: { floor: [2], B: [3, 1], A: [3, 2], S: [3, 3] }
       },
       hard: {
         id: 'hard', name: '困难', unlock: 'groomLevel2',
         groom: { cols: 6, rows: 7, typeCount: 6, timeLimit: 90, moveLimit: 20, minLegalMoves: 3, objective: { mode: 'score-and-care', targetMultiplier: 1.08, label: '清除扩散毛结并完成两次连锁' }, knotMode: 'double-spread', timePickupBudget: 2, itemCounts: { hammer: 2, shuffle: 1, theme: 1 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
         play: { cols: 5, rows: 5, layers: 5, typeCount: 11, tilesPerType: 6, slots: 5, reserveStacks: 4, timeLimit: 180, scoreTarget: 5400, failPerfCap: 0.68, comboWindow: 1.5, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
-        rewards: { floor: [2], B: [2, 1], A: [3], S: [3, 2] }
+        rewards: { floor: [2, 1], B: [4, 1], A: [4, 3], S: [4, 3, 2, 1] }
       },
       master: {
         id: 'master', name: '大师', unlock: 'groomLevel3',
         groom: { cols: 7, rows: 8, typeCount: 6, timeLimit: 90, moveLimit: 18, minLegalMoves: 2, objective: { mode: 'score-and-care', targetMultiplier: 1.28, label: '破除三层毛结并组合两枚特殊块' }, knotMode: 'double-triple', timePickupBudget: 1, itemCounts: { hammer: 1, shuffle: 1, theme: 1 }, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01'] },
         play: { cols: 5, rows: 5, layers: 5, typeCount: 12, tilesPerType: 6, slots: 5, reserveStacks: 4, timeLimit: 210, scoreTarget: 6800, failPerfCap: 0.76, comboWindow: 1.2, icons: ['play_01', 'herb_01', 'tool_01', 'feed_01', 'build_01', 'groom_01', 'charm_01', 'treasure_01', 'play_08', 'tool_08', 'herb_06', 'feed_05', 'build_05', 'groom_06', 'charm_05', 'treasure_06'] },
-        rewards: { floor: [2], B: [3], A: [3, 2], S: [4], repeatS: [3, 2] }
+        rewards: { floor: [3], B: [4, 3, 2], A: [4, 4, 3], S: [4, 4, 4] }
       },
       challenge: {
         id: 'challenge', name: '挑战模式', unlock: 'default', challenge: true,

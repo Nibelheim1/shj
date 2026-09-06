@@ -1,0 +1,17 @@
+{
+  "entry": "http://127.0.0.1:8771/dist/index.html",
+  "result": "PASS",
+  "evidence": [
+    {
+      "importRetainsDevicePreference": true,
+      "restartRetainsDevicePreference": true,
+      "reloadRetainsDevicePreference": true,
+      "notInJourneyPayload": true
+    },
+    {
+      "storageUnavailable": true,
+      "sessionToggle": true,
+      "vibrationSuppressedWhenOff": true
+    }
+  ]
+}

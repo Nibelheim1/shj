@@ -48,25 +48,25 @@ function normalReward(perf, fillBoard) {
   return { state, started, result };
 }
 
-const a = normalReward(.7);
-assert.strictEqual(a.result.grade, 'A');
-assert.ok(Core.countItems(a.state, 'play', 1) > 0);
-for (const full of [false, true]) {
-  const s = normalReward(1, full);
-  assert.strictEqual(s.result.grade, 'S');
-  const offer = Core.careRewardChoice(s.state, s.started.token);
-  assert.ok(offer.available, '高阶奖励可按当前需求等值分解');
-  assert.strictEqual(value(offer.items), value(s.result.rewardItems));
-  const converted = Core.convertCareReward(s.state, s.started.token);
-  assert.ok(converted.ok);
-  assert.strictEqual(Core.countItems(s.state, 'play', 1), 4);
-  assert.strictEqual(Core.countItems(s.state, 'play', 3), 0);
-  assert.ok(!Core.careRewardChoice(s.state, s.started.token).available);
-  assert.ok(!Core.convertCareReward(s.state, s.started.token).ok, '不能重复转换发奖');
-  if (full) assert.strictEqual(converted.rewardPlacement.pending, 4);
-  else assert.strictEqual(converted.rewardPlacement.board, 4);
-  const reloaded = Core.normalize(clone(s.state), NOW + 3000, '2026-09-01');
-  assert.ok(!Core.convertCareReward(reloaded, s.started.token).ok, '重载不恢复已使用的转换机会');
+for (const [perf, grade, units] of [[.7, 'A', 6], [1, 'S', 8]]) {
+  for (const full of [false, true]) {
+    const s = normalReward(perf, full);
+    assert.strictEqual(s.result.grade, grade);
+    const offer = Core.careRewardChoice(s.state, s.started.token);
+    assert.ok(offer.available, grade + ' 高阶奖励可按当前需求等值分解');
+    assert.strictEqual(value(offer.items), value(s.result.rewardItems));
+    assert.strictEqual(value(offer.items), units, '同难度不同评级兑现实际新奖励表');
+    const converted = Core.convertCareReward(s.state, s.started.token);
+    assert.ok(converted.ok);
+    assert.strictEqual(Core.countItems(s.state, 'play', 1), units);
+    assert.strictEqual(Core.countItems(s.state, 'play', 3), 0);
+    assert.ok(!Core.careRewardChoice(s.state, s.started.token).available);
+    assert.ok(!Core.convertCareReward(s.state, s.started.token).ok, '不能重复转换发奖');
+    if (full) assert.strictEqual(converted.rewardPlacement.pending, units);
+    else assert.strictEqual(converted.rewardPlacement.board, units);
+    const reloaded = Core.normalize(clone(s.state), NOW + 3000, '2026-09-01');
+    assert.ok(!Core.convertCareReward(reloaded, s.started.token).ok, '重载不恢复已使用的转换机会');
+  }
 }
 
 const forecourt = Core.DATA.sect.areas.find(area => area.id === 'forecourt');

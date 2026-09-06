@@ -1,0 +1,129 @@
+{
+  "entry": "dist/index.html",
+  "startedAt": "2026-09-06T13:31:28.306Z",
+  "status": "passed",
+  "boundary": "隔离中段初始存档；真实付费开局及浏览器刷新，不调用退款 API，不修改生产代码",
+  "errors": [],
+  "before": {
+    "energy": 60,
+    "gameOpen": false,
+    "careCount": 0,
+    "transactions": {}
+  },
+  "started": {
+    "energy": 58,
+    "gameOpen": true,
+    "careCount": 0,
+    "transactions": {
+      "care-2": {
+        "token": {
+          "id": "care-2",
+          "type": "play",
+          "difficulty": "normal",
+          "beastId": "qiongqi",
+          "cost": 2,
+          "startedAt": 1788701489520,
+          "context": {
+            "beastId": "qiongqi",
+            "formLevel": 2,
+            "facilityLevel": 2,
+            "clinicLevel": 1,
+            "sourceContext": null,
+            "storyRound": false,
+            "facilityBonusChance": 0,
+            "sectBonusChance": 0,
+            "affectionMult": 1,
+            "healBonus": 0,
+            "scoreThresholdMult": 1
+          },
+          "goal": {
+            "orderId": "renovation-forecourt-1",
+            "title": "扫开青石径",
+            "family": "play"
+          }
+        },
+        "status": "started",
+        "startedAt": 1788701489520
+      }
+    }
+  },
+  "firstReload": {
+    "energy": 60,
+    "gameOpen": false,
+    "careCount": 0,
+    "transactions": {
+      "care-2": {
+        "token": {
+          "id": "care-2",
+          "type": "play",
+          "difficulty": "normal",
+          "beastId": "qiongqi",
+          "cost": 2,
+          "startedAt": 1788701489520,
+          "context": {
+            "beastId": "qiongqi",
+            "formLevel": 2,
+            "facilityLevel": 2,
+            "clinicLevel": 1,
+            "sourceContext": null,
+            "storyRound": false,
+            "facilityBonusChance": 0,
+            "sectBonusChance": 0,
+            "affectionMult": 1,
+            "healBonus": 0,
+            "scoreThresholdMult": 1
+          },
+          "goal": {
+            "orderId": "renovation-forecourt-1",
+            "title": "扫开青石径",
+            "family": "play"
+          }
+        },
+        "status": "refunded",
+        "startedAt": 1788701489520,
+        "refundedAt": 1788701489784,
+        "refundReason": "reload-recovery"
+      }
+    }
+  },
+  "secondReload": {
+    "energy": 60,
+    "gameOpen": false,
+    "careCount": 0,
+    "transactions": {
+      "care-2": {
+        "token": {
+          "id": "care-2",
+          "type": "play",
+          "difficulty": "normal",
+          "beastId": "qiongqi",
+          "cost": 2,
+          "startedAt": 1788701489520,
+          "context": {
+            "beastId": "qiongqi",
+            "formLevel": 2,
+            "facilityLevel": 2,
+            "clinicLevel": 1,
+            "sourceContext": null,
+            "storyRound": false,
+            "facilityBonusChance": 0,
+            "sectBonusChance": 0,
+            "affectionMult": 1,
+            "healBonus": 0,
+            "scoreThresholdMult": 1
+          },
+          "goal": {
+            "orderId": "renovation-forecourt-1",
+            "title": "扫开青石径",
+            "family": "play"
+          }
+        },
+        "status": "refunded",
+        "startedAt": 1788701489520,
+        "refundedAt": 1788701489784,
+        "refundReason": "reload-recovery"
+      }
+    }
+  },
+  "finishedAt": "2026-09-06T13:31:30.817Z"
+}

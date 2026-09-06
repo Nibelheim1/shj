@@ -1182,6 +1182,8 @@
 .qixia-v14 .care-difficulty-tab { min-height:58px; padding:6px 2px; color:var(--qixia-ink); border:1px solid rgba(90,58,40,.35); border-radius:8px; background:rgba(255,248,228,.82); }
 .qixia-v14 .care-difficulty-tab.is-selected { color:#fff7df; background:var(--qixia-cinnabar); }
 .qixia-v14 .care-difficulty-tab small { display:block; font-size:12px; }
+.qixia-v14 .care-difficulty-tab.is-recommended::after { content:none; }
+.qixia-v14 .care-difficulty-tab.is-selected small { color:inherit; }
 .qixia-v14 .care-detail-grid { margin-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:5px; }
 .qixia-v14 .care-detail-grid > div { min-height:44px; padding:6px 8px; display:flex; justify-content:space-between; align-items:center; border-radius:7px; background:rgba(255,248,228,.72); }
 
@@ -4389,3 +4391,34 @@
 .qixia-v14 #modal-root .resident-picker .yard-beast-option.active { border-color:#b95536; background:#ffeac3; }
 .qixia-v14 #modal-root .resident-picker img { width:44px; height:44px; object-fit:contain; }
 .qixia-v14 #modal-root .resident-picker strong { font-size:12px; }
+
+/* Player-flow repairs: keep the paper/wood controls and their live states together. */
+.qixia-v14 #modal-root .recipe-need-row { display:grid; grid-template-columns:40px minmax(0,1fr) auto; gap:8px; align-items:center; padding:10px 8px; }
+.qixia-v14 #modal-root .recipe-need-row img { width:38px; height:38px; object-fit:contain; }
+.qixia-v14 #modal-root .recipe-need-row > span { min-width:0; }
+.qixia-v14 #modal-root .recipe-need-row small { display:block; line-height:1.5; overflow-wrap:anywhere; }
+.qixia-v14 #modal-root .recipe-source-button { grid-column:2 / 4; justify-self:stretch; min-height:44px; border:1px solid #b39a6f; border-radius:8px; background:#f6e8c6; color:#674a31; font-weight:700; }
+.qixia-v14 #modal-root .recipe-ready-label { grid-column:2 / 4; color:#53734d; }
+.qixia-v14 #modal-root .recipe-how { margin:12px 0; color:#6f593e; }
+.qixia-v14 #modal-root .recipe-how summary { min-height:44px; display:flex; align-items:center; cursor:pointer; }
+.qixia-v14 #modal-root .recipe-detail-actions { position:sticky; bottom:-18px; z-index:4; padding:10px 0 12px; background:linear-gradient(transparent,#f7edcf 22%); }
+.qixia-v14 .source-return-bar { position:sticky; top:0; z-index:12; display:flex; gap:6px; padding:5px 8px; margin:0 4px 4px; border:1px solid #bfa77b; border-radius:9px; background:#fff3d8; box-shadow:0 2px 5px #60452824; }
+.qixia-v14 .source-return-bar button { min-height:44px; border:0; color:#785536; background:transparent; font-weight:700; }
+.qixia-v14 .source-return-bar [data-return-recipe] { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; }
+.qixia-v14 .source-return-bar [data-end-source] { width:44px; font-size:22px; }
+.qixia-v14 #modal-root .qv14-care-mode-hero { height:145px; }
+.qixia-v14 #modal-root .qv14-mode-facility { display:block; position:absolute; left:4px; bottom:5px; width:65%; max-width:210px; opacity:.92; }
+.qixia-v14 #modal-root .qv14-care-mode-hero .qv14-mode-beast { left:auto; right:0; bottom:0; translate:0; width:46%; height:92%; }
+.qixia-v14 #modal-root .care-rule-preview,
+.qixia-v14 #modal-root .care-facility-benefit { padding:10px; border-radius:9px; background:#fff7e8ed; color:#654b35; font-size:12px; line-height:1.6; }
+.qixia-v14 #care-game-root .care-beast-play { top:3px; right:4px; width:38px; height:38px; opacity:.85; }
+.qixia-v14 #yard-world .scene-building[data-facility-locked="true"]::after { width:120px; min-width:120px; max-width:120px; min-height:44px; padding:7px 9px; white-space:pre-line; font-size:10px; line-height:1.35; color:#795e42; }
+.qixia-v14 #yard-world .scene-building[data-feature-locked]::before { display:block !important; content:''; position:absolute; left:calc(50% - 28px); top:calc(100% - 12px); z-index:2; width:10px; height:12px; pointer-events:none; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 14'%3E%3Cpath d='M3 6V4a3 3 0 0 1 6 0v2' fill='none' stroke='%23795e42' stroke-width='1.5'/%3E%3Crect x='1' y='6' width='10' height='7' rx='1' fill='%23795e42'/%3E%3C/svg%3E") center/contain no-repeat; }
+.qixia-v14 #modal-root .care-difficulty-modal { color:#5a3a28; background:linear-gradient(#fff7e7c9,#fff7e7ed),url('../assets/art/ui-v14/backgrounds/fullscreen/bg_merge_botanical_clean.webp') center/cover !important; }
+.qixia-v14 #modal-root .care-difficulty-modal h2 { color:#5a3a28 !important; }
+.qixia-v14 #modal-root .care-difficulty-modal > p { padding:7px 10px; border-radius:8px; color:#654b35; background:#fff7e8e8; }
+.qixia-v14 #modal-root .care-difficulty-modal .care-resident-context { margin:0 0 8px; font-weight:700; }
+.qixia-v14 #modal-root .care-detail-grid > div > span { flex:none; margin-right:8px; }
+.qixia-v14 #modal-root .growth-contract-preview { margin:12px 0; padding:12px; border:1px solid #c9b88d; border-radius:10px; background:#fff9e8; }
+.qixia-v14 #modal-root .growth-result-progress { padding:12px; background:#f4ead0; border-radius:10px; font-weight:700; line-height:1.9; }
+.qixia-v14 #modal-root .growth-result-modal h2 { font-size:18px !important; }

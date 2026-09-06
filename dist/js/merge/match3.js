@@ -204,6 +204,7 @@
     this.phase = 'idle'; this.animT = 0;
     this.swapA = null; this.swapB = null;
     this.finished = false;
+    this.cancelled = false;
     this.perf = 0;
 
     this.moveLimit = integerOption(this.opts.moveLimit, profile.moveLimit || this.rule.moves, 1);
@@ -1298,8 +1299,13 @@
   };
 
   Game.prototype._summary = function () {
+    var cleared = this.finished && !this.cancelled && this.isGoalComplete();
+    var failed = this.finished && !this.cancelled && !cleared && (this.movesLeft <= 0 || this.timeLeft <= 0);
     return {
       game: 'match3',
+      finished: this.finished,
+      cleared: cleared,
+      failed: failed,
       kind: this.kind,
       difficulty: this.difficulty,
       cols: this.cols,
@@ -1357,6 +1363,7 @@
   Game.prototype.finish = function (done) {
     if (this.finished) return;
     this.finished = true;
+    this.cancelled = !done;
     this._updatePerf();
     var summary = this._summary();
     if (done) { if (this.opts.onDone) this.opts.onDone(this.perf, summary); }

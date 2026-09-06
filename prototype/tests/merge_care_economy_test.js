@@ -19,11 +19,11 @@ function fresh(difficulty) {
   if (difficulty === 'master') state.facilities.groom.level = 3;
   return state;
 }
-function run(state, difficulty, perf, validActions, outcome) {
+function run(state, difficulty, perf, validActions, outcome, summary) {
   return Core.recordCare(state, 'groom', {
     beastId: 'qiongqi', difficulty: difficulty, outcome: outcome || (perf >= 0.85 ? 'mastery' : perf >= 0.4 ? 'complete' : 'timeout'),
-    game: { perf: perf, score: Math.round(perf * 1500), validActions: validActions }
-  }, NOW);
+    game: Object.assign({ perf: perf, score: Math.round(perf * 1500), validActions: validActions }, summary)
+  }, NOW, function () { return 0.99; }); // Base reward mapping; bonus boundaries have a dedicated test.
 }
 function tiers(result) { return result.rewardItems.map(function (item) { return item.tier; }); }
 
@@ -140,11 +140,11 @@ check('轻松档 B/A/S 与有效超时保底严格映射', function () {
 });
 
 check('标准、困难与大师档奖励映射到对应合成阶位', function () {
-  assert.deepStrictEqual(tiers(run(fresh('normal'), 'normal', 0.9, 3, 'mastery')), [3]);
-  assert.deepStrictEqual(tiers(run(fresh('hard'), 'hard', 0.7, 3, 'complete')), [3]);
+  assert.deepStrictEqual(tiers(run(fresh('normal'), 'normal', 0.9, 3, 'mastery')), [3, 3]);
+  assert.deepStrictEqual(tiers(run(fresh('hard'), 'hard', 0.7, 3, 'complete')), [4, 3]);
   const master = fresh('master');
-  assert.deepStrictEqual(tiers(run(master, 'master', 0.9, 3, 'mastery')), [4]);
-  assert.deepStrictEqual(tiers(run(master, 'master', 0.9, 3, 'mastery')), [3, 2]);
+  assert.deepStrictEqual(tiers(run(master, 'master', 0.9, 3, 'mastery')), [4, 4, 4]);
+  assert.deepStrictEqual(tiers(run(master, 'master', 0.9, 3, 'mastery')), [4, 4, 4]);
 });
 
 check('有效照料不受每日场数限制，连续完成仍发素材并推进成长', function () {
@@ -165,8 +165,9 @@ check('有效照料不受每日场数限制，连续完成仍发素材并推进�
 
 check('最近五局形成显式难度建议，不暗改当前局', function () {
   const state = fresh('normal');
-  run(state, 'easy', 0.9, 3, 'mastery');
-  const second = run(state, 'easy', 0.9, 3, 'mastery');
+  unlockCareFeature(state, 'groom');
+  run(state, 'easy', 0.7, 3, 'complete', { cleared: true, finished: true, failed: false });
+  const second = run(state, 'easy', 0.9, 3, 'mastery', { cleared: true, finished: true, failed: false });
   assert.strictEqual(second.recommendedDifficulty, 'normal');
   assert.strictEqual(second.difficulty, 'easy');
 });

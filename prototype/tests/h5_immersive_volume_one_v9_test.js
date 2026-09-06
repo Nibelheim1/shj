@@ -224,7 +224,15 @@ check('v9 数据链、旧物、来源与跨领域规则自洽', function () {
   const cgEvents = DATA.storyEvents.filter(function (event) { return event.cgArt; });
   const actionEvents = DATA.storyEvents.filter(function (event) { return event.actionArt; });
   assert.strictEqual(new Set(cgEvents.map(function (event) { return event.cgArt; })).size, 5, '五张关键剧情CG已接入事件');
-  assert.strictEqual(new Set(actionEvents.map(function (event) { return event.actionArt; })).size, 4, '四组穷奇动作差分已接入事件');
+  assert.deepStrictEqual(Array.from(new Set(actionEvents.map(function (event) { return event.actionArt; }))).sort(), [
+    'assets/art/v9/qiongqi_actions/qiongqi_old_ball.webp',
+    'assets/art/v9/qiongqi_actions/qiongqi_paw_light.webp',
+    'assets/art/v9/qiongqi_actions/qiongqi_umbrella.webp'
+  ].sort(), '旧彩球、爪边暖光与撑伞三组剧情动作保留');
+  const gateReveal = DATA.storyEvents.find(function (event) { return event.id === 'qiongqi-ear-in-light'; });
+  assert.strictEqual(gateReveal.cgArt, 'assets/art/v9/story/cg_gate_ears_v2.png', '门后耳朵由已确认的新CG展示');
+  assert.deepStrictEqual(gateReveal.choices.map(function (choice) { return choice.id; }), ['push-gate'], '首遇只提供推开门选择，再接专用视频');
+  assert.ok(!gateReveal.actionArt, '门后耳朵CG不叠加旧探头图以免提前露出全貌');
   cgEvents.concat(actionEvents).forEach(function (event) {
     ['cgArt', 'actionArt'].forEach(function (slot) {
       if (!event[slot]) return;

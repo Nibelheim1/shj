@@ -221,7 +221,7 @@ function runSheepDepth() {
       comboWindow: profile.comboWindow
     }));
     for (let seed = 1; seed <= 200; seed++) {
-      const game = new SheepGame.Game('PLAY', { difficulty: difficulty, rng: seeded(seed + levelIndex * 10000) });
+      const game = new SheepGame.Game('PLAY', { difficulty: difficulty, hintLimit: 1, rng: seeded(seed + levelIndex * 10000) });
       assert.strictEqual(game.totalTriples, profile.typeCount * profile.tilesPerType / 3,
         difficulty + ' 使用档位三连组数 #' + seed);
       assert.strictEqual(liveTiles(game).length, game.totalTiles, difficulty + ' 塔内牌数完整 #' + seed);

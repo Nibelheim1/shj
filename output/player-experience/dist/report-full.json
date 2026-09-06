@@ -1,0 +1,1995 @@
+{
+  "entry": "dist/index.html",
+  "fixture": "audit0906 volume1-completed fixture refreshed for isolated tests",
+  "startedAt": "2026-09-06T13:16:29.523Z",
+  "results": [
+    {
+      "id": "R01-cancel-slow-script",
+      "status": "passed",
+      "evidence": [
+        {
+          "before": {
+            "energy": 60,
+            "resident": "qiongqi",
+            "view": "yard-view",
+            "game": false,
+            "transactions": []
+          },
+          "after": {
+            "energy": 60,
+            "resident": "qiongqi",
+            "view": "merge-view",
+            "game": false,
+            "transactions": []
+          },
+          "requests": [
+            "http://127.0.0.1:63431/dist/js/merge/sheep-game.js?ui=13"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "R01-old-failure-does-not-replace-settings",
+      "status": "passed",
+      "evidence": [
+        {
+          "before": {
+            "energy": 60,
+            "resident": "qiongqi",
+            "view": "yard-view",
+            "game": false,
+            "transactions": []
+          },
+          "after": {
+            "energy": 60,
+            "resident": "qiongqi",
+            "view": "yard-view",
+            "game": false,
+            "transactions": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "R01-reopen-and-double-click-start-once",
+      "status": "passed",
+      "evidence": [
+        {
+          "before": {
+            "energy": 60,
+            "resident": "qiongqi",
+            "view": "yard-view",
+            "game": false,
+            "transactions": []
+          },
+          "after": {
+            "energy": 58,
+            "resident": "qiongqi",
+            "view": "yard-view",
+            "game": true,
+            "transactions": [
+              {
+                "status": "started",
+                "beastId": "qiongqi",
+                "type": "play",
+                "difficulty": "normal",
+                "cost": 2,
+                "context": {
+                  "beastId": "qiongqi",
+                  "formLevel": 1,
+                  "facilityLevel": 2,
+                  "clinicLevel": 1,
+                  "sourceContext": null,
+                  "storyRound": false,
+                  "facilityBonusChance": 0,
+                  "sectBonusChance": 0,
+                  "affectionMult": 1,
+                  "healBonus": 0,
+                  "scoreThresholdMult": 1
+                }
+              }
+            ]
+          },
+          "requests": [
+            "http://127.0.0.1:63431/dist/js/merge/sheep-game.js?ui=13"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "R01-resident-switch-new-game-survives-old-load",
+      "status": "passed",
+      "evidence": [
+        {
+          "before": {
+            "energy": 60,
+            "resident": "qiongqi",
+            "view": "yard-view",
+            "game": false,
+            "transactions": []
+          },
+          "after": {
+            "energy": 59,
+            "resident": "jiuweihu",
+            "view": "yard-view",
+            "game": true,
+            "transactions": [
+              {
+                "status": "started",
+                "beastId": "jiuweihu",
+                "type": "groom",
+                "difficulty": "easy",
+                "cost": 1,
+                "context": {
+                  "beastId": "jiuweihu",
+                  "formLevel": 1,
+                  "facilityLevel": 3,
+                  "clinicLevel": 1,
+                  "sourceContext": null,
+                  "storyRound": false,
+                  "facilityBonusChance": 0.22,
+                  "sectBonusChance": 0,
+                  "affectionMult": 1,
+                  "healBonus": 0,
+                  "scoreThresholdMult": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "R05-selected-fox-form-shown-in-mode-game-result",
+      "status": "passed",
+      "evidence": [
+        {
+          "portrait": "assets/art/characters/jiuweihu_lv2.webp",
+          "transaction": {
+            "status": "started",
+            "beastId": "jiuweihu",
+            "type": "groom",
+            "difficulty": "easy",
+            "cost": 1,
+            "context": {
+              "beastId": "jiuweihu",
+              "formLevel": 2,
+              "facilityLevel": 3,
+              "clinicLevel": 1,
+              "sourceContext": null,
+              "storyRound": false,
+              "facilityBonusChance": 0.22,
+              "sectBonusChance": 0,
+              "affectionMult": 1,
+              "healBonus": 0,
+              "scoreThresholdMult": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "R11-haptics-toggle-and-device-persistence",
+      "status": "passed",
+      "evidence": [
+        {
+          "disabledPersisted": true,
+          "enabledCalls": [
+            8
+          ]
+        }
+      ]
+    },
+    {
+      "id": "R11-unsupported-device-has-no-fake-switch",
+      "status": "passed",
+      "evidence": []
+    },
+    {
+      "id": "R08-recipe-sources-conversion-and-return",
+      "status": "passed",
+      "evidence": [
+        {
+          "mode": "真实取材/开始/转换/返回点击；S 评级由测试接口注入",
+          "resident": "qiongqi",
+          "begun": {
+            "energy": 56,
+            "resident": "qiongqi",
+            "view": "yard-view",
+            "game": true,
+            "transactions": [
+              {
+                "status": "started",
+                "beastId": "qiongqi",
+                "type": "groom",
+                "difficulty": "master",
+                "cost": 4,
+                "context": {
+                  "beastId": "qiongqi",
+                  "formLevel": 1,
+                  "facilityLevel": 3,
+                  "clinicLevel": 1,
+                  "sourceContext": {
+                    "kind": "recipe",
+                    "recipeId": "PROD_BED",
+                    "orderId": null,
+                    "family": "groom",
+                    "tier": 3
+                  },
+                  "storyRound": false,
+                  "facilityBonusChance": 0.22,
+                  "sectBonusChance": 0,
+                  "affectionMult": 1,
+                  "healBonus": 0,
+                  "scoreThresholdMult": 1
+                }
+              }
+            ]
+          },
+          "settled": {
+            "ok": true,
+            "outcome": "mastery",
+            "difficulty": "master",
+            "grade": "S",
+            "qualified": true,
+            "rewarded": true,
+            "rewardItem": {
+              "family": "groom",
+              "tier": 4,
+              "name": "小花"
+            },
+            "rewardItems": [
+              {
+                "family": "groom",
+                "tier": 4,
+                "name": "小花"
+              },
+              {
+                "family": "groom",
+                "tier": 4,
+                "name": "小花"
+              },
+              {
+                "family": "groom",
+                "tier": 4,
+                "name": "小花"
+              }
+            ],
+            "rewardCount": 3,
+            "rewardPlacement": {
+              "board": 3,
+              "pending": 0
+            },
+            "storyRound": false,
+            "context": {
+              "beastId": "qiongqi",
+              "formLevel": 1,
+              "facilityLevel": 3,
+              "clinicLevel": 1,
+              "sourceContext": {
+                "kind": "recipe",
+                "recipeId": "PROD_BED",
+                "orderId": null,
+                "family": "groom",
+                "tier": 3
+              },
+              "storyRound": false,
+              "facilityBonusChance": 0.22,
+              "sectBonusChance": 0,
+              "affectionMult": 1,
+              "healBonus": 0,
+              "scoreThresholdMult": 1
+            },
+            "bonusRewards": [],
+            "keepsake": null,
+            "firstCare": false,
+            "transformed": false,
+            "effectiveActions": 30,
+            "requiredActions": 3,
+            "affectionGained": 4,
+            "healGained": 8,
+            "beastExpGained": 0,
+            "giftFamily": "groom",
+            "giftSourceBeast": "qiongqi",
+            "giftCare": "groom",
+            "revealEvents": [],
+            "autoLevels": [],
+            "remainingRewardRuns": null,
+            "recommendedDifficulty": "master",
+            "energy": 56,
+            "at": 1788700602773
+          },
+          "conservedMaterialValue": 24
+        }
+      ]
+    },
+    {
+      "id": "R08-linked-renovation-real-materials-care-craft-delivery",
+      "status": "passed",
+      "evidence": [
+        {
+          "mode": "明确中段初始存档；此后无材料、评级、计时或结果注入，全部真实按钮/拖动",
+          "initial": {
+            "order": {
+              "id": "renovation-groom_pavilion-3",
+              "slot": "renovation",
+              "taskCategory": "renovation",
+              "kind": "renovation",
+              "status": "OPEN",
+              "mainline": true,
+              "areaId": "groom_pavilion",
+              "stageIndex": 2,
+              "projectId": null,
+              "actionLabel": null,
+              "title": "点亮九尾灯",
+              "symptom": "用木条加固灯架，把灵木床安置在灯下。最后用梳子替九尾狐梳顺尾巴，它就能在这里安心休息。",
+              "requirements": [
+                {
+                  "family": "build",
+                  "tier": 2,
+                  "count": 1
+                },
+                {
+                  "family": "groom",
+                  "tier": 1,
+                  "count": 1
+                }
+              ],
+              "productNeed": {
+                "productId": "PROD_BED",
+                "count": 1
+              },
+              "rewards": {
+                "jade": 95,
+                "xp": 55
+              },
+              "needs": [
+                {
+                  "family": "build",
+                  "tier": 2,
+                  "count": 1
+                },
+                {
+                  "family": "groom",
+                  "tier": 1,
+                  "count": 1
+                }
+              ],
+              "permanent": true,
+              "done": false
+            },
+            "stage": 2,
+            "energy": 60,
+            "merges": 38,
+            "care": 0,
+            "materials": [],
+            "products": {
+              "PROD_SOOTHE": 0,
+              "PROD_BED": 0,
+              "PROD_MEAL": 0,
+              "PROD_CLEAR": 0,
+              "PROD_GARDEN": 0,
+              "PROD_FLAME": 0,
+              "PROD_HEARTH": 0,
+              "PROD_ARRAY": 0,
+              "PROD_REVIVE": 0,
+              "PROD_BOAT": 0
+            }
+          },
+          "generated": 9,
+          "productionMerges": 8,
+          "careMerges": 3,
+          "rounds": [
+            {
+              "played": {
+                "score": 205,
+                "perf": 0.4444444444444444,
+                "validMoves": 3,
+                "effectiveMoves": 3,
+                "finished": false,
+                "x": 195,
+                "y": 800
+              },
+              "token": {
+                "status": "started",
+                "beastId": "qiongqi",
+                "type": "groom",
+                "difficulty": "easy",
+                "cost": 1,
+                "context": {
+                  "beastId": "qiongqi",
+                  "formLevel": 1,
+                  "facilityLevel": 3,
+                  "clinicLevel": 1,
+                  "sourceContext": {
+                    "kind": "recipe",
+                    "recipeId": "PROD_BED",
+                    "orderId": "renovation-groom_pavilion-3",
+                    "family": "groom",
+                    "tier": 3
+                  },
+                  "storyRound": false,
+                  "facilityBonusChance": 0.22,
+                  "sectBonusChance": 0.1,
+                  "affectionMult": 1,
+                  "healBonus": 0,
+                  "scoreThresholdMult": 1
+                }
+              },
+              "settled": {
+                "status": "settled",
+                "rewardItems": [
+                  {
+                    "family": "groom",
+                    "tier": 1,
+                    "name": "梳子"
+                  },
+                  {
+                    "family": "groom",
+                    "tier": 1,
+                    "name": "梳子"
+                  }
+                ]
+              }
+            },
+            {
+              "played": {
+                "score": 185,
+                "perf": 0.2727272727272727,
+                "validMoves": 3,
+                "effectiveMoves": 3,
+                "finished": false,
+                "x": 195,
+                "y": 800
+              },
+              "token": {
+                "status": "started",
+                "beastId": "qiongqi",
+                "type": "groom",
+                "difficulty": "easy",
+                "cost": 1,
+                "context": {
+                  "beastId": "qiongqi",
+                  "formLevel": 1,
+                  "facilityLevel": 3,
+                  "clinicLevel": 1,
+                  "sourceContext": {
+                    "kind": "recipe",
+                    "recipeId": "PROD_BED",
+                    "orderId": "renovation-groom_pavilion-3",
+                    "family": "groom",
+                    "tier": 3
+                  },
+                  "storyRound": false,
+                  "facilityBonusChance": 0.22,
+                  "sectBonusChance": 0.1,
+                  "affectionMult": 1,
+                  "healBonus": 0,
+                  "scoreThresholdMult": 1
+                }
+              },
+              "settled": {
+                "status": "settled",
+                "rewardItems": [
+                  {
+                    "family": "groom",
+                    "tier": 1,
+                    "name": "梳子"
+                  }
+                ]
+              }
+            },
+            {
+              "played": {
+                "score": 205,
+                "perf": 0.2,
+                "validMoves": 3,
+                "effectiveMoves": 3,
+                "finished": false,
+                "x": 195,
+                "y": 800
+              },
+              "token": {
+                "status": "started",
+                "beastId": "qiongqi",
+                "type": "groom",
+                "difficulty": "easy",
+                "cost": 1,
+                "context": {
+                  "beastId": "qiongqi",
+                  "formLevel": 1,
+                  "facilityLevel": 3,
+                  "clinicLevel": 1,
+                  "sourceContext": {
+                    "kind": "recipe",
+                    "recipeId": "PROD_BED",
+                    "orderId": "renovation-groom_pavilion-3",
+                    "family": "groom",
+                    "tier": 3
+                  },
+                  "storyRound": false,
+                  "facilityBonusChance": 0.22,
+                  "sectBonusChance": 0.1,
+                  "affectionMult": 1,
+                  "healBonus": 0,
+                  "scoreThresholdMult": 1
+                }
+              },
+              "settled": {
+                "status": "settled",
+                "rewardItems": [
+                  {
+                    "family": "groom",
+                    "tier": 1,
+                    "name": "梳子"
+                  }
+                ]
+              }
+            },
+            {
+              "played": {
+                "score": 115,
+                "perf": 0.2727272727272727,
+                "validMoves": 3,
+                "effectiveMoves": 3,
+                "finished": false,
+                "x": 195,
+                "y": 800
+              },
+              "token": {
+                "status": "started",
+                "beastId": "qiongqi",
+                "type": "groom",
+                "difficulty": "easy",
+                "cost": 1,
+                "context": {
+                  "beastId": "qiongqi",
+                  "formLevel": 1,
+                  "facilityLevel": 3,
+                  "clinicLevel": 1,
+                  "sourceContext": {
+                    "kind": "recipe",
+                    "recipeId": "PROD_BED",
+                    "orderId": "renovation-groom_pavilion-3",
+                    "family": "groom",
+                    "tier": 3
+                  },
+                  "storyRound": false,
+                  "facilityBonusChance": 0.22,
+                  "sectBonusChance": 0.1,
+                  "affectionMult": 1,
+                  "healBonus": 0,
+                  "scoreThresholdMult": 1
+                }
+              },
+              "settled": {
+                "status": "settled",
+                "rewardItems": [
+                  {
+                    "family": "groom",
+                    "tier": 1,
+                    "name": "梳子"
+                  }
+                ]
+              }
+            }
+          ],
+          "final": {
+            "stage": 3,
+            "product": 0,
+            "merges": 49,
+            "care": 4,
+            "energy": 47
+          }
+        }
+      ]
+    },
+    {
+      "id": "R08-unrelated-care-after-generator-recipe-source",
+      "status": "passed",
+      "evidence": [
+        {
+          "mode": "真实配方建材来源 → 庭院 → 无关嬉游 → 开始与退出",
+          "before": {
+            "energy": 60,
+            "resident": "qiongqi",
+            "view": "merge-view",
+            "game": false,
+            "transactions": []
+          },
+          "begun": {
+            "energy": 59,
+            "resident": "qiongqi",
+            "view": "yard-view",
+            "game": true,
+            "transactions": [
+              {
+                "status": "started",
+                "beastId": "qiongqi",
+                "type": "play",
+                "difficulty": "easy",
+                "cost": 1,
+                "context": {
+                  "beastId": "qiongqi",
+                  "formLevel": 1,
+                  "facilityLevel": 2,
+                  "clinicLevel": 1,
+                  "sourceContext": null,
+                  "storyRound": false,
+                  "facilityBonusChance": 0,
+                  "sectBonusChance": 0,
+                  "affectionMult": 1,
+                  "healBonus": 0,
+                  "scoreThresholdMult": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "R03-growth-reward-preview-and-real-delivery",
+      "status": "passed",
+      "evidence": [
+        {
+          "mode": "材料由隔离存档注入；真实成长标签、详情、交付与继续按钮点击",
+          "before": {
+            "order": {
+              "id": "growth-2026-09-06:qiongqi:1",
+              "slot": "medical",
+              "kind": "growth",
+              "beastId": "qiongqi",
+              "boundDate": "2026-09-06",
+              "growthSequence": 1,
+              "beastLevel": 2,
+              "growthRulesVersion": 2,
+              "title": "穷奇的成长心愿",
+              "symptom": "陪穷奇一起陪玩，准备成长所需的心意。",
+              "requirements": [
+                {
+                  "family": "play",
+                  "tier": 3,
+                  "count": 1
+                },
+                {
+                  "family": "play",
+                  "tier": 2,
+                  "count": 1
+                }
+              ],
+              "productNeed": null,
+              "generatorNeed": null,
+              "giftChain": {
+                "from": "qiongqi",
+                "family": "play",
+                "care": "play",
+                "note": "穷奇把最心爱的玩具一样样擦亮收进包袱。陪它玩一场，九尾狐要的玩具礼物就准备好了。"
+              },
+              "rewards": {
+                "jade": 48,
+                "beastExp": 30,
+                "heal": 8
+              },
+              "needs": [
+                {
+                  "family": "play",
+                  "tier": 3,
+                  "count": 1
+                },
+                {
+                  "family": "play",
+                  "tier": 2,
+                  "count": 1
+                }
+              ],
+              "permanent": true,
+              "status": "OPEN",
+              "done": false,
+              "mainline": false,
+              "difficultyRank": 2,
+              "difficultyLabel": "进阶",
+              "effort": 6,
+              "recommendedGeneratorLevel": 2
+            },
+            "preview": {
+              "jade": 48,
+              "beastExp": 33,
+              "heal": 8
+            },
+            "resident": {
+              "id": "qiongqi",
+              "status": "active",
+              "level": 2,
+              "exp": 7,
+              "affection": 0,
+              "heal": 0,
+              "unlockedForms": [
+                1,
+                2
+              ],
+              "activeFormLevel": 1,
+              "unlockedStories": [
+                1,
+                2
+              ],
+              "stage": 3,
+              "storyProgress": 3,
+              "storyDone": [
+                true,
+                true,
+                true
+              ],
+              "careDone": true,
+              "trust": 15,
+              "bond": 1,
+              "transformed": true,
+              "pendingTransformation": false,
+              "careCount": 1,
+              "recoveryFormGranted": true
+            },
+            "jade": 10000,
+            "xp": 10,
+            "multiplier": 1.1
+          },
+          "after": {
+            "resident": {
+              "id": "qiongqi",
+              "status": "active",
+              "level": 2,
+              "exp": 40,
+              "affection": 10,
+              "heal": 8,
+              "unlockedForms": [
+                1,
+                2
+              ],
+              "activeFormLevel": 1,
+              "unlockedStories": [
+                1,
+                2
+              ],
+              "stage": 3,
+              "storyProgress": 3,
+              "storyDone": [
+                true,
+                true,
+                true
+              ],
+              "careDone": true,
+              "trust": 15,
+              "bond": 1,
+              "transformed": true,
+              "pendingTransformation": false,
+              "careCount": 1,
+              "recoveryFormGranted": true
+            },
+            "jade": 10048,
+            "xp": 10
+          },
+          "previewText": "穷奇 · 完成奖励：暖玉 +48 · 住客成长 +33 · 伤势恢复 +8 · 信任 +10",
+          "progressText": "成长 Lv2 → Lv2\n住客成长 7 → 40",
+          "resultText": "暖玉 +48 · 住客成长 +33 · 伤势恢复 +8 · 信任 +10"
+        }
+      ]
+    },
+    {
+      "id": "R07-legacy-growth-free-preview-and-refresh",
+      "status": "passed",
+      "evidence": [
+        {
+          "mode": "旧单由隔离迁移 fixture 提供；真实预览、关闭、换新及刷新页面",
+          "before": {
+            "order": {
+              "id": "growth-2026-09-06:qiongqi:1",
+              "slot": "medical",
+              "kind": "growth",
+              "beastId": "qiongqi",
+              "boundDate": "2026-09-06",
+              "growthSequence": 1,
+              "beastLevel": 2,
+              "title": "穷奇的成长心愿",
+              "symptom": "陪穷奇一起陪玩，准备成长所需的心意。",
+              "requirements": [
+                {
+                  "family": "play",
+                  "tier": 8,
+                  "count": 3
+                }
+              ],
+              "productNeed": null,
+              "generatorNeed": null,
+              "giftChain": {
+                "from": "qiongqi",
+                "family": "play",
+                "care": "play",
+                "note": "穷奇把最心爱的玩具一样样擦亮收进包袱。陪它玩一场，九尾狐要的玩具礼物就准备好了。"
+              },
+              "rewards": {
+                "jade": 48,
+                "beastExp": 30,
+                "heal": 8,
+                "energy": 30
+              },
+              "needs": [
+                {
+                  "family": "play",
+                  "tier": 8,
+                  "count": 3
+                }
+              ],
+              "permanent": true,
+              "status": "OPEN",
+              "done": false,
+              "mainline": false,
+              "difficultyRank": 2,
+              "difficultyLabel": "进阶",
+              "effort": 6,
+              "recommendedGeneratorLevel": 2,
+              "legacyGrowthContract": true
+            },
+            "protected": {
+              "grid": [
+                {
+                  "kind": "generator",
+                  "family": "herb",
+                  "name": "药庐百草篓",
+                  "art": "assets/art/v7/producer_parts/herb_part_05.webp",
+                  "level": 1,
+                  "permanent": true,
+                  "charges": 16,
+                  "capacity": 16,
+                  "lastRechargeAt": 1788422400113,
+                  "partPity": 0,
+                  "lifetime": null,
+                  "instanceId": "generator-3"
+                },
+                {
+                  "family": "cloth",
+                  "tier": 1,
+                  "name": "麻纤"
+                },
+                {
+                  "kind": "generator",
+                  "family": "tool",
+                  "name": "医师药箱",
+                  "art": "assets/art/v7/producer_parts/tool_part_05.webp",
+                  "level": 1,
+                  "permanent": true,
+                  "charges": 16,
+                  "capacity": 16,
+                  "lastRechargeAt": 1788693691214,
+                  "partPity": 0,
+                  "lifetime": null,
+                  "instanceId": "generator-4"
+                },
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                {
+                  "kind": "generator",
+                  "family": "build",
+                  "name": "旧木料堆",
+                  "art": "assets/art/v7/producer_parts/build_part_05.webp",
+                  "level": 1,
+                  "permanent": true,
+                  "charges": 16,
+                  "capacity": 16,
+                  "lastRechargeAt": 1788422400113,
+                  "partPity": 0,
+                  "lifetime": null,
+                  "instanceId": "generator-1"
+                },
+                null,
+                null,
+                {
+                  "kind": "generator",
+                  "family": "cloth",
+                  "name": "门房针线篮",
+                  "art": "assets/art/match3/cloth_05.webp",
+                  "level": 1,
+                  "permanent": true,
+                  "charges": 16,
+                  "capacity": 16,
+                  "lastRechargeAt": 1788422400113,
+                  "partPity": 0,
+                  "lifetime": null,
+                  "instanceId": "generator-2"
+                },
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "storage": {
+                "slots": 3,
+                "items": [
+                  {
+                    "family": "play",
+                    "tier": 5,
+                    "name": "星星"
+                  },
+                  null,
+                  null
+                ],
+                "effectiveSlots": 3
+              },
+              "pendingRewards": [],
+              "products": {
+                "PROD_SOOTHE": 0,
+                "PROD_BED": 0,
+                "PROD_MEAL": 0,
+                "PROD_CLEAR": 0,
+                "PROD_GARDEN": 0,
+                "PROD_FLAME": 0,
+                "PROD_HEARTH": 0,
+                "PROD_ARRAY": 0,
+                "PROD_REVIVE": 0,
+                "PROD_BOAT": 0
+              },
+              "growthCounters": {},
+              "energy": 60,
+              "jade": 10000,
+              "freeRerolls": 1,
+              "rerollsUsed": 1,
+              "foxDailyUses": 0
+            },
+            "previewAvailable": true
+          },
+          "after": {
+            "order": {
+              "id": "growth-2026-09-06:qiongqi:1",
+              "slot": "medical",
+              "kind": "growth",
+              "beastId": "qiongqi",
+              "boundDate": "2026-09-06",
+              "growthSequence": 1,
+              "beastLevel": 2,
+              "growthRulesVersion": 2,
+              "title": "穷奇的成长心愿",
+              "symptom": "陪穷奇一起陪玩，准备成长所需的心意。",
+              "requirements": [
+                {
+                  "family": "play",
+                  "tier": 3,
+                  "count": 1
+                },
+                {
+                  "family": "play",
+                  "tier": 2,
+                  "count": 1
+                }
+              ],
+              "productNeed": null,
+              "generatorNeed": null,
+              "giftChain": {
+                "from": "qiongqi",
+                "family": "play",
+                "care": "play",
+                "note": "穷奇把最心爱的玩具一样样擦亮收进包袱。陪它玩一场，九尾狐要的玩具礼物就准备好了。"
+              },
+              "rewards": {
+                "jade": 48,
+                "beastExp": 30,
+                "heal": 8
+              },
+              "needs": [
+                {
+                  "family": "play",
+                  "tier": 3,
+                  "count": 1
+                },
+                {
+                  "family": "play",
+                  "tier": 2,
+                  "count": 1
+                }
+              ],
+              "permanent": true,
+              "status": "OPEN",
+              "done": false,
+              "mainline": false,
+              "difficultyRank": 2,
+              "difficultyLabel": "进阶",
+              "effort": 6,
+              "recommendedGeneratorLevel": 2,
+              "growthRefreshUsed": true
+            },
+            "protected": {
+              "grid": [
+                {
+                  "kind": "generator",
+                  "family": "herb",
+                  "name": "药庐百草篓",
+                  "art": "assets/art/v7/producer_parts/herb_part_05.webp",
+                  "level": 1,
+                  "permanent": true,
+                  "charges": 16,
+                  "capacity": 16,
+                  "lastRechargeAt": 1788422400113,
+                  "partPity": 0,
+                  "lifetime": null,
+                  "instanceId": "generator-3"
+                },
+                {
+                  "family": "cloth",
+                  "tier": 1,
+                  "name": "麻纤"
+                },
+                {
+                  "kind": "generator",
+                  "family": "tool",
+                  "name": "医师药箱",
+                  "art": "assets/art/v7/producer_parts/tool_part_05.webp",
+                  "level": 1,
+                  "permanent": true,
+                  "charges": 16,
+                  "capacity": 16,
+                  "lastRechargeAt": 1788693691214,
+                  "partPity": 0,
+                  "lifetime": null,
+                  "instanceId": "generator-4"
+                },
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                {
+                  "kind": "generator",
+                  "family": "build",
+                  "name": "旧木料堆",
+                  "art": "assets/art/v7/producer_parts/build_part_05.webp",
+                  "level": 1,
+                  "permanent": true,
+                  "charges": 16,
+                  "capacity": 16,
+                  "lastRechargeAt": 1788422400113,
+                  "partPity": 0,
+                  "lifetime": null,
+                  "instanceId": "generator-1"
+                },
+                null,
+                null,
+                {
+                  "kind": "generator",
+                  "family": "cloth",
+                  "name": "门房针线篮",
+                  "art": "assets/art/match3/cloth_05.webp",
+                  "level": 1,
+                  "permanent": true,
+                  "charges": 16,
+                  "capacity": 16,
+                  "lastRechargeAt": 1788422400113,
+                  "partPity": 0,
+                  "lifetime": null,
+                  "instanceId": "generator-2"
+                },
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "storage": {
+                "slots": 3,
+                "items": [
+                  {
+                    "family": "play",
+                    "tier": 5,
+                    "name": "星星"
+                  },
+                  null,
+                  null
+                ],
+                "effectiveSlots": 3
+              },
+              "pendingRewards": [],
+              "products": {
+                "PROD_SOOTHE": 0,
+                "PROD_BED": 0,
+                "PROD_MEAL": 0,
+                "PROD_CLEAR": 0,
+                "PROD_GARDEN": 0,
+                "PROD_FLAME": 0,
+                "PROD_HEARTH": 0,
+                "PROD_ARRAY": 0,
+                "PROD_REVIVE": 0,
+                "PROD_BOAT": 0
+              },
+              "growthCounters": {},
+              "energy": 60,
+              "jade": 10000,
+              "freeRerolls": 1,
+              "rerollsUsed": 1,
+              "foxDailyUses": 0
+            },
+            "previewAvailable": false
+          },
+          "previewText": "成长心愿 · 一次免费调整\n按住客等级调整心愿\n保留原心愿\n\n百戏台 ×3\n\n暖玉 +48 · 住客成长 +30 · 伤势恢复 +8 · 灵力 +30\n调整后的心愿\n\n气球 ×1、风筝 ×1\n\n暖玉 +48 · 住客成长 +30 · 伤势恢复 +8\n\n已有物品全部保留，不消耗材料或每日刷新次数。也可以关闭此页，继续完成原心愿。\n\n换成调整后的心愿",
+          "requirementValue": {
+            "before": 384,
+            "after": 6
+          },
+          "persistedOrder": {
+            "id": "growth-2026-09-06:qiongqi:1",
+            "slot": "medical",
+            "kind": "growth",
+            "beastId": "qiongqi",
+            "boundDate": "2026-09-06",
+            "growthSequence": 1,
+            "beastLevel": 2,
+            "growthRulesVersion": 2,
+            "title": "穷奇的成长心愿",
+            "symptom": "陪穷奇一起陪玩，准备成长所需的心意。",
+            "requirements": [
+              {
+                "family": "play",
+                "tier": 3,
+                "count": 1
+              },
+              {
+                "family": "play",
+                "tier": 2,
+                "count": 1
+              }
+            ],
+            "productNeed": null,
+            "generatorNeed": null,
+            "giftChain": {
+              "from": "qiongqi",
+              "family": "play",
+              "care": "play",
+              "note": "穷奇把最心爱的玩具一样样擦亮收进包袱。陪它玩一场，九尾狐要的玩具礼物就准备好了。"
+            },
+            "rewards": {
+              "jade": 48,
+              "beastExp": 30,
+              "heal": 8
+            },
+            "needs": [
+              {
+                "family": "play",
+                "tier": 3,
+                "count": 1
+              },
+              {
+                "family": "play",
+                "tier": 2,
+                "count": 1
+              }
+            ],
+            "permanent": true,
+            "status": "OPEN",
+            "done": false,
+            "mainline": false,
+            "difficultyRank": 2,
+            "difficultyLabel": "进阶",
+            "effort": 6,
+            "recommendedGeneratorLevel": 2,
+            "growthRefreshUsed": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "R09-clinic-prerequisite-and-upgrade-after-repair",
+      "status": "passed",
+      "evidence": [
+        {
+          "before": {
+            "jade": 10000,
+            "level": 1
+          },
+          "after": {
+            "jade": 9780,
+            "level": 2
+          },
+          "cost": 220
+        }
+      ]
+    },
+    {
+      "id": "layout-320-390-430",
+      "status": "passed",
+      "evidence": [
+        {
+          "width": 320,
+          "nav": [
+            {
+              "text": "打开设置与旅程记录",
+              "box": {
+                "x": 271.984375,
+                "y": 2,
+                "width": 44,
+                "height": 44,
+                "top": 2,
+                "right": 315.984375,
+                "bottom": 46,
+                "left": 271.984375
+              }
+            },
+            {
+              "text": "打开灵阵",
+              "box": {
+                "x": 9.59375,
+                "y": 500,
+                "width": 75.203125,
+                "height": 68,
+                "top": 500,
+                "right": 84.796875,
+                "bottom": 568,
+                "left": 9.59375
+              }
+            },
+            {
+              "text": "打开宗门页",
+              "box": {
+                "x": 84.796875,
+                "y": 500,
+                "width": 75.203125,
+                "height": 68,
+                "top": 500,
+                "right": 160,
+                "bottom": 568,
+                "left": 84.796875
+              }
+            },
+            {
+              "text": "打开庭院页",
+              "box": {
+                "x": 160,
+                "y": 500,
+                "width": 75.203125,
+                "height": 68,
+                "top": 500,
+                "right": 235.203125,
+                "bottom": 568,
+                "left": 160
+              }
+            },
+            {
+              "text": "打开图鉴页",
+              "box": {
+                "x": 235.203125,
+                "y": 500,
+                "width": 75.203125,
+                "height": 68,
+                "top": 500,
+                "right": 310.40625,
+                "bottom": 568,
+                "left": 235.203125
+              }
+            }
+          ],
+          "recipe": [
+            {
+              "text": "去取材：榫卯件",
+              "box": {
+                "x": 91,
+                "y": 311.15625,
+                "width": 171,
+                "height": 44,
+                "top": 311.15625,
+                "right": 262,
+                "bottom": 355.15625,
+                "left": 91
+              }
+            },
+            {
+              "text": "去取材：蝴蝶结",
+              "box": {
+                "x": 91,
+                "y": 451.453125,
+                "width": 171,
+                "height": 44,
+                "top": 451.453125,
+                "right": 262,
+                "bottom": 495.453125,
+                "left": 91
+              }
+            },
+            {
+              "text": "材料未齐 · 先去取材",
+              "box": {
+                "x": 34,
+                "y": 494,
+                "width": 237,
+                "height": 44,
+                "top": 494,
+                "right": 271,
+                "bottom": 538,
+                "left": 34
+              }
+            }
+          ],
+          "buildings": [
+            {
+              "text": "医馆，等级1，点击使用，长按查看说明",
+              "box": {
+                "x": 49.1328125,
+                "y": 150,
+                "width": 79.984375,
+                "height": 76,
+                "top": 150,
+                "right": 129.1171875,
+                "bottom": 226,
+                "left": 49.1328125
+              }
+            },
+            {
+              "text": "百草园，等级1，点击使用，长按查看说明",
+              "box": {
+                "x": 170.265625,
+                "y": 316,
+                "width": 98.28125,
+                "height": 80,
+                "top": 316,
+                "right": 268.546875,
+                "bottom": 396,
+                "left": 170.265625
+              }
+            },
+            {
+              "text": "梳洗台，等级3，点击使用，长按查看说明",
+              "box": {
+                "x": 51.4140625,
+                "y": 312,
+                "width": 75.421875,
+                "height": 88,
+                "top": 312,
+                "right": 126.8359375,
+                "bottom": 400,
+                "left": 51.4140625
+              }
+            },
+            {
+              "text": "嬉游亭，等级2，点击使用，长按查看说明",
+              "box": {
+                "x": 180.5546875,
+                "y": 162,
+                "width": 77.703125,
+                "height": 92,
+                "top": 162,
+                "right": 258.2578125,
+                "bottom": 254,
+                "left": 180.5546875
+              }
+            }
+          ],
+          "start": [
+            {
+              "text": "消耗1灵力 · 开始轻松",
+              "box": {
+                "x": 16,
+                "y": 492,
+                "width": 273,
+                "height": 44,
+                "top": 492,
+                "right": 289,
+                "bottom": 536,
+                "left": 16
+              }
+            }
+          ],
+          "canvas": {
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 320,
+              "height": 568,
+              "top": 0,
+              "right": 320,
+              "bottom": 568,
+              "left": 0
+            },
+            "buttons": {
+              "move": {
+                "x": 8,
+                "y": 440,
+                "w": 71.5,
+                "h": 44
+              },
+              "undo": {
+                "x": 85.5,
+                "y": 440,
+                "w": 71.5,
+                "h": 44
+              },
+              "shuffle": {
+                "x": 163,
+                "y": 440,
+                "w": 71.5,
+                "h": 44
+              },
+              "hint": {
+                "x": 240.5,
+                "y": 440,
+                "w": 71.5,
+                "h": 44
+              }
+            },
+            "finish": {
+              "x": 8,
+              "y": 502,
+              "w": 144,
+              "h": 46
+            },
+            "cancel": {
+              "x": 160,
+              "y": 502,
+              "w": 144,
+              "h": 46
+            },
+            "before": {
+              "hints": 1,
+              "uses": 0,
+              "score": 0,
+              "taps": 0
+            }
+          },
+          "hinted": {
+            "hints": 0,
+            "uses": 1,
+            "score": 0,
+            "taps": 0
+          }
+        },
+        {
+          "width": 390,
+          "nav": [
+            {
+              "text": "打开设置与旅程记录",
+              "box": {
+                "x": 342,
+                "y": 5,
+                "width": 44,
+                "height": 44,
+                "top": 5,
+                "right": 386,
+                "bottom": 49,
+                "left": 342
+              }
+            },
+            {
+              "text": "打开灵阵",
+              "box": {
+                "x": 11.6875,
+                "y": 760,
+                "width": 91.65625,
+                "height": 84,
+                "top": 760,
+                "right": 103.34375,
+                "bottom": 844,
+                "left": 11.6875
+              }
+            },
+            {
+              "text": "打开宗门页",
+              "box": {
+                "x": 103.34375,
+                "y": 760,
+                "width": 91.65625,
+                "height": 84,
+                "top": 760,
+                "right": 195,
+                "bottom": 844,
+                "left": 103.34375
+              }
+            },
+            {
+              "text": "打开庭院页",
+              "box": {
+                "x": 195,
+                "y": 760,
+                "width": 91.65625,
+                "height": 84,
+                "top": 760,
+                "right": 286.65625,
+                "bottom": 844,
+                "left": 195
+              }
+            },
+            {
+              "text": "打开图鉴页",
+              "box": {
+                "x": 286.65625,
+                "y": 760,
+                "width": 91.65625,
+                "height": 84,
+                "top": 760,
+                "right": 378.3125,
+                "bottom": 844,
+                "left": 286.65625
+              }
+            }
+          ],
+          "recipe": [
+            {
+              "text": "去取材：榫卯件",
+              "box": {
+                "x": 116,
+                "y": 396.15625,
+                "width": 191,
+                "height": 44,
+                "top": 396.15625,
+                "right": 307,
+                "bottom": 440.15625,
+                "left": 116
+              }
+            },
+            {
+              "text": "去取材：蝴蝶结",
+              "box": {
+                "x": 116,
+                "y": 536.453125,
+                "width": 191,
+                "height": 44,
+                "top": 536.453125,
+                "right": 307,
+                "bottom": 580.453125,
+                "left": 116
+              }
+            },
+            {
+              "text": "材料未齐 · 先去取材",
+              "box": {
+                "x": 59,
+                "y": 687,
+                "width": 257,
+                "height": 44,
+                "top": 687,
+                "right": 316,
+                "bottom": 731,
+                "left": 59
+              }
+            }
+          ],
+          "buildings": [
+            {
+              "text": "医馆，等级1，点击使用，长按查看说明",
+              "box": {
+                "x": 49.1328125,
+                "y": 160,
+                "width": 79.984375,
+                "height": 76,
+                "top": 160,
+                "right": 129.1171875,
+                "bottom": 236,
+                "left": 49.1328125
+              }
+            },
+            {
+              "text": "百草园，等级1，点击使用，长按查看说明",
+              "box": {
+                "x": 170.265625,
+                "y": 326,
+                "width": 98.28125,
+                "height": 80,
+                "top": 326,
+                "right": 268.546875,
+                "bottom": 406,
+                "left": 170.265625
+              }
+            },
+            {
+              "text": "梳洗台，等级3，点击使用，长按查看说明",
+              "box": {
+                "x": 51.4140625,
+                "y": 322,
+                "width": 75.421875,
+                "height": 88,
+                "top": 322,
+                "right": 126.8359375,
+                "bottom": 410,
+                "left": 51.4140625
+              }
+            },
+            {
+              "text": "嬉游亭，等级2，点击使用，长按查看说明",
+              "box": {
+                "x": 180.5546875,
+                "y": 172,
+                "width": 77.703125,
+                "height": 92,
+                "top": 172,
+                "right": 258.2578125,
+                "bottom": 264,
+                "left": 180.5546875
+              }
+            }
+          ],
+          "start": [
+            {
+              "text": "消耗1灵力 · 开始轻松",
+              "box": {
+                "x": 16,
+                "y": 768,
+                "width": 343,
+                "height": 44,
+                "top": 768,
+                "right": 359,
+                "bottom": 812,
+                "left": 16
+              }
+            }
+          ],
+          "canvas": {
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 390,
+              "height": 844,
+              "top": 0,
+              "right": 390,
+              "bottom": 844,
+              "left": 0
+            },
+            "buttons": {
+              "move": {
+                "x": 8,
+                "y": 716,
+                "w": 89,
+                "h": 44
+              },
+              "undo": {
+                "x": 103,
+                "y": 716,
+                "w": 89,
+                "h": 44
+              },
+              "shuffle": {
+                "x": 198,
+                "y": 716,
+                "w": 89,
+                "h": 44
+              },
+              "hint": {
+                "x": 293,
+                "y": 716,
+                "w": 89,
+                "h": 44
+              }
+            },
+            "finish": {
+              "x": 8,
+              "y": 778,
+              "w": 179,
+              "h": 46
+            },
+            "cancel": {
+              "x": 195,
+              "y": 778,
+              "w": 179,
+              "h": 46
+            },
+            "before": {
+              "hints": 1,
+              "uses": 0,
+              "score": 0,
+              "taps": 0
+            }
+          },
+          "hinted": {
+            "hints": 0,
+            "uses": 1,
+            "score": 0,
+            "taps": 0
+          }
+        },
+        {
+          "width": 430,
+          "nav": [
+            {
+              "text": "打开设置与旅程记录",
+              "box": {
+                "x": 381.984375,
+                "y": 7,
+                "width": 44,
+                "height": 44,
+                "top": 7,
+                "right": 425.984375,
+                "bottom": 51,
+                "left": 381.984375
+              }
+            },
+            {
+              "text": "打开灵阵",
+              "box": {
+                "x": 12.890625,
+                "y": 836,
+                "width": 101.046875,
+                "height": 96,
+                "top": 836,
+                "right": 113.9375,
+                "bottom": 932,
+                "left": 12.890625
+              }
+            },
+            {
+              "text": "打开宗门页",
+              "box": {
+                "x": 113.9375,
+                "y": 836,
+                "width": 101.0625,
+                "height": 96,
+                "top": 836,
+                "right": 215,
+                "bottom": 932,
+                "left": 113.9375
+              }
+            },
+            {
+              "text": "打开庭院页",
+              "box": {
+                "x": 215,
+                "y": 836,
+                "width": 101.046875,
+                "height": 96,
+                "top": 836,
+                "right": 316.046875,
+                "bottom": 932,
+                "left": 215
+              }
+            },
+            {
+              "text": "打开图鉴页",
+              "box": {
+                "x": 316.046875,
+                "y": 836,
+                "width": 101.0625,
+                "height": 96,
+                "top": 836,
+                "right": 417.109375,
+                "bottom": 932,
+                "left": 316.046875
+              }
+            }
+          ],
+          "recipe": [
+            {
+              "text": "去取材：榫卯件",
+              "box": {
+                "x": 136,
+                "y": 440.15625,
+                "width": 191,
+                "height": 44,
+                "top": 440.15625,
+                "right": 327,
+                "bottom": 484.15625,
+                "left": 136
+              }
+            },
+            {
+              "text": "去取材：蝴蝶结",
+              "box": {
+                "x": 136,
+                "y": 580.453125,
+                "width": 191,
+                "height": 44,
+                "top": 580.453125,
+                "right": 327,
+                "bottom": 624.453125,
+                "left": 136
+              }
+            },
+            {
+              "text": "材料未齐 · 先去取材",
+              "box": {
+                "x": 79,
+                "y": 731,
+                "width": 257,
+                "height": 44,
+                "top": 731,
+                "right": 336,
+                "bottom": 775,
+                "left": 79
+              }
+            }
+          ],
+          "buildings": [
+            {
+              "text": "医馆，等级1，点击使用，长按查看说明",
+              "box": {
+                "x": 14.8515625,
+                "y": 227.75,
+                "width": 129.984375,
+                "height": 123.5,
+                "top": 227.75,
+                "right": 144.8359375,
+                "bottom": 351.25,
+                "left": 14.8515625
+              }
+            },
+            {
+              "text": "百草园，等级1，点击使用，长按查看说明",
+              "box": {
+                "x": 211.6953125,
+                "y": 497.5,
+                "width": 159.703125,
+                "height": 130,
+                "top": 497.5,
+                "right": 371.3984375,
+                "bottom": 627.5,
+                "left": 211.6953125
+              }
+            },
+            {
+              "text": "梳洗台，等级3，点击使用，长按查看说明",
+              "box": {
+                "x": 18.5625,
+                "y": 491,
+                "width": 122.5625,
+                "height": 143,
+                "top": 491,
+                "right": 141.125,
+                "bottom": 634,
+                "left": 18.5625
+              }
+            },
+            {
+              "text": "嬉游亭，等级2，点击使用，长按查看说明",
+              "box": {
+                "x": 228.40625,
+                "y": 247.25,
+                "width": 126.28125,
+                "height": 149.5,
+                "top": 247.25,
+                "right": 354.6875,
+                "bottom": 396.75,
+                "left": 228.40625
+              }
+            }
+          ],
+          "start": [
+            {
+              "text": "消耗1灵力 · 开始轻松",
+              "box": {
+                "x": 79,
+                "y": 846,
+                "width": 257,
+                "height": 44,
+                "top": 846,
+                "right": 336,
+                "bottom": 890,
+                "left": 79
+              }
+            }
+          ],
+          "canvas": {
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 430,
+              "height": 932,
+              "top": 0,
+              "right": 430,
+              "bottom": 932,
+              "left": 0
+            },
+            "buttons": {
+              "move": {
+                "x": 8,
+                "y": 804,
+                "w": 99,
+                "h": 44
+              },
+              "undo": {
+                "x": 113,
+                "y": 804,
+                "w": 99,
+                "h": 44
+              },
+              "shuffle": {
+                "x": 218,
+                "y": 804,
+                "w": 99,
+                "h": 44
+              },
+              "hint": {
+                "x": 323,
+                "y": 804,
+                "w": 99,
+                "h": 44
+              }
+            },
+            "finish": {
+              "x": 8,
+              "y": 866,
+              "w": 199,
+              "h": 46
+            },
+            "cancel": {
+              "x": 215,
+              "y": 866,
+              "w": 199,
+              "h": 46
+            },
+            "before": {
+              "hints": 1,
+              "uses": 0,
+              "score": 0,
+              "taps": 0
+            }
+          },
+          "hinted": {
+            "hints": 0,
+            "uses": 1,
+            "score": 0,
+            "taps": 0
+          }
+        }
+      ]
+    }
+  ],
+  "finishedAt": "2026-09-06T13:17:05.605Z",
+  "passed": 14,
+  "failed": 0
+}

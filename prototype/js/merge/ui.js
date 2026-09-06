@@ -24,6 +24,10 @@
   var tickTimer = null;
   var careSession = null;
   var careEngineLoads = {};
+  var pendingCareStart = null;
+  var careStartSerial = 0;
+  var sourceReturnContext = null;
+  var lastCareDifficulty = {};
   var saveStore = null;
   var analytics = null;
   var courtyardScene = null;
@@ -66,6 +70,41 @@
   var modalEscapeHandler = null;
 
   function q(id) { return document ? document.getElementById(id) : null; }
+
+  var hapticsEnabled = true;
+  try { hapticsEnabled = root.localStorage.getItem('shj-merge-haptics-v1') !== 'off'; } catch (error) { /* Device preference remains usable in memory. */ }
+  root.MergeHaptics = {
+    isSupported: function () { return !!(root.navigator && typeof root.navigator.vibrate === 'function'); },
+    isEnabled: function () { return hapticsEnabled; },
+    setEnabled: function (enabled) {
+      hapticsEnabled = !!enabled;
+      try { root.localStorage.setItem('shj-merge-haptics-v1', enabled ? 'on' : 'off'); } catch (error) { /* Keep the session preference. */ }
+      return hapticsEnabled;
+    },
+    pulse: function (ms) {
+      if (!hapticsEnabled || !this.isSupported()) return false;
+      try { return root.navigator.vibrate(ms); } catch (error) { return false; }
+    }
+  };
+
+  function cancelPendingCareStart(reason) {
+    if (!pendingCareStart) return;
+    pendingCareStart.status = 'cancelled';
+    pendingCareStart.reason = reason;
+    pendingCareStart = null;
+  }
+
+  function careRunContext(type, options) {
+    options = options || {};
+    var display = options.beastId ? caseForId(options.beastId) : caseForDisplay();
+    var form = options.formLevel || display.entry && display.entry.activeFormLevel || 1;
+    var facilityLevel = options.facilityLevel || state.facilities[type].level;
+    var source = Object.prototype.hasOwnProperty.call(options, 'sourceContext') ? options.sourceContext : sourceReturnContext;
+    if (source && source.family !== careRouteForDisplay(display.id, type).family) source = null;
+    return Object.assign({}, options, { beastId: display.id, formLevel: form, facilityLevel: facilityLevel,
+      portrait: characterAssetPath(beastArt(display.definition, Object.assign({}, display.entry, { activeFormLevel: form }))),
+      sourceContext: source ? Object.assign({}, source) : null });
+  }
 
   function playSfx(name) {
     if (root.MergeAudio && typeof root.MergeAudio.play === 'function') root.MergeAudio.play(name || 'click');
@@ -735,7 +774,7 @@
       if (record.target && record.target.classList) record.target.classList.remove('longpress-armed');
       longPressState = null;
       suppressClickUntil = Date.now() + 850;
-      if (root.navigator && typeof root.navigator.vibrate === 'function') root.navigator.vibrate(8);
+      root.MergeHaptics.pulse(8);
       openLongPressDetails(record.target);
     }, LONG_PRESS_MS);
     longPressState = record;
@@ -991,6 +1030,7 @@
   function modalShell(content, className, options) {
     var rootNode = q('modal-root');
     if (!rootNode) return null;
+    cancelPendingCareStart('modal-replaced');
     var trigger = document.activeElement;
     if (rootNode.contains(trigger) && modalState) trigger = modalState.trigger;
     // The cabinet owns live listeners; return it before replacing a dialog.
@@ -1140,15 +1180,15 @@ var MODULE_HELP = {
     'yard-resident': {
       title: '庭院里的住客',
       intro: '站在庭院中央的，就是你正在陪伴的那只神兽。',
-      what: '点它看信任、疗愈、宗门阅历三条进度和当前形态。它也决定了梳洗台和嬉游亭这一局在为谁累积成长。',
-      needs: '住客通过委托和照料成长。信任、疗愈、宗门阅历都达标后，会自动蜕变成下一形态。',
+      what: '点它看信任、疗愈、住客成长三条进度和当前形态。它也决定了梳洗台和嬉游亭这一局在为谁累积成长。',
+      needs: '住客通过委托和照料成长。信任、疗愈、住客成长都达标后，会自动蜕变成下一形态。',
       use: '和当前住客有效照料会推进疗愈主线。不同住客会带回不同素材，用来迎接下一位神兽。',
       tip: '有多位住客时，上方会出现切换栏。进小游戏前先点住客，确认"这一局为谁而玩"。'
     },
     'yard-clinic': {
       title: '医馆',
       intro: '疗愈值的主要来源，升级后事半功倍。',
-      what: '点医馆回到委托页查看和交付。设施等级决定每次有效照料能转化多少疗愈值与宗门阅历。',
+      what: '点医馆回到委托页查看和交付。设施等级决定每次有效照料能转化多少疗愈值与住客成长。',
       needs: '升级只消耗暖玉，不耗灵力。医馆本身不产出素材。',
       use: '有效照料结算时，把这一局的表现转化为疗愈值，推动神兽蜕变。',
       tip: '先升级医馆再集中照料，同一局小游戏能推进更多疗愈。'
@@ -1190,7 +1230,7 @@ var MODULE_HELP = {
       intro: '四栋建筑都能升级，升了立刻生效。',
       what: '点设施卡片看每一级效果，付暖玉就能升级。百草园卡片还能直接领已产出的药材。',
       needs: '医馆、百草园、梳洗台、嬉游亭各有 Lv1–3 的升级线。小游戏高难度依赖对应设施等级。',
-      use: '医馆提升疗愈和宗门阅历，百草园提速增产，梳洗台提高高阶奖励概率，嬉游亭增加提示次数。',
+      use: '医馆提升疗愈和住客成长，百草园提速增产，梳洗台提高额外基础素材概率，嬉游亭增加提示次数。',
       tip: '推荐升级顺序：医馆 → 百草园 → 你更常玩的小游戏设施。'
     },
     jobs: {
@@ -1263,7 +1303,7 @@ var MODULE_HELP = {
       what: '显示立绘、形态名称、专属素材和当前成长数值。还没结识的神兽会显示信物。',
       needs: '未结识的神兽需要对应信物，卡片本身不消耗任何资源。',
       use: '点进去看全部形态、小故事和成长进度。已解锁的形态可随时换回庭院展示。',
-      tip: '信任、疗愈、宗门阅历都达标后，这只神兽会自动长成下一形态。'
+      tip: '信任、疗愈、住客成长都达标后，这只神兽会自动长成下一形态。'
     },
     'sect-map-node': {
       title: '舆图上的一个区域',
@@ -1309,35 +1349,34 @@ var MODULE_HELP = {
     return modal;
   }
 
-  function recipeNeedMarkup(need, have) {
+  function recipeNeedMarkup(need, have, recipeId, orderId) {
     var item = Core.makeItem(need.family, need.tier);
     var missing = Math.max(0, numberOf(need.count, 1) - Math.max(0, Math.floor(numberOf(have, 0))));
-    return '<div class="recipe-need-row ' + (missing ? '' : 'ready') + '"><img src="' + esc(itemPath(item)) + '" alt="" /><span><strong>' + esc(item.name) + '</strong><small>' + esc(familyDef(need.family).name) + ' · ' + need.tier + '阶 · 来源：' + esc(sourceLabelForFamily(need.family)) + '</small></span><b>' + Math.min(Math.max(0, Math.floor(numberOf(have, 0))), need.count) + '/' + need.count + '</b></div>';
+    return '<div class="recipe-need-row ' + (missing ? '' : 'ready') + '"><img src="' + esc(itemPath(item)) + '" alt="" /><span><strong>' + esc(item.name) + '</strong><small>' + need.tier + '阶 · ' + esc(sourceLabelForNeed(need)) + '</small></span><b>' + Math.min(Math.max(0, Math.floor(numberOf(have, 0))), need.count) + '/' + need.count + '</b>' +
+      (missing ? '<button type="button" class="recipe-source-button" data-open-source data-source-recipe="' + esc(recipeId) + '" data-source-order="' + esc(orderId || '') + '" data-longpress-family="' + esc(need.family) + '" data-longpress-tier="' + need.tier + '" aria-label="去取材：' + esc(item.name) + '">去取材</button>' : '<small class="recipe-ready-label">已齐</small>') + '</div>';
   }
 
-  function openRecipeDetails(recipeId) {
+  function openRecipeDetails(recipeId, options) {
+    options = options || {};
     var recipe = recipeDefinition(recipeId);
     if (!recipe) return null;
+    if (sourceReturnContext && sourceReturnContext.recipeId !== recipeId) { sourceReturnContext = null; renderSourceReturn(); }
+    var linkedOrder = options.orderId || sourceReturnContext && sourceReturnContext.recipeId === recipeId && sourceReturnContext.orderId;
     var fromCabinet = !!document.querySelector('#modal-root .recipe-cabinet-modal');
     var gate = Core.canCraftRecipe(state, recipe.id);
     var unlocked = Core.recipeUnlocked ? Core.recipeUnlocked(state, recipe.id) : false;
     var owned = Math.max(0, Math.floor(numberOf(state.products && state.products[recipe.id], 0)));
     var needsMarkup = (recipe.inputs || []).map(function (need) {
-      return recipeNeedMarkup(need, countNeed(need));
+      return recipeNeedMarkup(need, countNeed(need), recipeId, linkedOrder);
     }).join('');
     var modal = modalShell(
       '<span class="eyebrow">配方说明 · 长按查看</span>' +
       '<div class="recipe-detail-head"><img src="' + esc(recipeArtPath(recipe)) + '" alt="' + esc(recipe.name) + '" /><div><h2>' + esc(recipe.name) + '</h2><span class="stage-chip">卷' + recipe.volume + (unlocked ? ' · 已解锁' : ' · 后续卷章解锁') + '</span></div></div>' +
       '<p class="recipe-detail-brief">' + esc(recipe.brief || '把指定素材做成一件专门用途的成品。') + '</p>' +
-      moduleHelp(
-        '把两种指定素材合成一件不会占棋盘的配方成品。',
-        (recipe.inputs || []).map(function (need) { return Core.getItemName(need.family, need.tier); }).join(' + '),
-        esc(recipe.use || '交付对应的主线、医案或修缮委托'),
-        '成品收在配方柜中，交付委托时直接从柜中扣除。'
-      ) +
       '<div class="recipe-detail-needs">' + needsMarkup + '</div>' +
       '<div class="recipe-detail-owned">当前拥有：' + owned + ' 件' + (unlocked ? '' : ' · 未解锁的配方不会出现在配方台') + '</div>' +
-      '<button class="modal-action" data-recipe-craft-detail type="button" ' + (unlocked && gate.ok ? '' : 'disabled') + '>' + (unlocked && gate.ok ? '立即制作' : unlocked ? '材料不足：' + (gate.missing || []).map(function (need) { return need.productId ? '配方成品' : Core.getItemName(need.family, need.tier); }).join('、') : '尚未解锁') + '</button>',
+      '<details class="recipe-how"><summary>成品用途与制作说明</summary><p>' + esc(recipe.use || '交付对应的主线、医案或修缮委托') + '。成品收在配方柜，不占棋盘；制作不消耗灵力，交付时自动扣除。</p></details>' +
+      '<div class="recipe-detail-actions"><button class="modal-action" data-recipe-craft-detail type="button" ' + (unlocked && gate.ok ? '' : 'disabled') + '>' + (unlocked && gate.ok ? '立即制作' : unlocked ? '材料未齐 · 先去取材' : '尚未解锁') + '</button></div>',
       'task-modal recipe-detail-modal'
     );
     if (!modal) return null;
@@ -1352,7 +1391,13 @@ var MODULE_HELP = {
     }
     var craft = modal.querySelector('[data-recipe-craft-detail]');
     if (craft) craft.addEventListener('click', function () {
-      if (mutate(Core.craftRecipe(state, recipe.id), recipe.name + '制作完成，已收入配方柜', null, 'merge')) closeModal();
+      if (mutate(Core.craftRecipe(state, recipe.id), recipe.name + '制作完成，已收入配方柜', null, 'merge')) {
+        sourceReturnContext = null;
+        closeModal();
+        renderSourceReturn();
+        if (linkedOrder && orderById(linkedOrder)) openOrderDetails(linkedOrder);
+        else openRecipeDetails(recipeId);
+      }
     });
     return modal;
   }
@@ -1439,6 +1484,8 @@ var MODULE_HELP = {
   }
 
   function startFreshJourney() {
+    cancelPendingCareStart('new-journey');
+    sourceReturnContext = null;
     var removal = saveStore ? (saveStore.removeAsync ? saveStore.removeAsync() : saveStore.remove()) : true;
     return Promise.resolve(removal).then(function (removed) {
       var legacyRemoved = safeStorageRemove(KEY);
@@ -1476,6 +1523,8 @@ var MODULE_HELP = {
       toast(result.reason === 'newer-reader' ? '这份存档需要更高版本，未覆盖当前旅程' : '导入失败，文件未改变当前存档');
       return false;
     }
+    cancelPendingCareStart('import');
+    sourceReturnContext = null;
     state = Core.normalize(result.data, Date.now(), today());
     if (Core.setPublicRelease) Core.setPublicRelease(state, true);
     readOnlyNewerSave = false;
@@ -1601,6 +1650,8 @@ var MODULE_HELP = {
       if (restore && saveStore) {
         var result = saveStore.restoreBackup(restore.dataset.restoreBackup);
         if (result && result.ok) {
+          cancelPendingCareStart('restore-backup');
+          sourceReturnContext = null;
           state = Core.normalize(result.data, Date.now(), today());
           if (Core.setPublicRelease) Core.setPublicRelease(state, true);
           saveRevision = Math.max(0, Number(result.revision || result.record && result.record.revision) || saveRevision);
@@ -1669,6 +1720,7 @@ var MODULE_HELP = {
   }
 
   function closeModal() {
+    cancelPendingCareStart('modal-closed');
     stopCareGame();
     restoreRecipeCabinet();
     if (modalEscapeHandler && document) document.removeEventListener('keydown', modalEscapeHandler);
@@ -1686,6 +1738,7 @@ var MODULE_HELP = {
 
   function switchView(viewId) {
     if (!q(viewId)) return;
+    if (viewId !== activeView) cancelPendingCareStart('view-changed');
     if (viewId === 'sect-view' && activeView !== 'sect-view') sectSceneVisible = false;
     activeView = viewId;
     Array.prototype.forEach.call(document.querySelectorAll('.view'), function (view) {
@@ -1704,6 +1757,7 @@ var MODULE_HELP = {
     if (viewId === 'sect-view') renderSect();
     else if (viewId === 'yard-view') renderYard();
     else if (viewId === 'codex-view') renderCodex();
+    renderSourceReturn();
   }
 
   function overallProgress() {
@@ -1764,7 +1818,7 @@ var MODULE_HELP = {
       '<span class="eyebrow">点击住客 · 关系详情</span>' +
       '<div class="resident-detail-head"><img src="' + esc(characterAssetPath(beastArt(definition, entry))) + '" alt="" /><div><h2>' + esc(definition.name) + ' · ' + esc(beastLevelConfig(definition, entry).title) + '</h2><span class="stage-chip">成长 Lv' + entry.level + '/5</span></div></div>' +
       residentPicker + '<div class="resident-progress"><div class="progress-row"><span>信任</span><div class="meter"><i style="width:' + affectionPercent + '%"></i></div><b>' + entry.affection + (next ? '/' + next.affection : '') + '</b></div>' +
-      '<div class="progress-row"><span>疗愈</span><div class="meter heal"><i style="width:' + healPercent + '%"></i></div><b>' + entry.heal + (next ? '/' + next.heal : '') + '</b></div><div class="progress-row"><span>宗门阅历</span><div class="meter"><i style="width:' + expPercent + '%"></i></div><b>' + entry.exp + (next ? '/' + next.exp : '') + '</b></div></div>' +
+      '<div class="progress-row"><span>疗愈</span><div class="meter heal"><i style="width:' + healPercent + '%"></i></div><b>' + entry.heal + (next ? '/' + next.heal : '') + '</b></div><div class="progress-row"><span>住客成长</span><div class="meter"><i style="width:' + expPercent + '%"></i></div><b>' + entry.exp + (next ? '/' + next.exp : '') + '</b></div></div>' +
       '<p class="resident-detail-note">' + esc(entry.level >= 5 ? '已经到达最高形态，可以在图鉴中换回任意已解锁形态。' : gate.ok ? '三项条件都已满足，它马上就会迎来新的形态。' : '完成成长委托与庭院照料，就会越来越接近下一形态。') + '</p>',
       'task-modal resident-detail-modal');
     if (modal) modal.addEventListener('click', function (event) {
@@ -2218,7 +2272,7 @@ var MODULE_HELP = {
 
   function sourceLabelForNeed(need) {
     var result = Core.resolveItemAvailability(state, need || {});
-    var sources = (result.sources || []).map(function (entry) { return entry.label; }).filter(Boolean);
+    var sources = (result.sources || []).map(function (entry) { return entry.kind === 'care' && entry.beastId ? beastDef(entry.beastId).name + ' · ' + entry.label : entry.label; }).filter(function (label, index, all) { return !!label && all.indexOf(label) === index; });
     return sources.length ? sources.join('、') : result.availability;
   }
 
@@ -2242,7 +2296,7 @@ var MODULE_HELP = {
     var bits = [];
     if (rewards.jade) bits.push('暖玉 +' + rewards.jade);
     if (rewards.xp) bits.push('宗门阅历 +' + rewards.xp);
-    if (rewards.beastExp) bits.push('宗门阅历 +' + rewards.beastExp);
+    if (rewards.beastExp) bits.push('住客成长 +' + rewards.beastExp);
     if (rewards.heal) bits.push('伤势恢复 +' + rewards.heal);
     if (affection) bits.push('信任 +' + affection);
     if (rewards.energy) bits.push('灵力 +' + rewards.energy);
@@ -2476,7 +2530,7 @@ var MODULE_HELP = {
 
   function activeCareText(entry) {
     var next = DATA.growth && DATA.growth.requirements && DATA.growth.requirements[Math.min(4, entry.level)] || null;
-    return '成长 Lv' + entry.level + '/5 · 信任 ' + entry.affection + (next ? '/' + next.affection : '') + ' · 疗愈 ' + entry.heal + (next ? '/' + next.heal : '') + ' · 宗门阅历 ' + entry.exp + (next ? '/' + next.exp : '');
+    return '成长 Lv' + entry.level + '/5 · 信任 ' + entry.affection + (next ? '/' + next.affection : '') + ' · 疗愈 ' + entry.heal + (next ? '/' + next.heal : '') + ' · 住客成长 ' + entry.exp + (next ? '/' + next.exp : '');
   }
 
   function renderYardSwitcher() {
@@ -2641,8 +2695,15 @@ var MODULE_HELP = {
         Object.assign(model.buildings[id], root.QixiaCourtyardArt.geometry(id));
         var node = document.querySelector('#yard-world [data-node-id="' + id + '"]');
         if (node) {
-          node.setAttribute('data-facility-caption', DATA.facilities[id].name + ' Lv' + model.buildings[id].level);
-          node.setAttribute('aria-label', DATA.facilities[id].name + '，等级' + model.buildings[id].level + '，点击使用，长按查看说明');
+          var info = Core.facilityAvailability(state, id);
+          var careInfo = id === 'play' || id === 'groom' ? Core.careAvailability(state, id, 'easy') : null;
+          var caption = DATA.facilities[id].name + ' Lv' + model.buildings[id].level;
+          var condition = careInfo && !careInfo.featureOpen ? careInfo.condition : !info.available ? info.condition : '';
+          if (careInfo && !careInfo.featureOpen) caption = DATA.facilities[id].name + '\n' + (id === 'groom' ? '迎来九尾狐后开放' : '门灯修好后开放');
+          else if (id === 'clinic' && !info.clinicRepaired) caption = '医馆' + (info.level > 1 ? ' Lv' + info.level : '') + '\n修缮 ' + Math.min(3, Number(state.sect.stages.clinic) || 0) + '/3';
+          node.setAttribute('data-facility-caption', caption);
+          node.setAttribute('aria-label', DATA.facilities[id].name + '，' + (condition || '等级' + info.level + '，点击使用，长按查看说明'));
+          node.dataset.facilityLocked = condition ? 'true' : 'false';
         }
       });
       model.character.x = 50;
@@ -2858,11 +2919,11 @@ var MODULE_HELP = {
     }
     if (id === 'clinic') {
       var clinic = DATA.facilities.clinic.levels[level - 1];
-      return '有效照料疗愈 +' + clinic.healReward + (clinic.beastXpMultiplier > 1 ? ' · 宗门阅历 +10%' : '');
+      return (Core.facilityAvailability(state, id).clinicRepaired ? '' : '剧情修缮 ' + Math.min(3, Number(state.sect.stages.clinic) || 0) + '/3 · ') + '有效照料疗愈 +' + clinic.healReward + (clinic.beastXpMultiplier > 1 ? ' · 住客成长收益 +10%' : '');
     }
-    if (id === 'groom') return '已开放至' + difficultyLabel(DATA.facilities.groom.levels[level - 1].difficulty) + '难度 · 梳洗奖励加成 ' + Math.round(DATA.facilities.groom.levels[level - 1].bonusTierChance * 100) + '%';
+    if (id === 'groom') return '已开放至' + difficultyLabel(DATA.facilities.groom.levels[level - 1].difficulty) + '难度 · A/S额外T1概率 ' + Math.round(DATA.facilities.groom.levels[level - 1].bonusTierChance * 100) + '%';
     var play = DATA.facilities.play.levels[level - 1];
-    return '已开放至' + difficultyLabel(play.difficulty) + '难度 · 开局提示 +' + play.hintBonus;
+    return '已开放至' + difficultyLabel(play.difficulty) + '难度 · 每局手动提示 ' + play.hintBonus;
   }
 
   function renderFacilities() {
@@ -2871,7 +2932,10 @@ var MODULE_HELP = {
       var facility = state.facilities[id];
       var definition = DATA.facilities[id];
       var next = facility.level < 3 ? definition.levels[facility.level] : null;
-      return '<button class="facility-button building built" data-facility="' + id + '" data-help="facility-' + id + '" type="button" title="点击查看升级，长按查看' + esc(definition.name) + '说明"><span class="building-art">' + uiIcon(icons[id]) + '</span><span class="facility-copy"><strong>' + esc(definition.name) + ' Lv' + facility.level + '</strong><small>' + esc(facilitySummary(id)) + '</small></span><b class="facility-level-note">' + (next ? '升级 ' + compactNumber(next.cost) : '满级') + '</b></button>';
+      var available = Core.facilityAvailability(state, id);
+      var careOpen = id === 'groom' || id === 'play' ? Core.careAvailability(state, id, 'easy') : null;
+      var detail = careOpen && !careOpen.featureOpen ? careOpen.condition + ' · ' + facilitySummary(id) : facilitySummary(id);
+      return '<button class="facility-button building built" data-facility="' + id + '" data-help="facility-' + id + '" type="button" title="点击查看设施，长按查看' + esc(definition.name) + '说明"><span class="building-art">' + uiIcon(icons[id]) + '</span><span class="facility-copy"><strong>' + esc(definition.name) + ' Lv' + facility.level + '</strong><small>' + esc(detail) + '</small></span><b class="facility-level-note">' + (!available.available ? '继续修缮' : next ? '升级 ' + compactNumber(next.cost) : '满级') + '</b></button>';
     }).join('');
   }
 
@@ -3679,6 +3743,7 @@ var MODULE_HELP = {
   }
 
   function render() {
+    if (pendingCareStart && (pendingCareStart.state !== state || caseForDisplay().id !== pendingCareStart.context.beastId)) cancelPendingCareStart('journey-or-resident-changed');
     if (!state || !document) return;
     Core.ensureDaily(state, today(), Date.now());
     Core.ensureOrders(state, Math.random);
@@ -4137,13 +4202,24 @@ var MODULE_HELP = {
   }
 
   function deliver(id) {
+    var beforeOrder = orderById(id);
+    var beforeGrowth = beforeOrder && beforeOrder.kind === 'growth' && Object.assign({}, state.beastCases[beforeOrder.beastId]);
     var result = Core.deliverOrder(state, id, Math.random, Date.now());
     var message = result && result.order && result.order.deliveryText ? result.order.deliveryText : '委托完成 · 新进展已记录';
     if (!message && result && result.affectionGained) message += ' · ' + beastDef(result.order.beastId).name + '信任 +' + result.affectionGained;
     if (!message && result && result.levelsGained) message += ' · 升级 Lv.' + result.level + '，灵力上限 +' + result.levelsGained;
     if (!mutate(result, message, null, 'order')) return result;
     closeModal();
-    if (result.renovation) showRenovationFeedback(result.renovation);
+    if (beforeGrowth) {
+      var resident = state.beastCases[beforeOrder.beastId];
+      var growthModal = modalShell('<span class="eyebrow">成长心愿 · 已交付</span><h2>' + esc(beastDef(beforeOrder.beastId).name) + '收到了你的心意</h2><p class="growth-result-progress">成长 Lv' + beforeGrowth.level + ' → Lv' + resident.level + '<br>住客成长 ' + beforeGrowth.exp + ' → ' + resident.exp + '</p><div class="task-reward">' + esc(rewardDescription(result.rewards, result.affectionGained)) + '</div><button type="button" class="modal-action" data-growth-result-continue>继续陪伴</button>', 'task-modal growth-result-modal');
+      if (growthModal) growthModal.querySelector('[data-growth-result-continue]').addEventListener('click', function () {
+        closeModal();
+        if (Core.peekBeastReveal(state)) showPendingBeastReveal();
+        else if (state.pendingTransformation) showTransformation();
+      });
+    }
+    else if (result.renovation) showRenovationFeedback(result.renovation);
     else if (result.visitorEncounter) root.setTimeout(showPendingVisitorEncounter, 100);
     else if (result.revealEvents && result.revealEvents.length) root.setTimeout(showPendingBeastReveal, 120);
     else if (result.transformed || state.pendingTransformation) root.setTimeout(showTransformation, 120);
@@ -4175,6 +4251,8 @@ var MODULE_HELP = {
   function openOrderDetails(id) {
     var order = orderById(id);
     if (!order) return;
+    sourceReturnContext = null;
+    renderSourceReturn();
     if (order.kind === 'visitor_response') { showPendingVisitorEncounter(); return; }
     if (order.kind === 'care_gate') {
       var gateBeast = beastDef(order.beastId);
@@ -4232,10 +4310,21 @@ var MODULE_HELP = {
       generatorHintMarkup +
       giftNoteMarkup +
       productHintMarkup +
-      '<div class="task-reward">完成奖励：' + esc(rewardDescription(order.rewards, orderAffection)) + '</div>' +
+      '<div class="task-reward">' + (order.kind === 'growth' ? esc(beastDef(order.beastId).name) + ' · ' : '') + '完成奖励：' + esc(rewardDescription(Core.orderRewardPreview ? Core.orderRewardPreview(state, order) : order.rewards, orderAffection)) + '</div>' +
       '<button class="modal-action" data-modal-deliver type="button" ' + (can ? '' : 'disabled') + '>' + (can ? (visitor ? '交给' + esc(visitor.name) + '，听听后续' : '立即交付') : unavailableActionLabel) + '</button>' +
       ((order.slot === 'supply' || order.slot === 'care') ? '<button class="modal-secondary" data-reroll="' + order.slot + '" type="button" ' + (rerollAvailable ? '' : 'disabled') + '>免费刷新 ' + roll.remaining + '/' + roll.max + '</button>' : ''), 'task-modal' + (visitor ? ' visitor-order-modal' : ''));
     if (!modal) return;
+    modal.dataset.sourceOrder = id;
+    var growthRefresh = Core.previewGrowthOrderRefresh && Core.previewGrowthOrderRefresh(state, id);
+    if (growthRefresh && growthRefresh.available) {
+      var refreshGrowth = document.createElement('button');
+      refreshGrowth.type = 'button';
+      refreshGrowth.className = 'modal-secondary';
+      refreshGrowth.dataset.previewGrowthRefresh = id;
+      refreshGrowth.textContent = '旧版心愿 · 查看免费调整';
+      refreshGrowth.addEventListener('click', function () { openGrowthRefresh(id); });
+      modal.appendChild(refreshGrowth);
+    }
     var modalCare = modal.querySelector('[data-modal-care]');
     if (modalCare) modalCare.addEventListener('click', function () { goCareAndPulse(modalCare.dataset.modalCare); });
     var deliverButton = modal.querySelector('[data-modal-deliver]');
@@ -4244,6 +4333,24 @@ var MODULE_HELP = {
     if (reroll) reroll.addEventListener('click', function () {
       var result = Core.rerollOrder(state, reroll.dataset.reroll, Math.random);
       if (mutate(result, '委托已刷新', null, 'click')) closeModal();
+    });
+  }
+
+  function openGrowthRefresh(orderId) {
+    var preview = Core.previewGrowthOrderRefresh(state, orderId);
+    if (!preview.available) return;
+    function summary(order, title) {
+      var needs = (order.requirements || []).map(function (need) { return Core.getItemName(need.family, need.tier) + ' ×' + need.count; });
+      if (order.productNeed) needs.push((recipeDefinition(order.productNeed.productId) || {}).name + ' ×' + order.productNeed.count);
+      return '<section class="growth-contract-preview"><h3>' + title + '</h3><p>' + esc(needs.join('、') || '已满阶，不再需要成长材料') + '</p><small>' + esc(rewardDescription(Core.orderRewardPreview(state, order), 0)) + '</small></section>';
+    }
+    var modal = modalShell('<span class="eyebrow">成长心愿 · 一次免费调整</span><h2>按住客等级调整心愿</h2>' + summary(preview.oldOrder, '保留原心愿') + summary(preview.newOrder, '调整后的心愿') + '<p>已有物品全部保留，不消耗材料或每日刷新次数。也可以关闭此页，继续完成原心愿。</p><button type="button" class="modal-action" data-confirm-growth-refresh>换成调整后的心愿</button>', 'task-modal growth-refresh-modal');
+    if (modal) modal.querySelector('[data-confirm-growth-refresh]').addEventListener('click', function () {
+      var refreshed = Core.refreshGrowthOrder(state, orderId);
+      if (mutate(refreshed, '心愿已调整，已有物品全部保留')) {
+        if (refreshed.order.status === 'COMPLETE') closeModal();
+        else openOrderDetails(refreshed.order.id);
+      }
     });
   }
 
@@ -4269,15 +4376,9 @@ var MODULE_HELP = {
   }
 
   function openFacility(id) {
-    if (id === 'clinic' && state.storyExperience && state.storyExperience.active && !state.storyExperience.volumeOneCompleted) {
-      closeModal();
-      switchView('merge-view');
-      var currentProject = q('project-tray');
-      if (currentProject && currentProject.scrollIntoView) currentProject.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      return;
-    }
     var definition = DATA.facilities[id];
     var facility = state.facilities[id];
+    var availability = Core.facilityAvailability(state, id);
     var next = facility.level < definition.levels.length ? definition.levels[facility.level] : null;
     var preview = '';
     if (root.QixiaCourtyardArt) {
@@ -4288,12 +4389,14 @@ var MODULE_HELP = {
       preview = '<div class="facility-before-after"><figure><div class="facility-art-crop" style="' + cropStyle + '"><img src="' + esc(art.urlFor(state)) + '" alt="' + esc(definition.name) + '当前外观" /></div><figcaption>现在 · Lv' + facility.level + '</figcaption></figure>' + (next ? '<figure><div class="facility-art-crop" style="' + cropStyle + '"><img src="' + esc(art.urlFor(state, override)) + '" alt="' + esc(definition.name) + '升级后外观" /></div><figcaption>升级后 · Lv' + (facility.level + 1) + '</figcaption></figure>' : '') + '</div>';
     }
     var modal = modalShell('<span class="eyebrow">庭院设施 · 可见产出</span><h2>' + esc(definition.name) + ' Lv' + facility.level + '</h2>' + preview + '<p>' + esc(facilitySummary(id)) + '</p><div class="facility-modal-grid">' + definition.levels.map(function (level) {
-      var text = id === 'herb' ? level.intervalMinutes + '分钟/份 · 容量' + level.cap : id === 'clinic' ? '有效照料疗愈 +' + level.healReward + (level.beastXpMultiplier > 1 ? ' · 宗门阅历+10%' : '') : id === 'groom' ? '开放至' + difficultyLabel(level.difficulty) + ' · 梳洗奖励 ' + Math.round(level.bonusTierChance * 100) + '%' : '开放至' + difficultyLabel(level.difficulty) + ' · 提示 +' + level.hintBonus;
+      var text = id === 'herb' ? level.intervalMinutes + '分钟/份 · 容量' + level.cap : id === 'clinic' ? '有效照料疗愈 +' + level.healReward + (level.beastXpMultiplier > 1 ? ' · 住客成长收益+10%' : '') : id === 'groom' ? '开放至' + difficultyLabel(level.difficulty) + ' · A/S额外T1概率 ' + Math.round(level.bonusTierChance * 100) + '%' : '开放至' + difficultyLabel(level.difficulty) + ' · 每局手动提示 ' + level.hintBonus;
       return '<div class="facility-level ' + (facility.level === level.level ? 'current' : '') + '"><b>Lv' + level.level + ' · 暖玉' + level.cost + '</b><small>' + esc(text) + '</small></div>';
     }).join('') + '</div>' +
       (id === 'herb' && facility.stored.length ? '<button class="modal-secondary" data-claim-facility type="button">领取药材 ×' + facility.stored.length + '</button>' : '') +
-      '<button class="modal-action" data-upgrade-facility type="button" ' + (next ? '' : 'disabled') + '>' + (next ? '升级 · 暖玉' + next.cost : '设施已满级') + '</button>', 'task-modal facility-upgrade-modal');
+      (!availability.available ? '<p class="facility-lock-note">' + esc(availability.condition) + (facility.level > 1 ? '。已购买等级和收益继续保留。' : '。重燃药炉后即可升级。') + '</p><button class="modal-action" data-continue-facility-story type="button">继续修缮</button>' : '<button class="modal-action" data-upgrade-facility type="button" ' + (next ? '' : 'disabled') + '>' + (next ? '升级 · 暖玉' + next.cost : '设施已满级') + '</button>'), 'task-modal facility-upgrade-modal');
     if (!modal) return;
+    var storyButton = modal.querySelector('[data-continue-facility-story]');
+    if (storyButton) storyButton.addEventListener('click', function () { closeModal(); switchView('merge-view'); openCurrentObjective(); });
     var upgrade = modal.querySelector('[data-upgrade-facility]');
     if (upgrade) upgrade.addEventListener('click', function () {
       if (!next || upgrade.disabled) return;
@@ -4471,14 +4574,19 @@ var MODULE_HELP = {
   }
 
   function careRewardPreview(type, difficulty) {
+    var display = caseForDisplay();
+    var available = Core.careAvailability(state, type, difficulty.id, display.id);
+    if (available.storyRound) return '剧情陪玩 · 旧彩球收入山海册，记录第一次陪伴';
     var itemInfo = careRewardItemText(type, difficulty);
     var itemText = itemInfo.names.join('、') || itemInfo.familyName + '素材';
     if (difficulty && difficulty.challenge) return '可能获得：' + itemText + '（T1–T' + itemInfo.maxTier + '） · 按得分 2–6 份 · 不增加成长数值';
-    var rewards = difficulty && difficulty.rewards || {};
+    var rewards = {};
+    ['floor', 'B', 'A', 'S'].forEach(function (grade) { rewards[grade] = Core.careRewardPlan(state, type, difficulty.id, grade).tiers; });
     function tiers(values) {
       return (values || []).map(function (tier) { return 'T' + tier; }).join('+') || '—';
     }
-    return '可能获得：' + itemText + '（T1–T' + itemInfo.maxTier + '） · 保底 ' + tiers(rewards.floor) + ' · B ' + tiers(rewards.B) + ' · A ' + tiers(rewards.A) + ' · S ' + tiers(rewards.S);
+    var bonuses = Core.careRewardPlan(state, type, difficulty.id, 'S').bonuses.map(function (bonus) { return (bonus.kind === 'facility' ? '设施' : '宗门') + ' A/S额外T1概率 ' + Math.round(bonus.chance * 100) + '%'; });
+    return '可能获得：' + itemText + '（T1–T' + itemInfo.maxTier + '） · 保底 ' + tiers(rewards.floor) + ' · B ' + tiers(rewards.B) + ' · A ' + tiers(rewards.A) + ' · S ' + tiers(rewards.S) + (bonuses.length ? ' · ' + bonuses.join(' · ') : '');
   }
 
   function careRewardKindsGuide(type) {
@@ -4498,15 +4606,22 @@ var MODULE_HELP = {
     var display = caseForDisplay();
     var route = careRouteForDisplay(display.id, type);
     var gift = careGiftForDisplay(display.id);
+    var recipe = sourceReturnContext && sourceReturnContext.kind === 'recipe' && sourceReturnContext.family === route.family && recipeDefinition(sourceReturnContext.recipeId);
+    if (recipe) {
+      var missing = (recipe.inputs || []).filter(function (need) { return need.family === route.family && countNeed(need) < need.count; }).map(function (need) {
+        return Core.getItemName(need.family, need.tier) + ' ×' + (need.count - countNeed(need));
+      });
+      return missing.length ? '制作「' + recipe.name + '」还缺：' + missing.join('、') + '。本局收集对应素材，结算后可返回配方。' : '「' + recipe.name + '」所需的本类素材已齐，结算后可返回配方继续制作。';
+    }
     var found = null;
     (state.activeOrders || []).some(function (order) {
       return (order.requirements || []).some(function (need) {
-        if (need.family !== route.family) return false;
-        found = Core.makeItem(route.family, need.tier || 1);
+        if (need.family !== route.family || countNeed(need) >= need.count) return false;
+        found = { name: Core.getItemName(route.family, need.tier || 1), count: need.count - countNeed(need) };
         return true;
       });
     });
-    if (found) return '眼前委托需要“' + found.name + '”，与' + display.definition.name + '一起' + careTypeShortLabel(type) + '就能直接带回。';
+    if (found) return '眼前委托还缺“' + found.name + '” ×' + found.count + '，与' + display.definition.name + '一起' + careTypeShortLabel(type) + '，收集素材后合成所需阶级。';
     if (type === gift.care) return '这是' + display.definition.name + '送出成长礼物的游戏：会带回「' + (familyDef(route.family) || {}).name + '」素材。';
     return '这款游戏带回「' + (familyDef(route.family) || {}).name + '」日常小礼，可推进其他委托。';
   }
@@ -4541,6 +4656,7 @@ var MODULE_HELP = {
 
   function openCareDifficulty(type) {
     var display = caseForDisplay();
+    var runContext = careRunContext(type);
     var availability = Core.careAvailability(state, type, 'easy', display.id);
     if (!availability.available) { openFeatureLockHint(type); return { ok: false, reason: availability.reason }; }
     if (!display.entry) return { ok: false, reason: 'wrong-care-type' };
@@ -4550,7 +4666,8 @@ var MODULE_HELP = {
     var used = Number(state.daily.careRewards && state.daily.careRewards[type]) || 0;
     var difficultyIds = (config.order || []).slice();
     if (config.difficulties && config.difficulties.challenge) difficultyIds.push('challenge');
-    var selectedDifficulty = difficultyIds.indexOf(recommended) >= 0 ? recommended : difficultyIds[0];
+    var lastSelected = lastCareDifficulty[type];
+    var selectedDifficulty = lastSelected && Core.careDifficultyUnlocked(state, lastSelected, type) ? lastSelected : (difficultyIds.indexOf(recommended) >= 0 ? recommended : difficultyIds[0]);
     var tabs = difficultyIds.map(function (id) {
       var difficulty = config.difficulties[id];
       var unlocked = Core.careDifficultyUnlocked(state, id, type);
@@ -4568,16 +4685,22 @@ var MODULE_HELP = {
         '<div><span>状态</span><b>' + (unlocked ? '已解锁' : esc(careUnlockText(id, type))) + '</b></div>' +
       '</div><p class="care-rule-preview">' + esc(careRulePreview(type, game)) + '</p>' +
       '<div class="care-reward-preview">' + uiIcon('jade') + '<span>' + esc(careRewardPreview(type, difficulty)) + '</span></div>' +
+      '<p class="care-facility-benefit">' + esc(facilitySummary(type)) + '</p>' +
       (difficulty.challenge ? '<div class="care-challenge-note">挑战模式只发素材，不增加信任、疗愈或宗门阅历。</div>' : '');
     }
     var modal = modalShell('<span class="eyebrow">挑一个合适的挑战</span><h2>' + esc(careTypeLabel(type)) + '</h2>' +
+      '<p class="care-resident-context">' + esc(display.definition.name) + ' · 形态 ' + runContext.formLevel + '</p>' +
       '<p>' + esc(careOrderRelevance(type)) + '</p><div class="care-run-budget"><b>今日素材奖励</b><span>' + (rewardBudget.unlimited ? '奖励不限' : '今日剩余奖励 ' + Math.max(0, rewardBudget.cap - used) + '/' + rewardBudget.cap + ' 次') + '</span></div>' +
       '<div class="care-difficulty-tabs" role="tablist" aria-label="难度选择">' + tabs + '</div>' +
       '<div class="care-difficulty-detail" data-care-difficulty-detail>' + detailMarkup(selectedDifficulty) + '</div>' +
       '<details class="care-guide-disclosure"><summary>玩法说明</summary>' + careGameGuide(type) + '</details>' +
-      '<p class="care-effective-rule">离开或跳过不会返还灵力；加载失败时不会扣除。</p>' +
+      '<p class="care-effective-rule">加载时可随时取消，不扣灵力；进入游戏后离开或跳过不返还灵力。</p>' +
       '<button class="modal-action care-start-action" data-care-start type="button"></button>', 'task-modal care-difficulty-modal', { variant: 'dialog', closeOnBackdrop: true, closeOnEscape: true });
     if (!modal) return { ok: false, reason: 'modal-unavailable' };
+    modal.dataset.careType = type;
+    modal.dataset.careBeast = runContext.beastId;
+    modal.dataset.carePortrait = runContext.portrait;
+    modal.dataset.careFacility = String(runContext.facilityLevel);
     function syncSelection(id) {
       selectedDifficulty = id;
       Array.prototype.forEach.call(modal.querySelectorAll('[data-care-difficulty-tab]'), function (tab) {
@@ -4602,7 +4725,8 @@ var MODULE_HELP = {
       if (tab) { syncSelection(tab.dataset.careDifficultyTab); return; }
       var start = event.target.closest('[data-care-start]');
       if (!start || start.disabled) return;
-      openCare(type, selectedDifficulty);
+      lastCareDifficulty[type] = selectedDifficulty;
+      openCare(type, selectedDifficulty, runContext);
     });
     return { ok: true, selector: true, recommendedDifficulty: recommended };
   }
@@ -4639,7 +4763,7 @@ var MODULE_HELP = {
     return careEngineLoads[type];
   }
 
-  function showCareLoading(type, difficulty, failed) {
+  function showCareLoading(type, difficulty, failed, runContext) {
     var modal = modalShell(
       '<span class="eyebrow">' + esc(careTypeLabel(type)) + '</span><h2>' + (failed ? '小游戏素材加载失败' : '正在准备小游戏') + '</h2>' +
       '<div class="care-load-progress" role="progressbar" aria-label="小游戏加载进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + (failed ? '0' : '45') + '"><i style="width:' + (failed ? '0' : '45') + '%"></i></div>' +
@@ -4648,23 +4772,37 @@ var MODULE_HELP = {
       'task-modal care-loading-modal'
     );
     if (modal && failed) {
-      modal.querySelector('[data-retry-care-engine]').addEventListener('click', function () { prepareCare(type, difficulty, true); });
+      modal.querySelector('[data-retry-care-engine]').addEventListener('click', function () { prepareCare(type, difficulty, true, runContext); });
     }
     return modal;
   }
 
-  function prepareCare(type, difficulty, retry) {
-    showCareLoading(type, difficulty, false);
+  function prepareCare(type, difficulty, retry, options) {
+    var context = careRunContext(type, options);
+    var modal = showCareLoading(type, difficulty, false, context);
+    var request = { id: ++careStartSerial, type: type, context: context, state: state, modal: modal, status: 'pending', view: activeView };
+    pendingCareStart = request;
+    function current() {
+      return pendingCareStart === request && request.status === 'pending' && request.state === state &&
+        request.view === activeView && modal && modal.isConnected && caseForDisplay().id === context.beastId && !document.hidden;
+    }
     loadCareEngine(type, retry).then(function () {
+      if (!current()) { if (pendingCareStart === request) cancelPendingCareStart('stale-load'); return; }
+      request.status = 'consumed';
+      pendingCareStart = null;
       closeModal();
-      openCareLoaded(type, difficulty);
+      openCareLoaded(type, difficulty, context);
     }).catch(function () {
-      showCareLoading(type, difficulty, true);
+      if (!current()) { if (pendingCareStart === request) cancelPendingCareStart('stale-error'); return; }
+      request.status = 'failed';
+      pendingCareStart = null;
+      showCareLoading(type, difficulty, true, context);
     });
     return { ok: true, loading: true };
   }
 
-  function openCare(type, difficulty) {
+  function openCare(type, difficulty, options) {
+    if (careSession || pendingCareStart && pendingCareStart.status === 'pending') return { ok: false, reason: 'care-busy' };
     var availability = Core.careAvailability(state, type, difficulty, caseForDisplay().id);
     if (!availability.featureOpen) { openFeatureLockHint(type); return { ok: false, reason: availability.reason }; }
     if (!difficulty) return openCareDifficulty(type);
@@ -4678,18 +4816,19 @@ var MODULE_HELP = {
       return { ok: false, reason: 'difficulty-locked' };
     }
     var Engine = careEngineFor(type);
-    if (!Engine || !Engine.Game) return prepareCare(type, difficulty, false);
-    return openCareLoaded(type, difficulty);
+    var context = careRunContext(type, options);
+    if (!Engine || !Engine.Game) return prepareCare(type, difficulty, false, context);
+    return openCareLoaded(type, difficulty, context);
   }
 
   function openCareLoaded(type, difficulty, runOptions) {
-    runOptions = runOptions || {};
+    runOptions = careRunContext(type, runOptions);
     if (readOnlyNewerSave) {
       toast('只读旅程不能开始新的照料；请先导出或刷新页面');
       return { ok: false, reason: 'read-only' };
     }
     if (!difficulty) return openCareDifficulty(type);
-    var display = caseForDisplay();
+    var display = caseForId(runOptions.beastId);
     if (!display.entry) {
       toast('当前没有可照料住客');
       return { ok: false, reason: 'wrong-care-type' };
@@ -4703,12 +4842,12 @@ var MODULE_HELP = {
     var Engine = careEngineFor(type);
     var gameRoot = q('care-game-root');
     if (!Engine || !Engine.Game || !gameRoot) {
-      return prepareCare(type, difficulty, true);
+      return prepareCare(type, difficulty, true, runOptions);
     }
     var practice = type === 'play' && runOptions.practice === true;
     var started = practice
       ? { ok: true, token: null, cost: 0, energy: state.energy, practice: true }
-      : Core.beginCare(state, type, difficulty, display.id);
+      : Core.beginCare(state, type, difficulty, display.id, Date.now(), runOptions);
     if (!started.ok) { toast(failureText(started)); return started; }
     if (!practice && !saveState({ historyMode: 'checkpoint', reason: 'care-start' })) {
       Core.refundCare(state, started.token);
@@ -4723,9 +4862,7 @@ var MODULE_HELP = {
     gameRoot.classList.add('is-open');
     gameRoot.setAttribute('aria-hidden', 'false');
     var warning = practice ? '<div class="care-practice-banner">同局复盘 · 不耗灵力 · 不发奖励</div>' : '';
-    var careVisual = type === 'groom'
-      ? '<span class="care-game-beast" aria-hidden="true"><img src="assets/art/characters/qiongqi_lv1.webp" alt="" /></span>'
-      : '';
+    var careVisual = '<span class="care-game-beast care-beast-' + type + '" aria-label="本局照料' + esc(display.definition.name) + '"><img src="' + esc(runOptions.portrait) + '" alt="' + esc(display.definition.name) + ' · 形态' + runOptions.formLevel + '" /></span>';
     gameRoot.innerHTML = '<section class="care-game-shell ' + (type === 'groom' ? 'match3-shell' : 'sheep-shell') + '" role="dialog" aria-modal="true" aria-label="' + (type === 'groom' ? '梳洗台梳洗' : '嬉游亭陪玩 · 玩具塔') + '">' + warning + careVisual + '<canvas id="care-game-canvas" tabindex="0" aria-label="' + (type === 'groom' ? '滑动交换梳洗图案，规划步数、制造特殊块并完成毛结目标' : '点击未被遮挡的玩具牌收入五格槽，三张相同自动消除；可使用移出、撤回和重排各一次') + '"></canvas></section>';
     var canvas = q('care-game-canvas');
     var context = canvas && canvas.getContext ? canvas.getContext('2d') : null;
@@ -4743,6 +4880,7 @@ var MODULE_HELP = {
     var session = {
       type: type,
       beastId: display.id,
+      runContext: runOptions,
       canvas: canvas,
       context: context,
       game: null,
@@ -4773,6 +4911,7 @@ var MODULE_HELP = {
 
     var engineOptions = Object.assign({}, difficultyConfig[type], {
       difficulty: difficulty,
+      hintLimit: type === 'play' ? DATA.facilities.play.levels[runOptions.facilityLevel - 1].hintBonus : undefined,
       seed: type === 'play' ? session.seed : undefined,
       uiTheme: type === 'play' ? {
         shell: 'rgba(20,43,50,0.76)', panel: '#F8E8C7', ink: '#5A3A28', muted: '#80644F',
@@ -4940,7 +5079,7 @@ var MODULE_HELP = {
     if (modal) {
       modal.querySelector('[data-care-practice-retry]').addEventListener('click', function () {
         closeModal();
-        openCareLoaded(session.type, session.difficulty, { practice: true });
+        openCareLoaded(session.type, session.difficulty, Object.assign({}, session.runContext, { practice: true, facilityLevel: state.facilities.play.level }));
       });
       modal.querySelector('[data-care-practice-exit]').addEventListener('click', closeModal);
     }
@@ -5006,18 +5145,26 @@ var MODULE_HELP = {
     var rewardNote = result.storyRound ? '这不是修缮材料。它只记住穷奇第一次愿意把心爱的旧物推给你。' : result.challenge ? (result.noReward ? '需要实际完成有效操作并取得分数，挑战局不会增加信任、疗愈或宗门阅历。' : '奖励随分数增加，最多六份；挑战局不会增加信任、疗愈或宗门阅历。') : result.rewardLimited ? '今日该设施的素材奖励已领取；成绩仍会记录，明天再来。' : result.noReward ? (outcome === 'skip' ? '这次先休息，灵力不会返还；准备好后再挑战。' : !result.qualified ? '还差一些有效操作；达到门槛后即使超时也有保底。' : '本局未达到奖励条件，但仍会记录成绩。') : '评级 ' + result.grade + ' · 信任 +' + (result.affectionGained || 0) + ' · 疗愈 +' + (result.healGained || 0) + ' · ' + (result.remainingRewardRuns == null ? '今日素材奖励不限。' : '今日剩余奖励 ' + result.remainingRewardRuns + '/' + careRewardBudget().cap + ' 次。');
     var giftFamily = familyDef(result.giftFamily);
     var giftLine = !result.storyRound && !result.noReward && result.giftFamily ? ' · 带回' + (giftFamily ? giftFamily.name : result.giftFamily) + '素材' : '';
+    if (result.bonusRewards && result.bonusRewards.length) giftLine += ' · ' + result.bonusRewards.map(function (bonus) { return (bonus.kind === 'facility' ? '梳洗台升级额外' : '宗门修缮额外') + ' T1 ×1'; }).join(' · ');
+    if (summary && summary.hintsUsed) giftLine += ' · 已用提示 ' + summary.hintsUsed + ' 次';
     var objective = Core.getCurrentObjective(state);
     var taskReturn = result.storyRound || session.careToken && session.careToken.goal;
     var ready = /^deliver-|assemble-project/.test(objective.action || '');
     var returnText = taskReturn ? (ready ? '前往交付：' : '回归灵台，继续') + (objective.order && objective.order.title || '当前任务') : '返回庭院';
+    var recipeReturn = session.runContext && session.runContext.sourceContext;
+    if (recipeReturn && recipeReturn.kind === 'recipe') returnText = '返回配方，继续制作';
     var placement = result.rewardPlacement || {};
     var destination = result.storyRound ? '山海册 · 纪念物' : result.noReward ? '' : (placement.board ? '已入棋盘 ' + placement.board + ' 份' : '') + (placement.pending ? (placement.board ? '；' : '') + '待入盘 ' + placement.pending + ' 份，腾位后自动放入' : '');
     var choice = Core.careRewardChoice(state, session.careToken);
-    var choiceMarkup = choice.available ? '<div class="care-reward-choice"><p>当前任务需要' + esc(Core.getItemName(choice.family, choice.tier)) + '。可保留高阶礼物，或按二合一价值换成低阶材料。</p><button type="button" class="modal-secondary" data-care-convert>等值换取：' + esc(choice.items.map(function (item) { return item.name; }).filter(function (name, index, all) { return all.indexOf(name) === index; }).join('、')) + '，共 ' + choice.items.length + ' 份</button></div>' : '';
-    var resultActions = towerDeadlock
+    var choiceMarkup = choice.available ? '<div class="care-reward-choice"><p>' + (recipeReturn ? '当前配方' : '当前任务') + '需要' + esc(Core.getItemName(choice.family, choice.tier)) + '。可保留高阶礼物，或按二合一价值换成低阶材料。</p><button type="button" class="modal-secondary" data-care-convert>等值换取：' + esc(choice.items.map(function (item) { return item.name; }).filter(function (name, index, all) { return all.indexOf(name) === index; }).join('、')) + '，共 ' + choice.items.length + ' 份</button></div>' : '';
+    var resultActions = towerDeadlock && !recipeReturn
       ? '<div class="care-result-actions"><button class="modal-action" data-care-practice type="button">免费复盘同局</button><button class="modal-secondary" data-care-continue type="button">' + esc(returnText) + '</button></div>'
-      : '<button class="modal-action" data-care-continue type="button">' + esc(returnText) + '</button>';
-    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · 本局回顾</span><h2>' + esc(beastDef(session.beastId).name) + (result.storyRound ? '把旧彩球推给了你' : towerDeadlock ? '还想再试一次' : result.noReward ? '陪你玩了一局' : '带回了礼物') + '</h2><img src="' + esc(characterAssetPath(beastArt(beastDef(session.beastId), state.beastCases[session.beastId]))) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div>' + careDeadlockMarkup(summary) + '<div class="task-reward">' + (result.noReward ? '' : '获得 ') + rewardText + '<br /><small>' + rewardNote + giftLine + '</small><br><b>' + esc(destination) + '</b></div>' + choiceMarkup + resultActions + '</div>', 'task-modal');
+      : '<button class="modal-action" data-care-continue type="button">' + esc(returnText) + '</button>' + (towerDeadlock ? '<button class="modal-secondary" data-care-practice type="button">免费复盘同局</button>' : '');
+    var nextDifficulty = result.recommendedDifficulty;
+    if (!result.storyRound && !result.challenge && nextDifficulty && nextDifficulty !== session.difficulty) {
+      resultActions = '<p class="care-next-difficulty">下次可尝试「' + esc(DATA.careGames.difficulties[nextDifficulty].name) + '」，也可以继续当前难度。</p>' + resultActions;
+    }
+    var modal = modalShell('<div class="outcome-card"><span class="eyebrow">' + label + ' · 本局回顾</span><h2>' + esc(beastDef(session.beastId).name) + (result.storyRound ? '把旧彩球推给了你' : towerDeadlock ? '还想再试一次' : result.noReward ? '陪你玩了一局' : '带回了礼物') + '</h2><img src="' + esc(session.runContext.portrait) + '" alt="" /><div class="care-score-summary"><span>本局得分 <b>' + score + '</b></span><span>表现 <b>' + perf + '%</b></span></div>' + careDeadlockMarkup(summary) + '<div class="task-reward">' + (result.noReward ? '' : '获得 ') + rewardText + '<br /><small>' + rewardNote + giftLine + '</small><br><b>' + esc(destination) + '</b></div>' + choiceMarkup + resultActions + '</div>', 'task-modal');
     if (modal) {
       var convert = modal.querySelector('[data-care-convert]');
       if (convert) convert.addEventListener('click', function () {
@@ -5029,6 +5176,7 @@ var MODULE_HELP = {
       });
       var continueButton = modal.querySelector('[data-care-continue]');
       if (continueButton) continueButton.addEventListener('click', function () {
+        if (recipeReturn && recipeReturn.kind === 'recipe') { returnToRecipe(recipeReturn); return; }
         closeModal();
         if (taskReturn) {
           if (state.tutorial.playRewarded && !state.tutorial.rewardReturned) mutate(Core.acknowledgeTutorialReturn(state));
@@ -5042,7 +5190,7 @@ var MODULE_HELP = {
       var practiceButton = modal.querySelector('[data-care-practice]');
       if (practiceButton) practiceButton.addEventListener('click', function () {
         closeModal();
-        openCareLoaded(session.type, session.difficulty, { practice: true });
+        openCareLoaded(session.type, session.difficulty, Object.assign({}, session.runContext, { practice: true, facilityLevel: state.facilities.play.level }));
       });
     }
     return result;
@@ -5340,7 +5488,7 @@ var MODULE_HELP = {
         return '<div class="facility-level current"><b>' + esc(storyEvent.speaker || '旁白') + '</b><small>' + esc(storyEvent.text + choiceLine) + '</small></div>';
       }).join('') + '</div>'
       : '';
-    var growthNote = entry.level >= 5 ? '已到最高等级' : gate.ok ? '三项条件已满足，正在自动成长' : '距离下一形态：信任' + gate.missing.affection + ' · 疗愈' + gate.missing.heal + ' · 宗门阅历' + gate.missing.exp;
+    var growthNote = entry.level >= 5 ? '已到最高等级' : gate.ok ? '三项条件已满足，正在自动成长' : '距离下一形态：信任' + gate.missing.affection + ' · 疗愈' + gate.missing.heal + ' · 住客成长' + gate.missing.exp;
     var nextGrowth = DATA.growth && DATA.growth.requirements && DATA.growth.requirements[Math.min(4, entry.level)] || null;
     function growthRow(label, value, target, cls) {
       var percent = target ? Math.min(100, Math.round(value / Math.max(1, target) * 100)) : 100;
@@ -5348,7 +5496,7 @@ var MODULE_HELP = {
     }
     var modal = modalShell('<div class="codex-detail-sticky"><span class="eyebrow">异兽图鉴 · 已结识</span><h2>' + esc(definition.name) + '</h2></div>' +
       '<div class="resident-detail-head codex-portrait"><img src="' + esc(characterAssetPath(beastArt(definition, entry))) + '" alt="' + esc(definition.name) + '大图立绘" /><div><h3>' + esc(levelConfig && levelConfig.title || definition.stageNames[entry.stage]) + '</h3><span class="stage-chip">Lv' + entry.level + '/5</span></div></div>' +
-      '<p>' + esc(definition.lore) + '</p><div class="resident-progress">' + growthRow('信任', entry.affection, nextGrowth && nextGrowth.affection) + growthRow('疗愈', entry.heal, nextGrowth && nextGrowth.heal, 'heal') + growthRow('宗门阅历', entry.exp, nextGrowth && nextGrowth.exp) + '</div>' +
+      '<p>' + esc(definition.lore) + '</p><div class="resident-progress">' + growthRow('信任', entry.affection, nextGrowth && nextGrowth.affection) + growthRow('疗愈', entry.heal, nextGrowth && nextGrowth.heal, 'heal') + growthRow('住客成长', entry.exp, nextGrowth && nextGrowth.exp) + '</div>' +
       '<section class="codex-detail-section">' + keepsakeMarkup + '<h3>形态收藏</h3><div class="facility-modal-grid">' + forms + '</div></section>' +
       '<section class="codex-detail-section"><h3>专属小故事</h3><div class="facility-modal-grid">' + storyMarkup + '</div>' + memoryMarkup + '</section>' +
       '<section class="codex-detail-section"><h3>岗位</h3><p>' + esc(definition.job.title + ' · ' + jobDescription(definition)) + '</p></section>' +
@@ -5364,9 +5512,40 @@ var MODULE_HELP = {
     return modal;
   }
 
-  function focusProjectSource(family, tier) {
+  function renderSourceReturn() {
+    if (!document) return;
+    var bar = q('source-return-bar');
+    if (!sourceReturnContext || !recipeDefinition(sourceReturnContext.recipeId)) { if (bar) bar.remove(); return; }
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'source-return-bar';
+      bar.className = 'source-return-bar';
+      bar.innerHTML = '<button type="button" data-return-recipe></button><button type="button" data-end-source aria-label="结束本次取材">×</button>';
+      bar.querySelector('[data-return-recipe]').addEventListener('click', returnToRecipe);
+      bar.querySelector('[data-end-source]').addEventListener('click', function () { sourceReturnContext = null; renderSourceReturn(); });
+    }
+    bar.querySelector('[data-return-recipe]').textContent = '返回「' + recipeDefinition(sourceReturnContext.recipeId).name + '」继续制作';
+    var view = q(activeView);
+    if (view && bar.parentNode !== view) view.insertBefore(bar, view.firstChild);
+  }
+
+  function returnToRecipe(context) {
+    if (!context || !context.recipeId) context = sourceReturnContext;
+    if (!context || !recipeDefinition(context.recipeId)) return;
+    sourceReturnContext = Object.assign({}, context);
+    closeModal();
+    switchView('merge-view');
+    openRecipeDetails(context.recipeId, { orderId: context.orderId });
+  }
+
+  function navigateToItemSource(options) {
+    options = options || {};
+    var family = options.family, tier = options.tier || 1;
+    sourceReturnContext = options.returnContext ? Object.assign({}, options.returnContext, { family: family, tier: tier }) : null;
+    closeModal();
     var availability = Core.resolveItemAvailability(state, { family: family, tier: tier || 1 });
-    var careSource = (availability.sources || []).find(function (source) { return source.kind === 'care' && source.unlocked !== false; });
+    var careSources = (availability.sources || []).filter(function (source) { return source.kind === 'care' && source.unlocked !== false; });
+    var careSource = careSources.find(function (source) { return source.beastId === caseForDisplay().id; }) || careSources[0];
     if (careSource) {
       mutate(Core.selectYardBeast(state, careSource.beastId));
       switchView('yard-view');
@@ -5381,6 +5560,11 @@ var MODULE_HELP = {
       if (target.scrollIntoView) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
       root.setTimeout(function () { target.classList.remove('hint-pulse'); }, 2800);
     } else if (tier) openItemRoute(family, tier, '任务材料来源');
+    renderSourceReturn();
+  }
+
+  function focusProjectSource(family, tier) {
+    return navigateToItemSource({ family: family, tier: tier });
   }
 
   function handleProjectTrayClick(event) {
@@ -5436,15 +5620,16 @@ var MODULE_HELP = {
       if (sourceButton) {
         event.preventDefault();
         event.stopPropagation();
-        closeModal();
-        focusProjectSource(sourceButton.getAttribute('data-longpress-family'), Number(sourceButton.getAttribute('data-longpress-tier')) || 1);
+        var returnContext = sourceButton.dataset.sourceRecipe ? { kind: 'recipe', recipeId: sourceButton.dataset.sourceRecipe, orderId: sourceButton.dataset.sourceOrder || null, originView: 'merge-view' } : null;
+        navigateToItemSource({ family: sourceButton.getAttribute('data-longpress-family'), tier: Number(sourceButton.getAttribute('data-longpress-tier')) || 1, returnContext: returnContext });
         return;
       }
       var recipeButton = event.target.closest('[data-open-recipe]');
       if (recipeButton) {
         event.preventDefault();
         event.stopPropagation();
-        openRecipeDetails(recipeButton.getAttribute('data-open-recipe'));
+        var orderOwner = recipeButton.closest('[data-source-order], [data-order-id]');
+        openRecipeDetails(recipeButton.getAttribute('data-open-recipe'), { orderId: orderOwner && (orderOwner.dataset.sourceOrder || orderOwner.dataset.orderId) });
         return;
       }
       var generatorButton = event.target.closest('[data-open-generator]');
@@ -5746,9 +5931,9 @@ var MODULE_HELP = {
     tickTimer = root.setInterval(tick, 5000);
     startYardAutonomy();
     document.addEventListener('visibilitychange', function () {
-      if (document.hidden) saveState(); else { tick(); render(); }
+      if (document.hidden) { if (pendingCareStart) closeModal(); saveState(); } else { tick(); render(); }
     });
-    root.addEventListener('pagehide', function () { saveState(); if (analytics) analytics.flush(); });
+    root.addEventListener('pagehide', function () { cancelPendingCareStart('pagehide'); saveState(); if (analytics) analytics.flush(); });
     if (readOnlyNewerSave) toast(saveProtectionReason && saveProtectionReason.indexOf('conflict') >= 0
       ? '发现两份冲突进度；为避免覆盖，当前仅可查看和导出'
       : '这份旅程来自未来，暂时只能在这里查看');
@@ -5777,6 +5962,8 @@ var MODULE_HELP = {
   }
 
   function resetForTests() {
+    cancelPendingCareStart('reset');
+    sourceReturnContext = null;
     if (saveStore) saveStore.remove();
     safeStorageRemove(KEY);
     state = Core.createFresh(Date.now(), today());

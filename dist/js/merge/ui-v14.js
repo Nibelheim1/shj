@@ -854,12 +854,17 @@
 
   function addCareModeHero(modal) {
     if (!modal || q('.qv14-care-mode-hero', modal)) return;
-    var isPlay = /玩耍|陪玩|玩具塔/.test(modal.textContent || '');
+    var isPlay = modal.dataset.careType ? modal.dataset.careType === 'play' : /玩耍|陪玩|玩具塔/.test(modal.textContent || '');
     modal.classList.toggle('qv14-is-play', isPlay);
     var hero = document.createElement('div');
     hero.className = 'qv14-care-mode-hero ui-v13-care-mode-hero';
     hero.setAttribute('aria-hidden', 'true');
-    hero.innerHTML = '<img class="qv14-mode-building ui-v13-mode-building" src="' + asset('buildings/courtyard/' + (isPlay ? 'play_lv1.webp' : 'groom_lv1.webp')) + '" alt=""><img class="qv14-mode-beast ui-v13-mode-beast" src="' + asset('characters/beasts/qiongqi/qiongqi_lv1.webp') + '" alt="">';
+    var art = root.QixiaCourtyardArt;
+    var facility = isPlay ? 'play' : 'groom';
+    var region = art && art.geometry(facility);
+    var crop = region ? 'aspect-ratio:' + (region.width * art.width / (region.height * art.height)) + ';--crop-width:' + (10000 / region.width) + '%;--crop-height:' + (10000 / region.height) + '%;--crop-left:' + (-100 * (region.x - region.width / 2) / region.width) + '%;--crop-top:' + (-100 * (region.y - region.height / 2) / region.height) + '%' : '';
+    var facilityArt = art ? '<span class="facility-art-crop qv14-mode-facility" style="' + crop + '"><img src="' + esc(art.urlFor(state())) + '" alt=""></span>' : '';
+    hero.innerHTML = facilityArt + '<img class="qv14-mode-beast ui-v13-mode-beast" src="' + esc(modal.dataset.carePortrait || '') + '" alt="">';
     var heading = q('h2', modal);
     if (heading) heading.insertAdjacentElement('afterend', hero);
     else modal.insertBefore(hero, modal.firstChild);
@@ -904,6 +909,7 @@
     };
     if (forced && forcedMap[forced]) return forcedMap[forced];
     var text = modal.textContent || '';
+    if (modal.classList.contains('care-difficulty-modal')) return modal.dataset.careType === 'play' ? '09-care-mode' : '08-groom-mode';
     if (modal.classList.contains('background-shop-modal')) return '19-background';
     if (modal.classList.contains('settings-modal')) return '20-settings';
     if (modal.classList.contains('care-practice-result-modal') || q('.outcome-card', modal)) return '21-care-result';
@@ -921,7 +927,6 @@
     if (modal.classList.contains('storage-modal')) return '15-bag';
     if (modal.classList.contains('recipe-cabinet-modal') || modal.classList.contains('recipe-detail-modal')) return '16-recipe';
     if (modal.classList.contains('resident-detail-modal')) return '07-care';
-    if (modal.classList.contains('care-difficulty-modal')) return /玩耍|陪玩|玩具塔/.test(text) ? '09-care-mode' : '08-groom-mode';
     if (modal.classList.contains('codex-detail-modal')) return '12-codex-detail';
     if (modal.classList.contains('story-event-modal')) return '13-story-choice';
     if (modal.classList.contains('transformation-modal')) return '14-transformation';
@@ -938,7 +943,9 @@
     section.className = 'ui-settings-sound';
     section.innerHTML = '<h3>声音与触感</h3>' +
       '<button type="button" data-ui-audio-toggle aria-pressed="' + (enabled ? 'true' : 'false') + '">' + icon(enabled ? 'sound-on' : 'sound-off') + '<span><b>音乐、音效与角色语音</b><small>统一跟随当前声音开关</small></span><i class="ui-switch ' + (enabled ? 'on' : '') + '"><em></em></i></button>' +
-      '<div class="ui-settings-static-row">' + icon('daily-care') + '<span><b>轻触反馈</b><small>由系统与设备能力决定</small></span><i class="ui-switch on"><em></em></i></div>';
+      (root.MergeHaptics && root.MergeHaptics.isSupported()
+        ? '<button type="button" data-ui-haptics-toggle aria-pressed="' + root.MergeHaptics.isEnabled() + '">' + icon('daily-care') + '<span><b>轻触反馈</b><small>开启后由系统决定是否振动</small></span><i class="ui-switch ' + (root.MergeHaptics.isEnabled() ? 'on' : '') + '"><em></em></i></button>'
+        : '<div class="ui-settings-static-row">' + icon('daily-care') + '<span><b>轻触反馈</b><small>此设备不支持</small></span></div>');
     heading.insertAdjacentElement('afterend', section);
   }
 
@@ -1222,6 +1229,13 @@
         return;
       }
 
+      var haptics = target.closest('[data-ui-haptics-toggle]');
+      if (haptics && root.MergeHaptics) {
+        var hapticsNext = root.MergeHaptics.setEnabled(!root.MergeHaptics.isEnabled());
+        haptics.setAttribute('aria-pressed', String(hapticsNext));
+        q('.ui-switch', haptics).classList.toggle('on', hapticsNext);
+        return;
+      }
       var audio = target.closest('[data-ui-audio-toggle]');
       if (audio && root.MergeAudio && root.MergeAudio.setEnabled) {
         var next = !(root.MergeAudio.isEnabled && root.MergeAudio.isEnabled());

@@ -1,0 +1,155 @@
+{
+  "entry": "dist/index.html",
+  "fixture": "audit0906 volume1-completed fixture refreshed for isolated tests",
+  "startedAt": "2026-09-06T13:29:57.482Z",
+  "results": [
+    {
+      "id": "R03-growth-reward-preview-and-real-delivery",
+      "status": "passed",
+      "evidence": [
+        {
+          "mode": "材料由隔离存档注入；真实成长标签、详情、交付与继续按钮点击",
+          "before": {
+            "order": {
+              "id": "growth-2026-09-06:qiongqi:1",
+              "slot": "medical",
+              "kind": "growth",
+              "beastId": "qiongqi",
+              "boundDate": "2026-09-06",
+              "growthSequence": 1,
+              "beastLevel": 2,
+              "growthRulesVersion": 2,
+              "title": "穷奇的成长心愿",
+              "symptom": "陪穷奇一起陪玩，准备成长所需的心意。",
+              "requirements": [
+                {
+                  "family": "play",
+                  "tier": 3,
+                  "count": 1
+                },
+                {
+                  "family": "play",
+                  "tier": 2,
+                  "count": 1
+                }
+              ],
+              "productNeed": null,
+              "generatorNeed": null,
+              "giftChain": {
+                "from": "qiongqi",
+                "family": "play",
+                "care": "play",
+                "note": "穷奇把最心爱的玩具一样样擦亮收进包袱。陪它玩一场，九尾狐要的玩具礼物就准备好了。"
+              },
+              "rewards": {
+                "jade": 48,
+                "beastExp": 30,
+                "heal": 8
+              },
+              "needs": [
+                {
+                  "family": "play",
+                  "tier": 3,
+                  "count": 1
+                },
+                {
+                  "family": "play",
+                  "tier": 2,
+                  "count": 1
+                }
+              ],
+              "permanent": true,
+              "status": "OPEN",
+              "done": false,
+              "mainline": false,
+              "difficultyRank": 2,
+              "difficultyLabel": "进阶",
+              "effort": 6,
+              "recommendedGeneratorLevel": 2
+            },
+            "preview": {
+              "jade": 48,
+              "beastExp": 33,
+              "heal": 8
+            },
+            "resident": {
+              "id": "qiongqi",
+              "status": "active",
+              "level": 2,
+              "exp": 7,
+              "affection": 0,
+              "heal": 0,
+              "unlockedForms": [
+                1,
+                2
+              ],
+              "activeFormLevel": 1,
+              "unlockedStories": [
+                1,
+                2
+              ],
+              "stage": 3,
+              "storyProgress": 3,
+              "storyDone": [
+                true,
+                true,
+                true
+              ],
+              "careDone": true,
+              "trust": 15,
+              "bond": 1,
+              "transformed": true,
+              "pendingTransformation": false,
+              "careCount": 1,
+              "recoveryFormGranted": true
+            },
+            "jade": 10000,
+            "xp": 10,
+            "multiplier": 1.1
+          },
+          "after": {
+            "resident": {
+              "id": "qiongqi",
+              "status": "active",
+              "level": 2,
+              "exp": 40,
+              "affection": 10,
+              "heal": 8,
+              "unlockedForms": [
+                1,
+                2
+              ],
+              "activeFormLevel": 1,
+              "unlockedStories": [
+                1,
+                2
+              ],
+              "stage": 3,
+              "storyProgress": 3,
+              "storyDone": [
+                true,
+                true,
+                true
+              ],
+              "careDone": true,
+              "trust": 15,
+              "bond": 1,
+              "transformed": true,
+              "pendingTransformation": false,
+              "careCount": 1,
+              "recoveryFormGranted": true
+            },
+            "jade": 10048,
+            "xp": 10
+          },
+          "previewText": "穷奇 · 完成奖励：暖玉 +48 · 住客成长 +33 · 伤势恢复 +8 · 信任 +10",
+          "progressText": "成长 Lv2 → Lv2\n住客成长 7 → 40",
+          "resultText": "暖玉 +48 · 住客成长 +33 · 伤势恢复 +8 · 信任 +10"
+        }
+      ]
+    }
+  ],
+  "finishedAt": "2026-09-06T13:29:58.662Z",
+  "passed": 1,
+  "failed": 0
+}

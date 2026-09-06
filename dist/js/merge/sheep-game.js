@@ -241,7 +241,11 @@
     this.autoShuffles = 0;
     this.comboTimer = 0;
     this.hint = null;
+    this.hintZone = null;
     this.hintTimer = 0;
+    this.hintLimit = clamp(integerOption(this.opts.hintLimit, 0, 0), 0, 2);
+    this.hintRemaining = this.hintLimit;
+    this.hintUses = 0;
     this.failureReason = '';
     this.deadlock = null;
     this.toolRemaining = { move: 1, undo: 1, shuffle: 1 };
@@ -525,6 +529,7 @@
 
   Game.prototype._restoreMoveSnapshot = function (snapshot) {
     if (!snapshot) return false;
+    this._clearHint();
     for (var i = 0; i < this.tiles.length; i++) this.tiles[i].removed = !!snapshot.removed[i];
     var byUid = {};
     this.tiles.forEach(function (tile) { byUid[tile.uid] = tile; });
@@ -608,6 +613,7 @@
 
   Game.prototype._tapTile = function (tile) {
     if (this.finished || this.danger || !tile || tile.removed || this._isCovered(tile)) return false;
+    this._clearHint();
     this._lastMoveSnapshot = this._captureMoveSnapshot();
     tile.removed = true;
     this.slot.push(tile);
@@ -623,6 +629,7 @@
     if (this.finished || this.danger || !tile) return false;
     var index = this.sideBuffer.indexOf(tile);
     if (index < 0) return false;
+    this._clearHint();
     this._lastMoveSnapshot = this._captureMoveSnapshot();
     this.sideBuffer.splice(index, 1);
     this.slot.push(tile);
@@ -694,7 +701,7 @@
     this.solutionValidated = true;
     this.solutionMaxSlots = proof.maxSlots;
     this.autoShuffles++;
-    this.hint = null;
+    this._clearHint();
     this._emit('shuffle', { shuffled: entities.length, proofMaxSlots: proof.maxSlots });
     return true;
   };
@@ -720,6 +727,7 @@
     } else {
       return false;
     }
+    this._clearHint();
     this.toolRemaining[name] = 0;
     this.toolUses[name]++;
     this._emit('tool', { tool: name });
@@ -808,6 +816,7 @@
       if (this._inButton(x, y, rect.tools.move)) return this.useTool('move');
       if (this._inButton(x, y, rect.tools.undo)) return this.useTool('undo');
       if (this._inButton(x, y, rect.tools.shuffle)) return this.useTool('shuffle');
+      if (this._inButton(x, y, rect.tools.hint)) return this.useHint();
     }
     var bufferTile = this._bufferTileAt(x, y, rect);
     if (bufferTile) return this._tapBufferTile(bufferTile);
@@ -830,7 +839,7 @@
     }
     if (this.hint) {
       this.hintTimer -= seconds;
-      if (this.hintTimer <= 0) { this.hint = null; this.hintTimer = 0; }
+      if (this.hintTimer <= 0) this._clearHint();
     }
     this.elapsed += seconds;
     this.timeLeft = Math.max(0, this.timeLimit - this.elapsed);
@@ -860,6 +869,8 @@
       autoShuffles: this.autoShuffles,
       tools: Object.assign({}, this.toolUses),
       toolsRemaining: Object.assign({}, this.toolRemaining),
+      hintsUsed: this.hintUses,
+      hintsRemaining: this.hintRemaining,
       failed: this.failed,
       danger: this.danger,
       failureReason: this.failureReason,
@@ -879,6 +890,7 @@
 
   Game.prototype.finish = function (done) {
     if (this.finished) return this._summary();
+    this._clearHint();
     if (this.danger && done !== false) this.failed = true;
     this.finished = true;
     this.phase = done === false ? 'cancelled' : (this.triplesCleared >= this.totalTriples ? 'done' : this.failed ? 'failed' : 'ended');
@@ -918,23 +930,58 @@
     return this.canFinish() ? 'early' : 'disabled';
   };
 
-  Game.prototype.useHint = function () {
-    if (this.finished || this.danger) return false;
-    var legal = this.listLegalTiles();
-    if (!legal.length) return false;
-    var next = null;
+  Game.prototype._clearHint = function () {
+    this.hint = null;
+    this.hintZone = null;
+    this.hintTimer = 0;
+  };
+
+  Game.prototype._hintCandidate = function () {
+    var counts = this._slotCounts();
+    var candidates = this.listLegalTiles().map(function (tile) { return { tile: tile, zone: 'board' }; });
+    this.sideBuffer.forEach(function (tile) { candidates.push({ tile: tile, zone: 'buffer' }); });
+    // A suggestion can become suboptimal after the player departs from the
+    // original solution. It never promises a win or suggests an immediate
+    // full-tray deadlock when no triple would be cleared by this tap.
+    candidates = candidates.filter(function (candidate) {
+      return this.slot.length < this.maxSlots - 1 || counts[candidate.tile.type] >= 2;
+    }, this);
+    if (!candidates.length) return null;
+    var matching = candidates.find(function (candidate) { return counts[candidate.tile.type] >= 2; });
+    if (matching) return matching;
+    var byUid = {};
+    candidates.forEach(function (candidate) { byUid[candidate.tile.uid] = candidate; });
     for (var i = 0; i < this.solutionOrder.length; i++) {
-      var tile = this.tiles[this.solutionOrder[i] - 1];
-      if (tile && !tile.removed && !this._isCovered(tile)) { next = tile; break; }
+      if (byUid[this.solutionOrder[i]]) return byUid[this.solutionOrder[i]];
     }
-    if (!next) {
-      var counts = this._slotCounts();
-      next = legal.find(function (tile) { return counts[tile.type] >= 1; }) || legal[0];
-    }
-    this.hint = next;
+    return candidates.find(function (candidate) { return counts[candidate.tile.type] >= 1; }) || candidates[0];
+  };
+
+  Game.prototype.canUseHint = function () {
+    return !this.finished && !this.danger && this.hintRemaining > 0 &&
+      !(this.hint && this.hintTimer > 0) && !!this._hintCandidate();
+  };
+
+  Game.prototype.useHint = function () {
+    if (!this.canUseHint()) return false;
+    var next = this._hintCandidate();
+    if (!next) return false;
+    this.hint = next.tile;
+    this.hintZone = next.zone;
     this.hintTimer = 1.8;
-    this._emit('hint', { tile: next });
+    this.hintRemaining--;
+    this.hintUses++;
+    this._emit('hint', { tile: next.tile, zone: next.zone, remaining: this.hintRemaining });
     return true;
+  };
+
+  Game.prototype._hintBox = function (rect) {
+    if (!this.hint) return null;
+    if (this.hintZone === 'buffer') {
+      var index = this.sideBuffer.indexOf(this.hint);
+      return index >= 0 ? rect.bufferBoxes[index] || null : null;
+    }
+    return !this.hint.removed && !this._isCovered(this.hint) ? this._tileRect(this.hint, rect) : null;
   };
 
   Game.prototype._layout = function (width, height) {
@@ -946,7 +993,8 @@
     var controlY = height - bottomSafe - controlsH;
     var toolY = controlY - toolsH - 6;
     var slotY = toolY - trayH - 7;
-    var availableH = Math.max(150, slotY - header - 7);
+    var bufferH = this.sideBuffer.length ? 62 : 0;
+    var availableH = Math.max(150, slotY - bufferH - header - 7);
     var bounds = this._boardBounds || { minX: 0, minY: 0, w: this.cols, h: this.rows };
     var cell = Math.min((width - 12) / Math.max(1, bounds.w), availableH / Math.max(1, bounds.h));
     cell = Math.max(18, cell);
@@ -955,14 +1003,15 @@
     var x = (width - boardW) / 2 - bounds.minX * cell;
     var y = header + (availableH - boardH) / 2 - bounds.minY * cell;
     var toolGap = 6;
-    var toolW = (width - 24 - toolGap * 2) / 3;
+    var toolW = (width - 16 - toolGap * 3) / 4;
     var rect = {
       x: x, y: y, cell: cell, w: boardW, h: boardH,
       top: header, slotY: slotY, slotH: trayH, toolY: toolY, toolH: toolsH,
       tools: {
-        move: { x: 8, y: toolY + 6, w: toolW, h: 42 },
-        undo: { x: 8 + toolW + toolGap, y: toolY + 6, w: toolW, h: 42 },
-        shuffle: { x: 8 + (toolW + toolGap) * 2, y: toolY + 6, w: toolW, h: 42 }
+        move: { x: 8, y: toolY + 6, w: toolW, h: 44 },
+        undo: { x: 8 + toolW + toolGap, y: toolY + 6, w: toolW, h: 44 },
+        shuffle: { x: 8 + (toolW + toolGap) * 2, y: toolY + 6, w: toolW, h: 44 },
+        hint: { x: 8 + (toolW + toolGap) * 3, y: toolY + 6, w: toolW, h: 44 }
       }
     };
     var controlGap = 8;
@@ -975,7 +1024,7 @@
       var bufferGap = 5;
       var totalW = this.sideBuffer.length * bufferSize + (this.sideBuffer.length - 1) * bufferGap;
       var bufferX = (width - totalW) / 2;
-      var bufferY = Math.max(header + 2, controlY - bufferSize - 4);
+      var bufferY = slotY - bufferSize - 6;
       for (var i = 0; i < this.sideBuffer.length; i++) {
         rect.bufferBoxes.push({ x: bufferX + i * (bufferSize + bufferGap), y: bufferY, w: bufferSize, h: bufferSize, index: i });
       }
@@ -1026,6 +1075,11 @@
       ctx.moveTo(cx + size * 0.38, cy + size * 0.26); ctx.bezierCurveTo(cx + size * 0.2, cy - size * 0.3, cx - size * 0.18, cy - size * 0.3, cx - size * 0.38, cy);
       ctx.moveTo(cx - size * 0.38, cy); ctx.lineTo(cx - size * 0.12, cy - size * 0.22);
       ctx.moveTo(cx - size * 0.38, cy); ctx.lineTo(cx - size * 0.1, cy + size * 0.14);
+    } else if (name === 'hint') {
+      ctx.arc(cx, cy - size * 0.12, size * 0.29, Math.PI * 0.12, Math.PI * 0.88, true);
+      ctx.lineTo(cx - size * 0.17, cy + size * 0.2); ctx.lineTo(cx + size * 0.17, cy + size * 0.2);
+      ctx.lineTo(cx + size * 0.28, cy - size * 0.02);
+      ctx.moveTo(cx - size * 0.14, cy + size * 0.4); ctx.lineTo(cx + size * 0.14, cy + size * 0.4);
     } else {
       ctx.arc(cx, cy, size * 0.36, Math.PI * 0.15, Math.PI * 1.75);
       ctx.moveTo(cx + size * 0.33, cy - size * 0.19); ctx.lineTo(cx + size * 0.36, cy + size * 0.08); ctx.lineTo(cx + size * 0.12, cy - size * 0.02);
@@ -1035,20 +1089,23 @@
   };
 
   Game.prototype._drawToolButton = function (ctx, button, name, label) {
-    var enabled = this.canUseTool(name);
+    var enabled = name === 'hint' ? this.canUseHint() : this.canUseTool(name);
     this._roundRect(ctx, button.x, button.y, button.w, button.h, 12);
     ctx.fillStyle = enabled ? '#F6E1B7' : '#AAA39A';
     if (ctx.fill) ctx.fill();
     ctx.strokeStyle = enabled ? '#7B4B31' : '#817A73';
     ctx.lineWidth = 1.5;
     if (ctx.stroke) ctx.stroke();
-    ctx.fillStyle = enabled ? '#7A4D35' : '#9A8E87';
-    this._drawToolPath(ctx, name, button.x + 19, button.y + button.h / 2, 16, enabled ? '#7A4D35' : '#9A8E87');
+    ctx.fillStyle = enabled ? '#7A4D35' : '#60584F';
+    this._drawToolPath(ctx, name, button.x + 11, button.y + 15, 12, enabled ? '#7A4D35' : '#60584F');
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.font = '800 12px ' + KAI_FONT;
-    if (ctx.fillText) ctx.fillText(label, button.x + button.w / 2 + 8, button.y + 15);
+    if (ctx.fillText) ctx.fillText(label, button.x + 22 + (button.w - 26) / 2, button.y + 15, button.w - 26);
     ctx.font = '700 10px ' + KAI_FONT;
-    if (ctx.fillText) ctx.fillText(this.toolRemaining[name] ? '本局 1 次' : '已使用', button.x + button.w / 2 + 8, button.y + 30);
+    var note = name === 'hint'
+      ? !this.hintLimit ? '升级后开放' : !this.hintRemaining ? '本局已用完' : this.hint ? '已高亮建议' : this.danger ? '先解除险境' : enabled ? '建议下一张' : '暂无可提示'
+      : this.toolRemaining[name] ? '本局 1 次' : '已使用';
+    if (ctx.fillText) ctx.fillText(note, button.x + button.w / 2, button.y + 31, button.w - 8);
   };
 
   Game.prototype._drawTile = function (ctx, tile, rect, forcedBox, forceActive) {
@@ -1097,14 +1154,13 @@
     ctx.fillStyle = '#FFF1CF';
     ctx.font = '800 17px ' + KAI_FONT;
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    if (ctx.fillText) ctx.fillText('嬉游亭 · 玩具塔', 20, 27);
-    ctx.fillStyle = '#E8D09D';
+    if (ctx.fillText) ctx.fillText('嬉游亭 · 玩具塔', 20, 21, width - 76);
+    ctx.fillStyle = '#F2C96A';
     ctx.font = '700 12px ' + KAI_FONT;
-    if (ctx.fillText) ctx.fillText('中央主牌 + 四组副牌 · 只点未被压住的牌', 20, 53);
-    ctx.textAlign = 'right';
     if (ctx.fillText) {
-      ctx.fillStyle = '#F2C96A';
-      ctx.fillText('用时 ' + Math.floor(this.elapsed / 60) + ':' + String(Math.floor(this.elapsed % 60)).padStart(2, '0') + ' · 清除 ' + this.triplesCleared + '/' + this.totalTriples, width - 20, 27);
+      ctx.fillText('用时 ' + Math.floor(this.elapsed / 60) + ':' + String(Math.floor(this.elapsed % 60)).padStart(2, '0') + ' · 清除 ' + this.triplesCleared + '/' + this.totalTriples, 20, 37, width - 76);
+      ctx.fillStyle = '#E8D09D';
+      ctx.fillText('中央主牌 + 四组副牌 · 只点未被压住的牌', 20, 53, width - 40);
     }
 
     var baseX = rect.x + 0.28 * rect.cell;
@@ -1127,12 +1183,6 @@
     });
     for (var i = 0; i < sorted.length; i++) if (!sorted[i].removed) this._drawTile(ctx, sorted[i], rect);
 
-    if (this.hint && !this.hint.removed) {
-      var hintBox = this._tileRect(this.hint, rect);
-      ctx.strokeStyle = '#E7A93D'; ctx.lineWidth = 3;
-      if (ctx.strokeRect) ctx.strokeRect(hintBox.x + 2, hintBox.y + 2, hintBox.w - 4, hintBox.h - 4);
-    }
-
     if (this.sideBuffer.length) {
       ctx.fillStyle = '#7A5C68';
       ctx.font = '800 10px ' + KAI_FONT;
@@ -1142,12 +1192,19 @@
       for (i = 0; i < rect.bufferBoxes.length; i++) this._drawTile(ctx, this.sideBuffer[i], rect, rect.bufferBoxes[i], true);
     }
 
+    var hintBox = this._hintBox(rect);
+    if (hintBox) {
+      ctx.strokeStyle = '#E7A93D'; ctx.lineWidth = 3;
+      if (ctx.strokeRect) ctx.strokeRect(hintBox.x + 2, hintBox.y + 2, hintBox.w - 4, hintBox.h - 4);
+    }
+
     var finishState = this.finishPresentationState();
     this._drawButton(ctx, rect.finishB, finishState === 'complete' ? '完成结算' : finishState === 'early' ? '提前结算' : '完成结算', finishState);
     this._drawButton(ctx, rect.cancelB, '退出', 'secondary');
     this._drawToolButton(ctx, rect.tools.move, 'move', '移出三张');
     this._drawToolButton(ctx, rect.tools.undo, 'undo', '撤回一步');
     this._drawToolButton(ctx, rect.tools.shuffle, 'shuffle', '重排牌面');
+    this._drawToolButton(ctx, rect.tools.hint, 'hint', '提示' + this.hintRemaining + '次');
 
     this._roundRect(ctx, 5, rect.slotY + 2, width - 10, rect.slotH - 4, 12);
     ctx.fillStyle = 'rgba(91,57,38,0.88)';

@@ -123,7 +123,7 @@ function runDifficultyProfileChecks(Match3) {
 
   /* Explicit constructor overrides are independent from a selected profile. */
   const customSheep = new SheepGame.Game('PLAY', {
-    difficulty: 'easy', cols: 6, rows: 4, layers: 2, typeCount: 4, timeLimit: 9, rng: deterministicRng()
+    difficulty: 'easy', cols: 6, rows: 4, layers: 2, typeCount: 4, timeLimit: 9, hintLimit: 1, rng: deterministicRng()
   });
   assert.deepStrictEqual([customSheep.cols, customSheep.rows, customSheep.typeCount, customSheep.layers], [6, 4, 4, 2]);
   assert.strictEqual(customSheep.timeLimit, 9);
